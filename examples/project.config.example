@@ -1,0 +1,9 @@
+# Required
+PROJECT_NAME="Acme Energy Hub"
+PROJECT_SLUG="acme-energy-hub"
+PROJECT_TYPE="backend"  # backend | frontend
+DOMAIN="community energy"
+
+# Optional
+LANG="en"
+MODULES=""  # Optional. Example: "auth,dashboard,billing"
