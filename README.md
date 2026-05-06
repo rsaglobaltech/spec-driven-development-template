@@ -21,6 +21,7 @@ If your goal is repeatable delivery quality, this gives you a practical baseline
 
 ## 🧱 What you get
 
+- `create-spec-driven-app` npm CLI for `npx` usage.
 - `scripts/new_spec_project.sh` → generate a new specs project from templates.
 - `scripts/validate_specs.sh` → validate structure and spec quality gates.
 - `templates/base` → shared project skeleton.
@@ -64,6 +65,11 @@ If your goal is repeatable delivery quality, this gives you a practical baseline
 
 ## ⚡ Quickstart
 
+Requirements:
+- Node.js `>=18`
+
+### Option A (recommended): run with `npx`
+
 1. Copy the example config:
 
 ```bash
@@ -75,7 +81,7 @@ cp examples/project.config.example /tmp/my-project.config
 3. Generate the new project skeleton:
 
 ```bash
-./scripts/new_spec_project.sh \
+npx create-spec-driven-app@latest init \
   --config /tmp/my-project.config \
   --out /tmp
 ```
@@ -83,6 +89,13 @@ cp examples/project.config.example /tmp/my-project.config
 4. Validate the result:
 
 ```bash
+npx create-spec-driven-app@latest validate /tmp/acme-energy-hub
+```
+
+### Option B: local script workflow (fallback)
+
+```bash
+./scripts/new_spec_project.sh --config /tmp/my-project.config --out /tmp
 ./scripts/validate_specs.sh /tmp/acme-energy-hub
 ```
 
@@ -125,10 +138,11 @@ MODULES="auth,dashboard,billing"
 
 ---
 
-## 🛠️ Generator CLI
+## 🛠️ CLI
 
 ```bash
-./scripts/new_spec_project.sh --config <path> --out <directory> [--force] [--dry-run] [--no-git]
+npx create-spec-driven-app@latest init --config <path> --out <directory> [--force] [--dry-run] [--no-git]
+npx create-spec-driven-app@latest validate <project_dir>
 ```
 
 Options:
@@ -145,6 +159,8 @@ Exit codes:
 - `3` missing prerequisite.
 - `4` destination conflict (without `--force`).
 - `1` unhandled runtime error.
+
+For local repository usage, you can run the equivalent shell scripts directly from `scripts/`.
 
 ---
 
