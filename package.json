@@ -1,0 +1,45 @@
+{
+  "name": "create-spec-driven-app",
+  "version": "0.1.0-beta.1",
+  "description": "CLI to scaffold Spec-Driven Development project templates.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "create-spec-driven-app": "bin/create-spec-driven-app.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "templates/",
+    "examples/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rsaglobaltech/spec-driven-development-template.git"
+  },
+  "keywords": [
+    "spec-driven-development",
+    "sdd",
+    "gherkin",
+    "templates",
+    "scaffolding",
+    "cli"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "pack:dry-run": "npm pack --dry-run",
+    "pack": "npm pack",
+    "smoke:help": "node bin/create-spec-driven-app.js --help",
+    "smoke:init": "node bin/create-spec-driven-app.js init --config examples/project.config.example --out /private/tmp --dry-run --no-git --force",
+    "smoke:validate": "node bin/create-spec-driven-app.js validate /private/tmp/acme-energy-hub",
+    "verify": "npm test && npm run pack:dry-run"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
