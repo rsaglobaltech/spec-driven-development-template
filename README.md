@@ -5,8 +5,11 @@ A reusable **Spec-Driven Development (SDD)** starter to bootstrap new projects w
 [![CI](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/ci.yml/badge.svg)](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/ci.yml)
 [![Publish to npm](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/publish-npm.yml/badge.svg)](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/publish-npm.yml)
 [![Publish to GitHub Packages](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/publish-github-packages.yml/badge.svg)](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/publish-github-packages.yml)
+[![Docs](https://img.shields.io/badge/docs-github_pages-0e8078)](https://rsaglobaltech.github.io/spec-driven-development-template/)
 [![npm latest](https://img.shields.io/npm/v/create-spec-driven-app?logo=npm&label=latest)](https://www.npmjs.com/package/create-spec-driven-app)
 [![npm beta](https://img.shields.io/npm/v/create-spec-driven-app/beta?logo=npm&label=beta)](https://www.npmjs.com/package/create-spec-driven-app)
+
+📚 Documentation site: **https://rsaglobaltech.github.io/spec-driven-development-template/**
 
 ---
 
@@ -235,6 +238,12 @@ This repository includes production-ready GitHub Actions workflows:
   - Manual publish via **workflow_dispatch** (`beta`/`latest`, `dry_run`)
   - Auto-publish on tags `v*`
   - Uses `GITHUB_TOKEN` with `packages: write`
+
+- `.github/workflows/pages.yml`
+  - Deploys `docs/` to GitHub Pages from `main`
+  - Public docs URL: `https://rsaglobaltech.github.io/spec-driven-development-template/`
+
+> If this is the first deployment, set **Settings → Pages → Source = GitHub Actions**.
 
 ### Required GitHub secret
 
