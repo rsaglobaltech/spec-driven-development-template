@@ -27,6 +27,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
 
     steps:
       - name: Checkout
@@ -78,6 +79,7 @@ jobs:
         if: steps.publish_settings.outputs.dry_run == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: false
         run: |
           cd /tmp/ghpkg
           npm publish \
@@ -90,6 +92,7 @@ jobs:
         if: steps.publish_settings.outputs.dry_run != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: false
         run: |
           cd /tmp/ghpkg
           npm publish \
