@@ -1,0 +1,70 @@
+metadata:
+  name: "Parking Management Backend Domain Pack"
+  version: "1.0.0"
+  language: "en"
+  project_type: "backend"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - DOMAIN
+
+outputs:
+  files:
+    - target: "AI_RULES.md"
+      template: "templates/AI_RULES.md.tpl"
+    - target: "spec.md"
+      template: "templates/spec.md.tpl"
+
+rules:
+  traceability:
+    target: "docs/specs/traceability.md"
+    include_existing_rows: true
+    default_status: "Draft"
+
+scenarios:
+  - id: "capacity_threshold"
+    seed: true
+    target: "features/capacity/capacity_threshold.feature"
+    template: "templates/features/capacity/capacity_threshold.feature.tpl"
+    feature: "Parking Capacity"
+    scenario: "Triggering alert when occupancy reaches threshold"
+    technical_artifact: "Occupancy monitor and CapacityThresholdReached event"
+    status: "Draft"
+
+  - id: "vehicle_entry"
+    seed: true
+    target: "features/entry_exit/vehicle_entry.feature"
+    template: "templates/features/entry_exit/vehicle_entry.feature.tpl"
+    feature: "Vehicle Entry"
+    scenario: "Registering vehicle entry with available slot"
+    technical_artifact: "Entry use case and VehicleEntered event"
+    status: "Draft"
+
+  - id: "ticket_billing"
+    seed: true
+    target: "features/billing/ticket_billing.feature"
+    template: "templates/features/billing/ticket_billing.feature.tpl"
+    feature: "Parking Billing"
+    scenario: "Calculating parking fee at exit"
+    technical_artifact: "Billing service and ParkingFeeCalculated event"
+    status: "Draft"
+
+  - id: "overstay_enforcement"
+    seed: true
+    target: "features/enforcement/overstay_enforcement.feature"
+    template: "templates/features/enforcement/overstay_enforcement.feature.tpl"
+    feature: "Overstay Enforcement"
+    scenario: "Flagging vehicles that exceed allowed parking duration"
+    technical_artifact: "Enforcement policy and OverstayDetected event"
+    status: "Draft"
+
+  - id: "payment_receipt_notification"
+    seed: true
+    target: "features/notifications/payment_receipt.feature"
+    template: "templates/features/notifications/payment_receipt.feature.tpl"
+    feature: "Driver Notifications"
+    scenario: "Sending receipt after successful payment"
+    technical_artifact: "Notification router and ReceiptSent event"
+    status: "Draft"

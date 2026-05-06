@@ -33,6 +33,7 @@ If your goal is repeatable delivery quality, this gives you a practical baseline
 - `create-spec-driven-app` npm CLI for `npx` usage.
 - `scripts/new_spec_project.sh` → generate a new specs project from templates.
 - `scripts/validate_specs.sh` → validate structure and spec quality gates.
+- `scripts/expand_domain_pack.js` → expand a domain pack (YAML + templates) into an existing project.
 - `templates/base` → shared project skeleton.
 - `templates/backend` and `templates/frontend` → type-specific defaults.
 - `templates/modules/*` → optional business feature packs.
@@ -49,7 +50,10 @@ If your goal is repeatable delivery quality, this gives you a practical baseline
 │   └── project.config.example
 ├── scripts/
 │   ├── new_spec_project.sh
-│   └── validate_specs.sh
+│   ├── validate_specs.sh
+│   ├── expand_domain_pack.js
+│   └── domain-pack/
+│       └── common.js
 └── templates/
     ├── base/
     │   ├── .gitignore.tpl
@@ -152,6 +156,7 @@ MODULES="auth,dashboard,billing"
 ```bash
 npx create-spec-driven-app@latest init --config <path> --out <directory> [--force] [--dry-run] [--no-git]
 npx create-spec-driven-app@latest validate <project_dir>
+npx create-spec-driven-app@latest expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]
 ```
 
 Options:
@@ -162,6 +167,14 @@ Options:
 - `--no-git` skip `git init`.
 - `--help` show usage.
 
+`expand` options:
+- `--pack-root` root directory that contains domain packs.
+- `--pack` pack id path under `pack-root` (for example `parking-management/backend`).
+- `--project-dir` target project directory where files will be expanded.
+- `--var KEY=VALUE` template variable values (repeatable).
+- `--no-examples` skip seeded scenarios (`seed: true`).
+- `--dry-run` print actions without writing files.
+
 Exit codes:
 - `0` success.
 - `2` usage/config error.
@@ -170,6 +183,18 @@ Exit codes:
 - `1` unhandled runtime error.
 
 For local repository usage, you can run the equivalent shell scripts directly from `scripts/`.
+
+### Domain pack expansion example
+
+```bash
+npx create-spec-driven-app@latest expand \
+  --pack-root ./domain-packs \
+  --pack parking-management/backend \
+  --project-dir /tmp/acme-energy-hub \
+  --var PROJECT_NAME="Acme Energy Hub" \
+  --var PROJECT_SLUG=acme-energy-hub \
+  --var DOMAIN="community energy"
+```
 
 ---
 
