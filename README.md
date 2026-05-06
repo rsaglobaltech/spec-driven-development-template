@@ -206,6 +206,49 @@ This template accelerates project setup, but your real product value comes from 
 
 ---
 
+## 🏗️ CI/CD and npm release
+
+This repository includes production-ready GitHub Actions workflows:
+
+- `.github/workflows/ci.yml`
+  - Runs on push/PR (`main`, `develop`)
+  - Executes Node test suite
+  - Verifies package contents with `npm pack --dry-run`
+  - Smoke-tests the packed tarball with `npx`
+
+- `.github/workflows/publish-npm.yml`
+  - Manual publish via **workflow_dispatch** with:
+    - `dist_tag`: `beta` or `latest`
+    - `dry_run`: `true`/`false`
+  - Auto-publish on git tags `v*` (publishes with `latest`)
+  - Runs tests before publish
+  - Publishes with provenance enabled
+
+### Required GitHub secret
+
+Set this repository secret before publishing:
+
+- `NPM_TOKEN`: npm automation token with publish permissions for this package
+
+### First beta release flow
+
+1. Bump package version to a prerelease (example: `0.1.0-beta.1`).
+2. Push changes to `develop` and verify CI is green.
+3. Trigger **Publish to npm** workflow manually:
+   - `dist_tag=beta`
+   - `dry_run=true` (sanity check)
+4. Trigger again with:
+   - `dist_tag=beta`
+   - `dry_run=false`
+
+### Stable release flow
+
+1. Merge to `main`.
+2. Create and push tag (example: `v0.1.0`).
+3. Tag push triggers automatic publish to npm with `latest`.
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome.

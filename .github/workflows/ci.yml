@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Test and Package Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure executable permissions
+        run: chmod +x bin/*.js scripts/*.sh
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Validate npm package contents
+        run: npm run pack:dry-run
+
+      - name: Smoke test from packed tarball
+        run: |
+          TARBALL="$(npm pack | tail -n 1)"
+          npx --yes "./${TARBALL}" --help
+          rm -f "${TARBALL}"
