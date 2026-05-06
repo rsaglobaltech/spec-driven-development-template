@@ -240,10 +240,10 @@ This repository includes production-ready GitHub Actions workflows:
   - Uses `GITHUB_TOKEN` with `packages: write`
 
 - `.github/workflows/pages.yml`
-  - Deploys `docs/` to GitHub Pages from `main`
+  - Deploys `docs/` to `gh-pages` branch from `main`
   - Public docs URL: `https://rsaglobaltech.github.io/spec-driven-development-template/`
 
-> If this is the first deployment, set **Settings → Pages → Source = GitHub Actions**.
+> For this workflow, set **Settings → Pages → Source = Deploy from a branch**, branch **`gh-pages`**, folder **`/(root)`**.
 
 ### Required GitHub secret
 
@@ -259,6 +259,18 @@ Set this repository secret before publishing:
   - `@rsaglobaltech/create-spec-driven-app`
 - GitHub repository **Packages** shows packages hosted in GitHub Packages.
 - GitHub **Releases** are also separate from npm publishing; they appear when you create Git tags/releases.
+
+### GitHub Pages fallback mode (recommended if `configure-pages` fails)
+
+If your repository/org blocks the API used by `actions/configure-pages`, use this branch-based mode:
+
+1. Keep `.github/workflows/pages.yml` enabled (it publishes `docs/` to `gh-pages`).
+2. In GitHub Settings → Pages:
+   - Source: **Deploy from a branch**
+   - Branch: **`gh-pages`**
+   - Folder: **`/(root)`**
+3. Trigger the workflow once manually from Actions.
+4. If the first run fails due first-time token limitations, run it again after selecting `gh-pages` in Pages settings.
 
 ### Install from GitHub Packages
 
