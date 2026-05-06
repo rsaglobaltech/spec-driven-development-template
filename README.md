@@ -2,6 +2,12 @@
 
 A reusable **Spec-Driven Development (SDD)** starter to bootstrap new projects with clear requirements, traceability, and acceptance criteria from day one.
 
+[![CI](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/ci.yml/badge.svg)](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/ci.yml)
+[![Publish to npm](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/publish-npm.yml/badge.svg)](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/publish-npm.yml)
+[![Publish to GitHub Packages](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/publish-github-packages.yml/badge.svg)](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/publish-github-packages.yml)
+[![npm latest](https://img.shields.io/npm/v/create-spec-driven-app?logo=npm&label=latest)](https://www.npmjs.com/package/create-spec-driven-app)
+[![npm beta](https://img.shields.io/npm/v/create-spec-driven-app/beta?logo=npm&label=beta)](https://www.npmjs.com/package/create-spec-driven-app)
+
 ---
 
 ## ✨ Why this template is valuable
@@ -224,11 +230,41 @@ This repository includes production-ready GitHub Actions workflows:
   - Runs tests before publish
   - Publishes with provenance enabled
 
+- `.github/workflows/publish-github-packages.yml`
+  - Publishes a scoped mirror package to **GitHub Packages** (`npm.pkg.github.com`)
+  - Manual publish via **workflow_dispatch** (`beta`/`latest`, `dry_run`)
+  - Auto-publish on tags `v*`
+  - Uses `GITHUB_TOKEN` with `packages: write`
+
 ### Required GitHub secret
 
 Set this repository secret before publishing:
 
 - `NPM_TOKEN`: npm automation token with publish permissions for this package
+
+### Where the package appears
+
+- This project publishes to the **npm registry** (`registry.npmjs.org`), so the package is visible on npm:
+  - `https://www.npmjs.com/package/create-spec-driven-app`
+- This project can also publish to **GitHub Packages** (`npm.pkg.github.com`) via scoped package:
+  - `@rsaglobaltech/create-spec-driven-app`
+- GitHub repository **Packages** shows packages hosted in GitHub Packages.
+- GitHub **Releases** are also separate from npm publishing; they appear when you create Git tags/releases.
+
+### Install from GitHub Packages
+
+Add to your user/project `.npmrc`:
+
+```ini
+@rsaglobaltech:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+Then install:
+
+```bash
+npm i @rsaglobaltech/create-spec-driven-app
+```
 
 ### First beta release flow
 
