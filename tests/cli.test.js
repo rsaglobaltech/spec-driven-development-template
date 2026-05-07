@@ -96,6 +96,9 @@ test('can init and validate a generated project end-to-end', () => {
     `PROJECT_SLUG="${slug}"`,
     'PROJECT_TYPE="backend"',
     'DOMAIN="automation testing"',
+    'STACK="Quarkus 3.x, Java 21, PostgreSQL, RESTEasy Reactive, SmallRye GraphQL, Maven"',
+    'API_STYLE="REST and GraphQL with DTO boundaries"',
+    'TESTING="Quarkus Test, Testcontainers, JUnit 5, Cucumber"',
     'LANG="en"',
     'MODULES="auth"'
   ].join('\n');
@@ -119,6 +122,10 @@ test('can init and validate a generated project end-to-end', () => {
   assert.equal(validateResult.status, 0);
   assert.match(validateResult.stdout, /Validation passed/);
 
+  const aiRules = fs.readFileSync(path.join(projectDir, 'AI_RULES.md'), 'utf8');
+  assert.match(aiRules, /Stack: Quarkus 3\.x, Java 21, PostgreSQL/);
+  assert.match(aiRules, /Do not infer or replace the stack/);
+
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
 
@@ -133,6 +140,9 @@ test('can init, expand, and validate a generated project end-to-end', () => {
     `PROJECT_SLUG="${slug}"`,
     'PROJECT_TYPE="backend"',
     'DOMAIN="parking operations"',
+    'STACK="Quarkus 3.x, Java 21, PostgreSQL, RESTEasy Reactive, SmallRye GraphQL, Maven"',
+    'API_STYLE="REST and GraphQL with DTO boundaries"',
+    'TESTING="Quarkus Test, Testcontainers, JUnit 5, Cucumber"',
     'LANG="en"',
     'MODULES=""'
   ].join('\n');
@@ -176,6 +186,11 @@ test('can init, expand, and validate a generated project end-to-end', () => {
   assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'commands.md')));
   assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'events.md')));
   assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'aggregates.md')));
+
+  const aiRules = fs.readFileSync(path.join(projectDir, 'AI_RULES.md'), 'utf8');
+  assert.match(aiRules, /Stack: Quarkus 3\.x, Java 21, PostgreSQL/);
+  assert.match(aiRules, /Testing: Quarkus Test, Testcontainers, JUnit 5, Cucumber/);
+  assert.match(aiRules, /Do not infer or replace the stack/);
 
   const traceability = fs.readFileSync(path.join(projectDir, 'docs', 'specs', 'traceability.md'), 'utf8');
   assert.match(traceability, /\| Requirement \| Scenario ID \| Feature file \| Use Case \| Command\/Query \| Aggregate \| Event \| Technical artifact \| Test artifact \| Status \|/);
