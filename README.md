@@ -133,13 +133,16 @@ Use `key="value"` entries (text parsing, not shell execution).
 - `PROJECT_SLUG` → target folder name.
 - `PROJECT_TYPE` → `backend` or `frontend`.
 - `DOMAIN` → business domain context.
+- `STACK` → concrete runtime stack written into `AI_RULES.md`.
+- `API_STYLE` → API/UI integration contract written into `AI_RULES.md`.
+- `TESTING` → test stack written into `AI_RULES.md`.
 
 ### Optional keys
 
 - `LANG` → defaults to `en`.
 - `MODULES` → comma-separated list of optional modules.
 
-No modules are applied by default. This keeps the template domain-agnostic.
+No modules are applied by default. This keeps the template domain-agnostic while requiring an explicit implementation stack. If stack fields are intentionally set to `TBD`, `AI_RULES.md` tells implementation agents to stop and clarify instead of inferring a framework.
 
 Baseline example (no modules):
 
@@ -148,6 +151,9 @@ PROJECT_NAME="Acme Energy Hub"
 PROJECT_SLUG="acme-energy-hub"
 PROJECT_TYPE="backend"
 DOMAIN="community energy"
+STACK="Quarkus 3.x, Java 21, PostgreSQL, RESTEasy Reactive, SmallRye GraphQL, Maven"
+API_STYLE="REST and GraphQL with DTO boundaries"
+TESTING="Quarkus Test, Testcontainers, JUnit 5, Cucumber"
 LANG="en"
 MODULES=""
 ```
@@ -305,7 +311,7 @@ This repository includes production-ready GitHub Actions workflows:
 
 - `.github/workflows/publish-npm.yml`
   - Manual publish via **workflow_dispatch** with:
-    - `package_version`: optional version override, for example `0.1.0-beta.2`
+    - `package_version`: optional version override, for example `0.1.0-beta.3`
     - `dist_tag`: `beta` or `latest`
     - `dry_run`: `true`/`false`
   - Auto-publish on git tags `v*` (publishes with `latest`)
@@ -374,11 +380,11 @@ Package registries do not allow publishing the same version twice. For every bet
 
 1. Push changes and verify CI is green.
 2. Trigger **Publish to npm** workflow manually:
-   - `package_version=0.1.0-beta.2`
+   - `package_version=0.1.0-beta.3`
    - `dist_tag=beta`
    - `dry_run=true` (sanity check)
 3. Trigger again with the same version:
-   - `package_version=0.1.0-beta.2`
+   - `package_version=0.1.0-beta.3`
    - `dist_tag=beta`
    - `dry_run=false`
 4. If publishing to GitHub Packages too, repeat the same version in **Publish to GitHub Packages**.

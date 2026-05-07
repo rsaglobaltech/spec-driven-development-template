@@ -24,7 +24,7 @@ usage() {
   new_spec_project.sh --config <path> --out <directory> [--force] [--dry-run] [--no-git]
 
 🔧 Options:
-  --config <path>  Configuration file (key="value").
+  --config <path>  Configuration file (key="value"; requires stack fields).
   --out <dir>      Parent directory where the project will be created.
   --force          Overwrite target directory if it already exists.
   --dry-run        Print actions without writing files.
@@ -70,6 +70,14 @@ strip_inline_comment() {
   printf '%s' "$v"
 }
 
+escape_sed_replacement() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//&/\\&}"
+  s="${s//\//\\/}"
+  printf '%s' "$s"
+}
+
 load_config() {
   local file="$1"
   [[ -f "$file" ]] || { log_error "Config file not found: $file"; exit 2; }
@@ -95,6 +103,9 @@ load_config() {
       PROJECT_TYPE) PROJECT_TYPE="$value" ;;
       DOMAIN) DOMAIN="$value" ;;
       LANG) LANG="$value" ;;
+      STACK) STACK="$value" ;;
+      API_STYLE) API_STYLE="$value" ;;
+      TESTING) TESTING="$value" ;;
       MODULES) MODULES="$value" ;;
       *) log_warn "Unknown config key (ignored): $key" ;;
     esac
@@ -105,11 +116,22 @@ render_file() {
   local src="$1"
   local dst="$2"
 
-  local esc_project_name="${PROJECT_NAME//\//\\/}"
-  local esc_project_slug="${PROJECT_SLUG//\//\\/}"
-  local esc_project_type="${PROJECT_TYPE//\//\\/}"
-  local esc_domain="${DOMAIN//\//\\/}"
-  local esc_lang="${LANG//\//\\/}"
+  local esc_project_name
+  local esc_project_slug
+  local esc_project_type
+  local esc_domain
+  local esc_lang
+  local esc_stack
+  local esc_api_style
+  local esc_testing
+  esc_project_name="$(escape_sed_replacement "$PROJECT_NAME")"
+  esc_project_slug="$(escape_sed_replacement "$PROJECT_SLUG")"
+  esc_project_type="$(escape_sed_replacement "$PROJECT_TYPE")"
+  esc_domain="$(escape_sed_replacement "$DOMAIN")"
+  esc_lang="$(escape_sed_replacement "$LANG")"
+  esc_stack="$(escape_sed_replacement "$STACK")"
+  esc_api_style="$(escape_sed_replacement "$API_STYLE")"
+  esc_testing="$(escape_sed_replacement "$TESTING")"
 
   if [[ "$DRY_RUN" == "true" ]]; then
     log_info "[dry-run] render $src -> $dst"
@@ -123,6 +145,9 @@ render_file() {
     -e "s/{{PROJECT_TYPE}}/${esc_project_type}/g" \
     -e "s/{{DOMAIN}}/${esc_domain}/g" \
     -e "s/{{LANG}}/${esc_lang}/g" \
+    -e "s/{{STACK}}/${esc_stack}/g" \
+    -e "s/{{API_STYLE}}/${esc_api_style}/g" \
+    -e "s/{{TESTING}}/${esc_testing}/g" \
     "$src" > "$dst"
 }
 
@@ -226,6 +251,9 @@ validate_config() {
   [[ -n "${PROJECT_SLUG:-}" ]] || { log_error "Missing PROJECT_SLUG in config"; exit 2; }
   [[ -n "${PROJECT_TYPE:-}" ]] || { log_error "Missing PROJECT_TYPE in config"; exit 2; }
   [[ -n "${DOMAIN:-}" ]] || { log_error "Missing DOMAIN in config"; exit 2; }
+  [[ -n "${STACK:-}" ]] || { log_error "Missing STACK in config"; exit 2; }
+  [[ -n "${API_STYLE:-}" ]] || { log_error "Missing API_STYLE in config"; exit 2; }
+  [[ -n "${TESTING:-}" ]] || { log_error "Missing TESTING in config"; exit 2; }
   LANG="${LANG:-en}"
   MODULES="${MODULES:-}"
 
