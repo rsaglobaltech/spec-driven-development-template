@@ -305,16 +305,19 @@ This repository includes production-ready GitHub Actions workflows:
 
 - `.github/workflows/publish-npm.yml`
   - Manual publish via **workflow_dispatch** with:
+    - `package_version`: optional version override, for example `0.1.0-beta.2`
     - `dist_tag`: `beta` or `latest`
     - `dry_run`: `true`/`false`
   - Auto-publish on git tags `v*` (publishes with `latest`)
   - Runs tests before publish
+  - Fails early if the package version already exists on npm
   - Publishes with provenance enabled
 
 - `.github/workflows/publish-github-packages.yml`
   - Publishes a scoped mirror package to **GitHub Packages** (`npm.pkg.github.com`)
-  - Manual publish via **workflow_dispatch** (`beta`/`latest`, `dry_run`)
+  - Manual publish via **workflow_dispatch** (`package_version`, `beta`/`latest`, `dry_run`)
   - Auto-publish on tags `v*`
+  - Fails early if the scoped package version already exists on GitHub Packages
   - Uses `GITHUB_TOKEN` with `packages: write`
 
 - `.github/workflows/pages.yml`
@@ -365,16 +368,20 @@ Then install:
 npm i @rsaglobaltech/create-spec-driven-app
 ```
 
-### First beta release flow
+### Beta release flow
 
-1. Bump package version to a prerelease (example: `0.1.0-beta.1`).
-2. Push changes to `develop` and verify CI is green.
-3. Trigger **Publish to npm** workflow manually:
+Package registries do not allow publishing the same version twice. For every beta publish, choose a new version such as `0.1.0-beta.2`, `0.1.0-beta.3`, or the next appropriate prerelease.
+
+1. Push changes and verify CI is green.
+2. Trigger **Publish to npm** workflow manually:
+   - `package_version=0.1.0-beta.2`
    - `dist_tag=beta`
    - `dry_run=true` (sanity check)
-4. Trigger again with:
+3. Trigger again with the same version:
+   - `package_version=0.1.0-beta.2`
    - `dist_tag=beta`
    - `dry_run=false`
+4. If publishing to GitHub Packages too, repeat the same version in **Publish to GitHub Packages**.
 
 ### Stable release flow
 
