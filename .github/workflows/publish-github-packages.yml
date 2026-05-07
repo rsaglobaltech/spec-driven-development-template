@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       package_version:
-        description: 'Package version to publish, for example 0.1.0-beta.2. Leave empty to use package.json.'
+        description: 'Package version to publish, for example 0.1.0-beta.3. Leave empty to use package.json.'
         required: false
         default: ''
         type: string
@@ -46,6 +46,12 @@ jobs:
           if ! [[ "$PACKAGE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
             echo "Invalid package_version: $PACKAGE_VERSION" >&2
             exit 2
+          fi
+
+          CURRENT_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$CURRENT_VERSION" == "$PACKAGE_VERSION" ]]; then
+            echo "package.json is already at $PACKAGE_VERSION; skipping npm version."
+            exit 0
           fi
 
           npm version "$PACKAGE_VERSION" --no-git-tag-version
