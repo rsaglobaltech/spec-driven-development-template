@@ -171,6 +171,25 @@ test('can init, expand, and validate a generated project end-to-end', () => {
 
   assert.equal(expandResult.status, 0);
   assert.ok(fs.existsSync(path.join(projectDir, 'features', 'capacity', 'capacity_threshold.feature')));
+  assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'domain-model.md')));
+  assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'use-cases.md')));
+  assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'commands.md')));
+  assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'events.md')));
+  assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'aggregates.md')));
+
+  const traceability = fs.readFileSync(path.join(projectDir, 'docs', 'specs', 'traceability.md'), 'utf8');
+  assert.match(traceability, /\| Requirement \| Scenario ID \| Feature file \| Use Case \| Command\/Query \| Aggregate \| Event \| Technical artifact \| Test artifact \| Status \|/);
+  assert.match(traceability, /REQ-001/);
+  assert.match(traceability, /SCN-001/);
+  assert.match(traceability, /UC-001 Monitor Capacity Threshold/);
+  assert.match(traceability, /CMD-001 CheckCapacityThresholdCommand/);
+  assert.match(traceability, /AGG-001 ParkingFacility/);
+  assert.match(traceability, /EVT-001 CapacityThresholdReached/);
+
+  const domainModel = fs.readFileSync(path.join(projectDir, 'docs', 'specs', 'domain-model.md'), 'utf8');
+  assert.match(domainModel, /BC-001/);
+  assert.match(domainModel, /Parking Operations/);
+  assert.match(domainModel, /AGG-001/);
 
   const validateResult = runCli(['validate', projectDir]);
   assert.equal(validateResult.status, 0);

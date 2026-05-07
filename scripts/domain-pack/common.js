@@ -217,6 +217,56 @@ function fail(message) {
   throw new Error(message);
 }
 
+const ALLOWED_STATUSES = new Set([
+  'Draft',
+  'Needs Clarification',
+  'Domain Reviewed',
+  'Architecture Reviewed',
+  'Ready for Dev',
+  'In Dev',
+  'In Review',
+  'Verified',
+  'Released',
+  'Deprecated'
+]);
+
+const ALLOWED_PRIORITIES = new Set(['Must', 'Should', 'Could', "Won't"]);
+
+function asArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value === undefined || value === null || value === '') return [];
+  return [value];
+}
+
+function formatList(value, fallback = '-') {
+  const items = asArray(value)
+    .map((item) => String(item).trim())
+    .filter(Boolean);
+  return items.length > 0 ? items.join(', ') : fallback;
+}
+
+function entityLabel(entity, fallback = '-') {
+  if (!entity) return fallback;
+  if (typeof entity === 'string') return entity;
+  if (entity.id && entity.name) return `${entity.id} ${entity.name}`;
+  if (entity.id) return entity.id;
+  if (entity.name) return entity.name;
+  return fallback;
+}
+
+function hasStructuredDomainModel(pack) {
+  return [
+    'requirements',
+    'bounded_contexts',
+    'use_cases',
+    'commands',
+    'queries',
+    'aggregates',
+    'events',
+    'value_objects'
+  ].some((key) => Array.isArray(pack[key]) && pack[key].length > 0);
+}
+
 function parseArgs(argv) {
   const args = {
     packRoot: '',
@@ -340,6 +390,63 @@ function validatePackModel(pack, packRoot) {
   }
 
   const targets = new Set();
+  const refs = {
+    requirements: new Map(),
+    bounded_contexts: new Map(),
+    use_cases: new Map(),
+    commands: new Map(),
+    queries: new Map(),
+    aggregates: new Map(),
+    events: new Map(),
+    value_objects: new Map()
+  };
+
+  function remember(collectionName, item, label) {
+    if (!item || typeof item !== 'object') {
+      fail(`${collectionName} entries must be objects.`);
+    }
+
+    if (!item.id || typeof item.id !== 'string') {
+      fail(`${collectionName} entry is missing required string field 'id'.`);
+    }
+
+    const map = refs[collectionName];
+    if (map.has(item.id)) {
+      fail(`Duplicate ${label} id detected: '${item.id}'.`);
+    }
+    map.set(item.id, item);
+
+    if (item.name && typeof item.name === 'string') {
+      if (map.has(item.name)) {
+        fail(`Duplicate ${label} name/reference detected: '${item.name}'.`);
+      }
+      map.set(item.name, item);
+    }
+  }
+
+  function hasRef(collectionName, ref) {
+    if (!ref) return false;
+    return refs[collectionName].has(String(ref));
+  }
+
+  function assertRef(collectionName, ref, context) {
+    if (!ref) return;
+    if (!hasRef(collectionName, ref)) {
+      fail(`${context} references unknown ${collectionName.slice(0, -1)} '${ref}'.`);
+    }
+  }
+
+  function assertRefs(collectionName, values, context) {
+    for (const ref of asArray(values)) {
+      assertRef(collectionName, ref, context);
+    }
+  }
+
+  function assertStatus(status, context) {
+    if (status !== undefined && !ALLOWED_STATUSES.has(status)) {
+      fail(`${context} has invalid status '${status}'.`);
+    }
+  }
 
   function assertTemplateExists(templatePath, context) {
     if (!isSafeRelativePath(templatePath)) {
@@ -389,7 +496,62 @@ function validatePackModel(pack, packRoot) {
     fail('rules.traceability.target must be a safe relative path.');
   }
 
+  if (pack.schema_version !== undefined && typeof pack.schema_version !== 'string') {
+    fail('schema_version must be a string when provided.');
+  }
+
+  for (const item of Array.isArray(pack.requirements) ? pack.requirements : []) {
+    remember('requirements', item, 'requirement');
+    if (item.priority !== undefined && !ALLOWED_PRIORITIES.has(item.priority)) {
+      fail(`Requirement '${item.id}' has invalid priority '${item.priority}'.`);
+    }
+    assertStatus(item.status, `Requirement '${item.id}'`);
+  }
+
+  for (const item of Array.isArray(pack.bounded_contexts) ? pack.bounded_contexts : []) {
+    remember('bounded_contexts', item, 'bounded context');
+  }
+
+  for (const item of Array.isArray(pack.commands) ? pack.commands : []) {
+    remember('commands', item, 'command');
+  }
+
+  for (const item of Array.isArray(pack.queries) ? pack.queries : []) {
+    remember('queries', item, 'query');
+  }
+
+  for (const item of Array.isArray(pack.aggregates) ? pack.aggregates : []) {
+    remember('aggregates', item, 'aggregate');
+  }
+
+  for (const item of Array.isArray(pack.events) ? pack.events : []) {
+    remember('events', item, 'event');
+  }
+
+  for (const item of Array.isArray(pack.value_objects) ? pack.value_objects : []) {
+    remember('value_objects', item, 'value object');
+  }
+
+  for (const context of Array.isArray(pack.bounded_contexts) ? pack.bounded_contexts : []) {
+    assertRefs('aggregates', context.aggregates, `Bounded context '${context.id}'`);
+  }
+
+  for (const aggregate of Array.isArray(pack.aggregates) ? pack.aggregates : []) {
+    assertRef('bounded_contexts', aggregate.context, `Aggregate '${aggregate.id}'`);
+  }
+
+  for (const useCase of Array.isArray(pack.use_cases) ? pack.use_cases : []) {
+    remember('use_cases', useCase, 'use case');
+    assertRef('requirements', useCase.requirement, `Use case '${useCase.id}'`);
+    assertRef('commands', useCase.command, `Use case '${useCase.id}'`);
+    assertRef('queries', useCase.query, `Use case '${useCase.id}'`);
+    assertRef('aggregates', useCase.aggregate, `Use case '${useCase.id}'`);
+    assertRefs('events', useCase.emits, `Use case '${useCase.id}'`);
+    assertStatus(useCase.status, `Use case '${useCase.id}'`);
+  }
+
   const scenarios = Array.isArray(pack.scenarios) ? pack.scenarios : [];
+  const scenarioIds = new Set();
   for (const scenario of scenarios) {
     if (!scenario || typeof scenario !== 'object') {
       fail('scenarios entries must be objects.');
@@ -400,8 +562,7 @@ function validatePackModel(pack, packRoot) {
       'target',
       'template',
       'feature',
-      'scenario',
-      'technical_artifact'
+      'scenario'
     ];
 
     for (const field of requiredScenarioFields) {
@@ -410,13 +571,26 @@ function validatePackModel(pack, packRoot) {
       }
     }
 
+    if (scenarioIds.has(scenario.id)) {
+      fail(`Duplicate scenario id detected: '${scenario.id}'.`);
+    }
+    scenarioIds.add(scenario.id);
+
+    if (!scenario.technical_artifact && !Array.isArray(scenario.technical_artifacts)) {
+      fail(`Scenario '${scenario.id}' requires technical_artifact or technical_artifacts.`);
+    }
+
     if (scenario.seed !== undefined && typeof scenario.seed !== 'boolean') {
       fail(`Scenario '${scenario.id}' has invalid 'seed' value. Expected boolean.`);
     }
 
-    if (scenario.status !== undefined && typeof scenario.status !== 'string') {
-      fail(`Scenario '${scenario.id}' has invalid 'status' value. Expected string.`);
-    }
+    assertStatus(scenario.status, `Scenario '${scenario.id}'`);
+    assertRef('requirements', scenario.requirement_id, `Scenario '${scenario.id}'`);
+    assertRef('use_cases', scenario.use_case, `Scenario '${scenario.id}'`);
+    assertRef('commands', scenario.command, `Scenario '${scenario.id}'`);
+    assertRef('queries', scenario.query, `Scenario '${scenario.id}'`);
+    assertRef('aggregates', scenario.aggregate, `Scenario '${scenario.id}'`);
+    assertRefs('events', scenario.events, `Scenario '${scenario.id}'`);
 
     assertTarget(scenario.target, `scenario '${scenario.id}'`);
     assertTemplateExists(scenario.template, `scenario '${scenario.id}'`);
@@ -499,6 +673,7 @@ function safeResolve(projectDir, relativePath) {
 function parseTraceabilityRows(existingContent) {
   const rows = [];
   const seen = new Set();
+  let mode = 'legacy';
 
   const lines = existingContent.replace(/\r\n/g, '\n').split('\n');
   for (const line of lines) {
@@ -510,22 +685,84 @@ function parseTraceabilityRows(existingContent) {
       .map((cell) => cell.trim())
       .filter((cell) => cell.length > 0);
 
-    if (cells.length !== 4) continue;
-    if (cells[0] === 'Feature' && cells[1] === 'Scenario') continue;
+    if (cells[0] === 'Requirement' && cells[1] === 'Scenario ID') {
+      mode = 'rich';
+      continue;
+    }
 
-    const key = `${cells[0]}::${cells[1]}`;
+    if (cells[0] === 'Feature' && cells[1] === 'Scenario') {
+      continue;
+    }
+
+    if (cells.length === 10) {
+      mode = 'rich';
+      const row = {
+        requirement: cells[0],
+        scenarioId: cells[1],
+        featureFile: cells[2],
+        useCase: cells[3],
+        commandOrQuery: cells[4],
+        aggregate: cells[5],
+        event: cells[6],
+        technicalArtifact: cells[7],
+        testArtifact: cells[8],
+        status: cells[9]
+      };
+      const key = `${row.featureFile}::${row.scenarioId}`;
+      if (seen.has(key)) continue;
+
+      seen.add(key);
+      rows.push(row);
+      continue;
+    }
+
+    if (cells.length !== 4) continue;
+
+    const row = {
+      feature: cells[0],
+      scenario: cells[1],
+      technicalArtifact: cells[2],
+      status: cells[3]
+    };
+    const key = `${row.feature}::${row.scenario}`;
     if (seen.has(key)) continue;
 
     seen.add(key);
-    rows.push(cells);
+    rows.push(row);
   }
 
-  return rows;
+  return { mode, rows };
 }
 
-function buildTraceabilityMarkdown(rows) {
+function buildTraceabilityMarkdown(rows, mode = 'legacy') {
+  if (mode === 'rich') {
+    const header = [
+      '# Traceability Matrix',
+      '',
+      'Map requirements to scenarios, domain model elements, implementation artifacts, and tests.',
+      '',
+      '| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |',
+      '|---|---|---|---|---|---|---|---|---|---|'
+    ];
+
+    const body = rows.map((row) => [
+      row.requirement || '-',
+      row.scenarioId || '-',
+      row.featureFile || '-',
+      row.useCase || '-',
+      row.commandOrQuery || '-',
+      row.aggregate || '-',
+      row.event || '-',
+      row.technicalArtifact || '-',
+      row.testArtifact || '-',
+      row.status || 'Draft'
+    ]).map((cells) => `| ${cells.join(' | ')} |`);
+
+    return `${header.concat(body).join('\n')}\n`;
+  }
+
   const header = [
-    '# 🔗 Traceability Matrix',
+    '# Traceability Matrix',
     '',
     'Map business specifications to scenarios and technical artifacts.',
     '',
@@ -533,13 +770,18 @@ function buildTraceabilityMarkdown(rows) {
     '|---|---|---|---|'
   ];
 
-  const body = rows.map((cells) => `| ${cells[0]} | ${cells[1]} | ${cells[2]} | ${cells[3]} |`);
+  const body = rows.map((row) => `| ${row.feature} | ${row.scenario} | ${row.technicalArtifact} | ${row.status} |`);
   return `${header.concat(body).join('\n')}\n`;
 }
 
 module.exports = {
+  ALLOWED_STATUSES,
+  asArray,
   buildTraceabilityMarkdown,
+  entityLabel,
   ensureProjectDir,
+  formatList,
+  hasStructuredDomainModel,
   loadPack,
   logError,
   logInfo,
