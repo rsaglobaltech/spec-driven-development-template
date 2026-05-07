@@ -22,6 +22,7 @@ test('shows help with no args', () => {
   assert.equal(result.status, 0);
   assert.match(result.stdout, /create-spec-driven-app/);
   assert.match(result.stdout, /Usage:/);
+  assert.match(result.stdout, /expand --pack-root/);
 });
 
 test('shows version from package.json', () => {
@@ -59,6 +60,31 @@ test('returns usage error for validate without project dir', () => {
   assert.match(result.stderr, /expects exactly one argument/);
 });
 
+test('expands domain pack in dry-run mode', () => {
+  const fixtureRoot = path.join('tests', 'fixtures', 'domain-packs');
+  const result = runCli([
+    'expand',
+    '--pack-root',
+    fixtureRoot,
+    '--pack',
+    'parking-management/backend',
+    '--project-dir',
+    '/private/tmp/smart-parking',
+    '--var',
+    'PROJECT_NAME=Smart Parking Backend',
+    '--var',
+    'PROJECT_SLUG=smart-parking',
+    '--var',
+    'DOMAIN=parking operations',
+    '--dry-run'
+  ]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Using pack:/);
+  assert.match(result.stdout, /\[dry-run\] write/);
+  assert.match(result.stdout, /Generated 5 scenario file\(s\)/);
+});
+
 test('can init and validate a generated project end-to-end', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'csda-e2e-'));
   const slug = `spec-driven-${Date.now()}`;
@@ -88,6 +114,82 @@ test('can init and validate a generated project end-to-end', () => {
 
   assert.equal(initResult.status, 0);
   assert.ok(fs.existsSync(projectDir), 'project directory should exist');
+
+  const validateResult = runCli(['validate', projectDir]);
+  assert.equal(validateResult.status, 0);
+  assert.match(validateResult.stdout, /Validation passed/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test('can init, expand, and validate a generated project end-to-end', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'csda-expand-e2e-'));
+  const slug = `parking-spec-driven-${Date.now()}`;
+  const configPath = path.join(tempRoot, 'project.config');
+  const projectDir = path.join(tempRoot, slug);
+
+  const config = [
+    'PROJECT_NAME="Parking E2E"',
+    `PROJECT_SLUG="${slug}"`,
+    'PROJECT_TYPE="backend"',
+    'DOMAIN="parking operations"',
+    'LANG="en"',
+    'MODULES=""'
+  ].join('\n');
+
+  fs.writeFileSync(configPath, `${config}\n`, 'utf8');
+
+  const initResult = runCli([
+    'init',
+    '--config',
+    configPath,
+    '--out',
+    tempRoot,
+    '--force',
+    '--no-git'
+  ]);
+
+  assert.equal(initResult.status, 0);
+  assert.ok(fs.existsSync(projectDir), 'project directory should exist');
+
+  const packRoot = path.join(ROOT_DIR, 'tests', 'fixtures', 'domain-packs');
+  const expandResult = runCli([
+    'expand',
+    '--pack-root',
+    packRoot,
+    '--pack',
+    'parking-management/backend',
+    '--project-dir',
+    projectDir,
+    '--var',
+    'PROJECT_NAME=Parking E2E',
+    '--var',
+    `PROJECT_SLUG=${slug}`,
+    '--var',
+    'DOMAIN=parking operations'
+  ]);
+
+  assert.equal(expandResult.status, 0);
+  assert.ok(fs.existsSync(path.join(projectDir, 'features', 'capacity', 'capacity_threshold.feature')));
+  assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'domain-model.md')));
+  assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'use-cases.md')));
+  assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'commands.md')));
+  assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'events.md')));
+  assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'aggregates.md')));
+
+  const traceability = fs.readFileSync(path.join(projectDir, 'docs', 'specs', 'traceability.md'), 'utf8');
+  assert.match(traceability, /\| Requirement \| Scenario ID \| Feature file \| Use Case \| Command\/Query \| Aggregate \| Event \| Technical artifact \| Test artifact \| Status \|/);
+  assert.match(traceability, /REQ-001/);
+  assert.match(traceability, /SCN-001/);
+  assert.match(traceability, /UC-001 Monitor Capacity Threshold/);
+  assert.match(traceability, /CMD-001 CheckCapacityThresholdCommand/);
+  assert.match(traceability, /AGG-001 ParkingFacility/);
+  assert.match(traceability, /EVT-001 CapacityThresholdReached/);
+
+  const domainModel = fs.readFileSync(path.join(projectDir, 'docs', 'specs', 'domain-model.md'), 'utf8');
+  assert.match(domainModel, /BC-001/);
+  assert.match(domainModel, /Parking Operations/);
+  assert.match(domainModel, /AGG-001/);
 
   const validateResult = runCli(['validate', projectDir]);
   assert.equal(validateResult.status, 0);

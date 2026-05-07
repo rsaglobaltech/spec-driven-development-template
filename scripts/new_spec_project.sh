@@ -137,6 +137,49 @@ render_tree() {
   done < <(find "$src_root" -type f -name '*.tpl' | sort)
 }
 
+feature_title_from_path() {
+  local rel="$1"
+  local base="${rel##*/}"
+  base="${base%.feature}"
+  base="${base//_/ }"
+  printf '%s' "$base"
+}
+
+ensure_traceability_coverage() {
+  local project_dir="$1"
+  local traceability_file="${project_dir}/docs/specs/traceability.md"
+  [[ -f "$traceability_file" ]] || return
+
+  local mode="legacy"
+  if grep -q '| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |' "$traceability_file"; then
+    mode="rich"
+  fi
+
+  local counter=1
+  while IFS= read -r feature_file; do
+    local rel="${feature_file#${project_dir}/}"
+    if grep -Fq "$rel" "$traceability_file"; then
+      continue
+    fi
+
+    local title
+    title="$(feature_title_from_path "$rel")"
+    local scenario_id
+    scenario_id="$(printf 'SCN-TBD-%03d' "$counter")"
+    local use_case_id
+    use_case_id="$(printf 'UC-TBD-%03d %s' "$counter" "$title")"
+
+    if [[ "$mode" == "rich" ]]; then
+      printf '| REQ-TBD | %s | `%s` | %s | TBD | TBD | TBD | TBD | TBD | Draft |\n' \
+        "$scenario_id" "$rel" "$use_case_id" >> "$traceability_file"
+    else
+      printf '| `%s` | %s | TBD | Draft |\n' "$rel" "$title" >> "$traceability_file"
+    fi
+
+    counter=$((counter + 1))
+  done < <(find "${project_dir}/features" -type f -name '*.feature' | sort)
+}
+
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -250,6 +293,10 @@ main() {
     done
   else
     log_info "🧩 No optional modules selected. Generating base + project-type features only."
+  fi
+
+  if [[ "$DRY_RUN" != "true" ]]; then
+    ensure_traceability_coverage "$project_dir"
   fi
 
   if [[ "$NO_GIT" != "true" ]]; then

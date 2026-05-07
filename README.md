@@ -18,11 +18,12 @@ A reusable **Spec-Driven Development (SDD)** starter to bootstrap new projects w
 Most teams lose time because implementation starts before requirements are operationally clear.
 
 This template fixes that by making specs first-class artifacts:
-- 🧭 **Clarity first**: business intent is explicit before coding.
-- 🔗 **Built-in traceability**: `Spec -> Scenario -> Technical artifact` from the start.
-- 🧪 **Testable requirements**: Gherkin scenarios become executable acceptance criteria.
-- ♻️ **Reusable process**: same structure across domains and teams.
-- 🤖 **AI-ready workflow**: standardized `AI_RULES.md` to guide implementation assistants.
+- **Clarity first**: business intent is explicit before coding.
+- **Built-in traceability**: `Requirement -> Scenario -> Domain -> Implementation -> Test` from the start.
+- **DDD Lite context**: optional domain pack fields for requirements, use cases, commands, aggregates, events, and value objects.
+- **Testable requirements**: Gherkin scenarios become executable acceptance criteria.
+- **Reusable process**: same structure across domains and teams.
+- **AI-ready workflow**: standardized `AI_RULES.md` to guide implementation assistants.
 
 If your goal is repeatable delivery quality, this gives you a practical baseline.
 
@@ -33,7 +34,9 @@ If your goal is repeatable delivery quality, this gives you a practical baseline
 - `create-spec-driven-app` npm CLI for `npx` usage.
 - `scripts/new_spec_project.sh` → generate a new specs project from templates.
 - `scripts/validate_specs.sh` → validate structure and spec quality gates.
+- `scripts/expand_domain_pack.js` → expand a domain pack (YAML + templates) into an existing project.
 - `templates/base` → shared project skeleton.
+- `docs/specs/*` templates for traceability, domain model, use cases, commands, events, aggregates, status model, and review checklist.
 - `templates/backend` and `templates/frontend` → type-specific defaults.
 - `templates/modules/*` → optional business feature packs.
 - `examples/project.config.example` → ready-to-copy configuration.
@@ -49,14 +52,24 @@ If your goal is repeatable delivery quality, this gives you a practical baseline
 │   └── project.config.example
 ├── scripts/
 │   ├── new_spec_project.sh
-│   └── validate_specs.sh
+│   ├── validate_specs.sh
+│   ├── expand_domain_pack.js
+│   └── domain-pack/
+│       └── common.js
 └── templates/
     ├── base/
     │   ├── .gitignore.tpl
     │   ├── README.md.tpl
     │   ├── spec.md.tpl
     │   └── docs/specs/
+    │       ├── aggregates.md.tpl
+    │       ├── commands.md.tpl
+    │       ├── domain-model.md.tpl
+    │       ├── events.md.tpl
+    │       ├── review-checklist.md.tpl
+    │       ├── status-model.md.tpl
     │       ├── traceability.md.tpl
+    │       ├── use-cases.md.tpl
     │       └── adr/README.md.tpl
     ├── backend/
     │   ├── AI_RULES.md.tpl
@@ -152,6 +165,7 @@ MODULES="auth,dashboard,billing"
 ```bash
 npx create-spec-driven-app@latest init --config <path> --out <directory> [--force] [--dry-run] [--no-git]
 npx create-spec-driven-app@latest validate <project_dir>
+npx create-spec-driven-app@latest expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]
 ```
 
 Options:
@@ -162,6 +176,14 @@ Options:
 - `--no-git` skip `git init`.
 - `--help` show usage.
 
+`expand` options:
+- `--pack-root` root directory that contains domain packs.
+- `--pack` pack id path under `pack-root` (for example `parking-management/backend`).
+- `--project-dir` target project directory where files will be expanded.
+- `--var KEY=VALUE` template variable values (repeatable).
+- `--no-examples` skip seeded scenarios (`seed: true`).
+- `--dry-run` print actions without writing files.
+
 Exit codes:
 - `0` success.
 - `2` usage/config error.
@@ -170,6 +192,58 @@ Exit codes:
 - `1` unhandled runtime error.
 
 For local repository usage, you can run the equivalent shell scripts directly from `scripts/`.
+
+### Domain pack expansion example
+
+```bash
+npx create-spec-driven-app@latest expand \
+  --pack-root ./domain-packs \
+  --pack parking-management/backend \
+  --project-dir /tmp/acme-energy-hub \
+  --var PROJECT_NAME="Acme Energy Hub" \
+  --var PROJECT_SLUG=acme-energy-hub \
+  --var DOMAIN="community energy"
+```
+
+Domain packs can stay minimal, or they can opt into DDD Lite fields:
+
+```yaml
+schema_version: "1.1.0"
+
+requirements:
+  - id: REQ-001
+    title: "Reserve stock before order confirmation"
+    priority: Must
+
+use_cases:
+  - id: UC-001
+    name: Reserve Stock
+    requirement: REQ-001
+    command: ReserveStockCommand
+    aggregate: InventoryReservation
+    emits:
+      - StockReserved
+
+commands:
+  - id: CMD-001
+    name: ReserveStockCommand
+    fields:
+      - sku
+      - quantity
+
+aggregates:
+  - id: AGG-001
+    name: InventoryReservation
+    invariants:
+      - "Reserved quantity cannot exceed available stock."
+
+events:
+  - id: EVT-001
+    name: StockReserved
+    producer: InventoryReservation
+```
+
+When these fields exist, `expand` generates `docs/specs/domain-model.md`, `use-cases.md`, `commands.md`, `events.md`, `aggregates.md`, and a richer traceability matrix.
 
 ---
 
@@ -180,7 +254,11 @@ For local repository usage, you can run the equivalent shell scripts directly fr
 - required files (`spec.md`, `AI_RULES.md`, `traceability.md`, ADR entrypoint),
 - at least one `.feature`,
 - no unresolved placeholders (`{{...}}`),
-- traceability matrix header presence.
+- traceability matrix header presence,
+- every `.feature` appears in `traceability.md`,
+- allowed traceability statuses,
+- duplicate `Scenario ID` detection in the rich matrix,
+- expected `use-cases.md` and `events.md` headers when those files exist.
 
 ---
 
@@ -211,7 +289,7 @@ This template accelerates project setup, but your real product value comes from 
 - Add CI checks to run validator on pull requests.
 - Add module packs (`alerts`, `forecasting`, `compliance`, `payments`).
 - Add bats/shellspec tests for scripts.
-- Add stronger validator rules (full feature-to-traceability coverage).
+- Add a strict Node.js validator for deeper YAML, Markdown, and Gherkin cross-reference checks.
 
 ---
 
