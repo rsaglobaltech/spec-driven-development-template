@@ -125,6 +125,66 @@ test('can init and validate a generated project end-to-end', () => {
   const aiRules = fs.readFileSync(path.join(projectDir, 'AI_RULES.md'), 'utf8');
   assert.match(aiRules, /Stack: Quarkus 3\.x, Java 21, PostgreSQL/);
   assert.match(aiRules, /Do not infer or replace the stack/);
+  assert.match(aiRules, /Supported environments: dev,feature,prod/);
+  assert.match(aiRules, /Database: postgres using postgres:16/);
+
+  assert.ok(fs.existsSync(path.join(projectDir, '.env.dev')), 'dev env file should exist');
+  assert.ok(fs.existsSync(path.join(projectDir, '.env.feature')), 'feature env file should exist');
+  assert.ok(fs.existsSync(path.join(projectDir, '.env.prod')), 'prod env file should exist');
+  assert.ok(fs.existsSync(path.join(projectDir, 'docker-compose.yml')), 'compose file should exist');
+  assert.ok(fs.existsSync(path.join(projectDir, '.devcontainer', 'devcontainer.json')), 'devcontainer should exist');
+  assert.ok(fs.existsSync(path.join(projectDir, 'docs', 'specs', 'runtime-environments.md')), 'runtime environments doc should exist');
+
+  const devEnv = fs.readFileSync(path.join(projectDir, '.env.dev'), 'utf8');
+  assert.match(devEnv, /APP_ENV=dev/);
+  assert.match(devEnv, /DATABASE_NAME=.*_dev/);
+  assert.match(devEnv, /DATABASE_URL=postgresql:\/\//);
+  assert.match(devEnv, /POSTGRES_DB=.*_dev/);
+
+  const compose = fs.readFileSync(path.join(projectDir, 'docker-compose.yml'), 'utf8');
+  assert.match(compose, /name: .*-\$\{APP_ENV:-dev\}/);
+  assert.match(compose, /services:/);
+  assert.match(compose, /db:/);
+  assert.match(compose, /postgres:16/);
+  assert.match(compose, /pg_isready -U \$\$\{POSTGRES_USER\} -d \$\$\{POSTGRES_DB\}/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test('can disable Docker and devcontainer artifacts', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'csda-runtime-flags-'));
+  const slug = `runtime-flags-${Date.now()}`;
+  const configPath = path.join(tempRoot, 'project.config');
+  const projectDir = path.join(tempRoot, slug);
+
+  const config = [
+    'PROJECT_NAME="Runtime Flags"',
+    `PROJECT_SLUG="${slug}"`,
+    'PROJECT_TYPE="backend"',
+    'DOMAIN="runtime testing"',
+    'STACK="Quarkus 3.x, Java 21, PostgreSQL, RESTEasy Reactive, SmallRye GraphQL, Maven"',
+    'API_STYLE="REST and GraphQL with DTO boundaries"',
+    'TESTING="Quarkus Test, Testcontainers, JUnit 5, Cucumber"',
+    'DOCKER_SUPPORT="false"',
+    'DEVCONTAINER_SUPPORT="false"'
+  ].join('\n');
+
+  fs.writeFileSync(configPath, `${config}\n`, 'utf8');
+
+  const initResult = runCli([
+    'init',
+    '--config',
+    configPath,
+    '--out',
+    tempRoot,
+    '--force',
+    '--no-git'
+  ]);
+
+  assert.equal(initResult.status, 0);
+  assert.ok(fs.existsSync(path.join(projectDir, '.env.dev')), 'env files remain part of runtime contract');
+  assert.equal(fs.existsSync(path.join(projectDir, 'docker-compose.yml')), false);
+  assert.equal(fs.existsSync(path.join(projectDir, '.devcontainer')), false);
 
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });

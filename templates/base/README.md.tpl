@@ -16,9 +16,13 @@ This project was generated from the SDD MVP template.
 - `docs/specs/commands.md`: commands and queries expected by the application layer.
 - `docs/specs/events.md`: domain events used for meaningful state changes.
 - `docs/specs/aggregates.md`: aggregate roots and invariants.
+- `docs/specs/runtime-environments.md`: dev/feature/prod runtime, Docker, devcontainer, and database contract.
 - `docs/specs/status-model.md`: lightweight Unified Process maturity states.
 - `docs/specs/review-checklist.md`: pre-implementation and architecture gates.
 - `docs/specs/adr/`: architecture decision records.
+- `.env.dev`, `.env.feature`, `.env.prod`: environment-specific runtime configuration.
+- `docker-compose.yml`: local runtime services, including the configured database.
+- `.devcontainer/devcontainer.json`: workspace container definition.
 
 ## Recommended Workflow
 1. Define or refine `spec.md`.
@@ -26,6 +30,16 @@ This project was generated from the SDD MVP template.
 3. Adapt scenarios in `features/`.
 4. Map scenarios in `docs/specs/traceability.md`.
 5. Implement software until acceptance criteria pass.
+
+## Runtime Environments
+- Default environment: `{{DEFAULT_ENV}}`
+- Environments: `{{ENVIRONMENTS}}`
+- Database: `{{DATABASE_ENGINE}}` via `{{DATABASE_IMAGE}}`
+
+Start the local database:
+```bash
+APP_ENV=dev docker compose --env-file .env.dev up -d db
+```
 
 ## Support Command
 - Validate spec structure:

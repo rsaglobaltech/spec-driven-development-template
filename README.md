@@ -141,6 +141,16 @@ Use `key="value"` entries (text parsing, not shell execution).
 
 - `LANG` → defaults to `en`.
 - `MODULES` → comma-separated list of optional modules.
+- `ENVIRONMENTS` → defaults to `dev,feature,prod`.
+- `DEFAULT_ENV` → defaults to `dev`.
+- `DOCKER_SUPPORT` → defaults to `true`.
+- `DEVCONTAINER_SUPPORT` → defaults to `true`.
+- `DATABASE_ENGINE` → defaults to `postgres`.
+- `DATABASE_VERSION` → defaults to `16`.
+- `DATABASE_NAME` → base database name; env-specific names are derived.
+- `DATABASE_USER` → application database user.
+- `DATABASE_PASSWORD` → placeholder password for generated local env files.
+- `DATABASE_PORT_DEV`, `DATABASE_PORT_FEATURE`, `DATABASE_PORT_PROD` → host ports per environment.
 
 No modules are applied by default. This keeps the template domain-agnostic while requiring an explicit implementation stack. If stack fields are intentionally set to `TBD`, `AI_RULES.md` tells implementation agents to stop and clarify instead of inferring a framework.
 
@@ -156,6 +166,18 @@ API_STYLE="REST and GraphQL with DTO boundaries"
 TESTING="Quarkus Test, Testcontainers, JUnit 5, Cucumber"
 LANG="en"
 MODULES=""
+ENVIRONMENTS="dev,feature,prod"
+DEFAULT_ENV="dev"
+DOCKER_SUPPORT="true"
+DEVCONTAINER_SUPPORT="true"
+DATABASE_ENGINE="postgres"
+DATABASE_VERSION="16"
+DATABASE_NAME="acme_energy_hub"
+DATABASE_USER="acme_energy_hub_app"
+DATABASE_PASSWORD="change-me"
+DATABASE_PORT_DEV="5432"
+DATABASE_PORT_FEATURE="5433"
+DATABASE_PORT_PROD="5434"
 ```
 
 Optional modules example:
@@ -163,6 +185,8 @@ Optional modules example:
 ```ini
 MODULES="auth,dashboard,billing"
 ```
+
+Generated projects include `.env.dev`, `.env.feature`, `.env.prod`, `docker-compose.yml`, `.devcontainer/devcontainer.json`, and `docs/specs/runtime-environments.md`.
 
 ---
 

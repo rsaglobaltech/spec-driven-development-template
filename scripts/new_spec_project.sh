@@ -106,6 +106,22 @@ load_config() {
       STACK) STACK="$value" ;;
       API_STYLE) API_STYLE="$value" ;;
       TESTING) TESTING="$value" ;;
+      ENVIRONMENTS) ENVIRONMENTS="$value" ;;
+      DEFAULT_ENV) DEFAULT_ENV="$value" ;;
+      DOCKER_SUPPORT) DOCKER_SUPPORT="$value" ;;
+      DEVCONTAINER_SUPPORT) DEVCONTAINER_SUPPORT="$value" ;;
+      DATABASE_ENGINE) DATABASE_ENGINE="$value" ;;
+      DATABASE_VERSION) DATABASE_VERSION="$value" ;;
+      DATABASE_IMAGE) DATABASE_IMAGE="$value" ;;
+      DATABASE_HOST) DATABASE_HOST="$value" ;;
+      DATABASE_PORT) DATABASE_PORT="$value" ;;
+      DATABASE_PORT_DEV) DATABASE_PORT_DEV="$value" ;;
+      DATABASE_PORT_FEATURE) DATABASE_PORT_FEATURE="$value" ;;
+      DATABASE_PORT_PROD) DATABASE_PORT_PROD="$value" ;;
+      DATABASE_CONTAINER_PORT) DATABASE_CONTAINER_PORT="$value" ;;
+      DATABASE_NAME) DATABASE_NAME="$value" ;;
+      DATABASE_USER) DATABASE_USER="$value" ;;
+      DATABASE_PASSWORD) DATABASE_PASSWORD="$value" ;;
       MODULES) MODULES="$value" ;;
       *) log_warn "Unknown config key (ignored): $key" ;;
     esac
@@ -124,6 +140,28 @@ render_file() {
   local esc_stack
   local esc_api_style
   local esc_testing
+  local esc_environments
+  local esc_default_env
+  local esc_docker_support
+  local esc_devcontainer_support
+  local esc_database_engine
+  local esc_database_version
+  local esc_database_image
+  local esc_database_host
+  local esc_database_port
+  local esc_database_port_dev
+  local esc_database_port_feature
+  local esc_database_port_prod
+  local esc_database_container_port
+  local esc_database_name
+  local esc_database_name_dev
+  local esc_database_name_feature
+  local esc_database_name_prod
+  local esc_database_user
+  local esc_database_password
+  local esc_database_url_dev
+  local esc_database_url_feature
+  local esc_database_url_prod
   esc_project_name="$(escape_sed_replacement "$PROJECT_NAME")"
   esc_project_slug="$(escape_sed_replacement "$PROJECT_SLUG")"
   esc_project_type="$(escape_sed_replacement "$PROJECT_TYPE")"
@@ -132,6 +170,28 @@ render_file() {
   esc_stack="$(escape_sed_replacement "$STACK")"
   esc_api_style="$(escape_sed_replacement "$API_STYLE")"
   esc_testing="$(escape_sed_replacement "$TESTING")"
+  esc_environments="$(escape_sed_replacement "$ENVIRONMENTS")"
+  esc_default_env="$(escape_sed_replacement "$DEFAULT_ENV")"
+  esc_docker_support="$(escape_sed_replacement "$DOCKER_SUPPORT")"
+  esc_devcontainer_support="$(escape_sed_replacement "$DEVCONTAINER_SUPPORT")"
+  esc_database_engine="$(escape_sed_replacement "$DATABASE_ENGINE")"
+  esc_database_version="$(escape_sed_replacement "$DATABASE_VERSION")"
+  esc_database_image="$(escape_sed_replacement "$DATABASE_IMAGE")"
+  esc_database_host="$(escape_sed_replacement "$DATABASE_HOST")"
+  esc_database_port="$(escape_sed_replacement "$DATABASE_PORT")"
+  esc_database_port_dev="$(escape_sed_replacement "$DATABASE_PORT_DEV")"
+  esc_database_port_feature="$(escape_sed_replacement "$DATABASE_PORT_FEATURE")"
+  esc_database_port_prod="$(escape_sed_replacement "$DATABASE_PORT_PROD")"
+  esc_database_container_port="$(escape_sed_replacement "$DATABASE_CONTAINER_PORT")"
+  esc_database_name="$(escape_sed_replacement "$DATABASE_NAME")"
+  esc_database_name_dev="$(escape_sed_replacement "$DATABASE_NAME_DEV")"
+  esc_database_name_feature="$(escape_sed_replacement "$DATABASE_NAME_FEATURE")"
+  esc_database_name_prod="$(escape_sed_replacement "$DATABASE_NAME_PROD")"
+  esc_database_user="$(escape_sed_replacement "$DATABASE_USER")"
+  esc_database_password="$(escape_sed_replacement "$DATABASE_PASSWORD")"
+  esc_database_url_dev="$(escape_sed_replacement "$DATABASE_URL_DEV")"
+  esc_database_url_feature="$(escape_sed_replacement "$DATABASE_URL_FEATURE")"
+  esc_database_url_prod="$(escape_sed_replacement "$DATABASE_URL_PROD")"
 
   if [[ "$DRY_RUN" == "true" ]]; then
     log_info "[dry-run] render $src -> $dst"
@@ -148,6 +208,28 @@ render_file() {
     -e "s/{{STACK}}/${esc_stack}/g" \
     -e "s/{{API_STYLE}}/${esc_api_style}/g" \
     -e "s/{{TESTING}}/${esc_testing}/g" \
+    -e "s/{{ENVIRONMENTS}}/${esc_environments}/g" \
+    -e "s/{{DEFAULT_ENV}}/${esc_default_env}/g" \
+    -e "s/{{DOCKER_SUPPORT}}/${esc_docker_support}/g" \
+    -e "s/{{DEVCONTAINER_SUPPORT}}/${esc_devcontainer_support}/g" \
+    -e "s/{{DATABASE_ENGINE}}/${esc_database_engine}/g" \
+    -e "s/{{DATABASE_VERSION}}/${esc_database_version}/g" \
+    -e "s/{{DATABASE_IMAGE}}/${esc_database_image}/g" \
+    -e "s/{{DATABASE_HOST}}/${esc_database_host}/g" \
+    -e "s/{{DATABASE_PORT}}/${esc_database_port}/g" \
+    -e "s/{{DATABASE_PORT_DEV}}/${esc_database_port_dev}/g" \
+    -e "s/{{DATABASE_PORT_FEATURE}}/${esc_database_port_feature}/g" \
+    -e "s/{{DATABASE_PORT_PROD}}/${esc_database_port_prod}/g" \
+    -e "s/{{DATABASE_CONTAINER_PORT}}/${esc_database_container_port}/g" \
+    -e "s/{{DATABASE_NAME}}/${esc_database_name}/g" \
+    -e "s/{{DATABASE_NAME_DEV}}/${esc_database_name_dev}/g" \
+    -e "s/{{DATABASE_NAME_FEATURE}}/${esc_database_name_feature}/g" \
+    -e "s/{{DATABASE_NAME_PROD}}/${esc_database_name_prod}/g" \
+    -e "s/{{DATABASE_USER}}/${esc_database_user}/g" \
+    -e "s/{{DATABASE_PASSWORD}}/${esc_database_password}/g" \
+    -e "s/{{DATABASE_URL_DEV}}/${esc_database_url_dev}/g" \
+    -e "s/{{DATABASE_URL_FEATURE}}/${esc_database_url_feature}/g" \
+    -e "s/{{DATABASE_URL_PROD}}/${esc_database_url_prod}/g" \
     "$src" > "$dst"
 }
 
@@ -205,6 +287,26 @@ ensure_traceability_coverage() {
   done < <(find "${project_dir}/features" -type f -name '*.feature' | sort)
 }
 
+apply_runtime_support_flags() {
+  local project_dir="$1"
+
+  if [[ "$DOCKER_SUPPORT" != "true" ]]; then
+    if [[ "$DRY_RUN" == "true" ]]; then
+      log_info "[dry-run] skip Docker artifacts"
+    else
+      rm -f "${project_dir}/docker-compose.yml" "${project_dir}/.dockerignore"
+    fi
+  fi
+
+  if [[ "$DEVCONTAINER_SUPPORT" != "true" ]]; then
+    if [[ "$DRY_RUN" == "true" ]]; then
+      log_info "[dry-run] skip devcontainer artifacts"
+    else
+      rm -rf "${project_dir}/.devcontainer"
+    fi
+  fi
+}
+
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -256,6 +358,39 @@ validate_config() {
   [[ -n "${TESTING:-}" ]] || { log_error "Missing TESTING in config"; exit 2; }
   LANG="${LANG:-en}"
   MODULES="${MODULES:-}"
+  ENVIRONMENTS="${ENVIRONMENTS:-dev,feature,prod}"
+  DEFAULT_ENV="${DEFAULT_ENV:-dev}"
+  DOCKER_SUPPORT="${DOCKER_SUPPORT:-true}"
+  DEVCONTAINER_SUPPORT="${DEVCONTAINER_SUPPORT:-true}"
+  DATABASE_ENGINE="${DATABASE_ENGINE:-postgres}"
+  DATABASE_VERSION="${DATABASE_VERSION:-16}"
+  DATABASE_HOST="${DATABASE_HOST:-db}"
+  DATABASE_PORT="${DATABASE_PORT:-5432}"
+  DATABASE_PORT_DEV="${DATABASE_PORT_DEV:-$DATABASE_PORT}"
+  DATABASE_PORT_FEATURE="${DATABASE_PORT_FEATURE:-5433}"
+  DATABASE_PORT_PROD="${DATABASE_PORT_PROD:-5434}"
+  DATABASE_CONTAINER_PORT="${DATABASE_CONTAINER_PORT:-5432}"
+  DATABASE_NAME="${DATABASE_NAME:-${PROJECT_SLUG//-/_}}"
+  DATABASE_NAME_DEV="${DATABASE_NAME}_dev"
+  DATABASE_NAME_FEATURE="${DATABASE_NAME}_feature"
+  DATABASE_NAME_PROD="${DATABASE_NAME}_prod"
+  DATABASE_USER="${DATABASE_USER:-${DATABASE_NAME}_app}"
+  DATABASE_PASSWORD="${DATABASE_PASSWORD:-change-me}"
+
+  if [[ "$DATABASE_ENGINE" != "postgres" ]]; then
+    log_error "DATABASE_ENGINE currently supports postgres only"
+    exit 2
+  fi
+
+  if [[ "$DOCKER_SUPPORT" != "true" && "$DEVCONTAINER_SUPPORT" == "true" ]]; then
+    log_error "DEVCONTAINER_SUPPORT requires DOCKER_SUPPORT=true"
+    exit 2
+  fi
+
+  DATABASE_IMAGE="${DATABASE_IMAGE:-postgres:${DATABASE_VERSION}}"
+  DATABASE_URL_DEV="postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_CONTAINER_PORT}/${DATABASE_NAME_DEV}"
+  DATABASE_URL_FEATURE="postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_CONTAINER_PORT}/${DATABASE_NAME_FEATURE}"
+  DATABASE_URL_PROD="postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_CONTAINER_PORT}/${DATABASE_NAME_PROD}"
 
   if [[ "$PROJECT_TYPE" != "backend" && "$PROJECT_TYPE" != "frontend" ]]; then
     log_error "PROJECT_TYPE must be backend or frontend"
@@ -301,6 +436,7 @@ main() {
 
   log_info "🧩 Rendering base template"
   render_tree "${TEMPLATES_DIR}/base" "$project_dir"
+  apply_runtime_support_flags "$project_dir"
 
   log_info "🛠️ Applying project type template: ${PROJECT_TYPE}"
   render_file "${TEMPLATES_DIR}/${PROJECT_TYPE}/AI_RULES.md.tpl" "${project_dir}/AI_RULES.md"
