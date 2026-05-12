@@ -6,3 +6,4 @@ coverage/
 .stryker-tmp/
 reports/mutation/*.html
 reports/mutation/*.json
+packages/pack-registry/dist/

@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=../../../schemas/pack.schema.json
+schema_version: "1.1.0"
+
+metadata:
+  name: "Feature Flags Backend Domain Pack"
+  version: "0.1.0"
+  language: "en"
+  project_type: "backend"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - DOMAIN
+
+requirements:
+  - id: REQ-001
+    title: "Define feature flags with identifier, description, and default value"
+    priority: Must
+    description: "Centralised registry of all feature flags."
+    status: Draft
+  - id: REQ-002
+    title: "Evaluate flag state per user, environment, and rollout percentage"
+    priority: Must
+    description: "Support gradual rollouts and per-user overrides."
+    status: Draft
+  - id: REQ-003
+    title: "Audit every flag toggle with actor and reason"
+    priority: Should
+    description: "Operational changes are traceable for incident review."
+    status: Draft
+  - id: REQ-004
+    title: "Emit events when flags transition state"
+    priority: Should
+    description: "Other services can react to flag changes."
+    status: Draft
+
+bounded_contexts:
+  - id: BC-001
+    name: FlagRegistry
+    type: Core
+    responsibility: "Flag definitions, defaults, and metadata"
+    aggregates: [FeatureFlag]
+  - id: BC-002
+    name: FlagEvaluation
+    type: Core
+    responsibility: "Per-request flag state resolution"
+    aggregates: [FlagEvaluation]
+
+use_cases:
+  - id: UC-001
+    name: Define Flag
+    actor: Operator
+    requirement: REQ-001
+    command: DefineFlagCommand
+  - id: UC-002
+    name: Evaluate Flag
+    actor: System
+    requirement: REQ-002
+    command: EvaluateFlagCommand
+  - id: UC-003
+    name: Toggle Flag
+    actor: Operator
+    requirement: REQ-003
+    command: ToggleFlagCommand
+  - id: UC-004
+    name: Publish Flag Change
+    actor: System
+    requirement: REQ-004
+    command: PublishFlagChangeCommand
+
+aggregates:
+  - id: AGG-001
+    name: FeatureFlag
+    bounded_context: BC-001
+    responsibilities: ["Flag definition, current state, rollout rules"]
+    commands: [DefineFlagCommand, ToggleFlagCommand, PublishFlagChangeCommand]
+    events: [FlagDefined, FlagToggled]
+  - id: AGG-002
+    name: FlagEvaluation
+    bounded_context: BC-002
+    responsibilities: ["Cached evaluation result per (flag, user, env)"]
+    commands: [EvaluateFlagCommand]
+    events: [FlagEvaluated]
+
+events:
+  - id: EVT-001
+    name: FlagDefined
+    aggregate: FeatureFlag
+    payload: [flagId: string, name: string, defaultValue: bool, definedAt: datetime]
+  - id: EVT-002
+    name: FlagToggled
+    aggregate: FeatureFlag
+    payload: [flagId: string, previousState: bool, newState: bool, actorId: string, toggledAt: datetime, reason: string]
+  - id: EVT-003
+    name: FlagEvaluated
+    aggregate: FlagEvaluation
+    payload: [flagId: string, userId: string, env: string, value: bool, evaluatedAt: datetime]
+
+outputs:
+  features:
+    - features/feature-flags/define.feature
+    - features/feature-flags/evaluate.feature
+    - features/feature-flags/toggle.feature
+  diagrams: []
+
+rules:
+  - id: RUL-001
+    title: "Flag identifiers are immutable once published"
+    context: BC-001
+    description: "Renaming requires a new flag and a migration plan."
+  - id: RUL-002
+    title: "Toggling a flag requires a non-empty reason"
+    context: BC-001
+    description: "Audit trail must explain operational changes."
+
+scenarios:
+  - id: SCN-001
+    title: "Defining a flag emits FlagDefined"
+    requirement: REQ-001
+    use_case: UC-001
+    given: "no flag with id 'new-checkout' exists"
+    when: "an operator defines the flag with default=false"
+    then: "FlagDefined is emitted"
+  - id: SCN-002
+    title: "Evaluation respects rollout percentage"
+    requirement: REQ-002
+    use_case: UC-002
+    given: "a flag with 50% rollout in production"
+    when: "100 users are evaluated"
+    then: "approximately half receive value=true"

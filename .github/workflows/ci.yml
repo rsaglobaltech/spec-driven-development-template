@@ -60,6 +60,12 @@ jobs:
       - name: Run MCP server unit tests
         run: npm run test:mcp-unit
 
+      - name: Run pack-registry unit tests
+        run: npm run test:registry-unit
+
+      - name: Build pack registry
+        run: npm run registry:build
+
       - name: Run snapshot / determinism tests
         run: npm run test:snapshot
 
