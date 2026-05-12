@@ -1,0 +1,190 @@
+# yaml-language-server: $schema=../../../schemas/pack.schema.json
+schema_version: "1.1.0"
+
+metadata:
+  name: "Webhooks Backend Domain Pack"
+  version: "0.1.0"
+  language: "en"
+  project_type: "backend"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - DOMAIN
+
+requirements:
+  - id: REQ-001
+    title: "Subscribe an endpoint to one or more event types"
+    priority: Must
+    description: "Consumers register a callback URL plus an interesting-events filter."
+    status: Draft
+  - id: REQ-002
+    title: "Deliver outgoing events to subscribed endpoints with HMAC signatures"
+    priority: Must
+    description: "Delivered payloads carry a verifiable signature so consumers can trust them."
+    status: Draft
+  - id: REQ-003
+    title: "Retry failed deliveries with exponential backoff"
+    priority: Must
+    description: "Network or downstream failures must not silently drop events."
+    status: Draft
+  - id: REQ-004
+    title: "Mark a subscription as failing and pause deliveries after repeated failures"
+    priority: Should
+    description: "Stop wasting capacity on permanently-broken consumers."
+    status: Draft
+  - id: REQ-005
+    title: "Provide a delivery log queryable by subscription and event id"
+    priority: Should
+    description: "Consumers need to audit what arrived and what didn't."
+    status: Draft
+
+bounded_contexts:
+  - id: BC-001
+    name: SubscriptionManagement
+    type: Core
+    responsibility: "Subscriptions, event filters, HMAC secrets, pause state"
+    aggregates:
+      - Subscription
+  - id: BC-002
+    name: DeliveryEngine
+    type: Core
+    responsibility: "Outbound HTTP delivery, retries, signature generation"
+    aggregates:
+      - DeliveryAttempt
+
+use_cases:
+  - id: UC-001
+    name: Create Subscription
+    actor: Consumer
+    requirement: REQ-001
+    command: CreateSubscriptionCommand
+  - id: UC-002
+    name: Dispatch Event
+    actor: System
+    requirement: REQ-002
+    command: DispatchEventCommand
+  - id: UC-003
+    name: Retry Failed Delivery
+    actor: System
+    requirement: REQ-003
+    command: RetryDeliveryCommand
+  - id: UC-004
+    name: Pause Failing Subscription
+    actor: System
+    requirement: REQ-004
+    command: PauseSubscriptionCommand
+  - id: UC-005
+    name: Query Delivery Log
+    actor: Consumer
+    requirement: REQ-005
+    command: QueryDeliveryLogCommand
+
+aggregates:
+  - id: AGG-001
+    name: Subscription
+    bounded_context: BC-001
+    responsibilities:
+      - "Endpoint URL, event filter, secret, pause state, failure counter"
+    commands:
+      - CreateSubscriptionCommand
+      - PauseSubscriptionCommand
+    events:
+      - SubscriptionCreated
+      - SubscriptionPaused
+  - id: AGG-002
+    name: DeliveryAttempt
+    bounded_context: BC-002
+    responsibilities:
+      - "Single delivery: target URL, request, response, retry count"
+    commands:
+      - DispatchEventCommand
+      - RetryDeliveryCommand
+      - QueryDeliveryLogCommand
+    events:
+      - DeliverySucceeded
+      - DeliveryFailed
+
+events:
+  - id: EVT-001
+    name: SubscriptionCreated
+    aggregate: Subscription
+    payload:
+      - subscriptionId: string
+      - consumerId: string
+      - eventTypes: array
+      - targetUrl: string
+      - createdAt: datetime
+  - id: EVT-002
+    name: SubscriptionPaused
+    aggregate: Subscription
+    payload:
+      - subscriptionId: string
+      - pausedAt: datetime
+      - reason: string
+  - id: EVT-003
+    name: DeliverySucceeded
+    aggregate: DeliveryAttempt
+    payload:
+      - deliveryId: string
+      - subscriptionId: string
+      - eventId: string
+      - attempts: int
+      - succeededAt: datetime
+  - id: EVT-004
+    name: DeliveryFailed
+    aggregate: DeliveryAttempt
+    payload:
+      - deliveryId: string
+      - subscriptionId: string
+      - eventId: string
+      - attempts: int
+      - failedAt: datetime
+      - reason: string
+
+outputs:
+  features:
+    - features/webhooks/subscribe.feature
+    - features/webhooks/dispatch.feature
+    - features/webhooks/retry.feature
+    - features/webhooks/pause.feature
+    - features/webhooks/delivery_log.feature
+  diagrams: []
+
+rules:
+  - id: RUL-001
+    title: "Outgoing payloads carry an HMAC-SHA256 signature header"
+    context: BC-002
+    description: "Consumers can verify origin without TLS-level checks."
+  - id: RUL-002
+    title: "Retry sequence is 1m, 5m, 30m, 2h, 12h; after 5 failures the subscription is paused"
+    context: BC-002
+    description: "Bounded retry budget protects sender capacity."
+  - id: RUL-003
+    title: "Delivery log is retained for 30 days"
+    context: BC-002
+    description: "Balances diagnostic value against storage cost."
+
+scenarios:
+  - id: SCN-001
+    title: "Creating a subscription emits SubscriptionCreated"
+    requirement: REQ-001
+    use_case: UC-001
+    given: "no subscription exists for endpoint 'https://example.com/hook'"
+    when: "a consumer creates a subscription for events ['order.created']"
+    then: "SubscriptionCreated is emitted and the endpoint will receive matching events"
+  - id: SCN-002
+    title: "Successful delivery emits DeliverySucceeded with HMAC verified"
+    requirement: REQ-002
+    use_case: UC-002
+    given: "an active subscription with secret 's3cr3t'"
+    when: "an event 'order.created' is dispatched and the endpoint returns 200"
+    then: "DeliverySucceeded is emitted with attempts=1"
+  - id: SCN-003
+    title: "After 5 failed retries the subscription is paused"
+    requirement: REQ-004
+    use_case: UC-004
+    given: "a subscription with 4 prior consecutive delivery failures"
+    when: "a 5th delivery attempt fails"
+    then: "SubscriptionPaused is emitted and no further deliveries are attempted"

@@ -1,0 +1,162 @@
+# yaml-language-server: $schema=../../../schemas/pack.schema.json
+schema_version: "1.1.0"
+
+metadata:
+  name: "Search Backend Domain Pack"
+  version: "0.1.0"
+  language: "en"
+  project_type: "backend"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - DOMAIN
+
+requirements:
+  - id: REQ-001
+    title: "Index documents on create and update events"
+    priority: Must
+    description: "Keep the search index in sync with the source of truth."
+    status: Draft
+  - id: REQ-002
+    title: "Execute a full-text query and return ranked results"
+    priority: Must
+    description: "Return the most relevant documents within a configurable latency budget."
+    status: Draft
+  - id: REQ-003
+    title: "Filter and facet results by structured fields"
+    priority: Should
+    description: "Users need to narrow results without re-querying with new keywords."
+    status: Draft
+  - id: REQ-004
+    title: "Reindex an existing dataset on demand"
+    priority: Should
+    description: "Recover from index corruption or schema migrations."
+    status: Draft
+
+bounded_contexts:
+  - id: BC-001
+    name: Indexing
+    type: Core
+    responsibility: "Apply create/update/delete events to the search index"
+    aggregates:
+      - SearchIndex
+  - id: BC-002
+    name: Querying
+    type: Core
+    responsibility: "Translate user queries to engine queries and rank results"
+    aggregates:
+      - SearchQuery
+
+use_cases:
+  - id: UC-001
+    name: Index Document
+    actor: System
+    requirement: REQ-001
+    command: IndexDocumentCommand
+  - id: UC-002
+    name: Execute Search
+    actor: User
+    requirement: REQ-002
+    command: ExecuteSearchCommand
+  - id: UC-003
+    name: Apply Filters
+    actor: User
+    requirement: REQ-003
+    command: ApplyFiltersCommand
+  - id: UC-004
+    name: Reindex Dataset
+    actor: Admin
+    requirement: REQ-004
+    command: ReindexDatasetCommand
+
+aggregates:
+  - id: AGG-001
+    name: SearchIndex
+    bounded_context: BC-001
+    responsibilities:
+      - "Index schema, field mappings, document lifecycle"
+    commands:
+      - IndexDocumentCommand
+      - ReindexDatasetCommand
+    events:
+      - DocumentIndexed
+      - ReindexCompleted
+  - id: AGG-002
+    name: SearchQuery
+    bounded_context: BC-002
+    responsibilities:
+      - "Parse user query, rank results, return facets"
+    commands:
+      - ExecuteSearchCommand
+      - ApplyFiltersCommand
+    events:
+      - SearchExecuted
+
+events:
+  - id: EVT-001
+    name: DocumentIndexed
+    aggregate: SearchIndex
+    payload:
+      - documentId: string
+      - indexName: string
+      - indexedAt: datetime
+  - id: EVT-002
+    name: ReindexCompleted
+    aggregate: SearchIndex
+    payload:
+      - indexName: string
+      - documentCount: int
+      - completedAt: datetime
+  - id: EVT-003
+    name: SearchExecuted
+    aggregate: SearchQuery
+    payload:
+      - queryId: string
+      - userId: string
+      - termCount: int
+      - resultCount: int
+      - latencyMs: int
+      - executedAt: datetime
+
+outputs:
+  features:
+    - features/search/index.feature
+    - features/search/query.feature
+    - features/search/filters.feature
+    - features/search/reindex.feature
+  diagrams: []
+
+rules:
+  - id: RUL-001
+    title: "Indexing failures are retried with exponential backoff"
+    context: BC-001
+    description: "Transient engine errors must not lose updates from upstream."
+  - id: RUL-002
+    title: "Query latency p95 ≤ 500ms"
+    context: BC-002
+    description: "Search that exceeds this budget triggers paging or pre-aggregation."
+
+scenarios:
+  - id: SCN-001
+    title: "Indexing a new document makes it searchable"
+    requirement: REQ-001
+    use_case: UC-001
+    given: "a document is created in the source-of-truth store"
+    when: "the indexer processes the create event"
+    then: "DocumentIndexed is emitted and the document is returned for matching queries"
+  - id: SCN-002
+    title: "Full-text query returns ranked results"
+    requirement: REQ-002
+    use_case: UC-002
+    given: "the index contains 10 documents containing 'invoice'"
+    when: "a user searches for 'invoice'"
+    then: "SearchExecuted is emitted and the top 10 results are returned by relevance"
+  - id: SCN-003
+    title: "Reindex restores a corrupted index"
+    requirement: REQ-004
+    use_case: UC-004
+    given: "an index has missing documents"
+    when: "an admin triggers a reindex of the source dataset"
+    then: "ReindexCompleted is emitted and all expected documents are searchable"

@@ -1,0 +1,211 @@
+# yaml-language-server: $schema=../../../schemas/pack.schema.json
+schema_version: "1.1.0"
+
+metadata:
+  name: "Reporting Backend Domain Pack"
+  version: "0.1.0"
+  language: "en"
+  project_type: "backend"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - DOMAIN
+
+requirements:
+  - id: REQ-001
+    title: "Define a report with parameters, data source, and output format"
+    priority: Must
+    description: "Reports are first-class artifacts that can be versioned and audited."
+    status: Draft
+  - id: REQ-002
+    title: "Execute a report synchronously for small datasets"
+    priority: Must
+    description: "Lightweight reports return results within the request lifecycle."
+    status: Draft
+  - id: REQ-003
+    title: "Execute a report asynchronously for large datasets"
+    priority: Must
+    description: "Long-running reports run as background jobs and notify on completion."
+    status: Draft
+  - id: REQ-004
+    title: "Schedule a report to run periodically"
+    priority: Should
+    description: "Daily/weekly/monthly reports are produced without manual triggers."
+    status: Draft
+  - id: REQ-005
+    title: "Export report results as CSV, JSON, or PDF"
+    priority: Should
+    description: "Consumers integrate with downstream tools that expect standard formats."
+    status: Draft
+
+bounded_contexts:
+  - id: BC-001
+    name: ReportDefinition
+    type: Core
+    responsibility: "Manage report definitions, parameters, and versions"
+    aggregates:
+      - ReportDefinition
+  - id: BC-002
+    name: ReportExecution
+    type: Core
+    responsibility: "Run reports, manage execution state, deliver outputs"
+    aggregates:
+      - ReportRun
+  - id: BC-003
+    name: ReportScheduling
+    type: Supporting
+    responsibility: "Trigger reports on a recurring schedule"
+    aggregates:
+      - ReportSchedule
+
+use_cases:
+  - id: UC-001
+    name: Define Report
+    actor: Analyst
+    requirement: REQ-001
+    command: DefineReportCommand
+  - id: UC-002
+    name: Run Report Synchronously
+    actor: User
+    requirement: REQ-002
+    command: RunReportCommand
+  - id: UC-003
+    name: Run Report Asynchronously
+    actor: User
+    requirement: REQ-003
+    command: EnqueueReportCommand
+  - id: UC-004
+    name: Schedule Report
+    actor: Admin
+    requirement: REQ-004
+    command: ScheduleReportCommand
+  - id: UC-005
+    name: Export Results
+    actor: User
+    requirement: REQ-005
+    command: ExportResultsCommand
+
+aggregates:
+  - id: AGG-001
+    name: ReportDefinition
+    bounded_context: BC-001
+    responsibilities:
+      - "Report identity, parameter schema, query source, versions"
+    commands:
+      - DefineReportCommand
+    events:
+      - ReportDefined
+  - id: AGG-002
+    name: ReportRun
+    bounded_context: BC-002
+    responsibilities:
+      - "Single execution: status, parameters, output location"
+    commands:
+      - RunReportCommand
+      - EnqueueReportCommand
+      - ExportResultsCommand
+    events:
+      - ReportEnqueued
+      - ReportCompleted
+      - ReportFailed
+      - ResultsExported
+  - id: AGG-003
+    name: ReportSchedule
+    bounded_context: BC-003
+    responsibilities:
+      - "Cron-like schedule and trigger history"
+    commands:
+      - ScheduleReportCommand
+    events:
+      - ScheduleTriggered
+
+events:
+  - id: EVT-001
+    name: ReportDefined
+    aggregate: ReportDefinition
+    payload:
+      - reportId: string
+      - name: string
+      - version: int
+      - definedAt: datetime
+  - id: EVT-002
+    name: ReportEnqueued
+    aggregate: ReportRun
+    payload:
+      - runId: string
+      - reportId: string
+      - userId: string
+      - enqueuedAt: datetime
+  - id: EVT-003
+    name: ReportCompleted
+    aggregate: ReportRun
+    payload:
+      - runId: string
+      - rowCount: int
+      - completedAt: datetime
+      - outputUri: string
+  - id: EVT-004
+    name: ReportFailed
+    aggregate: ReportRun
+    payload:
+      - runId: string
+      - failedAt: datetime
+      - reason: string
+  - id: EVT-005
+    name: ResultsExported
+    aggregate: ReportRun
+    payload:
+      - runId: string
+      - format: string
+      - exportedAt: datetime
+  - id: EVT-006
+    name: ScheduleTriggered
+    aggregate: ReportSchedule
+    payload:
+      - scheduleId: string
+      - reportId: string
+      - triggeredAt: datetime
+
+outputs:
+  features:
+    - features/reporting/define.feature
+    - features/reporting/run_sync.feature
+    - features/reporting/run_async.feature
+    - features/reporting/schedule.feature
+    - features/reporting/export.feature
+  diagrams: []
+
+rules:
+  - id: RUL-001
+    title: "Report definitions are versioned; existing runs reference the version they used"
+    context: BC-001
+    description: "Reproducibility requires immutable historical definitions."
+  - id: RUL-002
+    title: "Sync runs reject datasets exceeding 10,000 rows"
+    context: BC-002
+    description: "Above this threshold the user is redirected to the async path."
+
+scenarios:
+  - id: SCN-001
+    title: "A new report is registered and immediately runnable"
+    requirement: REQ-001
+    use_case: UC-001
+    given: "no report with id 'monthly-revenue' exists"
+    when: "an analyst defines the report"
+    then: "ReportDefined is emitted and the report appears in the catalog"
+  - id: SCN-002
+    title: "Async report completes and notifies the user"
+    requirement: REQ-003
+    use_case: UC-003
+    given: "an enqueued report with 1M rows"
+    when: "the worker completes the run"
+    then: "ReportCompleted is emitted and the user receives a notification"
+  - id: SCN-003
+    title: "Scheduled reports trigger on their cadence"
+    requirement: REQ-004
+    use_case: UC-004
+    given: "a daily-scheduled report at 02:00 UTC"
+    when: "02:00 UTC arrives"
+    then: "ScheduleTriggered is emitted and a new ReportRun starts"
