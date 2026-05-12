@@ -1,10 +1,13 @@
-name: Deploy Docs to GitHub Pages (gh-pages branch)
+name: Deploy Docs + Pack Registry to GitHub Pages
 
 on:
   push:
     branches: [main]
     paths:
       - 'docs/**'
+      - 'packs/**'
+      - 'packages/pack-registry/**'
+      - 'schemas/**'
       - '.github/workflows/pages.yml'
       - 'README.md'
   workflow_dispatch:
@@ -24,11 +27,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy docs folder to gh-pages branch
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Stage site directory
+        # Copy docs/ as the site root; we'll add the registry under /packs/
+        run: |
+          rm -rf _site
+          mkdir -p _site
+          cp -R docs/. _site/
+
+      - name: Build pack registry
+        # Generator emits dist/index.html and dist/manifest.json
+        run: |
+          node packages/pack-registry/src/build.js \
+            --packs ./packs \
+            --out _site/packs
+
+      - name: Add CNAME (optional — used when packs.spec-driven.dev is configured)
+        # Safe to commit even before DNS is pointed; GH Pages reads CNAME from the deployed branch
+        run: |
+          # Only emit CNAME if the env var is set in the repo's secrets/vars
+          # (avoids accidentally claiming a domain that's not yours)
+          if [ -n "${{ vars.SITE_CNAME }}" ]; then
+            echo "${{ vars.SITE_CNAME }}" > _site/CNAME
+            echo "Wrote CNAME for ${{ vars.SITE_CNAME }}"
+          fi
+
+      - name: Deploy site to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
-          publish_dir: ./docs
+          publish_dir: ./_site
           force_orphan: true
           enable_jekyll: false

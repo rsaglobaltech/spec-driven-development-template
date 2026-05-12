@@ -397,9 +397,21 @@ Package registries do not allow publishing the same version twice. For every bet
 
 ---
 
+## 📚 Resources
+
+- [Case Study 1 — Smart Parking brownfield adoption](docs/case-studies/case-1.md)
+- [ROI Calculator](docs/roi.html) (open in browser)
+- [Comparison vs. spec-kit / Cursor / Aider / plain README](docs/comparisons.md)
+- [Architecture Decision Records](docs/specs/adr/README.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [Improvements backlog](IMPROVEMENTS.md)
+
+---
+
 ## 🤝 Contributing
 
-Contributions are welcome.
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
+test commands, the ADR policy, and the PR checklist.
 
 Good first contributions:
 - new module templates,

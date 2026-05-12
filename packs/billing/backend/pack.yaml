@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=../../../schemas/pack.schema.json
+schema_version: "1.1.0"
+
+metadata:
+  name: "Billing Backend Domain Pack"
+  version: "0.1.0"
+  language: "en"
+  project_type: "backend"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - DOMAIN
+
+requirements:
+  - id: REQ-001
+    title: "Issue invoices for billable events"
+    priority: Must
+    description: "Generate dated invoices when chargeable events occur."
+    status: Draft
+  - id: REQ-002
+    title: "Process payments via at least one payment provider"
+    priority: Must
+    description: "Accept successful payment, record receipt, mark invoice paid."
+    status: Draft
+  - id: REQ-003
+    title: "Refund a previously-paid invoice"
+    priority: Should
+    description: "Operators can refund full or partial amounts."
+    status: Draft
+  - id: REQ-004
+    title: "Calculate taxes per jurisdiction"
+    priority: Should
+    description: "Apply applicable VAT/sales tax based on customer locale."
+    status: Draft
+
+bounded_contexts:
+  - id: BC-001
+    name: Invoicing
+    type: Core
+    responsibility: "Invoice creation, lifecycle, and aging"
+    aggregates: [Invoice]
+  - id: BC-002
+    name: Payments
+    type: Core
+    responsibility: "Payment intents, settlements, and refunds"
+    aggregates: [Payment]
+
+use_cases:
+  - id: UC-001
+    name: Issue Invoice
+    actor: System
+    requirement: REQ-001
+    command: IssueInvoiceCommand
+  - id: UC-002
+    name: Process Payment
+    actor: Customer
+    requirement: REQ-002
+    command: ProcessPaymentCommand
+  - id: UC-003
+    name: Issue Refund
+    actor: Operator
+    requirement: REQ-003
+    command: IssueRefundCommand
+  - id: UC-004
+    name: Calculate Tax
+    actor: System
+    requirement: REQ-004
+    command: CalculateTaxCommand
+
+aggregates:
+  - id: AGG-001
+    name: Invoice
+    bounded_context: BC-001
+    responsibilities: ["Invoice line items, totals, status, aging"]
+    commands: [IssueInvoiceCommand, CalculateTaxCommand]
+    events: [InvoiceIssued, InvoicePaid]
+  - id: AGG-002
+    name: Payment
+    bounded_context: BC-002
+    responsibilities: ["Payment intent, settlement, refund"]
+    commands: [ProcessPaymentCommand, IssueRefundCommand]
+    events: [PaymentSucceeded, RefundIssued]
+
+events:
+  - id: EVT-001
+    name: InvoiceIssued
+    aggregate: Invoice
+    payload: [invoiceId: string, customerId: string, amount: money, issuedAt: datetime]
+  - id: EVT-002
+    name: PaymentSucceeded
+    aggregate: Payment
+    payload: [paymentId: string, invoiceId: string, amount: money, processedAt: datetime]
+  - id: EVT-003
+    name: RefundIssued
+    aggregate: Payment
+    payload: [refundId: string, paymentId: string, amount: money, refundedAt: datetime]
+  - id: EVT-004
+    name: InvoicePaid
+    aggregate: Invoice
+    payload: [invoiceId: string, paidAt: datetime]
+
+outputs:
+  features:
+    - features/billing/issue_invoice.feature
+    - features/billing/process_payment.feature
+    - features/billing/refund.feature
+  diagrams: []
+
+rules:
+  - id: RUL-001
+    title: "Invoices are immutable once issued"
+    context: BC-001
+    description: "Corrections require credit notes, not edits."
+  - id: RUL-002
+    title: "Refund amount cannot exceed original payment"
+    context: BC-002
+    description: "Partial refunds accumulate to at most the paid amount."
+
+scenarios:
+  - id: SCN-001
+    title: "Issuing an invoice emits InvoiceIssued"
+    requirement: REQ-001
+    use_case: UC-001
+    given: "a customer has billable line items"
+    when: "the system issues an invoice"
+    then: "InvoiceIssued is emitted with the correct total"
+  - id: SCN-002
+    title: "Paid invoices transition to Paid status"
+    requirement: REQ-002
+    use_case: UC-002
+    given: "an outstanding invoice"
+    when: "a successful payment is processed"
+    then: "the invoice transitions to Paid and InvoicePaid is emitted"
+  - id: SCN-003
+    title: "Refunds cannot exceed the original payment"
+    requirement: REQ-003
+    use_case: UC-003
+    given: "a payment of 100 has been settled"
+    when: "an operator attempts a refund of 150"
+    then: "the refund is rejected"

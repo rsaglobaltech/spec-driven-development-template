@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=../../../schemas/pack.schema.json
+schema_version: "1.1.0"
+
+metadata:
+  name: "Audit Log Backend Domain Pack"
+  version: "0.1.0"
+  language: "en"
+  project_type: "backend"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - DOMAIN
+
+requirements:
+  - id: REQ-001
+    title: "Record every state-changing action with actor, timestamp, and payload"
+    priority: Must
+    description: "All write operations leave an audit trail."
+    status: Draft
+  - id: REQ-002
+    title: "Audit log is append-only and tamper-evident"
+    priority: Must
+    description: "Hash chain or signed entries prevent silent modification."
+    status: Draft
+  - id: REQ-003
+    title: "Query the audit log by actor, resource, or time range"
+    priority: Should
+    description: "Operators and auditors can search for relevant entries."
+    status: Draft
+  - id: REQ-004
+    title: "Export the audit log to immutable storage"
+    priority: Should
+    description: "Long-term retention separate from operational store."
+    status: Draft
+
+bounded_contexts:
+  - id: BC-001
+    name: AuditTrail
+    type: Supporting
+    responsibility: "Append-only record of state changes"
+    aggregates: [AuditEntry]
+
+use_cases:
+  - id: UC-001
+    name: Record Audit Entry
+    actor: System
+    requirement: REQ-001
+    command: RecordAuditEntryCommand
+  - id: UC-002
+    name: Verify Tamper Evidence
+    actor: Auditor
+    requirement: REQ-002
+    command: VerifyAuditChainCommand
+  - id: UC-003
+    name: Query Audit Log
+    actor: Operator
+    requirement: REQ-003
+    command: QueryAuditLogCommand
+  - id: UC-004
+    name: Export Audit Archive
+    actor: System
+    requirement: REQ-004
+    command: ExportAuditArchiveCommand
+
+aggregates:
+  - id: AGG-001
+    name: AuditEntry
+    bounded_context: BC-001
+    responsibilities: ["Immutable record with hash chain"]
+    commands: [RecordAuditEntryCommand, VerifyAuditChainCommand]
+    events: [AuditEntryRecorded, AuditChainVerified]
+
+events:
+  - id: EVT-001
+    name: AuditEntryRecorded
+    aggregate: AuditEntry
+    payload: [entryId: string, actorId: string, action: string, recordedAt: datetime, prevHash: string]
+  - id: EVT-002
+    name: AuditChainVerified
+    aggregate: AuditEntry
+    payload: [verifiedAt: datetime, entriesChecked: int, valid: bool]
+
+outputs:
+  features:
+    - features/audit/record_entry.feature
+    - features/audit/verify_chain.feature
+    - features/audit/query_log.feature
+  diagrams: []
+
+rules:
+  - id: RUL-001
+    title: "Audit entries cannot be deleted or modified"
+    context: BC-001
+    description: "Storage layer enforces append-only constraint."
+  - id: RUL-002
+    title: "Each entry hashes the previous entry's id and content"
+    context: BC-001
+    description: "Forms a tamper-evident chain."
+
+scenarios:
+  - id: SCN-001
+    title: "Recording an action emits AuditEntryRecorded"
+    requirement: REQ-001
+    use_case: UC-001
+    given: "a state-changing operation completes"
+    when: "the system records the audit entry"
+    then: "AuditEntryRecorded is emitted with actor, action, and prevHash"
+  - id: SCN-002
+    title: "Tampering breaks the chain verification"
+    requirement: REQ-002
+    use_case: UC-002
+    given: "an audit chain has been tampered with"
+    when: "an auditor runs verification"
+    then: "AuditChainVerified is emitted with valid=false"

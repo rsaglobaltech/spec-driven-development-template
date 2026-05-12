@@ -1,0 +1,159 @@
+# yaml-language-server: $schema=../../../schemas/pack.schema.json
+schema_version: "1.1.0"
+
+metadata:
+  name: "Multi-Tenant Backend Domain Pack"
+  version: "0.1.0"
+  language: "en"
+  project_type: "backend"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - DOMAIN
+
+requirements:
+  - id: REQ-001
+    title: "Isolate tenant data so no tenant can read or write another's data"
+    priority: Must
+    description: "Hard data isolation is the foundational invariant of any multi-tenant system."
+    status: Draft
+  - id: REQ-002
+    title: "Provision a new tenant with default configuration"
+    priority: Must
+    description: "Onboard a tenant atomically with a unique identifier and defaults."
+    status: Draft
+  - id: REQ-003
+    title: "Enforce per-tenant resource quotas (storage, requests, users)"
+    priority: Must
+    description: "Prevent any single tenant from exhausting shared capacity."
+    status: Draft
+  - id: REQ-004
+    title: "Deprovision a tenant and purge their data on request"
+    priority: Should
+    description: "GDPR / data-residency compliance requires verified deletion."
+    status: Draft
+
+bounded_contexts:
+  - id: BC-001
+    name: TenantProvisioning
+    type: Core
+    responsibility: "Tenant lifecycle: create, suspend, deprovision"
+    aggregates:
+      - Tenant
+  - id: BC-002
+    name: TenantIsolation
+    type: Core
+    responsibility: "Per-request tenant context, row-level scoping, quota enforcement"
+    aggregates:
+      - TenantContext
+
+use_cases:
+  - id: UC-001
+    name: Provision Tenant
+    actor: Admin
+    requirement: REQ-002
+    command: ProvisionTenantCommand
+  - id: UC-002
+    name: Resolve Tenant Context
+    actor: System
+    requirement: REQ-001
+    command: ResolveTenantContextCommand
+  - id: UC-003
+    name: Enforce Quota
+    actor: System
+    requirement: REQ-003
+    command: EnforceQuotaCommand
+  - id: UC-004
+    name: Deprovision Tenant
+    actor: Admin
+    requirement: REQ-004
+    command: DeprovisionTenantCommand
+
+aggregates:
+  - id: AGG-001
+    name: Tenant
+    bounded_context: BC-001
+    responsibilities:
+      - "Tenant identity, status, quotas, deletion state"
+    commands:
+      - ProvisionTenantCommand
+      - DeprovisionTenantCommand
+    events:
+      - TenantProvisioned
+      - TenantDeprovisioned
+  - id: AGG-002
+    name: TenantContext
+    bounded_context: BC-002
+    responsibilities:
+      - "Bound a request to a single tenant for the duration of execution"
+    commands:
+      - ResolveTenantContextCommand
+      - EnforceQuotaCommand
+    events:
+      - QuotaExceeded
+
+events:
+  - id: EVT-001
+    name: TenantProvisioned
+    aggregate: Tenant
+    payload:
+      - tenantId: string
+      - name: string
+      - provisionedAt: datetime
+  - id: EVT-002
+    name: TenantDeprovisioned
+    aggregate: Tenant
+    payload:
+      - tenantId: string
+      - deprovisionedAt: datetime
+      - reason: string
+  - id: EVT-003
+    name: QuotaExceeded
+    aggregate: TenantContext
+    payload:
+      - tenantId: string
+      - quotaName: string
+      - exceededAt: datetime
+
+outputs:
+  features:
+    - features/multi-tenant/provision.feature
+    - features/multi-tenant/isolation.feature
+    - features/multi-tenant/quota.feature
+    - features/multi-tenant/deprovision.feature
+  diagrams: []
+
+rules:
+  - id: RUL-001
+    title: "Every data access query must include the active tenant id"
+    context: BC-002
+    description: "ORM-level or repository-level filters enforce this invariant."
+  - id: RUL-002
+    title: "Deprovisioning is a two-phase commit (soft-delete then purge)"
+    context: BC-001
+    description: "Hard purge runs only after a 7-day grace window."
+
+scenarios:
+  - id: SCN-001
+    title: "Provisioning a tenant emits TenantProvisioned"
+    requirement: REQ-002
+    use_case: UC-001
+    given: "no tenant exists with id 'acme'"
+    when: "an admin provisions a tenant with name 'Acme'"
+    then: "TenantProvisioned is emitted and the tenant is queryable"
+  - id: SCN-002
+    title: "Cross-tenant read attempts are rejected"
+    requirement: REQ-001
+    use_case: UC-002
+    given: "a request is scoped to tenant 'acme'"
+    when: "the request tries to read data belonging to tenant 'globex'"
+    then: "the access is denied"
+  - id: SCN-003
+    title: "Exceeding a quota emits QuotaExceeded"
+    requirement: REQ-003
+    use_case: UC-003
+    given: "tenant 'acme' has used 99% of its storage quota"
+    when: "tenant 'acme' attempts to write 100MB"
+    then: "QuotaExceeded is emitted and the write is rejected"

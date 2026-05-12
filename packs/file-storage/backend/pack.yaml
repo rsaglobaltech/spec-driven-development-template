@@ -1,0 +1,192 @@
+# yaml-language-server: $schema=../../../schemas/pack.schema.json
+schema_version: "1.1.0"
+
+metadata:
+  name: "File Storage Backend Domain Pack"
+  version: "0.1.0"
+  language: "en"
+  project_type: "backend"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - DOMAIN
+
+requirements:
+  - id: REQ-001
+    title: "Upload a file with metadata (owner, content-type, size)"
+    priority: Must
+    description: "Persist user-provided files with verifiable provenance."
+    status: Draft
+  - id: REQ-002
+    title: "Download a file with authorization check"
+    priority: Must
+    description: "Only the owner or an authorized delegate may retrieve a file."
+    status: Draft
+  - id: REQ-003
+    title: "Generate time-limited presigned URLs for direct access"
+    priority: Should
+    description: "Offload bandwidth to object storage while keeping access controlled."
+    status: Draft
+  - id: REQ-004
+    title: "Scan uploads for malware before they become accessible"
+    priority: Should
+    description: "Reject infected uploads at quarantine time, not at first download."
+    status: Draft
+  - id: REQ-005
+    title: "Permanently delete a file on request and remove all replicas"
+    priority: Should
+    description: "Honor data-deletion requests across primary and backup stores."
+    status: Draft
+
+bounded_contexts:
+  - id: BC-001
+    name: FileLifecycle
+    type: Core
+    responsibility: "Upload, store, retrieve, and delete files"
+    aggregates:
+      - StoredFile
+  - id: BC-002
+    name: AccessControl
+    type: Core
+    responsibility: "Authorize reads and writes; issue presigned URLs"
+    aggregates:
+      - FileGrant
+
+use_cases:
+  - id: UC-001
+    name: Upload File
+    actor: User
+    requirement: REQ-001
+    command: UploadFileCommand
+  - id: UC-002
+    name: Download File
+    actor: User
+    requirement: REQ-002
+    command: DownloadFileCommand
+  - id: UC-003
+    name: Issue Presigned URL
+    actor: User
+    requirement: REQ-003
+    command: IssuePresignedUrlCommand
+  - id: UC-004
+    name: Scan Upload
+    actor: System
+    requirement: REQ-004
+    command: ScanUploadCommand
+  - id: UC-005
+    name: Delete File
+    actor: User
+    requirement: REQ-005
+    command: DeleteFileCommand
+
+aggregates:
+  - id: AGG-001
+    name: StoredFile
+    bounded_context: BC-001
+    responsibilities:
+      - "File identity, metadata, content addressing, lifecycle state"
+    commands:
+      - UploadFileCommand
+      - DeleteFileCommand
+      - ScanUploadCommand
+    events:
+      - FileUploaded
+      - FileDeleted
+      - FileQuarantined
+  - id: AGG-002
+    name: FileGrant
+    bounded_context: BC-002
+    responsibilities:
+      - "Per-user, per-file authorization and time-limited grants"
+    commands:
+      - DownloadFileCommand
+      - IssuePresignedUrlCommand
+    events:
+      - FileAccessed
+      - PresignedUrlIssued
+
+events:
+  - id: EVT-001
+    name: FileUploaded
+    aggregate: StoredFile
+    payload:
+      - fileId: string
+      - ownerId: string
+      - contentType: string
+      - sizeBytes: int
+      - uploadedAt: datetime
+  - id: EVT-002
+    name: FileDeleted
+    aggregate: StoredFile
+    payload:
+      - fileId: string
+      - deletedAt: datetime
+  - id: EVT-003
+    name: FileQuarantined
+    aggregate: StoredFile
+    payload:
+      - fileId: string
+      - quarantinedAt: datetime
+      - reason: string
+  - id: EVT-004
+    name: PresignedUrlIssued
+    aggregate: FileGrant
+    payload:
+      - fileId: string
+      - userId: string
+      - expiresAt: datetime
+  - id: EVT-005
+    name: FileAccessed
+    aggregate: FileGrant
+    payload:
+      - fileId: string
+      - userId: string
+      - accessedAt: datetime
+
+outputs:
+  features:
+    - features/file-storage/upload.feature
+    - features/file-storage/download.feature
+    - features/file-storage/presigned_url.feature
+    - features/file-storage/scan.feature
+    - features/file-storage/delete.feature
+  diagrams: []
+
+rules:
+  - id: RUL-001
+    title: "Uploaded files are quarantined until scan completes"
+    context: BC-001
+    description: "No download is possible while a file is in quarantine."
+  - id: RUL-002
+    title: "Presigned URLs expire within 1 hour by default"
+    context: BC-002
+    description: "Longer expiry requires an explicit override and is audited."
+  - id: RUL-003
+    title: "Deletion is propagated to replicas within 24 hours"
+    context: BC-001
+    description: "Verifiable deletion contracts require all-replica purge."
+
+scenarios:
+  - id: SCN-001
+    title: "Uploading a clean file makes it downloadable"
+    requirement: REQ-001
+    use_case: UC-001
+    given: "an authenticated user with available quota"
+    when: "the user uploads a 10MB PDF and the scan completes clean"
+    then: "FileUploaded is emitted and the file is downloadable"
+  - id: SCN-002
+    title: "Infected uploads are quarantined and not delivered"
+    requirement: REQ-004
+    use_case: UC-004
+    given: "an upload that the scanner flags as malware"
+    when: "the scan completes"
+    then: "FileQuarantined is emitted and download attempts return 403"
+  - id: SCN-003
+    title: "Presigned URLs expire after the configured TTL"
+    requirement: REQ-003
+    use_case: UC-003
+    given: "a presigned URL issued 61 minutes ago with 1 hour TTL"
+    when: "a user accesses the URL"
+    then: "the access is denied"
