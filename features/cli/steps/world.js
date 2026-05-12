@@ -1,9 +1,13 @@
 "use strict";
-const { setWorldConstructor } = require("@cucumber/cucumber");
+const { setWorldConstructor, setDefaultTimeout } = require("@cucumber/cucumber");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+
+// CI on slower runners (Node 18, macOS) can exceed the 5s default per step.
+// Bump to 30s — matches the spawnSync timeout below.
+setDefaultTimeout(30_000);
 
 const ROOT = path.resolve(__dirname, "../../..");
 const CLI = path.join(ROOT, "bin", "create-spec-driven-app.js");

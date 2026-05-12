@@ -309,7 +309,8 @@ function ensureTraceabilityCoverage(projectDir) {
   let counter = 1;
 
   for (const ff of featureFiles) {
-    const rel = path.relative(projectDir, ff);
+    // Use POSIX separators so the matrix renders the same on Windows and Unix.
+    const rel = path.relative(projectDir, ff).split(path.sep).join("/");
     if (content.includes(rel)) continue;
     const title = featureTitleFromPath(rel);
     const scenarioId = `SCN-TBD-${String(counter).padStart(3, "0")}`;

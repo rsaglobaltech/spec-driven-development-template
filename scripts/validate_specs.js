@@ -185,9 +185,10 @@ function main() {
     }
   }
 
-  // Every feature file must be referenced in the matrix
+  // Every feature file must be referenced in the matrix.
+  // Templates use POSIX paths; normalise Windows backslashes before comparing.
   for (const ff of featureFiles.sort()) {
-    const rel = path.relative(targetDir, ff);
+    const rel = path.relative(targetDir, ff).split(path.sep).join("/");
     if (!traceContent.includes(rel)) {
       fail(`Feature file missing from traceability.md: ${rel}`);
     }
