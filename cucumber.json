@@ -2,6 +2,6 @@
   "default": {
     "require": ["features/cli/steps/*.js"],
     "format": ["progress-bar", "summary"],
-    "paths": ["features/cli/"]
+    "paths": ["features/cli/", "features/pack/"]
   }
 }
