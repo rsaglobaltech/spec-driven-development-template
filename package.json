@@ -15,7 +15,7 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "repository": {
     "type": "git",
@@ -30,15 +30,15 @@
     "cli"
   ],
   "scripts": {
-    "test": "node --test tests/*.test.js",
-    "test:unit": "node --test tests/unit/*.test.js",
-    "test:vscode-unit": "node --test packages/vscode-spec-driven/test/unit/*.test.js",
-    "test:mcp-unit": "node --test packages/mcp-spec-driven/test/unit/*.test.js",
-    "test:registry-unit": "node --test packages/pack-registry/test/unit/*.test.js",
+    "test": "node --test tests/cli.test.js",
+    "test:unit": "node scripts/run-tests.js tests/unit",
+    "test:vscode-unit": "node scripts/run-tests.js packages/vscode-spec-driven/test/unit",
+    "test:mcp-unit": "node scripts/run-tests.js packages/mcp-spec-driven/test/unit",
+    "test:registry-unit": "node scripts/run-tests.js packages/pack-registry/test/unit",
     "registry:build": "node packages/pack-registry/src/build.js",
-    "test:snapshot": "node --test tests/snapshot/*.test.js",
+    "test:snapshot": "node scripts/run-tests.js tests/snapshot",
     "mutation:pilot": "stryker run stryker.config.mjs",
-    "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov --lines 75 --branches 65 --functions 80 node --test tests/unit/*.test.js",
+    "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov --lines 75 --branches 65 --functions 80 node scripts/run-tests.js tests/unit",
     "test:bdd": "cucumber-js",
     "test:all": "npm test && npm run test:coverage && npm run test:bdd && npm run test:vscode-unit && npm run test:mcp-unit && npm run test:registry-unit && npm run test:snapshot && npm run registry:build",
     "pack:dry-run": "npm pack --dry-run",
