@@ -7,3 +7,6 @@ coverage/
 reports/mutation/*.html
 reports/mutation/*.json
 packages/pack-registry/dist/
+# Stray .vsix at the extension package root (the canonical copy lives in releases/)
+packages/vscode-spec-driven/*.vsix
+_site/
