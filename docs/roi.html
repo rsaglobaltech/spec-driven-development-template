@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec-Driven Development — ROI Calculator</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --fg: #e4e6eb;
+    --muted: #9aa0a6;
+    --accent: #4f9eff;
+    --good: #36b37e;
+    --warn: #ffab00;
+    --card: #161b22;
+    --border: #30363d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    margin: 0;
+    padding: 2rem 1rem;
+    line-height: 1.5;
+  }
+  .container { max-width: 920px; margin: 0 auto; }
+  h1 {
+    font-size: 2rem;
+    margin: 0 0 0.5rem 0;
+    background: linear-gradient(90deg, var(--accent), var(--good));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+  .card h2 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    color: var(--accent);
+  }
+  label {
+    display: block;
+    margin-bottom: 1rem;
+  }
+  .label-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+  }
+  .label-text { font-size: 0.9rem; }
+  .label-value {
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  input[type=range] { width: 100%; }
+  input[type=number] {
+    width: 100%;
+    padding: 0.4rem;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font: inherit;
+  }
+  .results {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, var(--card), #1a2332);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+  }
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-row:last-child { border-bottom: none; }
+  .result-row.total {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-top: 0.5rem;
+    padding-top: 1rem;
+    border-top: 2px solid var(--accent);
+  }
+  .result-row.total.positive { color: var(--good); }
+  .result-row.total.negative { color: var(--warn); }
+  .help {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+  }
+  .footer {
+    margin-top: 3rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Spec-Driven ROI Calculator</h1>
+  <p class="subtitle">
+    Estimate the first-year return on adopting <code>create-spec-driven-app</code>
+    for your team. All values are editable.
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Team profile</h2>
+
+      <label>
+        <div class="label-row">
+          <span class="label-text">Engineers on team</span>
+          <span class="label-value" id="val-engineers">6</span>
+        </div>
+        <input type="range" id="engineers" min="1" max="50" value="6" step="1">
+      </label>
+
+      <label>
+        <div class="label-row">
+          <span class="label-text">Blended day rate (€)</span>
+          <span class="label-value" id="val-rate">600</span>
+        </div>
+        <input type="range" id="rate" min="100" max="2000" value="600" step="50">
+      </label>
+
+      <label>
+        <div class="label-row">
+          <span class="label-text">Working days per year</span>
+          <span class="label-value" id="val-days">220</span>
+        </div>
+        <input type="range" id="days" min="180" max="250" value="220" step="5">
+      </label>
+
+      <label>
+        <div class="label-row">
+          <span class="label-text">New hires per year</span>
+          <span class="label-value" id="val-hires">2</span>
+        </div>
+        <input type="range" id="hires" min="0" max="20" value="2" step="1">
+      </label>
+    </div>
+
+    <div class="card">
+      <h2>Current pain points</h2>
+
+      <label>
+        <div class="label-row">
+          <span class="label-text">Onboarding time today (days)</span>
+          <span class="label-value" id="val-onboarding">15</span>
+        </div>
+        <input type="range" id="onboarding" min="3" max="60" value="15" step="1">
+        <div class="help">Time for a new hire to ship their first non-trivial PR.</div>
+      </label>
+
+      <label>
+        <div class="label-row">
+          <span class="label-text">Production bugs / sprint</span>
+          <span class="label-value" id="val-bugs">3</span>
+        </div>
+        <input type="range" id="bugs" min="0" max="20" value="3" step="1">
+        <div class="help">Bugs traceable to ambiguous or undocumented requirements.</div>
+      </label>
+
+      <label>
+        <div class="label-row">
+          <span class="label-text">Days lost per bug (avg.)</span>
+          <span class="label-value" id="val-bugcost">2</span>
+        </div>
+        <input type="range" id="bugcost" min="0.5" max="10" value="2" step="0.5">
+      </label>
+
+      <label>
+        <div class="label-row">
+          <span class="label-text">Sprints per year</span>
+          <span class="label-value" id="val-sprints">26</span>
+        </div>
+        <input type="range" id="sprints" min="12" max="52" value="26" step="1">
+      </label>
+
+      <label>
+        <div class="label-row">
+          <span class="label-text">Estimation error today (%)</span>
+          <span class="label-value" id="val-estim">60</span>
+        </div>
+        <input type="range" id="estim" min="0" max="100" value="60" step="5">
+        <div class="help">Average gap between estimated and actual story points.</div>
+      </label>
+
+      <label>
+        <div class="label-row">
+          <span class="label-text">Adoption investment (engineer-days)</span>
+          <span class="label-value" id="val-invest">80</span>
+        </div>
+        <input type="range" id="invest" min="20" max="500" value="80" step="10">
+      </label>
+    </div>
+  </div>
+
+  <div class="results">
+    <h2 style="margin: 0 0 0.5rem 0; color: var(--good);">First-year ROI estimate</h2>
+    <div class="result-row">
+      <span>Onboarding savings</span>
+      <span id="r-onboarding">—</span>
+    </div>
+    <div class="result-row">
+      <span>Bug-fix time reclaimed</span>
+      <span id="r-bugs">—</span>
+    </div>
+    <div class="result-row">
+      <span>Estimation accuracy gains</span>
+      <span id="r-estim">—</span>
+    </div>
+    <div class="result-row">
+      <span>Adoption cost</span>
+      <span id="r-invest">—</span>
+    </div>
+    <div class="result-row total" id="r-net">
+      <span>Net first-year impact</span>
+      <span id="r-total">—</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>
+      Assumptions based on
+      <a href="case-studies/case-1.md">Case Study 1</a>:
+      onboarding −76%, bugs −74%, estimation accuracy +40 pp.
+      Effects are linear in the inputs above; real outcomes vary.
+    </p>
+    <p>
+      <a href="../README.md">← Back to README</a> ·
+      <a href="comparisons.md">Compare to alternatives</a>
+    </p>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => "€" + Math.round(n).toLocaleString("en-US");
+
+  const inputs = ["engineers","rate","days","hires","onboarding","bugs","bugcost","sprints","estim","invest"];
+
+  function read() {
+    return Object.fromEntries(inputs.map((k) => [k, parseFloat($(k).value)]));
+  }
+
+  function recalc() {
+    const v = read();
+
+    // Display every slider value
+    inputs.forEach((k) => {
+      const display = $("val-" + k);
+      if (display) display.textContent = v[k];
+    });
+
+    // Onboarding savings: 76% reduction × hires × day rate
+    const onboardSaving = v.hires * v.onboarding * 0.76 * v.rate;
+
+    // Bug-fix savings: 74% reduction × bugs × cost × sprints × day rate
+    const bugSaving = v.bugs * v.bugcost * v.sprints * 0.74 * v.rate;
+
+    // Estimation accuracy gain: a 40-pp swing recovers ~10% of total team time
+    const estimGain = (v.estim / 100) * 0.4 * v.engineers * v.days * v.rate * 0.1;
+
+    // Adoption cost
+    const adoptionCost = v.invest * v.rate;
+
+    const total = onboardSaving + bugSaving + estimGain - adoptionCost;
+
+    $("r-onboarding").textContent = "+ " + fmt(onboardSaving);
+    $("r-bugs").textContent = "+ " + fmt(bugSaving);
+    $("r-estim").textContent = "+ " + fmt(estimGain);
+    $("r-invest").textContent = "− " + fmt(adoptionCost);
+    $("r-total").textContent = (total >= 0 ? "+ " : "− ") + fmt(Math.abs(total));
+    const row = $("r-net");
+    row.classList.toggle("positive", total >= 0);
+    row.classList.toggle("negative", total < 0);
+  }
+
+  inputs.forEach((k) => $(k).addEventListener("input", recalc));
+  recalc();
+</script>
+</body>
+</html>
