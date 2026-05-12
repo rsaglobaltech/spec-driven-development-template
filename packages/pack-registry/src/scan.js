@@ -15,7 +15,8 @@ const CLI = path.join(REPO_ROOT, "bin/create-spec-driven-app.js");
 const { loadPack } = require(path.join(REPO_ROOT, "scripts/domain-pack/common"));
 
 /**
- * @typedef {{ id: string, name: string, version: string, language: string,
+ * @typedef {{ id: string, name: string, domain: string, description: string,
+ *   version: string, language: string,
  *   project_type: string, requirements: number, useCases: number,
  *   aggregates: number, events: number, scenarios: number, lintStatus: "pass"|"warn"|"fail",
  *   lintMessages: string[] }} PackMetadata
@@ -70,10 +71,14 @@ function buildMetadata(packsRoot, id) {
 
   const lint = runLint(packsRoot, id);
   const meta = pack.metadata || {};
+  const firstReq = Array.isArray(pack.requirements) && pack.requirements[0];
+  const description = (firstReq && firstReq.description) || "";
 
   return {
     id,
+    domain: id.split("/")[0],
     name: meta.name || id,
+    description,
     version: meta.version || "0.0.0",
     language: meta.language || "en",
     project_type: meta.project_type || "backend",
