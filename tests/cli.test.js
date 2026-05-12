@@ -223,3 +223,122 @@ test("can init, expand, and validate a generated project end-to-end", () => {
 
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
+
+// ── SpecOps: expand --pack-repo + .specops.lock ──────────────────────────────
+
+function gitInTest(args, opts = {}) {
+  const result = spawnSync("git", args, { encoding: "utf8", ...opts });
+  if (result.status !== 0) {
+    throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
+  }
+}
+
+function hasGit() {
+  return spawnSync("git", ["--version"], { encoding: "utf8" }).status === 0;
+}
+
+test(
+  "expand --pack-repo clones a remote pack and writes .specops.lock",
+  { skip: !hasGit() },
+  () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-specops-e2e-"));
+    const remoteRepo = path.join(tempRoot, "remote-pack");
+    const cacheDir = path.join(tempRoot, "cache");
+    const projectDir = path.join(tempRoot, "project");
+
+    // Build a self-contained pack repo with the fixture pack already validated by the suite.
+    fs.mkdirSync(remoteRepo, { recursive: true });
+    fs.cpSync(
+      path.join(ROOT_DIR, "tests", "fixtures", "domain-packs", "parking-management"),
+      path.join(remoteRepo, "parking-management"),
+      { recursive: true }
+    );
+    gitInTest(["init", "--quiet", "--initial-branch=main", remoteRepo]);
+    gitInTest(["config", "user.email", "test@example.com"], { cwd: remoteRepo });
+    gitInTest(["config", "user.name", "Test"], { cwd: remoteRepo });
+    gitInTest(["config", "commit.gpgsign", "false"], { cwd: remoteRepo });
+    gitInTest(["config", "tag.gpgsign", "false"], { cwd: remoteRepo });
+    gitInTest(["add", "."], { cwd: remoteRepo });
+    gitInTest(["commit", "--quiet", "-m", "initial"], { cwd: remoteRepo });
+    gitInTest(["tag", "v0.1.0"], { cwd: remoteRepo });
+
+    fs.mkdirSync(projectDir, { recursive: true });
+    const result = runCli([
+      "expand",
+      "--pack-repo",
+      remoteRepo,
+      "--pack-version",
+      "v0.1.0",
+      "--pack",
+      "parking-management/backend",
+      "--project-dir",
+      projectDir,
+      "--cache-dir",
+      cacheDir,
+      "--var",
+      "PROJECT_NAME=Smart Parking",
+      "--var",
+      "PROJECT_SLUG=smart-parking",
+      "--var",
+      "DOMAIN=parking operations",
+    ]);
+
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /Resolving remote pack/);
+    assert.match(result.stdout, /Cloned pack at/);
+
+    // The expand should have produced the standard outputs in the project.
+    assert.ok(fs.existsSync(path.join(projectDir, "AI_RULES.md")));
+    assert.ok(
+      fs.existsSync(path.join(projectDir, "features", "capacity", "capacity_threshold.feature"))
+    );
+
+    // .specops.lock should exist with one pack entry pointing at the right repo/version.
+    const lockPath = path.join(projectDir, ".specops.lock");
+    assert.ok(fs.existsSync(lockPath), ".specops.lock should be written");
+    const lock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+    assert.equal(lock.specops_version, 1);
+    assert.equal(lock.packs.length, 1);
+    assert.equal(lock.packs[0].pack_id, "parking-management/backend");
+    assert.equal(lock.packs[0].version, "v0.1.0");
+    assert.match(lock.packs[0].commit, /^[0-9a-f]{40}$/);
+
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+);
+
+test(
+  "expand --pack-repo without --pack-version exits with a clear error",
+  { skip: !hasGit() },
+  () => {
+    const result = runCli([
+      "expand",
+      "--pack-repo",
+      "https://example.com/x.git",
+      "--pack",
+      "backend",
+      "--project-dir",
+      "/tmp/never-written",
+    ]);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /--pack-version/);
+  }
+);
+
+test("expand rejects --pack-root and --pack-repo together", () => {
+  const result = runCli([
+    "expand",
+    "--pack-root",
+    "./packs",
+    "--pack-repo",
+    "https://example.com/x.git",
+    "--pack-version",
+    "v1.0.0",
+    "--pack",
+    "backend",
+    "--project-dir",
+    "/tmp/never-written",
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /either --pack-root or --pack-repo/);
+});

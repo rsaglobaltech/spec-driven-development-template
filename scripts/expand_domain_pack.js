@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const fs = require("node:fs");
+const path = require("node:path");
 const {
   asArray,
   buildTraceabilityMarkdown,
@@ -20,13 +21,25 @@ const {
   validatePackModel,
   writeFile,
 } = require("./domain-pack/common");
+const { resolveRemotePack } = require("./domain-pack/remote");
+const { readLock, writeLock, upsertPackEntry, newLock } = require("./specops/lock");
+
+const PACKAGE_VERSION = (() => {
+  try {
+    return require(path.resolve(__dirname, "..", "package.json")).version || "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+})();
 
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]\n\n" +
-      "Example:\n" +
-      '  create-spec-driven-app expand --pack-root ./domain-packs --pack parking-management/backend --project-dir ./projects/smart-parking --var PROJECT_NAME="Smart Parking" --var PROJECT_SLUG=smart-parking --var DOMAIN="parking operations"\n'
+      "  create-spec-driven-app expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]\n" +
+      "  create-spec-driven-app expand --pack-repo <git-url> --pack-version <tag> --pack <pack-id> --project-dir <path> [--var KEY=VALUE]... [--cache-dir <path>] [--dry-run]\n\n" +
+      "Examples:\n" +
+      '  create-spec-driven-app expand --pack-root ./domain-packs --pack parking-management/backend --project-dir ./projects/smart-parking --var PROJECT_NAME="Smart Parking" --var PROJECT_SLUG=smart-parking --var DOMAIN="parking operations"\n' +
+      '  create-spec-driven-app expand --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git --pack-version v0.1.0 --pack backend --project-dir ./smart-parking --var PROJECT_NAME="Smart Parking" --var PROJECT_SLUG=smart-parking --var DOMAIN="parking operations"\n'
   );
 }
 
@@ -359,16 +372,71 @@ function renderTraceability(pack, projectDir, generatedScenarios, dryRun) {
   writeFile(traceTarget, markdown, dryRun);
 }
 
+function resolvePackSource(args) {
+  const hasRemote = Boolean(args.packRepo);
+  const hasLocal = Boolean(args.packRoot);
+
+  if (hasRemote && hasLocal) {
+    throw new Error("Specify either --pack-root or --pack-repo, not both.");
+  }
+
+  if (hasRemote) {
+    if (!args.packVersion) {
+      throw new Error("--pack-repo requires --pack-version <tag-or-sha> for reproducibility.");
+    }
+    logInfo(`Resolving remote pack ${args.packRepo}@${args.packVersion}…`);
+    const resolved = resolveRemotePack({
+      repo: args.packRepo,
+      version: args.packVersion,
+      cacheDir: args.cacheDir || undefined,
+    });
+    logInfo(
+      `${resolved.cached ? "Reused cached" : "Cloned"} pack at ${resolved.packRoot} ` +
+        `(commit ${resolved.commit.slice(0, 7)})`
+    );
+    return {
+      packRoot: resolved.packRoot,
+      remote: {
+        repo: args.packRepo,
+        version: args.packVersion,
+        commit: resolved.commit,
+      },
+    };
+  }
+
+  return { packRoot: args.packRoot, remote: null };
+}
+
+function updateLockfile(projectDir, packId, remote, dryRun) {
+  if (!remote) return;
+  const existing = readLock(projectDir) || newLock(PACKAGE_VERSION);
+  existing.csda_version = PACKAGE_VERSION;
+  const updated = upsertPackEntry(existing, {
+    repo: remote.repo,
+    version: remote.version,
+    commit: remote.commit,
+    pack_id: packId,
+    expanded_at: new Date().toISOString(),
+  });
+  const result = writeLock(projectDir, updated, { dryRun });
+  logInfo(`${dryRun ? "[dry-run] would write" : "Wrote"} ${result.path}`);
+}
+
 function main() {
   try {
     const args = parseArgs(process.argv.slice(2));
 
-    if (!args.packRoot || !args.pack || !args.projectDir) {
+    if (!args.pack || !args.projectDir) {
+      usage();
+      process.exit(2);
+    }
+    if (!args.packRoot && !args.packRepo) {
       usage();
       process.exit(2);
     }
 
-    const { pack, packRoot, packFile } = loadPack(args.packRoot, args.pack);
+    const source = resolvePackSource(args);
+    const { pack, packRoot, packFile } = loadPack(source.packRoot, args.pack);
     const { requiredVars } = validatePackModel(pack, packRoot);
     const vars = normalizeVars(requiredVars, args.vars);
 
@@ -386,6 +454,7 @@ function main() {
     );
     renderDomainDocs(pack, args.projectDir, args.dryRun);
     renderTraceability(pack, args.projectDir, generated, args.dryRun);
+    updateLockfile(args.projectDir, args.pack, source.remote, args.dryRun);
 
     logInfo(`Generated ${generated.length} scenario file(s).`);
     logInfo("Domain pack expansion completed.");
