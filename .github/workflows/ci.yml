@@ -7,50 +7,95 @@ on:
     branches: [main, develop]
 
 jobs:
-  test:
-    name: Test and Package Validation
+  # ── Lint (once, Ubuntu/Node 20) ──────────────────────────────────────────────
+  lint:
+    name: Lint and format
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Ensure executable permissions
-        run: chmod +x bin/*.js scripts/*.sh
-
-      - name: Lint JavaScript
+      - run: npm ci
+      - run: chmod +x bin/*.js scripts/*.sh
+      - name: ESLint
         run: npm run lint
-
-      - name: Check formatting
+      - name: Prettier
         run: npm run format:check
-
       - name: ShellCheck
         run: shellcheck --severity=warning scripts/*.sh
 
-      - name: Run shell tests (Bats)
-        run: |
-          sudo npm install -g bats 2>/dev/null || \
-            (git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats-core && sudo /tmp/bats-core/install.sh /usr/local)
-          bats tests/shell/
+  # ── Cross-platform test matrix ───────────────────────────────────────────────
+  test:
+    name: Test (${{ matrix.os }} / Node ${{ matrix.node }})
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: ['18', '20', '22']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Ensure executable permissions
+        if: runner.os != 'Windows'
+        run: chmod +x bin/*.js scripts/*.sh
 
       - name: Run unit tests with coverage
         run: npm run test:coverage
 
-      - name: Run test suite (E2E)
+      - name: Run E2E tests
         run: npm test
 
+      - name: Run Bats shell tests
+        if: runner.os == 'Linux'
+        run: |
+          sudo npm install -g bats 2>/dev/null || \
+            (git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats-core \
+              && sudo /tmp/bats-core/install.sh /usr/local)
+          bats tests/shell/
+
+      - name: Run BDD tests
+        run: npm run test:bdd
+
+  # ── Windows smoke (Node engine only — no Bash dependency) ────────────────────
+  windows:
+    name: Windows smoke (Node engine)
+    needs: lint
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Node engine smoke
+        run: node tests/unit/init-engine-parity.test.js
+
+  # ── Package validation (Ubuntu/Node 20) ──────────────────────────────────────
+  package:
+    name: Package
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: chmod +x bin/*.js scripts/*.sh
       - name: Validate npm package contents
         run: npm run pack:dry-run
-
       - name: Smoke test from packed tarball
         run: |
           TARBALL="$(npm pack | tail -n 1)"

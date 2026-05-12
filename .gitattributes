@@ -1,0 +1,29 @@
+# Ensure consistent line endings across platforms
+* text=auto eol=lf
+
+# Explicitly mark binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.tgz binary
+
+# Shell scripts must always use LF
+*.sh text eol=lf
+*.bats text eol=lf
+
+# Node scripts
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+
+# Templates
+*.tpl text eol=lf
+
+# YAML
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Markdown
+*.md text eol=lf
