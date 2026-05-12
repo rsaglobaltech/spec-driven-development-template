@@ -1,19 +1,19 @@
 (function () {
-  const buttons = document.querySelectorAll('.copy');
-
-  buttons.forEach((button) => {
-    button.addEventListener('click', async () => {
-      const value = button.getAttribute('data-copy') || '';
-      try {
-        await navigator.clipboard.writeText(value);
-        const original = button.textContent;
-        button.textContent = 'Copied';
-        setTimeout(() => {
-          button.textContent = original;
-        }, 1200);
-      } catch {
-        button.textContent = 'Copy manually';
-      }
-    });
+  document.addEventListener('click', async function (e) {
+    const btn = e.target.closest('.copy-btn, .copy');
+    if (!btn) return;
+    const text = btn.dataset.copy || '';
+    try {
+      await navigator.clipboard.writeText(text);
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(function () {
+        btn.textContent = original;
+        btn.classList.remove('copied');
+      }, 1400);
+    } catch {
+      btn.textContent = 'Copy manually';
+    }
   });
 })();
