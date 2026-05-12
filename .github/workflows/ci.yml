@@ -27,6 +27,21 @@ jobs:
       - name: Ensure executable permissions
         run: chmod +x bin/*.js scripts/*.sh
 
+      - name: Lint JavaScript
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: ShellCheck
+        run: shellcheck --severity=warning scripts/*.sh
+
+      - name: Run shell tests (Bats)
+        run: |
+          sudo npm install -g bats 2>/dev/null || \
+            (git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats-core && sudo /tmp/bats-core/install.sh /usr/local)
+          bats tests/shell/
+
       - name: Run test suite
         run: npm test
 

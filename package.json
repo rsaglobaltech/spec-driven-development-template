@@ -31,6 +31,7 @@
   ],
   "scripts": {
     "test": "node --test tests/*.test.js",
+    "test:shell": "bats tests/shell/",
     "pack:dry-run": "npm pack --dry-run",
     "pack": "npm pack",
     "smoke:help": "node bin/create-spec-driven-app.js --help",

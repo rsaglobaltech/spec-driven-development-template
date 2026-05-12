@@ -93,6 +93,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   [[ "$line" == *'| Requirement | Scenario ID |'* ]] && continue
   [[ "$line" == *'| Feature | Scenario |'* ]] && continue
 
+  # shellcheck disable=SC2034
   IFS='|' read -r _ c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 _rest <<< "$line"
 
   if [[ "$TRACE_MODE" == "rich" ]]; then
