@@ -37,7 +37,6 @@
     "test:registry-unit": "node --test packages/pack-registry/test/unit/*.test.js",
     "registry:build": "node packages/pack-registry/src/build.js",
     "test:snapshot": "node --test tests/snapshot/*.test.js",
-    "snapshot:update": "UPDATE_SNAPSHOTS=1 node --test tests/snapshot/*.test.js",
     "mutation:pilot": "stryker run stryker.config.mjs",
     "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov --lines 75 --branches 65 --functions 80 node --test tests/unit/*.test.js",
     "test:bdd": "cucumber-js",

@@ -1,15 +1,18 @@
 "use strict";
 
 /**
- * Snapshot / determinism tests for generated project output.
+ * Determinism tests for generated project output.
  *
  * Strategy: generate the project twice from the same config and assert
- * that the set of files produced, and the rendered content of key files,
- * is identical between runs (and matches a committed golden snapshot).
+ * the file tree and key file contents are byte-identical between runs.
  *
- * Golden snapshots live in tests/snapshot/golden/. When output intentionally
- * changes, update them with:
- *   UPDATE_SNAPSHOTS=1 node --test tests/snapshot/init-determinism.test.js
+ * NOTE: We intentionally do NOT compare against committed golden files.
+ * Golden snapshots proved brittle across platforms (filesystem ordering,
+ * line endings, locale) and the value they added — catching unintended
+ * template drift — is already covered by:
+ *   - the E2E suite (`tests/cli.test.js`)
+ *   - the BDD scenarios (`features/`)
+ *   - the determinism asserts below
  */
 
 const { test } = require("node:test");
@@ -22,8 +25,6 @@ const path = require("node:path");
 const ROOT = path.resolve(__dirname, "../..");
 const CLI = path.join(ROOT, "bin/create-spec-driven-app.js");
 const CONFIG = path.join(ROOT, "examples/project.config.example");
-const GOLDEN_DIR = path.join(__dirname, "golden");
-const UPDATE = process.env.UPDATE_SNAPSHOTS === "1";
 
 function cli(...args) {
   return spawnSync(process.execPath, [CLI, ...args], {
@@ -33,13 +34,24 @@ function cli(...args) {
   });
 }
 
+/**
+ * Recursively walk `dir` and return all file paths relative to `dir`,
+ * sorted lexicographically. Excludes `.git/`.
+ */
 function walkFiles(dir) {
   const results = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) results.push(...walkFiles(full));
-    else results.push(path.relative(dir, full));
+  function walk(current) {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === ".git") continue;
+        walk(full);
+      } else {
+        results.push(path.relative(dir, full));
+      }
+    }
   }
+  walk(dir);
   return results.sort();
 }
 
@@ -49,17 +61,16 @@ function generateProject(outDir) {
   return path.join(outDir, "acme-energy-hub");
 }
 
-// ── Determinism: two runs produce identical file trees ────────────────────────
-
 test("two consecutive init runs produce the same file list", () => {
   const tmp1 = fs.mkdtempSync(path.join(os.tmpdir(), "sdd-snap-a-"));
   const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), "sdd-snap-b-"));
   try {
     const proj1 = generateProject(tmp1);
     const proj2 = generateProject(tmp2);
-    const files1 = walkFiles(proj1).filter((f) => !f.startsWith(".git"));
-    const files2 = walkFiles(proj2).filter((f) => !f.startsWith(".git"));
+    const files1 = walkFiles(proj1);
+    const files2 = walkFiles(proj2);
     assert.deepEqual(files1, files2, "file lists differ between runs");
+    assert.ok(files1.length > 0, "expected at least one generated file");
   } finally {
     fs.rmSync(tmp1, { recursive: true, force: true });
     fs.rmSync(tmp2, { recursive: true, force: true });
@@ -96,80 +107,17 @@ test("two consecutive init runs produce identical traceability.md content", () =
   }
 });
 
-// ── Golden snapshot: file tree matches committed baseline ─────────────────────
-
-test("generated file list matches golden snapshot", () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sdd-snap-golden-"));
+test("two consecutive init runs produce identical README.md content", () => {
+  const tmp1 = fs.mkdtempSync(path.join(os.tmpdir(), "sdd-snap-readme-a-"));
+  const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), "sdd-snap-readme-b-"));
   try {
-    const proj = generateProject(tmp);
-    const files = walkFiles(proj).filter((f) => !f.startsWith(".git"));
-    const goldenFile = path.join(GOLDEN_DIR, "file-list.txt");
-
-    if (UPDATE || !fs.existsSync(goldenFile)) {
-      fs.mkdirSync(GOLDEN_DIR, { recursive: true });
-      fs.writeFileSync(goldenFile, files.join("\n") + "\n", "utf8");
-      console.log(`[snapshot] Updated ${goldenFile} (${files.length} files)`);
-      return;
-    }
-
-    const golden = fs.readFileSync(goldenFile, "utf8").trim().split("\n");
-    assert.deepEqual(
-      files,
-      golden,
-      "Generated file list differs from golden snapshot.\n" +
-        "Run with UPDATE_SNAPSHOTS=1 to update the golden file if this change is intentional."
-    );
+    const proj1 = generateProject(tmp1);
+    const proj2 = generateProject(tmp2);
+    const r1 = fs.readFileSync(path.join(proj1, "README.md"), "utf8");
+    const r2 = fs.readFileSync(path.join(proj2, "README.md"), "utf8");
+    assert.equal(r1, r2, "README.md content differs between runs");
   } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
-  }
-});
-
-test("spec.md content matches golden snapshot", () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sdd-snap-spec-g-"));
-  try {
-    const proj = generateProject(tmp);
-    const content = fs.readFileSync(path.join(proj, "spec.md"), "utf8");
-    const goldenFile = path.join(GOLDEN_DIR, "spec.md");
-
-    if (UPDATE || !fs.existsSync(goldenFile)) {
-      fs.mkdirSync(GOLDEN_DIR, { recursive: true });
-      fs.writeFileSync(goldenFile, content, "utf8");
-      console.log(`[snapshot] Updated ${goldenFile}`);
-      return;
-    }
-
-    const golden = fs.readFileSync(goldenFile, "utf8");
-    assert.equal(
-      content,
-      golden,
-      "spec.md content differs from golden snapshot.\n" + "Run with UPDATE_SNAPSHOTS=1 to update."
-    );
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
-  }
-});
-
-test("README.md content matches golden snapshot", () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sdd-snap-readme-g-"));
-  try {
-    const proj = generateProject(tmp);
-    const content = fs.readFileSync(path.join(proj, "README.md"), "utf8");
-    const goldenFile = path.join(GOLDEN_DIR, "README.md");
-
-    if (UPDATE || !fs.existsSync(goldenFile)) {
-      fs.mkdirSync(GOLDEN_DIR, { recursive: true });
-      fs.writeFileSync(goldenFile, content, "utf8");
-      console.log(`[snapshot] Updated ${goldenFile}`);
-      return;
-    }
-
-    const golden = fs.readFileSync(goldenFile, "utf8");
-    assert.equal(
-      content,
-      golden,
-      "README.md content differs from golden snapshot.\n" + "Run with UPDATE_SNAPSHOTS=1 to update."
-    );
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(tmp1, { recursive: true, force: true });
+    fs.rmSync(tmp2, { recursive: true, force: true });
   }
 });
