@@ -8,6 +8,7 @@ const rootDir = path.resolve(__dirname, "..");
 const packageJson = require(path.join(rootDir, "package.json"));
 const VERSION = packageJson.version || "0.0.0";
 const initScript = path.join(rootDir, "scripts", "new_spec_project.sh");
+const initNodeScript = path.join(rootDir, "scripts", "init_project.js");
 const validateScript = path.join(rootDir, "scripts", "validate_specs.sh");
 const expandScript = path.join(rootDir, "scripts", "expand_domain_pack.js");
 const packInitScript = path.join(rootDir, "scripts", "init_pack.js");
@@ -102,9 +103,18 @@ function main() {
   const command = args[0];
 
   if (command === "init") {
-    ensureExecutable(initScript);
     const passThrough = args.slice(1);
-    runScript(initScript, passThrough);
+    const engineArg = passThrough.find((a) => a === "--engine=node" || a === "--engine" );
+    const engineIdx = passThrough.indexOf("--engine");
+    const engineVal = engineArg === "--engine" && passThrough[engineIdx + 1] === "node" ? "node"
+      : engineArg === "--engine=node" ? "node" : "shell";
+    if (engineVal === "node") {
+      ensureExecutable(initNodeScript);
+      runNodeScript(initNodeScript, passThrough);
+    } else {
+      ensureExecutable(initScript);
+      runScript(initScript, passThrough);
+    }
     return;
   }
 
