@@ -282,6 +282,9 @@ function parseArgs(argv) {
     dryRun: false,
     noExamples: false,
     vars: {},
+    packRepo: "",
+    packVersion: "",
+    cacheDir: "",
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -301,6 +304,24 @@ function parseArgs(argv) {
 
     if (token === "--project-dir") {
       args.projectDir = argv[i + 1] || "";
+      i += 1;
+      continue;
+    }
+
+    if (token === "--pack-repo") {
+      args.packRepo = argv[i + 1] || "";
+      i += 1;
+      continue;
+    }
+
+    if (token === "--pack-version") {
+      args.packVersion = argv[i + 1] || "";
+      i += 1;
+      continue;
+    }
+
+    if (token === "--cache-dir") {
+      args.cacheDir = argv[i + 1] || "";
       i += 1;
       continue;
     }

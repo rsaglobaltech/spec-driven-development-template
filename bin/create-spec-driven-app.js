@@ -28,6 +28,7 @@ function usage() {
       `  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n` +
       `  create-spec-driven-app validate <project_dir>\n` +
       `  create-spec-driven-app expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]\n` +
+      `  create-spec-driven-app expand --pack-repo <git-url> --pack-version <tag> --pack <pack-id> --project-dir <path> [--var KEY=VALUE]... [--cache-dir <path>] [--dry-run]\n` +
       `  create-spec-driven-app pack init --out <directory> [--name <name>] [--type backend|frontend] [--dry-run]\n` +
       `  create-spec-driven-app pack lint --pack-root <path> --pack <domain/type>\n` +
       `  create-spec-driven-app --help\n` +
@@ -36,6 +37,7 @@ function usage() {
       `  npx create-spec-driven-app@latest init --config ./project.config --out ./projects\n` +
       `  npx create-spec-driven-app@latest validate ./projects/my-app\n` +
       `  npx create-spec-driven-app@latest expand --pack-root ./domain-packs --pack parking-management/backend --project-dir ./projects/my-app --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking operations"\n` +
+      `  npx create-spec-driven-app@latest expand --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git --pack-version v0.1.0 --pack backend --project-dir ./projects/smart-parking --var PROJECT_NAME="Smart Parking" --var PROJECT_SLUG=smart-parking --var DOMAIN="parking operations"\n` +
       `  npx create-spec-driven-app@latest pack init --out ./domain-packs --name "Billing Backend"\n` +
       `  npx create-spec-driven-app@latest pack lint --pack-root ./domain-packs --pack billing/backend\n`
   );
