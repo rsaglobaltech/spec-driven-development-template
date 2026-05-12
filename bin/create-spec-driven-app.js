@@ -26,7 +26,7 @@ function usage() {
   process.stdout.write(
     `🚀 create-spec-driven-app\n\n` +
       `Usage:\n` +
-      `  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n` +
+      `  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git] [--engine=shell (deprecated)]\n` +
       `  create-spec-driven-app validate <project_dir>\n` +
       `  create-spec-driven-app expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]\n` +
       `  create-spec-driven-app pack init --out <directory> [--name <name>] [--type backend|frontend] [--dry-run]\n` +
@@ -104,16 +104,20 @@ function main() {
 
   if (command === "init") {
     const passThrough = args.slice(1);
-    const engineArg = passThrough.find((a) => a === "--engine=node" || a === "--engine" );
+    // Detect explicit --engine=shell or --engine shell (deprecated).
     const engineIdx = passThrough.indexOf("--engine");
-    const engineVal = engineArg === "--engine" && passThrough[engineIdx + 1] === "node" ? "node"
-      : engineArg === "--engine=node" ? "node" : "shell";
-    if (engineVal === "node") {
-      ensureExecutable(initNodeScript);
-      runNodeScript(initNodeScript, passThrough);
-    } else {
+    const shellByFlag = passThrough.includes("--engine=shell") ||
+      (engineIdx !== -1 && passThrough[engineIdx + 1] === "shell");
+    if (shellByFlag) {
+      process.stderr.write(
+        "⚠️ [WARN] --engine=shell is deprecated and will be removed in a future release. " +
+        "The Node.js engine (--engine=node) is now the default.\n"
+      );
       ensureExecutable(initScript);
       runScript(initScript, passThrough);
+    } else {
+      ensureExecutable(initNodeScript);
+      runNodeScript(initNodeScript, passThrough);
     }
     return;
   }
