@@ -67,6 +67,9 @@ jobs:
       - name: Run VS Code extension unit tests
         run: npm run test:vscode-unit
 
+      - name: Run MCP server unit tests
+        run: npm run test:mcp-unit
+
       - name: Run snapshot / determinism tests
         run: npm run test:snapshot
 
