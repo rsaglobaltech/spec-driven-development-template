@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-const fs = require('node:fs');
-const path = require('node:path');
+const fs = require("node:fs");
+const path = require("node:path");
 
 function stripInlineComment(line) {
   let inSingle = false;
@@ -20,7 +20,7 @@ function stripInlineComment(line) {
       continue;
     }
 
-    if (ch === '#' && !inSingle && !inDouble) {
+    if (ch === "#" && !inSingle && !inDouble) {
       if (i === 0 || /\s/.test(line[i - 1])) {
         return line.slice(0, i).trimEnd();
       }
@@ -47,10 +47,10 @@ function splitKeyValue(text) {
       continue;
     }
 
-    if (ch === ':' && !inSingle && !inDouble) {
+    if (ch === ":" && !inSingle && !inDouble) {
       return {
         key: text.slice(0, i).trim(),
-        value: text.slice(i + 1).trim()
+        value: text.slice(i + 1).trim(),
       };
     }
   }
@@ -61,13 +61,16 @@ function splitKeyValue(text) {
 function parseScalar(raw) {
   const text = raw.trim();
 
-  if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+  if (
+    (text.startsWith('"') && text.endsWith('"')) ||
+    (text.startsWith("'") && text.endsWith("'"))
+  ) {
     return text.slice(1, -1);
   }
 
-  if (text === 'true') return true;
-  if (text === 'false') return false;
-  if (text === 'null') return null;
+  if (text === "true") return true;
+  if (text === "false") return false;
+  if (text === "null") return null;
 
   if (/^-?\d+(\.\d+)?$/.test(text)) {
     return Number(text);
@@ -83,7 +86,7 @@ function parseTokens(tokens) {
     if (index >= tokens.length) return null;
     if (tokens[index].indent < indent) return null;
 
-    if (tokens[index].indent === indent && tokens[index].text.startsWith('- ')) {
+    if (tokens[index].indent === indent && tokens[index].text.startsWith("- ")) {
       return parseList(indent);
     }
 
@@ -96,7 +99,7 @@ function parseTokens(tokens) {
     while (index < tokens.length) {
       const token = tokens[index];
       if (token.indent !== indent) break;
-      if (token.text.startsWith('- ')) break;
+      if (token.text.startsWith("- ")) break;
 
       const pair = splitKeyValue(token.text);
       if (!pair || !pair.key) {
@@ -105,7 +108,7 @@ function parseTokens(tokens) {
 
       index += 1;
 
-      if (pair.value === '') {
+      if (pair.value === "") {
         if (index < tokens.length && tokens[index].indent > indent) {
           obj[pair.key] = parseNode(tokens[index].indent);
         } else {
@@ -124,12 +127,12 @@ function parseTokens(tokens) {
 
     while (index < tokens.length) {
       const token = tokens[index];
-      if (token.indent !== indent || !token.text.startsWith('- ')) break;
+      if (token.indent !== indent || !token.text.startsWith("- ")) break;
 
       const itemText = token.text.slice(2).trim();
       index += 1;
 
-      if (itemText === '') {
+      if (itemText === "") {
         if (index < tokens.length && tokens[index].indent > indent) {
           arr.push(parseNode(tokens[index].indent));
         } else {
@@ -145,7 +148,7 @@ function parseTokens(tokens) {
       }
 
       const obj = {};
-      if (inlinePair.value === '') {
+      if (inlinePair.value === "") {
         if (index < tokens.length && tokens[index].indent > indent) {
           obj[inlinePair.key] = parseNode(tokens[index].indent);
         } else {
@@ -155,7 +158,11 @@ function parseTokens(tokens) {
         obj[inlinePair.key] = parseScalar(inlinePair.value);
       }
 
-      if (index < tokens.length && tokens[index].indent > indent && !tokens[index].text.startsWith('- ')) {
+      if (
+        index < tokens.length &&
+        tokens[index].indent > indent &&
+        !tokens[index].text.startsWith("- ")
+      ) {
         const childIndent = tokens[index].indent;
         const extra = parseObject(childIndent);
         Object.assign(obj, extra);
@@ -179,7 +186,7 @@ function parseTokens(tokens) {
 }
 
 function parseYamlLite(content) {
-  const lines = content.replace(/\r\n/g, '\n').split('\n');
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
   const tokens = [];
 
   for (let i = 0; i < lines.length; i += 1) {
@@ -191,7 +198,7 @@ function parseYamlLite(content) {
     tokens.push({
       indent,
       text: withoutComment.trim(),
-      line: i + 1
+      line: i + 1,
     });
   }
 
@@ -200,16 +207,16 @@ function parseYamlLite(content) {
 }
 
 function toPosixPath(inputPath) {
-  return inputPath.replace(/\\/g, '/');
+  return inputPath.replace(/\\/g, "/");
 }
 
 function isSafeRelativePath(candidate) {
-  if (!candidate || typeof candidate !== 'string') return false;
+  if (!candidate || typeof candidate !== "string") return false;
   if (path.isAbsolute(candidate)) return false;
 
   const normalized = toPosixPath(path.posix.normalize(candidate));
-  if (normalized.startsWith('../') || normalized === '..') return false;
-  if (normalized.includes('/../')) return false;
+  if (normalized.startsWith("../") || normalized === "..") return false;
+  if (normalized.includes("/../")) return false;
   return true;
 }
 
@@ -218,36 +225,36 @@ function fail(message) {
 }
 
 const ALLOWED_STATUSES = new Set([
-  'Draft',
-  'Needs Clarification',
-  'Domain Reviewed',
-  'Architecture Reviewed',
-  'Ready for Dev',
-  'In Dev',
-  'In Review',
-  'Verified',
-  'Released',
-  'Deprecated'
+  "Draft",
+  "Needs Clarification",
+  "Domain Reviewed",
+  "Architecture Reviewed",
+  "Ready for Dev",
+  "In Dev",
+  "In Review",
+  "Verified",
+  "Released",
+  "Deprecated",
 ]);
 
-const ALLOWED_PRIORITIES = new Set(['Must', 'Should', 'Could', "Won't"]);
+const ALLOWED_PRIORITIES = new Set(["Must", "Should", "Could", "Won't"]);
 
 function asArray(value) {
   if (Array.isArray(value)) return value;
-  if (value === undefined || value === null || value === '') return [];
+  if (value === undefined || value === null || value === "") return [];
   return [value];
 }
 
-function formatList(value, fallback = '-') {
+function formatList(value, fallback = "-") {
   const items = asArray(value)
     .map((item) => String(item).trim())
     .filter(Boolean);
-  return items.length > 0 ? items.join(', ') : fallback;
+  return items.length > 0 ? items.join(", ") : fallback;
 }
 
-function entityLabel(entity, fallback = '-') {
+function entityLabel(entity, fallback = "-") {
   if (!entity) return fallback;
-  if (typeof entity === 'string') return entity;
+  if (typeof entity === "string") return entity;
   if (entity.id && entity.name) return `${entity.id} ${entity.name}`;
   if (entity.id) return entity.id;
   if (entity.name) return entity.name;
@@ -256,62 +263,62 @@ function entityLabel(entity, fallback = '-') {
 
 function hasStructuredDomainModel(pack) {
   return [
-    'requirements',
-    'bounded_contexts',
-    'use_cases',
-    'commands',
-    'queries',
-    'aggregates',
-    'events',
-    'value_objects'
+    "requirements",
+    "bounded_contexts",
+    "use_cases",
+    "commands",
+    "queries",
+    "aggregates",
+    "events",
+    "value_objects",
   ].some((key) => Array.isArray(pack[key]) && pack[key].length > 0);
 }
 
 function parseArgs(argv) {
   const args = {
-    packRoot: '',
-    pack: '',
-    projectDir: '',
+    packRoot: "",
+    pack: "",
+    projectDir: "",
     dryRun: false,
     noExamples: false,
-    vars: {}
+    vars: {},
   };
 
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
 
-    if (token === '--pack-root') {
-      args.packRoot = argv[i + 1] || '';
+    if (token === "--pack-root") {
+      args.packRoot = argv[i + 1] || "";
       i += 1;
       continue;
     }
 
-    if (token === '--pack') {
-      args.pack = argv[i + 1] || '';
+    if (token === "--pack") {
+      args.pack = argv[i + 1] || "";
       i += 1;
       continue;
     }
 
-    if (token === '--project-dir') {
-      args.projectDir = argv[i + 1] || '';
+    if (token === "--project-dir") {
+      args.projectDir = argv[i + 1] || "";
       i += 1;
       continue;
     }
 
-    if (token === '--dry-run') {
+    if (token === "--dry-run") {
       args.dryRun = true;
       continue;
     }
 
-    if (token === '--no-examples') {
+    if (token === "--no-examples") {
       args.noExamples = true;
       continue;
     }
 
-    if (token === '--var') {
-      const pair = argv[i + 1] || '';
+    if (token === "--var") {
+      const pair = argv[i + 1] || "";
       i += 1;
-      const eq = pair.indexOf('=');
+      const eq = pair.indexOf("=");
       if (eq < 1) {
         fail(`Invalid --var value '${pair}'. Use KEY=VALUE.`);
       }
@@ -329,12 +336,12 @@ function parseArgs(argv) {
 }
 
 function loadPack(packRoot, packId) {
-  if (!packRoot) fail('Missing --pack-root <path>.');
-  if (!packId) fail('Missing --pack <domain/type>.');
+  if (!packRoot) fail("Missing --pack-root <path>.");
+  if (!packId) fail("Missing --pack <domain/type>.");
 
   const normalizedRoot = path.resolve(packRoot);
   const normalizedPackPath = path.resolve(normalizedRoot, packId);
-  const packFile = path.join(normalizedPackPath, 'pack.yaml');
+  const packFile = path.join(normalizedPackPath, "pack.yaml");
 
   if (!normalizedPackPath.startsWith(normalizedRoot)) {
     fail(`Invalid pack path '${packId}'.`);
@@ -344,38 +351,39 @@ function loadPack(packRoot, packId) {
     fail(`Pack file not found: ${packFile}`);
   }
 
-  const pack = parseYamlLite(fs.readFileSync(packFile, 'utf8'));
+  const pack = parseYamlLite(fs.readFileSync(packFile, "utf8"));
 
   return {
     pack,
     packFile,
-    packRoot: normalizedPackPath
+    packRoot: normalizedPackPath,
   };
 }
 
 function validatePackModel(pack, packRoot) {
-  if (!pack || typeof pack !== 'object' || Array.isArray(pack)) {
-    fail('Invalid pack format. Root must be an object.');
+  if (!pack || typeof pack !== "object" || Array.isArray(pack)) {
+    fail("Invalid pack format. Root must be an object.");
   }
 
   const metadata = pack.metadata || {};
-  const requiredMetadata = ['name', 'version', 'language', 'project_type'];
+  const requiredMetadata = ["name", "version", "language", "project_type"];
   for (const key of requiredMetadata) {
-    if (!metadata[key] || typeof metadata[key] !== 'string') {
+    if (!metadata[key] || typeof metadata[key] !== "string") {
       fail(`metadata.${key} is required and must be a string.`);
     }
   }
 
-  if (!['backend', 'frontend'].includes(metadata.project_type)) {
-    fail(`metadata.project_type must be 'backend' or 'frontend'. Found '${metadata.project_type}'.`);
+  if (!["backend", "frontend"].includes(metadata.project_type)) {
+    fail(
+      `metadata.project_type must be 'backend' or 'frontend'. Found '${metadata.project_type}'.`
+    );
   }
 
-  const requiredVars = pack.variables && Array.isArray(pack.variables.required)
-    ? pack.variables.required
-    : [];
+  const requiredVars =
+    pack.variables && Array.isArray(pack.variables.required) ? pack.variables.required : [];
 
   if (requiredVars.length === 0) {
-    fail('variables.required must contain at least one variable.');
+    fail("variables.required must contain at least one variable.");
   }
 
   for (const varName of requiredVars) {
@@ -386,7 +394,7 @@ function validatePackModel(pack, packRoot) {
 
   const outputs = pack.outputs || {};
   if (!Array.isArray(outputs.files) || outputs.files.length === 0) {
-    fail('outputs.files must contain at least one file definition.');
+    fail("outputs.files must contain at least one file definition.");
   }
 
   const targets = new Set();
@@ -398,15 +406,15 @@ function validatePackModel(pack, packRoot) {
     queries: new Map(),
     aggregates: new Map(),
     events: new Map(),
-    value_objects: new Map()
+    value_objects: new Map(),
   };
 
   function remember(collectionName, item, label) {
-    if (!item || typeof item !== 'object') {
+    if (!item || typeof item !== "object") {
       fail(`${collectionName} entries must be objects.`);
     }
 
-    if (!item.id || typeof item.id !== 'string') {
+    if (!item.id || typeof item.id !== "string") {
       fail(`${collectionName} entry is missing required string field 'id'.`);
     }
 
@@ -416,7 +424,7 @@ function validatePackModel(pack, packRoot) {
     }
     map.set(item.id, item);
 
-    if (item.name && typeof item.name === 'string') {
+    if (item.name && typeof item.name === "string") {
       if (map.has(item.name)) {
         fail(`Duplicate ${label} name/reference detected: '${item.name}'.`);
       }
@@ -476,32 +484,32 @@ function validatePackModel(pack, packRoot) {
   }
 
   for (const fileDef of outputs.files) {
-    if (!fileDef || typeof fileDef !== 'object') {
-      fail('outputs.files entries must be objects.');
+    if (!fileDef || typeof fileDef !== "object") {
+      fail("outputs.files entries must be objects.");
     }
 
     if (!fileDef.target || !fileDef.template) {
-      fail('Each outputs.files entry requires target and template.');
+      fail("Each outputs.files entry requires target and template.");
     }
 
-    assertTarget(fileDef.target, 'outputs.files');
+    assertTarget(fileDef.target, "outputs.files");
     assertTemplateExists(fileDef.template, `outputs.files target '${fileDef.target}'`);
   }
 
   if (!pack.rules || !pack.rules.traceability || !pack.rules.traceability.target) {
-    fail('rules.traceability.target is required.');
+    fail("rules.traceability.target is required.");
   }
 
   if (!isSafeRelativePath(pack.rules.traceability.target)) {
-    fail('rules.traceability.target must be a safe relative path.');
+    fail("rules.traceability.target must be a safe relative path.");
   }
 
-  if (pack.schema_version !== undefined && typeof pack.schema_version !== 'string') {
-    fail('schema_version must be a string when provided.');
+  if (pack.schema_version !== undefined && typeof pack.schema_version !== "string") {
+    fail("schema_version must be a string when provided.");
   }
 
   for (const item of Array.isArray(pack.requirements) ? pack.requirements : []) {
-    remember('requirements', item, 'requirement');
+    remember("requirements", item, "requirement");
     if (item.priority !== undefined && !ALLOWED_PRIORITIES.has(item.priority)) {
       fail(`Requirement '${item.id}' has invalid priority '${item.priority}'.`);
     }
@@ -509,64 +517,58 @@ function validatePackModel(pack, packRoot) {
   }
 
   for (const item of Array.isArray(pack.bounded_contexts) ? pack.bounded_contexts : []) {
-    remember('bounded_contexts', item, 'bounded context');
+    remember("bounded_contexts", item, "bounded context");
   }
 
   for (const item of Array.isArray(pack.commands) ? pack.commands : []) {
-    remember('commands', item, 'command');
+    remember("commands", item, "command");
   }
 
   for (const item of Array.isArray(pack.queries) ? pack.queries : []) {
-    remember('queries', item, 'query');
+    remember("queries", item, "query");
   }
 
   for (const item of Array.isArray(pack.aggregates) ? pack.aggregates : []) {
-    remember('aggregates', item, 'aggregate');
+    remember("aggregates", item, "aggregate");
   }
 
   for (const item of Array.isArray(pack.events) ? pack.events : []) {
-    remember('events', item, 'event');
+    remember("events", item, "event");
   }
 
   for (const item of Array.isArray(pack.value_objects) ? pack.value_objects : []) {
-    remember('value_objects', item, 'value object');
+    remember("value_objects", item, "value object");
   }
 
   for (const context of Array.isArray(pack.bounded_contexts) ? pack.bounded_contexts : []) {
-    assertRefs('aggregates', context.aggregates, `Bounded context '${context.id}'`);
+    assertRefs("aggregates", context.aggregates, `Bounded context '${context.id}'`);
   }
 
   for (const aggregate of Array.isArray(pack.aggregates) ? pack.aggregates : []) {
-    assertRef('bounded_contexts', aggregate.context, `Aggregate '${aggregate.id}'`);
+    assertRef("bounded_contexts", aggregate.context, `Aggregate '${aggregate.id}'`);
   }
 
   for (const useCase of Array.isArray(pack.use_cases) ? pack.use_cases : []) {
-    remember('use_cases', useCase, 'use case');
-    assertRef('requirements', useCase.requirement, `Use case '${useCase.id}'`);
-    assertRef('commands', useCase.command, `Use case '${useCase.id}'`);
-    assertRef('queries', useCase.query, `Use case '${useCase.id}'`);
-    assertRef('aggregates', useCase.aggregate, `Use case '${useCase.id}'`);
-    assertRefs('events', useCase.emits, `Use case '${useCase.id}'`);
+    remember("use_cases", useCase, "use case");
+    assertRef("requirements", useCase.requirement, `Use case '${useCase.id}'`);
+    assertRef("commands", useCase.command, `Use case '${useCase.id}'`);
+    assertRef("queries", useCase.query, `Use case '${useCase.id}'`);
+    assertRef("aggregates", useCase.aggregate, `Use case '${useCase.id}'`);
+    assertRefs("events", useCase.emits, `Use case '${useCase.id}'`);
     assertStatus(useCase.status, `Use case '${useCase.id}'`);
   }
 
   const scenarios = Array.isArray(pack.scenarios) ? pack.scenarios : [];
   const scenarioIds = new Set();
   for (const scenario of scenarios) {
-    if (!scenario || typeof scenario !== 'object') {
-      fail('scenarios entries must be objects.');
+    if (!scenario || typeof scenario !== "object") {
+      fail("scenarios entries must be objects.");
     }
 
-    const requiredScenarioFields = [
-      'id',
-      'target',
-      'template',
-      'feature',
-      'scenario'
-    ];
+    const requiredScenarioFields = ["id", "target", "template", "feature", "scenario"];
 
     for (const field of requiredScenarioFields) {
-      if (!scenario[field] || typeof scenario[field] !== 'string') {
+      if (!scenario[field] || typeof scenario[field] !== "string") {
         fail(`Scenario is missing required field '${field}'.`);
       }
     }
@@ -580,24 +582,24 @@ function validatePackModel(pack, packRoot) {
       fail(`Scenario '${scenario.id}' requires technical_artifact or technical_artifacts.`);
     }
 
-    if (scenario.seed !== undefined && typeof scenario.seed !== 'boolean') {
+    if (scenario.seed !== undefined && typeof scenario.seed !== "boolean") {
       fail(`Scenario '${scenario.id}' has invalid 'seed' value. Expected boolean.`);
     }
 
     assertStatus(scenario.status, `Scenario '${scenario.id}'`);
-    assertRef('requirements', scenario.requirement_id, `Scenario '${scenario.id}'`);
-    assertRef('use_cases', scenario.use_case, `Scenario '${scenario.id}'`);
-    assertRef('commands', scenario.command, `Scenario '${scenario.id}'`);
-    assertRef('queries', scenario.query, `Scenario '${scenario.id}'`);
-    assertRef('aggregates', scenario.aggregate, `Scenario '${scenario.id}'`);
-    assertRefs('events', scenario.events, `Scenario '${scenario.id}'`);
+    assertRef("requirements", scenario.requirement_id, `Scenario '${scenario.id}'`);
+    assertRef("use_cases", scenario.use_case, `Scenario '${scenario.id}'`);
+    assertRef("commands", scenario.command, `Scenario '${scenario.id}'`);
+    assertRef("queries", scenario.query, `Scenario '${scenario.id}'`);
+    assertRef("aggregates", scenario.aggregate, `Scenario '${scenario.id}'`);
+    assertRefs("events", scenario.events, `Scenario '${scenario.id}'`);
 
     assertTarget(scenario.target, `scenario '${scenario.id}'`);
     assertTemplateExists(scenario.template, `scenario '${scenario.id}'`);
   }
 
   return {
-    requiredVars
+    requiredVars,
   };
 }
 
@@ -614,7 +616,7 @@ function normalizeVars(requiredVars, providedVars) {
   const normalized = { ...providedVars };
 
   for (const name of requiredVars) {
-    if (!(name in normalized) || normalized[name] === '') {
+    if (!(name in normalized) || normalized[name] === "") {
       fail(`Missing required variable '${name}'. Provide it using --var ${name}=...`);
     }
   }
@@ -632,7 +634,7 @@ function logError(message) {
 
 function ensureProjectDir(projectDir, dryRun) {
   if (!projectDir) {
-    fail('Missing --project-dir <path>.');
+    fail("Missing --project-dir <path>.");
   }
 
   if (dryRun) return;
@@ -643,7 +645,7 @@ function ensureProjectDir(projectDir, dryRun) {
 }
 
 function readTemplate(packRoot, templatePath) {
-  return fs.readFileSync(path.resolve(packRoot, templatePath), 'utf8');
+  return fs.readFileSync(path.resolve(packRoot, templatePath), "utf8");
 }
 
 function writeFile(targetFile, content, dryRun) {
@@ -653,7 +655,7 @@ function writeFile(targetFile, content, dryRun) {
   }
 
   fs.mkdirSync(path.dirname(targetFile), { recursive: true });
-  fs.writeFileSync(targetFile, content, 'utf8');
+  fs.writeFileSync(targetFile, content, "utf8");
 }
 
 function safeResolve(projectDir, relativePath) {
@@ -673,29 +675,29 @@ function safeResolve(projectDir, relativePath) {
 function parseTraceabilityRows(existingContent) {
   const rows = [];
   const seen = new Set();
-  let mode = 'legacy';
+  let mode = "legacy";
 
-  const lines = existingContent.replace(/\r\n/g, '\n').split('\n');
+  const lines = existingContent.replace(/\r\n/g, "\n").split("\n");
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed.startsWith('|') || trimmed.includes('---')) continue;
+    if (!trimmed.startsWith("|") || trimmed.includes("---")) continue;
 
     const cells = trimmed
-      .split('|')
+      .split("|")
       .map((cell) => cell.trim())
       .filter((cell) => cell.length > 0);
 
-    if (cells[0] === 'Requirement' && cells[1] === 'Scenario ID') {
-      mode = 'rich';
+    if (cells[0] === "Requirement" && cells[1] === "Scenario ID") {
+      mode = "rich";
       continue;
     }
 
-    if (cells[0] === 'Feature' && cells[1] === 'Scenario') {
+    if (cells[0] === "Feature" && cells[1] === "Scenario") {
       continue;
     }
 
     if (cells.length === 10) {
-      mode = 'rich';
+      mode = "rich";
       const row = {
         requirement: cells[0],
         scenarioId: cells[1],
@@ -706,7 +708,7 @@ function parseTraceabilityRows(existingContent) {
         event: cells[6],
         technicalArtifact: cells[7],
         testArtifact: cells[8],
-        status: cells[9]
+        status: cells[9],
       };
       const key = `${row.featureFile}::${row.scenarioId}`;
       if (seen.has(key)) continue;
@@ -722,7 +724,7 @@ function parseTraceabilityRows(existingContent) {
       feature: cells[0],
       scenario: cells[1],
       technicalArtifact: cells[2],
-      status: cells[3]
+      status: cells[3],
     };
     const key = `${row.feature}::${row.scenario}`;
     if (seen.has(key)) continue;
@@ -734,44 +736,48 @@ function parseTraceabilityRows(existingContent) {
   return { mode, rows };
 }
 
-function buildTraceabilityMarkdown(rows, mode = 'legacy') {
-  if (mode === 'rich') {
+function buildTraceabilityMarkdown(rows, mode = "legacy") {
+  if (mode === "rich") {
     const header = [
-      '# Traceability Matrix',
-      '',
-      'Map requirements to scenarios, domain model elements, implementation artifacts, and tests.',
-      '',
-      '| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |',
-      '|---|---|---|---|---|---|---|---|---|---|'
+      "# Traceability Matrix",
+      "",
+      "Map requirements to scenarios, domain model elements, implementation artifacts, and tests.",
+      "",
+      "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |",
+      "|---|---|---|---|---|---|---|---|---|---|",
     ];
 
-    const body = rows.map((row) => [
-      row.requirement || '-',
-      row.scenarioId || '-',
-      row.featureFile || '-',
-      row.useCase || '-',
-      row.commandOrQuery || '-',
-      row.aggregate || '-',
-      row.event || '-',
-      row.technicalArtifact || '-',
-      row.testArtifact || '-',
-      row.status || 'Draft'
-    ]).map((cells) => `| ${cells.join(' | ')} |`);
+    const body = rows
+      .map((row) => [
+        row.requirement || "-",
+        row.scenarioId || "-",
+        row.featureFile || "-",
+        row.useCase || "-",
+        row.commandOrQuery || "-",
+        row.aggregate || "-",
+        row.event || "-",
+        row.technicalArtifact || "-",
+        row.testArtifact || "-",
+        row.status || "Draft",
+      ])
+      .map((cells) => `| ${cells.join(" | ")} |`);
 
-    return `${header.concat(body).join('\n')}\n`;
+    return `${header.concat(body).join("\n")}\n`;
   }
 
   const header = [
-    '# Traceability Matrix',
-    '',
-    'Map business specifications to scenarios and technical artifacts.',
-    '',
-    '| Feature | Scenario | Technical artifact | Status |',
-    '|---|---|---|---|'
+    "# Traceability Matrix",
+    "",
+    "Map business specifications to scenarios and technical artifacts.",
+    "",
+    "| Feature | Scenario | Technical artifact | Status |",
+    "|---|---|---|---|",
   ];
 
-  const body = rows.map((row) => `| ${row.feature} | ${row.scenario} | ${row.technicalArtifact} | ${row.status} |`);
-  return `${header.concat(body).join('\n')}\n`;
+  const body = rows.map(
+    (row) => `| ${row.feature} | ${row.scenario} | ${row.technicalArtifact} | ${row.status} |`
+  );
+  return `${header.concat(body).join("\n")}\n`;
 }
 
 module.exports = {
@@ -792,5 +798,5 @@ module.exports = {
   renderTemplate,
   safeResolve,
   validatePackModel,
-  writeFile
+  writeFile,
 };

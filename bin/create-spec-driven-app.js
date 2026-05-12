@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
-const { spawnSync } = require('child_process');
+const fs = require("fs");
+const path = require("path");
+const { spawnSync } = require("child_process");
 
-const rootDir = path.resolve(__dirname, '..');
-const packageJson = require(path.join(rootDir, 'package.json'));
-const VERSION = packageJson.version || '0.0.0';
-const initScript = path.join(rootDir, 'scripts', 'new_spec_project.sh');
-const validateScript = path.join(rootDir, 'scripts', 'validate_specs.sh');
-const expandScript = path.join(rootDir, 'scripts', 'expand_domain_pack.js');
+const rootDir = path.resolve(__dirname, "..");
+const packageJson = require(path.join(rootDir, "package.json"));
+const VERSION = packageJson.version || "0.0.0";
+const initScript = path.join(rootDir, "scripts", "new_spec_project.sh");
+const validateScript = path.join(rootDir, "scripts", "validate_specs.sh");
+const expandScript = path.join(rootDir, "scripts", "expand_domain_pack.js");
 
 function info(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
@@ -20,17 +20,19 @@ function error(msg) {
 }
 
 function usage() {
-  process.stdout.write(`🚀 create-spec-driven-app\n\n` +
-    `Usage:\n` +
-    `  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n` +
-    `  create-spec-driven-app validate <project_dir>\n` +
-    `  create-spec-driven-app expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]\n` +
-    `  create-spec-driven-app --help\n` +
-    `  create-spec-driven-app --version\n\n` +
-    `Examples:\n` +
-    `  npx create-spec-driven-app@latest init --config ./project.config --out ./projects\n` +
-    `  npx create-spec-driven-app@latest validate ./projects/my-app\n` +
-    `  npx create-spec-driven-app@latest expand --pack-root ./domain-packs --pack parking-management/backend --project-dir ./projects/my-app --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking operations"\n`);
+  process.stdout.write(
+    `🚀 create-spec-driven-app\n\n` +
+      `Usage:\n` +
+      `  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n` +
+      `  create-spec-driven-app validate <project_dir>\n` +
+      `  create-spec-driven-app expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]\n` +
+      `  create-spec-driven-app --help\n` +
+      `  create-spec-driven-app --version\n\n` +
+      `Examples:\n` +
+      `  npx create-spec-driven-app@latest init --config ./project.config --out ./projects\n` +
+      `  npx create-spec-driven-app@latest validate ./projects/my-app\n` +
+      `  npx create-spec-driven-app@latest expand --pack-root ./domain-packs --pack parking-management/backend --project-dir ./projects/my-app --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking operations"\n`
+  );
 }
 
 function ensureExecutable(scriptPath) {
@@ -42,8 +44,8 @@ function ensureExecutable(scriptPath) {
 
 function runScript(scriptPath, args) {
   const result = spawnSync(scriptPath, args, {
-    stdio: 'inherit',
-    env: process.env
+    stdio: "inherit",
+    env: process.env,
   });
 
   if (result.error) {
@@ -56,13 +58,13 @@ function runScript(scriptPath, args) {
     process.exit(1);
   }
 
-  process.exit(typeof result.status === 'number' ? result.status : 1);
+  process.exit(typeof result.status === "number" ? result.status : 1);
 }
 
 function runNodeScript(scriptPath, args) {
   const result = spawnSync(process.execPath, [scriptPath, ...args], {
-    stdio: 'inherit',
-    env: process.env
+    stdio: "inherit",
+    env: process.env,
   });
 
   if (result.error) {
@@ -75,32 +77,32 @@ function runNodeScript(scriptPath, args) {
     process.exit(1);
   }
 
-  process.exit(typeof result.status === 'number' ? result.status : 1);
+  process.exit(typeof result.status === "number" ? result.status : 1);
 }
 
 function main() {
   const args = process.argv.slice(2);
 
-  if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
+  if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
     usage();
     process.exit(0);
   }
 
-  if (args[0] === '--version' || args[0] === '-v') {
+  if (args[0] === "--version" || args[0] === "-v") {
     process.stdout.write(`${VERSION}\n`);
     process.exit(0);
   }
 
   const command = args[0];
 
-  if (command === 'init') {
+  if (command === "init") {
     ensureExecutable(initScript);
     const passThrough = args.slice(1);
     runScript(initScript, passThrough);
     return;
   }
 
-  if (command === 'validate') {
+  if (command === "validate") {
     ensureExecutable(validateScript);
 
     if (args.length !== 2) {
@@ -113,7 +115,7 @@ function main() {
     return;
   }
 
-  if (command === 'expand') {
+  if (command === "expand") {
     ensureExecutable(expandScript);
     const passThrough = args.slice(1);
     runNodeScript(expandScript, passThrough);

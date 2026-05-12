@@ -37,10 +37,19 @@
     "smoke:init": "node bin/create-spec-driven-app.js init --config examples/project.config.example --out /private/tmp --dry-run --no-git --force",
     "smoke:validate": "node bin/create-spec-driven-app.js validate /private/tmp/acme-energy-hub",
     "smoke:expand": "node bin/create-spec-driven-app.js expand --pack-root tests/fixtures/domain-packs --pack parking-management/backend --project-dir /private/tmp/acme-energy-hub --var PROJECT_NAME='Acme Energy Hub' --var PROJECT_SLUG=acme-energy-hub --var DOMAIN='community energy' --dry-run",
-    "verify": "npm test && npm run pack:dry-run"
+    "lint": "eslint bin/ scripts/ tests/",
+    "lint:fix": "eslint --fix bin/ scripts/ tests/",
+    "format": "prettier --write bin/ scripts/ tests/",
+    "format:check": "prettier --check bin/ scripts/ tests/",
+    "verify": "npm run lint && npm test && npm run pack:dry-run"
   },
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^9.39.4",
+    "prettier": "^3.8.3"
   }
 }
