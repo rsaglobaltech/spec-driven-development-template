@@ -87,15 +87,24 @@ test("renderIndex shows verified count", () => {
 
 // ── scanPacks (integration with the real packs/ dir) ──────────────────────────
 
-test("scanPacks discovers all 5 curated packs", () => {
+test("scanPacks discovers all 10 curated packs", () => {
   const packs = scanPacks(PACKS_DIR);
-  assert.equal(packs.length, 5, `expected 5 packs, found ${packs.length}: ${packs.map((p) => p.id).join(", ")}`);
+  assert.equal(
+    packs.length,
+    10,
+    `expected 10 packs, found ${packs.length}: ${packs.map((p) => p.id).join(", ")}`
+  );
   const ids = packs.map((p) => p.id);
   assert.ok(ids.includes("auth/backend"));
   assert.ok(ids.includes("billing/backend"));
   assert.ok(ids.includes("audit-log/backend"));
   assert.ok(ids.includes("notifications/backend"));
   assert.ok(ids.includes("feature-flags/backend"));
+  assert.ok(ids.includes("multi-tenant/backend"));
+  assert.ok(ids.includes("file-storage/backend"));
+  assert.ok(ids.includes("search/backend"));
+  assert.ok(ids.includes("reporting/backend"));
+  assert.ok(ids.includes("webhooks/backend"));
 });
 
 test("scanPacks marks every curated pack as verified (lintStatus=pass)", () => {
