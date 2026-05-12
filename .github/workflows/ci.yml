@@ -18,13 +18,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: chmod +x bin/*.js scripts/*.sh
+      - run: chmod +x bin/*.js scripts/*.js
       - name: ESLint
         run: npm run lint
       - name: Prettier
         run: npm run format:check
-      - name: ShellCheck
-        run: shellcheck --severity=warning scripts/*.sh
 
   # ── Cross-platform test matrix ───────────────────────────────────────────────
   test:
@@ -45,21 +43,13 @@ jobs:
       - run: npm ci
       - name: Ensure executable permissions
         if: runner.os != 'Windows'
-        run: chmod +x bin/*.js scripts/*.sh
+        run: chmod +x bin/*.js scripts/*.js
 
       - name: Run unit tests with coverage
         run: npm run test:coverage
 
       - name: Run E2E tests
         run: npm test
-
-      - name: Run Bats shell tests
-        if: runner.os == 'Linux'
-        run: |
-          sudo npm install -g bats 2>/dev/null || \
-            (git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats-core \
-              && sudo /tmp/bats-core/install.sh /usr/local)
-          bats tests/shell/
 
       - name: Run BDD tests
         run: npm run test:bdd
@@ -102,7 +92,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: chmod +x bin/*.js scripts/*.sh
+      - run: chmod +x bin/*.js scripts/*.js
       - name: Validate npm package contents
         run: npm run pack:dry-run
       - name: Smoke test from packed tarball

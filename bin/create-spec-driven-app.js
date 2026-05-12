@@ -7,9 +7,8 @@ const { spawnSync } = require("child_process");
 const rootDir = path.resolve(__dirname, "..");
 const packageJson = require(path.join(rootDir, "package.json"));
 const VERSION = packageJson.version || "0.0.0";
-const initScript = path.join(rootDir, "scripts", "new_spec_project.sh");
 const initNodeScript = path.join(rootDir, "scripts", "init_project.js");
-const validateScript = path.join(rootDir, "scripts", "validate_specs.sh");
+const validateScript = path.join(rootDir, "scripts", "validate_specs.js");
 const expandScript = path.join(rootDir, "scripts", "expand_domain_pack.js");
 const packInitScript = path.join(rootDir, "scripts", "init_pack.js");
 const packLintScript = path.join(rootDir, "scripts", "lint_pack.js");
@@ -26,7 +25,7 @@ function usage() {
   process.stdout.write(
     `🚀 create-spec-driven-app\n\n` +
       `Usage:\n` +
-      `  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git] [--engine=shell (deprecated)]\n` +
+      `  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n` +
       `  create-spec-driven-app validate <project_dir>\n` +
       `  create-spec-driven-app expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]\n` +
       `  create-spec-driven-app pack init --out <directory> [--name <name>] [--type backend|frontend] [--dry-run]\n` +
@@ -47,25 +46,6 @@ function ensureExecutable(scriptPath) {
     error(`Required script not found: ${scriptPath}`);
     process.exit(3);
   }
-}
-
-function runScript(scriptPath, args) {
-  const result = spawnSync(scriptPath, args, {
-    stdio: "inherit",
-    env: process.env,
-  });
-
-  if (result.error) {
-    error(`Failed to execute script: ${result.error.message}`);
-    process.exit(1);
-  }
-
-  if (result.signal) {
-    error(`Process terminated by signal: ${result.signal}`);
-    process.exit(1);
-  }
-
-  process.exit(typeof result.status === "number" ? result.status : 1);
 }
 
 function runNodeScript(scriptPath, args) {
@@ -104,21 +84,15 @@ function main() {
 
   if (command === "init") {
     const passThrough = args.slice(1);
-    // Detect explicit --engine=shell or --engine shell (deprecated).
+    // Reject --engine=shell — the Bash engine was removed in this release.
     const engineIdx = passThrough.indexOf("--engine");
-    const shellByFlag = passThrough.includes("--engine=shell") ||
-      (engineIdx !== -1 && passThrough[engineIdx + 1] === "shell");
-    if (shellByFlag) {
-      process.stderr.write(
-        "⚠️ [WARN] --engine=shell is deprecated and will be removed in a future release. " +
-        "The Node.js engine (--engine=node) is now the default.\n"
-      );
-      ensureExecutable(initScript);
-      runScript(initScript, passThrough);
-    } else {
-      ensureExecutable(initNodeScript);
-      runNodeScript(initNodeScript, passThrough);
+    if (passThrough.includes("--engine=shell") ||
+        (engineIdx !== -1 && passThrough[engineIdx + 1] === "shell")) {
+      error("--engine=shell was removed. The CLI is now Node-only. Drop the flag to use the (sole) Node engine.");
+      process.exit(2);
     }
+    ensureExecutable(initNodeScript);
+    runNodeScript(initNodeScript, passThrough);
     return;
   }
 
@@ -131,7 +105,7 @@ function main() {
       process.exit(2);
     }
 
-    runScript(validateScript, [args[1]]);
+    runNodeScript(validateScript, [args[1]]);
     return;
   }
 
