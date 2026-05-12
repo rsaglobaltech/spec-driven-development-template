@@ -42,8 +42,8 @@ jobs:
             (git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats-core && sudo /tmp/bats-core/install.sh /usr/local)
           bats tests/shell/
 
-      - name: Run unit tests (Node)
-        run: npm run test:unit
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
 
       - name: Run test suite (E2E)
         run: npm test

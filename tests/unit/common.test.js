@@ -3,6 +3,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
 
+const os = require("node:os");
+const fs = require("node:fs");
+
 const {
   renderTemplate,
   normalizeVars,
@@ -11,6 +14,10 @@ const {
   entityLabel,
   loadPack,
   validatePackModel,
+  safeResolve,
+  parseTraceabilityRows,
+  buildTraceabilityMarkdown,
+  hasStructuredDomainModel,
 } = require("../../scripts/domain-pack/common");
 
 const FIXTURE_ROOT = path.resolve(__dirname, "../fixtures/domain-packs");
@@ -163,4 +170,118 @@ test("validatePackModel rejects a pack with duplicate requirement ids", () => {
   const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
   pack.requirements.push({ ...pack.requirements[0] });
   assert.throws(() => validatePackModel(pack, packRoot));
+});
+
+// ── safeResolve ───────────────────────────────────────────────────────────────
+
+test("safeResolve returns absolute path within project dir", () => {
+  const tmp = os.tmpdir();
+  const result = safeResolve(tmp, "docs/spec.md");
+  assert.equal(result, path.resolve(tmp, "docs/spec.md"));
+});
+
+test("safeResolve throws on path traversal attempt", () => {
+  const tmp = os.tmpdir();
+  assert.throws(() => safeResolve(tmp, "../outside"), /escapes|Invalid/);
+});
+
+test("safeResolve throws on absolute path input", () => {
+  const tmp = os.tmpdir();
+  assert.throws(() => safeResolve(tmp, "/etc/passwd"), /Invalid target path/);
+});
+
+// ── parseTraceabilityRows ─────────────────────────────────────────────────────
+
+const LEGACY_MATRIX = `
+# Traceability Matrix
+
+| Feature | Scenario | Technical Artifact | Status |
+|---|---|---|---|
+| Login | User logs in | AuthService | Verified |
+| Login | User logs in | AuthService | Verified |
+| Logout | User logs out | AuthService | Draft |
+`.trim();
+
+const RICH_MATRIX = `
+# Traceability Matrix
+
+| Requirement | Scenario ID | Feature File | Use Case | Command | Aggregate | Event | Technical Artifact | Test Artifact | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| REQ-001 | SCN-001 | features/login.feature | UC-001 | LoginCmd | UserSession | UserLoggedIn | AuthService | login.steps | Verified |
+`.trim();
+
+test("parseTraceabilityRows detects legacy mode", () => {
+  const { mode } = parseTraceabilityRows(LEGACY_MATRIX);
+  assert.equal(mode, "legacy");
+});
+
+test("parseTraceabilityRows parses legacy rows", () => {
+  const { rows } = parseTraceabilityRows(LEGACY_MATRIX);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].feature, "Login");
+  assert.equal(rows[0].status, "Verified");
+});
+
+test("parseTraceabilityRows deduplicates legacy rows by feature+scenario key", () => {
+  const { rows } = parseTraceabilityRows(LEGACY_MATRIX);
+  const loginRows = rows.filter((r) => r.feature === "Login");
+  assert.equal(loginRows.length, 1);
+});
+
+test("parseTraceabilityRows detects rich mode", () => {
+  const { mode } = parseTraceabilityRows(RICH_MATRIX);
+  assert.equal(mode, "rich");
+});
+
+test("parseTraceabilityRows parses rich rows", () => {
+  const { rows } = parseTraceabilityRows(RICH_MATRIX);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].requirement, "REQ-001");
+  assert.equal(rows[0].scenarioId, "SCN-001");
+  assert.equal(rows[0].status, "Verified");
+});
+
+test("parseTraceabilityRows returns empty rows for empty input", () => {
+  const { rows } = parseTraceabilityRows("");
+  assert.equal(rows.length, 0);
+});
+
+// ── buildTraceabilityMarkdown ─────────────────────────────────────────────────
+
+test("buildTraceabilityMarkdown produces a markdown table in legacy mode", () => {
+  const rows = [{ feature: "Login", scenario: "Success", technicalArtifact: "AuthService", status: "Draft" }];
+  const md = buildTraceabilityMarkdown(rows, "legacy");
+  assert.ok(md.includes("| Login |"));
+  assert.ok(md.includes("Draft"));
+});
+
+test("buildTraceabilityMarkdown produces rich headers in rich mode", () => {
+  const rows = [{
+    requirement: "REQ-001", scenarioId: "SCN-001", featureFile: "login.feature",
+    useCase: "UC-001", commandOrQuery: "LoginCmd", aggregate: "Session",
+    event: "LoggedIn", technicalArtifact: "AuthSvc", testArtifact: "login.steps", status: "Draft",
+  }];
+  const md = buildTraceabilityMarkdown(rows, "rich");
+  assert.ok(md.includes("REQ-001"));
+  assert.ok(md.includes("SCN-001"));
+});
+
+test("buildTraceabilityMarkdown returns empty-table string for zero rows", () => {
+  const md = buildTraceabilityMarkdown([], "legacy");
+  assert.ok(typeof md === "string");
+});
+
+// ── hasStructuredDomainModel ──────────────────────────────────────────────────
+
+test("hasStructuredDomainModel returns true when all sections present", () => {
+  const { pack } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  assert.ok(hasStructuredDomainModel(pack));
+});
+
+test("hasStructuredDomainModel returns false when all domain sections absent", () => {
+  assert.equal(hasStructuredDomainModel({}), false);
+});
+
+test("hasStructuredDomainModel returns true when any domain section is non-empty", () => {
+  assert.equal(hasStructuredDomainModel({ requirements: [{ id: "REQ-001" }] }), true);
 });
