@@ -64,6 +64,9 @@ jobs:
       - name: Run BDD tests
         run: npm run test:bdd
 
+      - name: Run VS Code extension unit tests
+        run: npm run test:vscode-unit
+
   # ── Windows smoke (Node engine only — no Bash dependency) ────────────────────
   windows:
     name: Windows smoke (Node engine)

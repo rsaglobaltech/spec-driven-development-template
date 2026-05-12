@@ -1,0 +1,11 @@
+# Files excluded from the .vsix package
+
+test/
+.vscode/
+node_modules/
+*.test.js
+.eslintrc*
+.prettierrc*
+.gitignore
+*.md
+!README.md
