@@ -10,6 +10,8 @@ const VERSION = packageJson.version || "0.0.0";
 const initScript = path.join(rootDir, "scripts", "new_spec_project.sh");
 const validateScript = path.join(rootDir, "scripts", "validate_specs.sh");
 const expandScript = path.join(rootDir, "scripts", "expand_domain_pack.js");
+const packInitScript = path.join(rootDir, "scripts", "init_pack.js");
+const packLintScript = path.join(rootDir, "scripts", "lint_pack.js");
 
 function info(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
@@ -26,12 +28,16 @@ function usage() {
       `  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n` +
       `  create-spec-driven-app validate <project_dir>\n` +
       `  create-spec-driven-app expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]\n` +
+      `  create-spec-driven-app pack init --out <directory> [--name <name>] [--type backend|frontend] [--dry-run]\n` +
+      `  create-spec-driven-app pack lint --pack-root <path> --pack <domain/type>\n` +
       `  create-spec-driven-app --help\n` +
       `  create-spec-driven-app --version\n\n` +
       `Examples:\n` +
       `  npx create-spec-driven-app@latest init --config ./project.config --out ./projects\n` +
       `  npx create-spec-driven-app@latest validate ./projects/my-app\n` +
-      `  npx create-spec-driven-app@latest expand --pack-root ./domain-packs --pack parking-management/backend --project-dir ./projects/my-app --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking operations"\n`
+      `  npx create-spec-driven-app@latest expand --pack-root ./domain-packs --pack parking-management/backend --project-dir ./projects/my-app --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking operations"\n` +
+      `  npx create-spec-driven-app@latest pack init --out ./domain-packs --name "Billing Backend"\n` +
+      `  npx create-spec-driven-app@latest pack lint --pack-root ./domain-packs --pack billing/backend\n`
   );
 }
 
@@ -120,6 +126,23 @@ function main() {
     const passThrough = args.slice(1);
     runNodeScript(expandScript, passThrough);
     return;
+  }
+
+  if (command === "pack") {
+    const subCommand = args[1];
+    if (subCommand === "init") {
+      ensureExecutable(packInitScript);
+      runNodeScript(packInitScript, args.slice(1));
+      return;
+    }
+    if (subCommand === "lint") {
+      ensureExecutable(packLintScript);
+      runNodeScript(packLintScript, args.slice(1));
+      return;
+    }
+    error(`Unknown pack sub-command: ${subCommand || "(none)"}. Expected: init, lint`);
+    usage();
+    process.exit(2);
   }
 
   info(`Unknown command: ${command}`);
