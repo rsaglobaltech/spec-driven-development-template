@@ -1,523 +1,395 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Create Spec Driven App · Docs</title>
-    <meta
-      name="description"
-      content="Official docs for create-spec-driven-app: a Spec-Driven Development toolkit with 10 domain packs, VS Code extension, and MCP server for AI agents."
-    />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="./styles.css" />
-    <style>
-      .topnav {
-        background: rgba(255,254,249,0.88);
-        backdrop-filter: blur(10px);
-        border-bottom: 1px solid var(--line);
-        position: sticky;
-        top: 0;
-        z-index: 100;
-      }
-      .topnav__inner {
-        display: flex;
-        align-items: center;
-        gap: 1.4rem;
-        padding: 0.65rem 0;
-        overflow-x: auto;
-        flex-wrap: nowrap;
-        scrollbar-width: none;
-      }
-      .topnav__inner::-webkit-scrollbar { display: none; }
-      .topnav__brand {
-        font-weight: 700;
-        font-size: 0.9rem;
-        color: var(--brand);
-        white-space: nowrap;
-        text-decoration: none;
-        flex-shrink: 0;
-      }
-      .topnav a:not(.topnav__brand) {
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: var(--muted);
-        text-decoration: none;
-        white-space: nowrap;
-        flex-shrink: 0;
-        transition: color 0.2s;
-      }
-      .topnav a:not(.topnav__brand):hover { color: var(--brand-2); }
-      .topnav__sep { color: var(--line); font-size: 0.75rem; flex-shrink: 0; }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Spec Driven App — Spec-First CLI for Modern Teams</title>
+  <meta name="description" content="Bootstrap production-ready projects with traceability, Gherkin BDD, DDD domain packs, and an AI-ready execution contract. 10 packs, VS Code extension, MCP server." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
 
-      .badge {
-        display: inline-block;
-        background: var(--brand-2);
-        color: #fff;
-        font-size: 0.7rem;
-        font-weight: 700;
-        padding: 0.15em 0.55em;
-        border-radius: 999px;
-        vertical-align: middle;
-        margin-left: 0.3em;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-      }
-      .badge--orange { background: var(--brand); }
+<!-- ── Navbar ──────────────────────────────────────────── -->
+<nav class="navbar">
+  <div class="navbar__inner container">
+    <a class="navbar__brand" href="./">
+      <span>⬡</span> create-spec-driven-app
+    </a>
+    <ul class="navbar__links">
+      <li><a href="./packs/">Pack Registry</a></li>
+      <li><a href="./roi.html">ROI Calculator</a></li>
+      <li><a href="./comparisons.md">Comparisons</a></li>
+      <li><a href="./case-studies/case-1.md">Case Study</a></li>
+      <li><a href="./deployment.md">Deploy</a></li>
+      <li><a href="./specs/adr/README.md">ADRs</a></li>
+      <li><a href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer">GitHub</a></li>
+    </ul>
+    <a class="btn navbar__cta" href="https://www.npmjs.com/package/create-spec-driven-app" target="_blank" rel="noreferrer">npm →</a>
+  </div>
+</nav>
 
-      .pack-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
-        gap: 0.7rem;
-        margin-top: 0.9rem;
-      }
-      .pack-card {
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 0.75rem 0.9rem;
-        background: #fff;
-      }
-      .pack-card__icon {
-        font-size: 1.5rem;
-        line-height: 1;
-        margin-bottom: 0.35rem;
-      }
-      .pack-card h4 {
-        margin: 0 0 0.2rem;
-        font-size: 0.92rem;
-      }
-      .pack-card p {
-        margin: 0;
-        font-size: 0.8rem;
-        color: var(--muted);
-      }
+<!-- ── Hero ────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero__eyebrow animate-rise">
+      <span class="pill pill--indigo">v0.1.0-beta.3</span>
+      <span class="pill pill--green">178 Tests Passing</span>
+      <span class="pill pill--cyan">Node 20+</span>
+    </div>
 
-      .ecosystem-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 0.85rem;
-        margin-top: 0.9rem;
-      }
-      .eco-card {
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 1rem 1.1rem;
-        background: #fff;
-      }
-      .eco-card h3 { margin: 0 0 0.45rem; font-size: 1rem; }
-      .eco-card p { margin: 0 0 0.7rem; font-size: 0.88rem; color: var(--muted); }
-      .eco-card .links { display: flex; gap: 0.6rem; flex-wrap: wrap; }
-      .eco-card .links a {
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: var(--brand-2);
-        text-decoration: none;
-        border-bottom: 1px dashed var(--brand-2);
-      }
-      .eco-card .links a:hover { color: var(--brand); border-color: var(--brand); }
+    <h1 class="hero__title animate-rise-2">
+      Ship software that matches<br>
+      <span class="grad">its specification.</span>
+    </h1>
 
-      .resource-list {
-        list-style: none;
-        margin: 0.7rem 0 0;
-        padding: 0;
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-        gap: 0.6rem;
-      }
-      .resource-list li a {
-        display: flex;
-        align-items: center;
-        gap: 0.45rem;
-        text-decoration: none;
-        font-weight: 600;
-        font-size: 0.9rem;
-        color: var(--brand-2);
-      }
-      .resource-list li a:hover { color: var(--brand); }
-      .resource-list li a .arrow { font-style: normal; color: var(--line); }
+    <p class="hero__sub animate-rise-3">
+      <code>create-spec-driven-app</code> bootstraps projects with requirements, traceability,
+      Gherkin acceptance criteria, and a DDD domain model — all linked together from day one.
+      No Bash. Cross-platform. AI-native.
+    </p>
 
-      .hero__badges { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-    </style>
-  </head>
-  <body>
+    <div class="hero__actions animate-rise-3">
+      <a class="btn btn--primary" href="https://www.npmjs.com/package/create-spec-driven-app" target="_blank" rel="noreferrer">Get started on npm</a>
+      <a class="btn btn--outline" href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer">View on GitHub</a>
+      <a class="btn btn--ghost" href="./roi.html">Calculate ROI</a>
+    </div>
 
-    <nav class="topnav">
-      <div class="topnav__inner container">
-        <a class="topnav__brand" href="./">create-spec-driven-app</a>
-        <span class="topnav__sep">|</span>
-        <a href="./roi.html">ROI Calculator</a>
-        <a href="./comparisons.md">Comparisons</a>
-        <a href="./case-studies/case-1.md">Case Study</a>
-        <a href="./packs/">Pack Registry</a>
-        <a href="./deployment.md">Deployment</a>
-        <a href="./specs/adr/README.md">ADRs</a>
-        <a href="./specs/traceability.md">Traceability</a>
-        <a href="https://www.npmjs.com/package/create-spec-driven-app" target="_blank" rel="noreferrer">npm</a>
-        <a href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer">GitHub</a>
+    <div class="hero__install animate-rise-3">
+      <pre>npx create-spec-driven-app@latest init --config ./project.config --out ./projects</pre>
+      <button class="copy-btn" data-copy="npx create-spec-driven-app@latest init --config ./project.config --out ./projects">Copy</button>
+    </div>
+
+    <div class="hero__stats">
+      <div class="hero__stat-item">
+        <span class="hero__stat-val" style="background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent">10</span>
+        <span class="hero__stat-label">Domain Packs</span>
       </div>
-    </nav>
+      <div class="hero__stat-item">
+        <span class="hero__stat-val" style="color:#34d399">178</span>
+        <span class="hero__stat-label">Tests (unit, BDD, property-based)</span>
+      </div>
+      <div class="hero__stat-item">
+        <span class="hero__stat-val" style="color:var(--indigo2)">5</span>
+        <span class="hero__stat-label">MCP Tools for AI Agents</span>
+      </div>
+      <div class="hero__stat-item">
+        <span class="hero__stat-val" style="color:var(--cyan2)">0</span>
+        <span class="hero__stat-label">Bash Dependencies</span>
+      </div>
+      <div class="hero__stat-item">
+        <span class="hero__stat-val" style="color:#c084fc">8</span>
+        <span class="hero__stat-label">Architecture Decision Records</span>
+      </div>
+    </div>
+  </div>
+</section>
 
-    <header class="hero">
-      <div class="hero__backdrop"></div>
-      <div class="hero__content container">
-        <p class="eyebrow">Spec-Driven Development Toolkit</p>
-        <h1>Create Spec Driven App</h1>
-        <div class="hero__badges">
-          <span class="badge">10 Domain Packs</span>
-          <span class="badge badge--orange">VS Code Extension</span>
-          <span class="badge">MCP Server</span>
-          <span class="badge badge--orange">Pure Node.js</span>
-          <span class="badge">178 Tests</span>
+<!-- ── Strip ────────────────────────────────────────────── -->
+<div class="strip">
+  <div class="strip__inner container">
+    <span class="strip__item"><span class="strip__dot"></span> Linux · macOS · Windows</span>
+    <span class="strip__item"><span class="strip__dot"></span> SDD · DDD · BDD · TDD</span>
+    <span class="strip__item"><span class="strip__dot"></span> VS Code Extension</span>
+    <span class="strip__item"><span class="strip__dot"></span> MCP Server for Claude, Cursor, Copilot</span>
+    <span class="strip__item"><span class="strip__dot"></span> JSON Schema–validated packs</span>
+    <span class="strip__item"><span class="strip__dot"></span> GitHub Pages pack registry</span>
+  </div>
+</div>
+
+<!-- ── The problem ──────────────────────────────────────── -->
+<section class="section section--sm" style="border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-header">
+      <span class="eyebrow">The problem</span>
+      <h2>Spec and implementation drift apart the moment you start coding.</h2>
+      <p>Requirements live in Confluence. Tests live in Jest. Domain models live in developers' heads.
+         There is no single source of truth linking business intent to running code — so regressions slip through,
+         and audits become archaeology.</p>
+    </div>
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pillar__icon">📋</div>
+        <h3>Spec-Driven Development</h3>
+        <p>Every project gets a machine-readable <code>spec.md</code> with <code>REQ-NNN</code> identifiers,
+           a traceability matrix, and schema-validated domain packs — all generated, not hand-maintained.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar__icon">🗺️</div>
+        <h3>Domain-Driven Design</h3>
+        <p>Bounded contexts, aggregates, domain events, and a ubiquitous-language glossary scaffold out of the box,
+           keeping your domain model explicit and evolvable.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar__icon">🥒</div>
+        <h3>Behavior-Driven Development</h3>
+        <p>Gherkin <code>.feature</code> files and Cucumber step definitions are generated alongside source code,
+           so acceptance criteria are executable from commit one.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar__icon">🧪</div>
+        <h3>Test-Driven Development</h3>
+        <p>Unit, property-based, and BDD test scaffolds generated per command. 178 tests, mutation-tested baseline,
+           and a coverage gate of ≥ 80 % line coverage.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ─────────────────────────────────────── -->
+<section class="section" style="border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-header">
+      <span class="eyebrow">How it works</span>
+      <h2>Three commands to a spec-first project.</h2>
+      <p>Each step produces concrete, linkable artifacts — not boilerplate that gets deleted on day two.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <span class="step__num">01 init</span>
+        <h3>Scaffold the project</h3>
+        <p>Generates <code>spec.md</code>, traceability matrix, Gherkin feature files, directory structure,
+           Docker Compose, dev-container, and <code>.env.*</code> per environment.</p>
+        <pre><code>npx create-spec-driven-app init \
+  --config ./project.config \
+  --out ./my-app</code></pre>
+      </div>
+      <div class="step">
+        <span class="step__num">02 expand</span>
+        <h3>Inject a domain pack</h3>
+        <p>Merges a curated domain pack — requirements, aggregates, events, scenarios — into the project.
+           Each pack is JSON Schema–validated before expansion.</p>
+        <pre><code>npx create-spec-driven-app expand \
+  --pack-root ./packs \
+  --pack auth/backend \
+  --project-dir ./my-app</code></pre>
+      </div>
+      <div class="step">
+        <span class="step__num">03 validate</span>
+        <h3>Enforce the contract</h3>
+        <p>Checks directory structure, required files, unresolved template placeholders, and spec linkage.
+           Run in CI to gate every PR.</p>
+        <pre><code>npx create-spec-driven-app validate \
+  ./my-app</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Domain Packs ──────────────────────────────────────── -->
+<section class="section" style="border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-header">
+      <span class="eyebrow">Domain Packs</span>
+      <h2>10 production-ready packs, ready to expand.</h2>
+      <p>Each <code>pack.yaml</code> ships domain model, requirements, use cases, aggregates, domain events,
+         Gherkin scenarios, and API contract stubs. Validate any pack with <code>pack lint</code>.</p>
+    </div>
+    <div class="pack-grid">
+      <div class="pack-tile"><div class="pack-tile__icon">🔐</div><h4>Auth</h4><p>JWT · OAuth2 · RBAC · MFA</p></div>
+      <div class="pack-tile"><div class="pack-tile__icon">💳</div><h4>Billing</h4><p>Subscriptions · invoicing · proration</p></div>
+      <div class="pack-tile"><div class="pack-tile__icon">📋</div><h4>Audit Log</h4><p>Immutable trail · GDPR queries</p></div>
+      <div class="pack-tile"><div class="pack-tile__icon">🔔</div><h4>Notifications</h4><p>Email · SMS · push · in-app</p></div>
+      <div class="pack-tile"><div class="pack-tile__icon">🚩</div><h4>Feature Flags</h4><p>Gradual rollout · A/B targeting</p></div>
+      <div class="pack-tile"><div class="pack-tile__icon">🏢</div><h4>Multi-tenant</h4><p>Isolation · row-level security</p></div>
+      <div class="pack-tile"><div class="pack-tile__icon">📁</div><h4>File Storage</h4><p>Upload · CDN · virus-scan pipeline</p></div>
+      <div class="pack-tile"><div class="pack-tile__icon">🔍</div><h4>Search</h4><p>Full-text · facets · pgvector</p></div>
+      <div class="pack-tile"><div class="pack-tile__icon">📊</div><h4>Reporting</h4><p>Scheduled reports · export formats</p></div>
+      <div class="pack-tile"><div class="pack-tile__icon">🪝</div><h4>Webhooks</h4><p>Delivery · retry · HMAC signing</p></div>
+    </div>
+    <div style="margin-top:1.5rem;display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
+      <a class="btn btn--outline" href="./packs/">Browse Pack Registry →</a>
+      <span style="font-size:0.85rem;color:var(--muted)">or create your own with <code>pack init</code></span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Ecosystem ─────────────────────────────────────────── -->
+<section class="section" style="border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-header">
+      <span class="eyebrow">Ecosystem</span>
+      <h2>Built for how modern teams actually work.</h2>
+      <p>Editor tooling, AI agent integration, and a self-hosted pack registry — not afterthoughts.</p>
+    </div>
+    <div class="ecosystem">
+      <div class="eco-card">
+        <div class="eco-card__head">
+          <span class="eco-card__icon">🧩</span>
+          <h3>VS Code Extension <span class="pill pill--amber" style="font-size:0.65rem">New</span></h3>
         </div>
-        <p class="hero__subtitle">
-          Bootstrap reusable SDD projects with traceability, Gherkin acceptance criteria,
-          and an AI-ready execution contract. Includes 10 curated domain packs,
-          a VS Code extension, and an MCP server for AI agents — zero Bash dependency.
-        </p>
-        <div class="hero__actions">
-          <a class="btn btn--primary" href="https://www.npmjs.com/package/create-spec-driven-app" target="_blank" rel="noreferrer">View on npm</a>
-          <a class="btn btn--ghost" href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer">View on GitHub</a>
-          <a class="btn btn--ghost" href="./roi.html">ROI Calculator</a>
+        <p>Schema squigglies and hover docs for <code>pack.yaml</code>. A <strong>Reveal in Traceability Matrix</strong>
+           command jumps from any <code>REQ-NNN</code> identifier to its row in the matrix without leaving the editor.</p>
+        <div class="eco-card__links">
+          <a href="https://github.com/rsaglobaltech/spec-driven-development-template/tree/main/packages/vscode-spec-driven" target="_blank" rel="noreferrer">Source</a>
+          <a href="https://github.com/rsaglobaltech/spec-driven-development-template/raw/main/releases/vscode-spec-driven/vscode-spec-driven-0.1.0.vsix">Download .vsix</a>
         </div>
       </div>
-    </header>
 
-    <main class="container main">
+      <div class="eco-card">
+        <div class="eco-card__head">
+          <span class="eco-card__icon">🤖</span>
+          <h3>MCP Server <span class="pill pill--cyan" style="font-size:0.65rem">AI-native</span></h3>
+        </div>
+        <p>A JSON-RPC server exposing five tools — <code>init_project</code>, <code>validate_project</code>,
+           <code>expand_pack</code>, <code>list_packs</code>, <code>lint_pack</code> — to any
+           MCP-compatible AI agent: Claude, Cursor, GitHub Copilot, and more.</p>
+        <div class="eco-card__links">
+          <a href="https://github.com/rsaglobaltech/spec-driven-development-template/tree/main/packages/mcp-spec-driven" target="_blank" rel="noreferrer">Source</a>
+          <a href="https://www.npmjs.com/package/mcp-spec-driven" target="_blank" rel="noreferrer">npm</a>
+        </div>
+      </div>
 
-      <!-- Quick Start -->
-      <section class="panel">
-        <h2>Quick Start</h2>
-        <p>Run with <code>npx</code> — no global install required.</p>
-        <div class="command-grid">
-          <article class="command-card">
-            <h3>Scaffold a new project</h3>
-            <pre><code>npx create-spec-driven-app@latest init \
+      <div class="eco-card">
+        <div class="eco-card__head">
+          <span class="eco-card__icon">🗂️</span>
+          <h3>Pack Registry</h3>
+        </div>
+        <p>A static-site generator builds a searchable HTML catalog and a machine-readable
+           <code>manifest.json</code> from every pack in the repo, deployed automatically to
+           GitHub Pages on every push to <code>main</code>.</p>
+        <div class="eco-card__links">
+          <a href="./packs/">Browse registry</a>
+          <a href="./packs/manifest.json">manifest.json</a>
+          <a href="./deployment.md">Deployment docs</a>
+        </div>
+      </div>
+
+      <div class="eco-card">
+        <div class="eco-card__head">
+          <span class="eco-card__icon">🐳</span>
+          <h3>Docker / Dev Container <span class="pill pill--amber" style="font-size:0.65rem">New</span></h3>
+        </div>
+        <p>Multi-environment <code>.env.development</code>, <code>.env.staging</code>, <code>.env.production</code>,
+           Docker Compose services with healthchecks, and a
+           <code>.devcontainer/devcontainer.json</code> — all generated by the runtime-environments template.</p>
+        <div class="eco-card__links">
+          <a href="./deployment.md">Deployment guide</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CLI Quick Start ───────────────────────────────────── -->
+<section class="section" style="border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-header">
+      <span class="eyebrow">CLI Reference</span>
+      <h2>All commands at a glance.</h2>
+    </div>
+    <div class="cmd-grid" style="margin-bottom:1.5rem">
+      <div class="cmd-card">
+        <h4>Scaffold a project</h4>
+        <pre><code>npx create-spec-driven-app init \
   --config ./project.config \
   --out ./projects</code></pre>
-            <button class="copy" data-copy="npx create-spec-driven-app@latest init --config ./project.config --out ./projects">Copy</button>
-          </article>
-          <article class="command-card">
-            <h3>Validate generated project</h3>
-            <pre><code>create-spec-driven-app validate \
+        <div class="cmd-card__foot"><button class="copy-btn" data-copy="npx create-spec-driven-app init --config ./project.config --out ./projects">Copy</button></div>
+      </div>
+      <div class="cmd-card">
+        <h4>Validate a project</h4>
+        <pre><code>create-spec-driven-app validate \
   ./projects/my-app</code></pre>
-            <button class="copy" data-copy="create-spec-driven-app validate ./projects/my-app">Copy</button>
-          </article>
-          <article class="command-card">
-            <h3>Expand a domain pack</h3>
-            <pre><code>create-spec-driven-app expand \
-  --pack packs/auth/backend/pack.yaml \
-  --out ./projects/my-app</code></pre>
-            <button class="copy" data-copy="create-spec-driven-app expand --pack packs/auth/backend/pack.yaml --out ./projects/my-app">Copy</button>
-          </article>
-          <article class="command-card">
-            <h3>Scaffold a new domain pack</h3>
-            <pre><code>create-spec-driven-app pack init \
+        <div class="cmd-card__foot"><button class="copy-btn" data-copy="create-spec-driven-app validate ./projects/my-app">Copy</button></div>
+      </div>
+      <div class="cmd-card">
+        <h4>Expand a domain pack</h4>
+        <pre><code>create-spec-driven-app expand \
+  --pack-root ./packs \
+  --pack auth/backend \
+  --project-dir ./my-app</code></pre>
+        <div class="cmd-card__foot"><button class="copy-btn" data-copy="create-spec-driven-app expand --pack-root ./packs --pack auth/backend --project-dir ./my-app">Copy</button></div>
+      </div>
+      <div class="cmd-card">
+        <h4>Create a new pack</h4>
+        <pre><code>create-spec-driven-app pack init \
   --name payments \
   --out ./packs</code></pre>
-            <button class="copy" data-copy="create-spec-driven-app pack init --name payments --out ./packs">Copy</button>
-          </article>
-          <article class="command-card">
-            <h3>Lint a domain pack</h3>
-            <pre><code>create-spec-driven-app pack lint \
+        <div class="cmd-card__foot"><button class="copy-btn" data-copy="create-spec-driven-app pack init --name payments --out ./packs">Copy</button></div>
+      </div>
+      <div class="cmd-card">
+        <h4>Lint a pack</h4>
+        <pre><code>create-spec-driven-app pack lint \
   packs/auth/backend/pack.yaml</code></pre>
-            <button class="copy" data-copy="create-spec-driven-app pack lint packs/auth/backend/pack.yaml">Copy</button>
-          </article>
-          <article class="command-card">
-            <h3>Install globally</h3>
-            <pre><code>npm i -g create-spec-driven-app</code></pre>
-            <button class="copy" data-copy="npm i -g create-spec-driven-app">Copy</button>
-          </article>
-        </div>
-      </section>
+        <div class="cmd-card__foot"><button class="copy-btn" data-copy="create-spec-driven-app pack lint packs/auth/backend/pack.yaml">Copy</button></div>
+      </div>
+      <div class="cmd-card">
+        <h4>Install globally</h4>
+        <pre><code>npm install -g create-spec-driven-app</code></pre>
+        <div class="cmd-card__foot"><button class="copy-btn" data-copy="npm install -g create-spec-driven-app">Copy</button></div>
+      </div>
+    </div>
 
-      <!-- Why teams use this -->
-      <section class="panel">
-        <h2>Why teams use this</h2>
-        <div class="feature-grid">
-          <article>
-            <h3>Spec-first delivery</h3>
-            <p>Define requirements before implementation. Traceability matrix links <code>REQ-NNN</code> IDs from spec to tests to source.</p>
-          </article>
-          <article>
-            <h3>10 domain packs</h3>
-            <p>Auth, billing, notifications, audit-log, feature-flags, multi-tenant, file-storage, search, reporting, and webhooks — ready to expand.</p>
-          </article>
-          <article>
-            <h3>AI-native</h3>
-            <p>MCP server exposes CLI tools to any MCP-compatible AI agent. VS Code extension adds schema validation and traceability navigation.</p>
-          </article>
-          <article>
-            <h3>BDD + TDD built-in</h3>
-            <p>Gherkin feature files and Cucumber step definitions scaffolded alongside the project. 178 tests across unit, BDD, and property-based layers.</p>
-          </article>
-          <article>
-            <h3>Pure Node.js</h3>
-            <p>No Bash dependency. Works on Linux, macOS, and Windows (Node 20+). All scripts ported to cross-platform JS.</p>
-          </article>
-          <article>
-            <h3>CI/CD ready</h3>
-            <p>Preconfigured GitHub Actions for tests (Linux/macOS/Windows matrix), npm publish, GitHub Packages, and GitHub Pages registry.</p>
-          </article>
-        </div>
-      </section>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Flag</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--dry-run</code></td><td>Preview actions without writing files.</td></tr>
+          <tr><td><code>--no-git</code></td><td>Skip <code>git init</code> in generated output.</td></tr>
+          <tr><td><code>--force</code></td><td>Overwrite destination when it already exists.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
 
-      <!-- Domain Packs -->
-      <section class="panel">
-        <h2>Domain Packs <span class="badge">10 packs</span></h2>
-        <p>Each pack ships a <code>pack.yaml</code> with domain model, requirements, Gherkin scenarios, API contracts, and template stubs. Use <code>expand</code> to inject them into any generated project.</p>
-        <div class="pack-grid">
-          <div class="pack-card">
-            <div class="pack-card__icon">🔐</div>
-            <h4>Auth</h4>
-            <p>JWT, OAuth2, RBAC, MFA flows</p>
-          </div>
-          <div class="pack-card">
-            <div class="pack-card__icon">💳</div>
-            <h4>Billing</h4>
-            <p>Subscriptions, invoicing, proration</p>
-          </div>
-          <div class="pack-card">
-            <div class="pack-card__icon">📋</div>
-            <h4>Audit Log</h4>
-            <p>Immutable event log, GDPR-ready</p>
-          </div>
-          <div class="pack-card">
-            <div class="pack-card__icon">🔔</div>
-            <h4>Notifications</h4>
-            <p>Email, SMS, push, in-app channels</p>
-          </div>
-          <div class="pack-card">
-            <div class="pack-card__icon">🚩</div>
-            <h4>Feature Flags</h4>
-            <p>Gradual rollout, A/B targeting</p>
-          </div>
-          <div class="pack-card">
-            <div class="pack-card__icon">🏢</div>
-            <h4>Multi-tenant</h4>
-            <p>Tenant isolation, row-level security</p>
-          </div>
-          <div class="pack-card">
-            <div class="pack-card__icon">📁</div>
-            <h4>File Storage</h4>
-            <p>Upload, CDN, virus-scan pipeline</p>
-          </div>
-          <div class="pack-card">
-            <div class="pack-card__icon">🔍</div>
-            <h4>Search</h4>
-            <p>Full-text, facets, elasticsearch/pgvector</p>
-          </div>
-          <div class="pack-card">
-            <div class="pack-card__icon">📊</div>
-            <h4>Reporting</h4>
-            <p>Scheduled reports, export formats</p>
-          </div>
-          <div class="pack-card">
-            <div class="pack-card__icon">🪝</div>
-            <h4>Webhooks</h4>
-            <p>Delivery, retry, HMAC signing</p>
-          </div>
-        </div>
-        <p style="margin-top:0.9rem">
-          Browse the full registry with JSON manifest:
-          <a href="./packs/" style="color:var(--brand-2);font-weight:700">Pack Registry →</a>
-        </p>
-      </section>
+<!-- ── Resources ─────────────────────────────────────────── -->
+<section class="section" style="border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-header">
+      <span class="eyebrow">Resources</span>
+      <h2>Everything you need to go deeper.</h2>
+    </div>
+    <div class="resource-grid">
+      <a class="resource-link" href="./roi.html"><span class="resource-link__icon">📈</span> ROI Calculator <span class="resource-link__arrow">→</span></a>
+      <a class="resource-link" href="./comparisons.md"><span class="resource-link__icon">⚖️</span> Tool Comparisons <span class="resource-link__arrow">→</span></a>
+      <a class="resource-link" href="./case-studies/case-1.md"><span class="resource-link__icon">🏢</span> Smart Parking Case Study <span class="resource-link__arrow">→</span></a>
+      <a class="resource-link" href="./deployment.md"><span class="resource-link__icon">🚀</span> Deployment Guide <span class="resource-link__arrow">→</span></a>
+      <a class="resource-link" href="./specs/traceability.md"><span class="resource-link__icon">🔗</span> Traceability Matrix <span class="resource-link__arrow">→</span></a>
+      <a class="resource-link" href="./specs/adr/README.md"><span class="resource-link__icon">📝</span> Architecture Decision Records <span class="resource-link__arrow">→</span></a>
+      <a class="resource-link" href="./specs/domain-pack-format.md"><span class="resource-link__icon">📦</span> Domain Pack Format Spec <span class="resource-link__arrow">→</span></a>
+      <a class="resource-link" href="./packs/"><span class="resource-link__icon">🗂️</span> Pack Registry <span class="resource-link__arrow">→</span></a>
+    </div>
+  </div>
+</section>
 
-      <!-- Ecosystem -->
-      <section class="panel">
-        <h2>Ecosystem</h2>
-        <div class="ecosystem-grid">
-          <div class="eco-card">
-            <h3>VS Code Extension <span class="badge badge--orange">New</span></h3>
-            <p>
-              Schema squigglies for <code>pack.yaml</code>, hover docs for domain fields,
-              and a <strong>Reveal in Traceability Matrix</strong> command that jumps
-              from any <code>REQ-NNN</code> identifier to its row in the matrix.
-            </p>
-            <div class="links">
-              <a href="https://github.com/rsaglobaltech/spec-driven-development-template/tree/main/packages/vscode-spec-driven" target="_blank" rel="noreferrer">Source</a>
-              <a href="https://github.com/rsaglobaltech/spec-driven-development-template/raw/main/releases/vscode-spec-driven/vscode-spec-driven-0.1.0.vsix">Download .vsix</a>
-            </div>
-          </div>
-          <div class="eco-card">
-            <h3>MCP Server <span class="badge">AI-native</span></h3>
-            <p>
-              JSON-RPC server that exposes five tools to any MCP-compatible AI agent:
-              <code>init_project</code>, <code>validate_project</code>,
-              <code>expand_pack</code>, <code>list_packs</code>,
-              <code>lint_pack</code>. Works with Claude, Cursor, Copilot, and more.
-            </p>
-            <div class="links">
-              <a href="https://github.com/rsaglobaltech/spec-driven-development-template/tree/main/packages/mcp-spec-driven" target="_blank" rel="noreferrer">Source</a>
-              <a href="https://www.npmjs.com/package/mcp-spec-driven" target="_blank" rel="noreferrer">npm</a>
-            </div>
-          </div>
-          <div class="eco-card">
-            <h3>Pack Registry</h3>
-            <p>
-              Static-site generator that builds a searchable HTML catalog and
-              a machine-readable <code>manifest.json</code> from all packs in
-              the repository. Self-hosted on GitHub Pages.
-            </p>
-            <div class="links">
-              <a href="./packs/">Browse registry</a>
-              <a href="./packs/manifest.json">manifest.json</a>
-              <a href="https://github.com/rsaglobaltech/spec-driven-development-template/tree/main/packages/pack-registry" target="_blank" rel="noreferrer">Source</a>
-            </div>
-          </div>
-          <div class="eco-card">
-            <h3>Docker / Dev Container <span class="badge badge--orange">New</span></h3>
-            <p>
-              Multi-environment <code>.env.*</code> files, Docker Compose services,
-              and a <code>.devcontainer/devcontainer.json</code> scaffold generated
-              by the runtime-environments template.
-            </p>
-            <div class="links">
-              <a href="./deployment.md">Deployment docs</a>
-            </div>
-          </div>
-        </div>
-      </section>
+<!-- ── CTA ───────────────────────────────────────────────── -->
+<section class="section section--sm">
+  <div class="container">
+    <div class="cta-banner">
+      <span class="pill pill--indigo" style="margin-bottom:1rem">Open source · MIT</span>
+      <h2>Start shipping spec-first software today.</h2>
+      <p>One command to scaffold. One command to validate. Zero drift between intent and implementation.</p>
+      <div class="btn-row">
+        <a class="btn btn--primary" href="https://www.npmjs.com/package/create-spec-driven-app" target="_blank" rel="noreferrer">Get started on npm</a>
+        <a class="btn btn--outline" href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer">Star on GitHub</a>
+      </div>
+    </div>
+  </div>
+</section>
 
-      <!-- Command Reference -->
-      <section class="panel">
-        <h2>Command Reference</h2>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Command</th>
-                <th>Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>init</code></td>
-                <td>Generate a new SDD project from templates.</td>
-              </tr>
-              <tr>
-                <td><code>validate</code></td>
-                <td>Validate required structure, files, and unresolved placeholders.</td>
-              </tr>
-              <tr>
-                <td><code>expand</code></td>
-                <td>Inject a domain pack (<code>pack.yaml</code>) into an existing project.</td>
-              </tr>
-              <tr>
-                <td><code>pack init</code></td>
-                <td>Scaffold a new <code>pack.yaml</code> with all required fields.</td>
-              </tr>
-              <tr>
-                <td><code>pack lint</code></td>
-                <td>Validate a <code>pack.yaml</code> against the JSON Schema contract.</td>
-              </tr>
-              <tr>
-                <td><code>--dry-run</code></td>
-                <td>Preview actions without writing files.</td>
-              </tr>
-              <tr>
-                <td><code>--no-git</code></td>
-                <td>Skip <code>git init</code> in generated output.</td>
-              </tr>
-              <tr>
-                <td><code>--force</code></td>
-                <td>Overwrite destination when it already exists.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+<!-- ── Footer ────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer__inner">
+      <span class="footer__brand"><span>⬡</span> create-spec-driven-app</span>
+      <nav class="footer__links">
+        <a href="./packs/">Pack Registry</a>
+        <a href="./roi.html">ROI Calculator</a>
+        <a href="./deployment.md">Deployment</a>
+        <a href="./specs/adr/README.md">ADRs</a>
+        <a href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer">GitHub</a>
+        <a href="https://www.npmjs.com/package/create-spec-driven-app" target="_blank" rel="noreferrer">npm</a>
+      </nav>
+    </div>
+    <p class="footer__copy">Built for teams shipping with Spec-Driven Development · MIT License</p>
+  </div>
+</footer>
 
-      <!-- Resources -->
-      <section class="panel">
-        <h2>Resources</h2>
-        <ul class="resource-list">
-          <li>
-            <a href="./roi.html">
-              <span>📈</span> ROI Calculator
-              <span class="arrow">→</span>
-            </a>
-          </li>
-          <li>
-            <a href="./comparisons.md">
-              <span>⚖️</span> Tool Comparisons
-              <span class="arrow">→</span>
-            </a>
-          </li>
-          <li>
-            <a href="./case-studies/case-1.md">
-              <span>🏢</span> Smart Parking Case Study
-              <span class="arrow">→</span>
-            </a>
-          </li>
-          <li>
-            <a href="./deployment.md">
-              <span>🚀</span> Deployment Guide
-              <span class="arrow">→</span>
-            </a>
-          </li>
-          <li>
-            <a href="./specs/traceability.md">
-              <span>🔗</span> Traceability Matrix
-              <span class="arrow">→</span>
-            </a>
-          </li>
-          <li>
-            <a href="./specs/adr/README.md">
-              <span>📝</span> Architecture Decision Records
-              <span class="arrow">→</span>
-            </a>
-          </li>
-          <li>
-            <a href="./specs/domain-pack-format.md">
-              <span>📦</span> Domain Pack Format Spec
-              <span class="arrow">→</span>
-            </a>
-          </li>
-          <li>
-            <a href="./packs/">
-              <span>🗂️</span> Pack Registry
-              <span class="arrow">→</span>
-            </a>
-          </li>
-        </ul>
-      </section>
-
-      <!-- Publish / Install -->
-      <section class="panel panel--split">
-        <div>
-          <h2>Publish workflows</h2>
-          <p>Two release lanes supported from GitHub Actions:</p>
-          <ul>
-            <li><strong>npm registry:</strong> <code>publish-npm.yml</code></li>
-            <li><strong>GitHub Packages:</strong> <code>publish-github-packages.yml</code></li>
-          </ul>
-          <p>GitHub Pages (docs + pack registry) deploys automatically on every push to <code>main</code> that touches <code>docs/</code>, <code>packs/</code>, or <code>schemas/</code>.</p>
-        </div>
-        <aside class="note">
-          <h3>Package names</h3>
-          <p><code>create-spec-driven-app</code> on npm</p>
-          <p><code>@rsaglobaltech/create-spec-driven-app</code> on GitHub Packages</p>
-          <h3 style="margin-top:0.9rem">Install VS Code extension</h3>
-          <p style="font-size:0.85rem">
-            Download
-            <a href="https://github.com/rsaglobaltech/spec-driven-development-template/raw/main/releases/vscode-spec-driven/vscode-spec-driven-0.1.0.vsix" style="color:var(--brand-2);font-weight:700">vscode-spec-driven-0.1.0.vsix</a>
-            then run:<br/>
-            <code>code --install-extension vscode-spec-driven-0.1.0.vsix</code>
-          </p>
-        </aside>
-      </section>
-
-    </main>
-
-    <footer class="footer container">
-      <p>Built for teams shipping with Spec-Driven Development · <a href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer" style="color:var(--brand-2)">GitHub</a></p>
-    </footer>
-
-    <script src="./app.js"></script>
-  </body>
+<script src="./app.js"></script>
+</body>
 </html>
