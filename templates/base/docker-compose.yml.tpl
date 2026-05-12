@@ -8,7 +8,7 @@ services:
     volumes:
       - .:/workspace:cached
     env_file:
-      - .env.${APP_ENV:-{{DEFAULT_ENV}}}
+      - .env.${APP_ENV:-{{DEFAULT_ENV}}}.app
     depends_on:
       db:
         condition: service_healthy
@@ -17,7 +17,7 @@ services:
     image: {{DATABASE_IMAGE}}
     restart: unless-stopped
     env_file:
-      - .env.${APP_ENV:-{{DEFAULT_ENV}}}
+      - .env.${APP_ENV:-{{DEFAULT_ENV}}}.infra
     ports:
       - "${DATABASE_PORT:-{{DATABASE_PORT_DEV}}}:{{DATABASE_CONTAINER_PORT}}"
     volumes:

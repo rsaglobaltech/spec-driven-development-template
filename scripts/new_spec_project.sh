@@ -295,6 +295,7 @@ apply_runtime_support_flags() {
       log_info "[dry-run] skip Docker artifacts"
     else
       rm -f "${project_dir}/docker-compose.yml" "${project_dir}/.dockerignore"
+      rm -f "${project_dir}"/.env.*.infra "${project_dir}"/.env.*.app
     fi
   fi
 
