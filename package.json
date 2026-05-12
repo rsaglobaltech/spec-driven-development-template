@@ -35,6 +35,7 @@
     "test:vscode-unit": "node --test packages/vscode-spec-driven/test/unit/*.test.js",
     "test:snapshot": "node --test tests/snapshot/*.test.js",
     "snapshot:update": "UPDATE_SNAPSHOTS=1 node --test tests/snapshot/*.test.js",
+    "mutation:pilot": "stryker run stryker.config.mjs",
     "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov --lines 75 --branches 65 --functions 80 node --test tests/unit/*.test.js",
     "test:shell": "bats tests/shell/",
     "test:bdd": "cucumber-js",
@@ -58,9 +59,11 @@
   "devDependencies": {
     "@cucumber/cucumber": "^12.8.3",
     "@eslint/js": "^10.0.1",
+    "@stryker-mutator/core": "^9.6.1",
     "ajv": "^8.20.0",
     "c8": "^11.0.0",
     "eslint": "^9.39.4",
+    "fast-check": "^4.8.0",
     "prettier": "^3.8.3"
   }
 }
