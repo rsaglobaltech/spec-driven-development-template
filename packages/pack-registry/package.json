@@ -1,0 +1,23 @@
+{
+  "name": "@spec-driven/pack-registry",
+  "version": "0.1.0",
+  "description": "Static-site generator for the spec-driven domain pack registry. Reads packs from a directory, runs schema + lint checks, and emits an HTML index with one card per pack.",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "src/build.js",
+  "bin": {
+    "pack-registry-build": "src/build.js"
+  },
+  "files": [
+    "src/",
+    "templates/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node src/build.js",
+    "test": "node --test test/unit/*.test.js"
+  }
+}

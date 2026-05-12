@@ -1,0 +1,91 @@
+{
+  "name": "vscode-spec-driven",
+  "displayName": "Spec-Driven Development",
+  "description": "pack.yaml squigglies, project validate on save, and traceability matrix navigation.",
+  "version": "0.1.0",
+  "publisher": "rsaglobaltech",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Linters", "Other"],
+  "keywords": ["spec-driven", "BDD", "DDD", "gherkin", "traceability", "pack.yaml"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rsaglobaltech/spec-driven-development-template.git",
+    "directory": "packages/vscode-spec-driven"
+  },
+  "activationEvents": [
+    "onLanguage:yaml",
+    "workspaceContains:**/pack.yaml",
+    "workspaceContains:spec.md"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "spec-driven.revealInTraceability",
+        "title": "Spec-Driven: Reveal in Traceability Matrix"
+      },
+      {
+        "command": "spec-driven.validateProject",
+        "title": "Spec-Driven: Validate Project"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "spec-driven.revealInTraceability",
+          "when": "editorTextFocus",
+          "group": "spec-driven@1"
+        },
+        {
+          "command": "spec-driven.validateProject",
+          "when": "workspaceFolderCount > 0",
+          "group": "spec-driven@2"
+        }
+      ]
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": "**/pack.yaml",
+        "url": "https://spec-driven.dev/schemas/pack/v1.json"
+      }
+    ],
+    "configuration": {
+      "title": "Spec-Driven",
+      "properties": {
+        "spec-driven.cliPath": {
+          "type": "string",
+          "default": "npx create-spec-driven-app",
+          "description": "Command used to invoke create-spec-driven-app (can be a local path or npx invocation)."
+        },
+        "spec-driven.validateOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run 'validate' automatically when any file is saved inside a spec-driven project."
+        },
+        "spec-driven.schemaPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to pack.schema.json. Leave empty to use the bundled schema."
+        },
+        "spec-driven.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show 'Reveal in traceability' CodeLens above requirement IDs (REQ-NNN, UC-NNN, etc.)."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "ajv": "^8.17.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0"
+  },
+  "scripts": {
+    "package": "npx @vscode/vsce package --no-dependencies",
+    "test:unit": "node --test test/unit/*.test.js"
+  }
+}

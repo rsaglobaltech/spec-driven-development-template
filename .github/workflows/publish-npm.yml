@@ -3,6 +3,11 @@ name: Publish to npm
 on:
   workflow_dispatch:
     inputs:
+      package_version:
+        description: 'Package version to publish, for example 0.1.0-beta.3. Leave empty to use package.json.'
+        required: false
+        default: ''
+        type: string
       dist_tag:
         description: 'npm dist-tag to publish under'
         required: true
@@ -32,6 +37,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Apply package version override
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.package_version != ''
+        env:
+          PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+        run: |
+          if ! [[ "$PACKAGE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid package_version: $PACKAGE_VERSION" >&2
+            exit 2
+          fi
+
+          CURRENT_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$CURRENT_VERSION" == "$PACKAGE_VERSION" ]]; then
+            echo "package.json is already at $PACKAGE_VERSION; skipping npm version."
+            exit 0
+          fi
+
+          npm version "$PACKAGE_VERSION" --no-git-tag-version
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -51,6 +74,12 @@ jobs:
       - name: Validate npm package contents
         run: npm run pack:dry-run
 
+      - name: Resolve package metadata
+        id: package_metadata
+        run: |
+          echo "name=$(node -p "require('./package.json').name")" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
       - name: Set publish settings
         id: publish_settings
         run: |
@@ -61,6 +90,26 @@ jobs:
             echo "dist_tag=${{ github.event.inputs.dist_tag }}" >> "$GITHUB_OUTPUT"
             echo "dry_run=${{ github.event.inputs.dry_run }}" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Check package version availability
+        if: steps.publish_settings.outputs.dry_run != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          PACKAGE="${{ steps.package_metadata.outputs.name }}"
+          VERSION="${{ steps.package_metadata.outputs.version }}"
+
+          if npm view "${PACKAGE}@${VERSION}" version >/dev/null 2>&1; then
+            echo "${PACKAGE}@${VERSION} already exists on npm. Choose a new package_version." >&2
+            exit 1
+          fi
+
+      - name: Publish summary
+        run: |
+          echo "Package: ${{ steps.package_metadata.outputs.name }}"
+          echo "Version: ${{ steps.package_metadata.outputs.version }}"
+          echo "Dist tag: ${{ steps.publish_settings.outputs.dist_tag }}"
+          echo "Dry run: ${{ steps.publish_settings.outputs.dry_run }}"
 
       - name: Publish (dry run)
         if: steps.publish_settings.outputs.dry_run == 'true'

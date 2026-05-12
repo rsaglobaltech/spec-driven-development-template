@@ -1,7 +1,7 @@
-# 🔗 Traceability Matrix
+# Traceability Matrix
 
-Map business specifications to scenarios and technical artifacts.
+Map requirements to scenarios, domain model elements, implementation artifacts, and tests.
 
-| Feature | Scenario | Technical artifact | Status |
-|---|---|---|---|
-| `features/core/health.feature` | Health baseline | `API /health`, smoke test | Draft |
+| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| REQ-000 | SCN-000 | `features/core/health.feature` | UC-000 Health baseline | QRY-000 HealthCheckQuery | - | - | `API /health`, smoke test | TBD | Draft |

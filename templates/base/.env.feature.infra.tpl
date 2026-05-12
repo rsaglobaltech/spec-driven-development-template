@@ -1,0 +1,4 @@
+# Infrastructure variables for the feature environment.
+POSTGRES_DB={{DATABASE_NAME_FEATURE}}
+POSTGRES_USER={{DATABASE_USER}}
+POSTGRES_PASSWORD={{DATABASE_PASSWORD}}

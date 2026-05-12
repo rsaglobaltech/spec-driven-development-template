@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=../../../schemas/pack.schema.json
+schema_version: "1.1.0"
+
+metadata:
+  name: "Authentication Backend Domain Pack"
+  version: "0.1.0"
+  language: "en"
+  project_type: "backend"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - DOMAIN
+
+requirements:
+  - id: REQ-001
+    title: "Register a new user account with email and password"
+    priority: Must
+    description: "Users can sign up with verified email and securely-hashed password."
+    status: Draft
+  - id: REQ-002
+    title: "Authenticate users with valid credentials"
+    priority: Must
+    description: "Users can log in and receive a session or token."
+    status: Draft
+  - id: REQ-003
+    title: "Lock accounts after too many failed login attempts"
+    priority: Must
+    description: "Defends against brute-force attacks via account lockout."
+    status: Draft
+  - id: REQ-004
+    title: "Reset forgotten passwords via verified email link"
+    priority: Should
+    description: "Users can recover access without operator intervention."
+    status: Draft
+  - id: REQ-005
+    title: "Revoke active sessions on demand"
+    priority: Should
+    description: "Users (and admins) can sign out individual or all sessions."
+    status: Draft
+
+bounded_contexts:
+  - id: BC-001
+    name: Identity
+    type: Core
+    responsibility: "User accounts, credentials, profile data"
+    aggregates: [User]
+  - id: BC-002
+    name: Session
+    type: Core
+    responsibility: "Active sessions, tokens, session lifecycle"
+    aggregates: [Session]
+
+use_cases:
+  - id: UC-001
+    name: Register Account
+    actor: NewUser
+    requirement: REQ-001
+    command: RegisterAccountCommand
+  - id: UC-002
+    name: Authenticate User
+    actor: User
+    requirement: REQ-002
+    command: AuthenticateUserCommand
+  - id: UC-003
+    name: Lock Account
+    actor: System
+    requirement: REQ-003
+    command: LockAccountCommand
+  - id: UC-004
+    name: Initiate Password Reset
+    actor: User
+    requirement: REQ-004
+    command: RequestPasswordResetCommand
+  - id: UC-005
+    name: Revoke Session
+    actor: User
+    requirement: REQ-005
+    command: RevokeSessionCommand
+
+aggregates:
+  - id: AGG-001
+    name: User
+    bounded_context: BC-001
+    responsibilities: ["Identity, credentials, lockout state"]
+    commands: [RegisterAccountCommand, LockAccountCommand, RequestPasswordResetCommand]
+    events: [AccountRegistered, AccountLocked, PasswordResetRequested]
+  - id: AGG-002
+    name: Session
+    bounded_context: BC-002
+    responsibilities: ["Authentication tokens, expiry, revocation"]
+    commands: [AuthenticateUserCommand, RevokeSessionCommand]
+    events: [SessionStarted, SessionRevoked]
+
+events:
+  - id: EVT-001
+    name: AccountRegistered
+    aggregate: User
+    payload: [userId: string, email: string, registeredAt: datetime]
+  - id: EVT-002
+    name: SessionStarted
+    aggregate: Session
+    payload: [sessionId: string, userId: string, startedAt: datetime]
+  - id: EVT-003
+    name: AccountLocked
+    aggregate: User
+    payload: [userId: string, lockedAt: datetime, reason: string]
+  - id: EVT-004
+    name: PasswordResetRequested
+    aggregate: User
+    payload: [userId: string, requestedAt: datetime, tokenHash: string]
+  - id: EVT-005
+    name: SessionRevoked
+    aggregate: Session
+    payload: [sessionId: string, revokedAt: datetime, revokedBy: string]
+
+outputs:
+  features:
+    - features/auth/register.feature
+    - features/auth/login.feature
+    - features/auth/lockout.feature
+    - features/auth/password_reset.feature
+    - features/auth/revoke_session.feature
+  diagrams: []
+
+rules:
+  - id: RUL-001
+    title: "Passwords must use a slow, salted hash (bcrypt/argon2)"
+    context: BC-001
+    description: "Plaintext or fast-hashed passwords are forbidden."
+  - id: RUL-002
+    title: "Lockout threshold is 5 failed attempts within 15 minutes"
+    context: BC-001
+    description: "After threshold the account is locked for 30 minutes."
+
+scenarios:
+  - id: SCN-001
+    title: "Successful registration creates an account"
+    requirement: REQ-001
+    use_case: UC-001
+    given: "no account exists for the email"
+    when: "the user submits valid registration data"
+    then: "the account is created and AccountRegistered is emitted"
+  - id: SCN-002
+    title: "Successful login starts a session"
+    requirement: REQ-002
+    use_case: UC-002
+    given: "an unlocked account with valid credentials"
+    when: "the user submits the correct password"
+    then: "a Session is created and SessionStarted is emitted"
+  - id: SCN-003
+    title: "Five failed logins lock the account"
+    requirement: REQ-003
+    use_case: UC-003
+    given: "an account has 4 prior failed attempts in the last 15 minutes"
+    when: "a 5th invalid login is attempted"
+    then: "the account is locked and AccountLocked is emitted"

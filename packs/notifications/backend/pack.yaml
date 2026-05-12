@@ -1,0 +1,135 @@
+# yaml-language-server: $schema=../../../schemas/pack.schema.json
+schema_version: "1.1.0"
+
+metadata:
+  name: "Notifications Backend Domain Pack"
+  version: "0.1.0"
+  language: "en"
+  project_type: "backend"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - DOMAIN
+
+requirements:
+  - id: REQ-001
+    title: "Send notifications via at least one channel (email, SMS, push)"
+    priority: Must
+    description: "Reach users on their preferred channel."
+    status: Draft
+  - id: REQ-002
+    title: "Allow users to opt out of non-essential notifications"
+    priority: Must
+    description: "Compliance with anti-spam regulations."
+    status: Draft
+  - id: REQ-003
+    title: "Retry failed deliveries with exponential backoff"
+    priority: Should
+    description: "Transient provider failures should not lose notifications."
+    status: Draft
+  - id: REQ-004
+    title: "Track delivery status (sent, delivered, failed, bounced)"
+    priority: Should
+    description: "Operators need visibility into delivery health."
+    status: Draft
+
+bounded_contexts:
+  - id: BC-001
+    name: NotificationDispatch
+    type: Core
+    responsibility: "Queueing and delivering notifications to channels"
+    aggregates: [Notification]
+  - id: BC-002
+    name: NotificationPreferences
+    type: Supporting
+    responsibility: "User opt-in/opt-out per channel and category"
+    aggregates: [NotificationPreference]
+
+use_cases:
+  - id: UC-001
+    name: Send Notification
+    actor: System
+    requirement: REQ-001
+    command: SendNotificationCommand
+  - id: UC-002
+    name: Update Preferences
+    actor: User
+    requirement: REQ-002
+    command: UpdatePreferencesCommand
+  - id: UC-003
+    name: Retry Failed Delivery
+    actor: System
+    requirement: REQ-003
+    command: RetryDeliveryCommand
+  - id: UC-004
+    name: Record Delivery Status
+    actor: System
+    requirement: REQ-004
+    command: RecordDeliveryStatusCommand
+
+aggregates:
+  - id: AGG-001
+    name: Notification
+    bounded_context: BC-001
+    responsibilities: ["Notification lifecycle: queued → sent → delivered/failed"]
+    commands: [SendNotificationCommand, RetryDeliveryCommand, RecordDeliveryStatusCommand]
+    events: [NotificationQueued, NotificationDelivered, NotificationFailed]
+  - id: AGG-002
+    name: NotificationPreference
+    bounded_context: BC-002
+    responsibilities: ["Per-user opt-in matrix"]
+    commands: [UpdatePreferencesCommand]
+    events: [PreferencesUpdated]
+
+events:
+  - id: EVT-001
+    name: NotificationQueued
+    aggregate: Notification
+    payload: [notificationId: string, userId: string, channel: string, queuedAt: datetime]
+  - id: EVT-002
+    name: NotificationDelivered
+    aggregate: Notification
+    payload: [notificationId: string, deliveredAt: datetime]
+  - id: EVT-003
+    name: NotificationFailed
+    aggregate: Notification
+    payload: [notificationId: string, failedAt: datetime, reason: string, attempts: int]
+  - id: EVT-004
+    name: PreferencesUpdated
+    aggregate: NotificationPreference
+    payload: [userId: string, updatedAt: datetime]
+
+outputs:
+  features:
+    - features/notifications/send.feature
+    - features/notifications/preferences.feature
+    - features/notifications/retry.feature
+  diagrams: []
+
+rules:
+  - id: RUL-001
+    title: "Honour user opt-outs before queueing"
+    context: BC-001
+    description: "Reject notifications for opted-out (user, channel, category) tuples."
+  - id: RUL-002
+    title: "Retry up to 5 times with exponential backoff (1m, 5m, 15m, 1h, 6h)"
+    context: BC-001
+    description: "After 5 failed attempts the notification is marked permanently failed."
+
+scenarios:
+  - id: SCN-001
+    title: "Sending a notification to an opted-in user succeeds"
+    requirement: REQ-001
+    use_case: UC-001
+    given: "a user is opted in to email notifications"
+    when: "the system sends a notification"
+    then: "NotificationQueued is emitted and the email provider is invoked"
+  - id: SCN-002
+    title: "Opt-out blocks future notifications in that channel"
+    requirement: REQ-002
+    use_case: UC-002
+    given: "a user opts out of marketing email"
+    when: "the system attempts to send a marketing email"
+    then: "the notification is not queued"

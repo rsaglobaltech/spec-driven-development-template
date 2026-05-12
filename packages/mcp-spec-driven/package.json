@@ -1,0 +1,30 @@
+{
+  "name": "@spec-driven/mcp-server",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server for create-spec-driven-app projects. Lets MCP-aware AI agents (Claude Desktop, Cursor, Aider, etc.) read specs, list requirements, update traceability, and run validate without scraping.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "mcp-spec-driven": "src/server.js"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rsaglobaltech/spec-driven-development-template.git",
+    "directory": "packages/mcp-spec-driven"
+  },
+  "keywords": ["mcp", "model-context-protocol", "spec-driven", "claude", "cursor", "aider"],
+  "scripts": {
+    "test": "node --test test/unit/*.test.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}

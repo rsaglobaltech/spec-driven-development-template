@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Spec Driven App · Docs</title>
+    <meta
+      name="description"
+      content="Official docs for create-spec-driven-app: a Spec-Driven Development starter CLI."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__backdrop"></div>
+      <div class="hero__content container">
+        <p class="eyebrow">Spec-Driven Development Toolkit</p>
+        <h1>Create Spec Driven App</h1>
+        <p class="hero__subtitle">
+          Bootstrap reusable SDD projects with traceability, Gherkin acceptance criteria, and an AI-ready execution contract.
+        </p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="https://www.npmjs.com/package/create-spec-driven-app" target="_blank" rel="noreferrer">View on npm</a>
+          <a class="btn btn--ghost" href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer">View on GitHub</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="container main">
+      <section class="panel">
+        <h2>Quick Start</h2>
+        <p>Install globally or run directly with <code>npx</code>.</p>
+        <div class="command-grid">
+          <article class="command-card">
+            <h3>Run with npx</h3>
+            <pre><code>npx create-spec-driven-app@latest init \
+  --config ./project.config \
+  --out ./projects</code></pre>
+            <button class="copy" data-copy="npx create-spec-driven-app@latest init --config ./project.config --out ./projects">Copy</button>
+          </article>
+          <article class="command-card">
+            <h3>Install globally</h3>
+            <pre><code>npm i -g create-spec-driven-app</code></pre>
+            <button class="copy" data-copy="npm i -g create-spec-driven-app">Copy</button>
+          </article>
+          <article class="command-card">
+            <h3>Validate generated project</h3>
+            <pre><code>create-spec-driven-app validate ./projects/my-app</code></pre>
+            <button class="copy" data-copy="create-spec-driven-app validate ./projects/my-app">Copy</button>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Why teams use this</h2>
+        <div class="feature-grid">
+          <article>
+            <h3>Spec-first delivery</h3>
+            <p>Define requirements before implementation with production-grade defaults.</p>
+          </article>
+          <article>
+            <h3>Traceability built-in</h3>
+            <p>Keep a clear path from business intent to scenarios and technical artifacts.</p>
+          </article>
+          <article>
+            <h3>Reusable templates</h3>
+            <p>Stay domain-agnostic by default and add modules only when needed.</p>
+          </article>
+          <article>
+            <h3>CI/CD friendly</h3>
+            <p>Preconfigured workflows for tests, packaging checks, and npm publishing.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Command Reference</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Command</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>init</code></td>
+                <td>Generate a new SDD project from templates.</td>
+              </tr>
+              <tr>
+                <td><code>validate</code></td>
+                <td>Validate required structure, files, and unresolved placeholders.</td>
+              </tr>
+              <tr>
+                <td><code>--dry-run</code></td>
+                <td>Preview actions without writing files.</td>
+              </tr>
+              <tr>
+                <td><code>--no-git</code></td>
+                <td>Skip <code>git init</code> in generated output.</td>
+              </tr>
+              <tr>
+                <td><code>--force</code></td>
+                <td>Overwrite destination when it already exists.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel panel--split">
+        <div>
+          <h2>Publish workflows</h2>
+          <p>Two release lanes are supported from GitHub Actions:</p>
+          <ul>
+            <li><strong>npm registry:</strong> <code>publish-npm.yml</code></li>
+            <li><strong>GitHub Packages:</strong> <code>publish-github-packages.yml</code></li>
+          </ul>
+        </div>
+        <aside class="note">
+          <h3>Expected package names</h3>
+          <p><code>create-spec-driven-app</code> on npm</p>
+          <p><code>@rsaglobaltech/create-spec-driven-app</code> on GitHub Packages</p>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="footer container">
+      <p>Built for teams shipping with Spec-Driven Development.</p>
+    </footer>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

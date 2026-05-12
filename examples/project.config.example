@@ -3,6 +3,9 @@ PROJECT_NAME="Acme Energy Hub"
 PROJECT_SLUG="acme-energy-hub"
 PROJECT_TYPE="backend"  # backend | frontend
 DOMAIN="community energy"
+STACK="Quarkus 3.x, Java 21, PostgreSQL, RESTEasy Reactive, SmallRye GraphQL, Maven"
+API_STYLE="REST and GraphQL with DTO boundaries"
+TESTING="Quarkus Test, Testcontainers, JUnit 5, Cucumber"
 
 # Optional
 LANG="en"

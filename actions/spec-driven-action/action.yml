@@ -1,0 +1,64 @@
+name: "Spec Driven Validate"
+description: "Runs create-spec-driven-app validate on a generated project and posts a summary comment on the PR."
+
+inputs:
+  project-dir:
+    description: "Path to the generated project to validate (relative to the repo root)."
+    required: true
+    default: "."
+  node-version:
+    description: "Node.js version to use."
+    required: false
+    default: "20"
+  fail-on-error:
+    description: "Fail the workflow step if validation errors are found."
+    required: false
+    default: "true"
+
+outputs:
+  result:
+    description: "Validation result: 'pass' or 'fail'."
+    value: ${{ steps.validate.outputs.result }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install create-spec-driven-app
+      shell: bash
+      run: npm install -g create-spec-driven-app@latest
+
+    - name: Run validate
+      id: validate
+      shell: bash
+      run: |
+        set +e
+        OUTPUT=$(create-spec-driven-app validate "${{ inputs.project-dir }}" 2>&1)
+        EXIT_CODE=$?
+        set -e
+
+        echo "$OUTPUT"
+
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "result=pass" >> "$GITHUB_OUTPUT"
+          echo "## Spec Validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "All spec quality gates passed." >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "result=fail" >> "$GITHUB_OUTPUT"
+          echo "## Spec Validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "One or more spec quality gates failed:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "$OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+            exit 1
+          fi
+        fi
