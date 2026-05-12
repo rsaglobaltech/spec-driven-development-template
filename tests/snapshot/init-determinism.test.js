@@ -117,7 +117,7 @@ test("generated file list matches golden snapshot", () => {
       files,
       golden,
       "Generated file list differs from golden snapshot.\n" +
-      "Run with UPDATE_SNAPSHOTS=1 to update the golden file if this change is intentional."
+        "Run with UPDATE_SNAPSHOTS=1 to update the golden file if this change is intentional."
     );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -139,9 +139,10 @@ test("spec.md content matches golden snapshot", () => {
     }
 
     const golden = fs.readFileSync(goldenFile, "utf8");
-    assert.equal(content, golden,
-      "spec.md content differs from golden snapshot.\n" +
-      "Run with UPDATE_SNAPSHOTS=1 to update."
+    assert.equal(
+      content,
+      golden,
+      "spec.md content differs from golden snapshot.\n" + "Run with UPDATE_SNAPSHOTS=1 to update."
     );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -163,9 +164,10 @@ test("README.md content matches golden snapshot", () => {
     }
 
     const golden = fs.readFileSync(goldenFile, "utf8");
-    assert.equal(content, golden,
-      "README.md content differs from golden snapshot.\n" +
-      "Run with UPDATE_SNAPSHOTS=1 to update."
+    assert.equal(
+      content,
+      golden,
+      "README.md content differs from golden snapshot.\n" + "Run with UPDATE_SNAPSHOTS=1 to update."
     );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });

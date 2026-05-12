@@ -36,10 +36,7 @@ test("renderTemplate: idempotent — rendering a rendered result produces the sa
         .join(" ");
       const once = renderTemplate(template, vars);
       // Rendered output should not contain any {{...}} tokens
-      assert.ok(
-        !once.includes("{{"),
-        `Rendered output still contains placeholders: ${once}`
-      );
+      assert.ok(!once.includes("{{"), `Rendered output still contains placeholders: ${once}`);
     }),
     { numRuns: 200 }
   );
@@ -50,9 +47,9 @@ test("renderTemplate: all placeholders are replaced — no {{VAR}} remains", () 
     fc.property(
       varsMap,
       // Filler must not contain { or } to avoid creating accidental {{ patterns
-      fc.string({ minLength: 0, maxLength: 100 }).filter(
-        (s) => !s.includes("{") && !s.includes("}")
-      ),
+      fc
+        .string({ minLength: 0, maxLength: 100 })
+        .filter((s) => !s.includes("{") && !s.includes("}")),
       (vars, filler) => {
         const tokens = Object.keys(vars).map((k) => `{{${k}}}`);
         const template = tokens.join(filler);
@@ -68,9 +65,9 @@ test("renderTemplate: value substitution is exact — no extra characters", () =
   fc.assert(
     fc.property(
       varName,
-      fc.string({ minLength: 1, maxLength: 30 }).filter(
-        (s) => !s.includes("{{") && !s.includes("}}")
-      ),
+      fc
+        .string({ minLength: 1, maxLength: 30 })
+        .filter((s) => !s.includes("{{") && !s.includes("}}")),
       (name, value) => {
         const template = `{{${name}}}`;
         const result = renderTemplate(template, { [name]: value });
@@ -84,9 +81,9 @@ test("renderTemplate: value substitution is exact — no extra characters", () =
 test("renderTemplate: plain text with no placeholders is returned unchanged", () => {
   fc.assert(
     fc.property(
-      fc.string({ minLength: 0, maxLength: 200 }).filter(
-        (s) => !s.includes("{{") && !s.includes("}}")
-      ),
+      fc
+        .string({ minLength: 0, maxLength: 200 })
+        .filter((s) => !s.includes("{{") && !s.includes("}}")),
       (text) => {
         const result = renderTemplate(text, {});
         assert.equal(result, text);
@@ -100,9 +97,9 @@ test("renderTemplate: multiple occurrences of the same placeholder are all repla
   fc.assert(
     fc.property(
       varName,
-      fc.string({ minLength: 1, maxLength: 20 }).filter(
-        (s) => !s.includes("{{") && !s.includes("}}")
-      ),
+      fc
+        .string({ minLength: 1, maxLength: 20 })
+        .filter((s) => !s.includes("{{") && !s.includes("}}")),
       fc.integer({ min: 2, max: 10 }),
       (name, value, count) => {
         const template = Array.from({ length: count }, () => `{{${name}}}`).join("-");
@@ -160,11 +157,7 @@ test("asArray: wrapping a non-empty, non-null scalar always returns an array of 
   fc.assert(
     fc.property(
       // asArray("") returns [] (empty string is treated as absent)
-      fc.oneof(
-        fc.string({ minLength: 1 }),
-        fc.integer(),
-        fc.boolean()
-      ),
+      fc.oneof(fc.string({ minLength: 1 }), fc.integer(), fc.boolean()),
       (value) => {
         const result = asArray(value);
         assert.ok(Array.isArray(result));

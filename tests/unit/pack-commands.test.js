@@ -26,13 +26,13 @@ test("pack init --dry-run prints yaml to stdout", () => {
   assert.equal(r.status, 0, r.stderr);
   assert.ok(r.stdout.includes("schema_version"), "should include schema_version");
   assert.ok(r.stdout.includes("My Test Pack"), "should include pack name");
-  assert.ok(r.stdout.includes("project_type: \"backend\""), "should include project_type");
+  assert.ok(r.stdout.includes('project_type: "backend"'), "should include project_type");
 });
 
 test("pack init --dry-run with frontend type", () => {
   const r = cli("pack", "init", "--name", "UI Pack", "--type", "frontend", "--dry-run");
   assert.equal(r.status, 0, r.stderr);
-  assert.ok(r.stdout.includes("project_type: \"frontend\""));
+  assert.ok(r.stdout.includes('project_type: "frontend"'));
 });
 
 test("pack init fails without --out and without --dry-run", () => {
@@ -119,5 +119,7 @@ test("pack lint fails on unknown pack id", () => {
 test("pack with unknown sub-command exits non-zero", () => {
   const r = cli("pack", "unknown-sub");
   assert.notEqual(r.status, 0);
-  assert.ok((r.stderr + r.stdout).includes("unknown-sub") || (r.stderr + r.stdout).includes("Unknown"));
+  assert.ok(
+    (r.stderr + r.stdout).includes("unknown-sub") || (r.stderr + r.stdout).includes("Unknown")
+  );
 });

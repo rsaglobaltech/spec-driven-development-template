@@ -19,22 +19,28 @@ const { spawnSync } = require("node:child_process");
 const ROOT_DIR = path.resolve(__dirname, "..");
 const TEMPLATES_DIR = path.join(ROOT_DIR, "templates");
 
-function logInfo(msg) { process.stdout.write(`ℹ️ [INFO] ${msg}\n`); }
-function logWarn(msg) { process.stdout.write(`⚠️ [WARN] ${msg}\n`); }
-function logError(msg) { process.stderr.write(`❌ [ERROR] ${msg}\n`); }
+function logInfo(msg) {
+  process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
+}
+function logWarn(msg) {
+  process.stdout.write(`⚠️ [WARN] ${msg}\n`);
+}
+function logError(msg) {
+  process.stderr.write(`❌ [ERROR] ${msg}\n`);
+}
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-    "  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n\n" +
-    "Options:\n" +
-    "  --config <path>   Configuration file (required)\n" +
-    "  --out <dir>       Parent directory for generated project (required)\n" +
-    "  --force           Overwrite target directory if it already exists\n" +
-    "  --dry-run         Print actions without writing files\n" +
-    "  --no-git          Skip git initialization\n"
+      "  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n\n" +
+      "Options:\n" +
+      "  --config <path>   Configuration file (required)\n" +
+      "  --out <dir>       Parent directory for generated project (required)\n" +
+      "  --force           Overwrite target directory if it already exists\n" +
+      "  --dry-run         Print actions without writing files\n" +
+      "  --no-git          Skip git initialization\n"
   );
 }
 
@@ -42,21 +48,35 @@ function parseArgs(argv) {
   const opts = { config: null, out: null, force: false, dryRun: false, noGit: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if ((a === "--config") && argv[i + 1]) { opts.config = argv[++i]; }
-    else if ((a === "--out") && argv[i + 1]) { opts.out = argv[++i]; }
-    else if (a === "--force") { opts.force = true; }
-    else if (a === "--dry-run") { opts.dryRun = true; }
-    else if (a === "--no-git") { opts.noGit = true; }
-    else if (a === "--help" || a === "-h") { usage(); process.exit(0); }
-    else if (a === "--engine" || a.startsWith("--engine=")) { /* consumed by dispatcher */ }
-    else { logError(`Unknown argument: ${a}`); usage(); process.exit(2); }
+    if (a === "--config" && argv[i + 1]) {
+      opts.config = argv[++i];
+    } else if (a === "--out" && argv[i + 1]) {
+      opts.out = argv[++i];
+    } else if (a === "--force") {
+      opts.force = true;
+    } else if (a === "--dry-run") {
+      opts.dryRun = true;
+    } else if (a === "--no-git") {
+      opts.noGit = true;
+    } else if (a === "--help" || a === "-h") {
+      usage();
+      process.exit(0);
+    } else if (a === "--engine" || a.startsWith("--engine=")) {
+      /* consumed by dispatcher */
+    } else {
+      logError(`Unknown argument: ${a}`);
+      usage();
+      process.exit(2);
+    }
   }
   return opts;
 }
 
 // ── Config file parsing ───────────────────────────────────────────────────────
 
-function stripInlineComment(s) { return s.replace(/#.*$/, ""); }
+function stripInlineComment(s) {
+  return s.replace(/#.*$/, "");
+}
 
 function stripQuotes(s) {
   s = s.trim();
@@ -67,12 +87,31 @@ function stripQuotes(s) {
 }
 
 const KNOWN_KEYS = new Set([
-  "PROJECT_NAME", "PROJECT_SLUG", "PROJECT_TYPE", "DOMAIN", "LANG", "STACK",
-  "API_STYLE", "TESTING", "ENVIRONMENTS", "DEFAULT_ENV", "DOCKER_SUPPORT",
-  "DEVCONTAINER_SUPPORT", "DATABASE_ENGINE", "DATABASE_VERSION", "DATABASE_IMAGE",
-  "DATABASE_HOST", "DATABASE_PORT", "DATABASE_PORT_DEV", "DATABASE_PORT_FEATURE",
-  "DATABASE_PORT_PROD", "DATABASE_CONTAINER_PORT", "DATABASE_NAME", "DATABASE_USER",
-  "DATABASE_PASSWORD", "MODULES",
+  "PROJECT_NAME",
+  "PROJECT_SLUG",
+  "PROJECT_TYPE",
+  "DOMAIN",
+  "LANG",
+  "STACK",
+  "API_STYLE",
+  "TESTING",
+  "ENVIRONMENTS",
+  "DEFAULT_ENV",
+  "DOCKER_SUPPORT",
+  "DEVCONTAINER_SUPPORT",
+  "DATABASE_ENGINE",
+  "DATABASE_VERSION",
+  "DATABASE_IMAGE",
+  "DATABASE_HOST",
+  "DATABASE_PORT",
+  "DATABASE_PORT_DEV",
+  "DATABASE_PORT_FEATURE",
+  "DATABASE_PORT_PROD",
+  "DATABASE_CONTAINER_PORT",
+  "DATABASE_NAME",
+  "DATABASE_USER",
+  "DATABASE_PASSWORD",
+  "MODULES",
 ]);
 
 function parseConfig(configPath) {
@@ -86,7 +125,10 @@ function parseConfig(configPath) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
     const eq = trimmed.indexOf("=");
-    if (eq === -1) { logError(`Invalid config line: ${trimmed}`); process.exit(2); }
+    if (eq === -1) {
+      logError(`Invalid config line: ${trimmed}`);
+      process.exit(2);
+    }
     const key = trimmed.slice(0, eq).trim();
     const value = stripQuotes(stripInlineComment(trimmed.slice(eq + 1)).trim());
     if (KNOWN_KEYS.has(key)) {
@@ -99,9 +141,20 @@ function parseConfig(configPath) {
 }
 
 function validateConfig(cfg) {
-  const required = ["PROJECT_NAME", "PROJECT_SLUG", "PROJECT_TYPE", "DOMAIN", "STACK", "API_STYLE", "TESTING"];
+  const required = [
+    "PROJECT_NAME",
+    "PROJECT_SLUG",
+    "PROJECT_TYPE",
+    "DOMAIN",
+    "STACK",
+    "API_STYLE",
+    "TESTING",
+  ];
   for (const k of required) {
-    if (!cfg[k]) { logError(`Missing ${k} in config`); process.exit(2); }
+    if (!cfg[k]) {
+      logError(`Missing ${k} in config`);
+      process.exit(2);
+    }
   }
 
   cfg.LANG = cfg.LANG || "en";
@@ -127,7 +180,9 @@ function validateConfig(cfg) {
 
   const SUPPORTED_ENGINES = ["postgres"];
   if (!SUPPORTED_ENGINES.includes(cfg.DATABASE_ENGINE)) {
-    logError(`DATABASE_ENGINE '${cfg.DATABASE_ENGINE}' is not supported. Supported engines: ${SUPPORTED_ENGINES.join(", ")}`);
+    logError(
+      `DATABASE_ENGINE '${cfg.DATABASE_ENGINE}' is not supported. Supported engines: ${SUPPORTED_ENGINES.join(", ")}`
+    );
     process.exit(2);
   }
 
@@ -137,7 +192,8 @@ function validateConfig(cfg) {
   }
 
   cfg.DATABASE_IMAGE = cfg.DATABASE_IMAGE || `postgres:${cfg.DATABASE_VERSION}`;
-  const dbUrl = (db) => `postgresql://${cfg.DATABASE_USER}:${cfg.DATABASE_PASSWORD}@${cfg.DATABASE_HOST}:${cfg.DATABASE_CONTAINER_PORT}/${db}`;
+  const dbUrl = (db) =>
+    `postgresql://${cfg.DATABASE_USER}:${cfg.DATABASE_PASSWORD}@${cfg.DATABASE_HOST}:${cfg.DATABASE_CONTAINER_PORT}/${db}`;
   cfg.DATABASE_URL_DEV = dbUrl(cfg.DATABASE_NAME_DEV);
   cfg.DATABASE_URL_FEATURE = dbUrl(cfg.DATABASE_NAME_FEATURE);
   cfg.DATABASE_URL_PROD = dbUrl(cfg.DATABASE_NAME_PROD);
@@ -203,7 +259,10 @@ function walkDir(dir) {
 
 function applyRuntimeSupportFlags(projectDir, cfg, dryRun) {
   if (cfg.DOCKER_SUPPORT !== "true") {
-    if (dryRun) { logInfo("[dry-run] skip Docker artifacts"); return; }
+    if (dryRun) {
+      logInfo("[dry-run] skip Docker artifacts");
+      return;
+    }
     for (const f of ["docker-compose.yml", ".dockerignore"]) {
       const p = path.join(projectDir, f);
       if (fs.existsSync(p)) fs.rmSync(p);
@@ -216,7 +275,10 @@ function applyRuntimeSupportFlags(projectDir, cfg, dryRun) {
     return;
   }
   if (cfg.DEVCONTAINER_SUPPORT !== "true") {
-    if (dryRun) { logInfo("[dry-run] skip devcontainer artifacts"); return; }
+    if (dryRun) {
+      logInfo("[dry-run] skip devcontainer artifacts");
+      return;
+    }
     const dc = path.join(projectDir, ".devcontainer");
     if (fs.existsSync(dc)) fs.rmSync(dc, { recursive: true, force: true });
   }
@@ -233,12 +295,16 @@ function ensureTraceabilityCoverage(projectDir) {
   if (!fs.existsSync(traceFile)) return;
 
   const content = fs.readFileSync(traceFile, "utf8");
-  const isRich = content.includes("| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |");
+  const isRich = content.includes(
+    "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |"
+  );
 
   const featuresDir = path.join(projectDir, "features");
   if (!fs.existsSync(featuresDir)) return;
 
-  const featureFiles = walkDir(featuresDir).filter((f) => f.endsWith(".feature")).sort();
+  const featureFiles = walkDir(featuresDir)
+    .filter((f) => f.endsWith(".feature"))
+    .sort();
   const lines = [];
   let counter = 1;
 
@@ -249,7 +315,9 @@ function ensureTraceabilityCoverage(projectDir) {
     const scenarioId = `SCN-TBD-${String(counter).padStart(3, "0")}`;
     const ucId = `UC-TBD-${String(counter).padStart(3, "0")} ${title}`;
     if (isRich) {
-      lines.push(`| REQ-TBD | ${scenarioId} | \`${rel}\` | ${ucId} | TBD | TBD | TBD | TBD | TBD | Draft |`);
+      lines.push(
+        `| REQ-TBD | ${scenarioId} | \`${rel}\` | ${ucId} | TBD | TBD | TBD | TBD | TBD | Draft |`
+      );
     } else {
       lines.push(`| \`${rel}\` | ${title} | TBD | Draft |`);
     }
@@ -272,8 +340,16 @@ function main() {
 
   const opts = parseArgs(rawArgs);
 
-  if (!opts.config) { logError("--config is required"); usage(); process.exit(2); }
-  if (!opts.out) { logError("--out is required"); usage(); process.exit(2); }
+  if (!opts.config) {
+    logError("--config is required");
+    usage();
+    process.exit(2);
+  }
+  if (!opts.out) {
+    logError("--out is required");
+    usage();
+    process.exit(2);
+  }
 
   const cfg = validateConfig(parseConfig(opts.config));
   const projectDir = path.join(path.resolve(opts.out), cfg.PROJECT_SLUG);
@@ -301,7 +377,12 @@ function main() {
     cfg,
     opts.dryRun
   );
-  renderTree(path.join(TEMPLATES_DIR, cfg.PROJECT_TYPE, "features"), path.join(projectDir, "features"), cfg, opts.dryRun);
+  renderTree(
+    path.join(TEMPLATES_DIR, cfg.PROJECT_TYPE, "features"),
+    path.join(projectDir, "features"),
+    cfg,
+    opts.dryRun
+  );
 
   if (cfg.MODULES) {
     for (let mod of cfg.MODULES.split(",")) {

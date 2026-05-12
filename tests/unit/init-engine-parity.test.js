@@ -92,7 +92,16 @@ test("init fails on missing required config key", () => {
 test("init --engine=shell is rejected with exit code 2", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sdd-shell-rej-"));
   try {
-    const r = cli("init", "--engine=shell", "--config", CONFIG, "--out", tmp, "--no-git", "--force");
+    const r = cli(
+      "init",
+      "--engine=shell",
+      "--config",
+      CONFIG,
+      "--out",
+      tmp,
+      "--no-git",
+      "--force"
+    );
     assert.equal(r.status, 2, `expected exit=2, got ${r.status}`);
     assert.ok(
       (r.stderr + r.stdout).includes("--engine=shell"),

@@ -10,21 +10,25 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-function logInfo(msg) { process.stdout.write(`ℹ️ [INFO] ${msg}\n`); }
-function logError(msg) { process.stderr.write(`❌ [ERROR] ${msg}\n`); }
+function logInfo(msg) {
+  process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
+}
+function logError(msg) {
+  process.stderr.write(`❌ [ERROR] ${msg}\n`);
+}
 
 function usage() {
   process.stdout.write(
     "🔎 Usage:\n" +
-    "  validate_specs.js <project_dir>\n\n" +
-    "Checks:\n" +
-    "- minimum SDD structure\n" +
-    "- required files\n" +
-    "- at least one .feature file\n" +
-    "- unresolved placeholders ({{...}})\n" +
-    "- feature coverage in traceability.md\n" +
-    "- allowed status values in traceability.md\n" +
-    "- expected DDD Lite document headers when present\n"
+      "  validate_specs.js <project_dir>\n\n" +
+      "Checks:\n" +
+      "- minimum SDD structure\n" +
+      "- required files\n" +
+      "- at least one .feature file\n" +
+      "- unresolved placeholders ({{...}})\n" +
+      "- feature coverage in traceability.md\n" +
+      "- allowed status values in traceability.md\n" +
+      "- expected DDD Lite document headers when present\n"
   );
 }
 
@@ -58,11 +62,20 @@ const REQUIRED_FILES = [
 const REQUIRED_DIRS = ["features", "docs/specs"];
 
 const ALLOWED_STATUS = new Set([
-  "Draft", "Needs Clarification", "Domain Reviewed", "Architecture Reviewed",
-  "Ready for Dev", "In Dev", "In Review", "Verified", "Released", "Deprecated",
+  "Draft",
+  "Needs Clarification",
+  "Domain Reviewed",
+  "Architecture Reviewed",
+  "Ready for Dev",
+  "In Dev",
+  "In Review",
+  "Verified",
+  "Released",
+  "Deprecated",
 ]);
 
-const RICH_HEADER = "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
+const RICH_HEADER =
+  "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
 const LEGACY_HEADER = "| Feature | Scenario | Technical artifact | Status |";
 const PLACEHOLDER_RE = /\{\{[A-Z_][A-Z0-9_]*\}\}/;
 
@@ -72,7 +85,10 @@ function trimCell(s) {
 
 function main() {
   const targetDir = process.argv[2];
-  if (!targetDir) { usage(); process.exit(2); }
+  if (!targetDir) {
+    usage();
+    process.exit(2);
+  }
   if (!fs.existsSync(targetDir) || !fs.statSync(targetDir).isDirectory()) {
     fail(`Directory not found: ${targetDir}`, 2);
   }
@@ -104,8 +120,11 @@ function main() {
   const offenders = [];
   for (const f of allFiles) {
     let content;
-    try { content = fs.readFileSync(f, "utf8"); }
-    catch { continue; }
+    try {
+      content = fs.readFileSync(f, "utf8");
+    } catch {
+      continue;
+    }
     if (PLACEHOLDER_RE.test(content)) {
       offenders.push(f);
     }
@@ -178,7 +197,9 @@ function main() {
   const useCasesPath = path.join(targetDir, "docs/specs/use-cases.md");
   if (fs.existsSync(useCasesPath)) {
     const content = fs.readFileSync(useCasesPath, "utf8");
-    if (!content.includes("| ID | Use Case | Actor | Requirement | Command/Query | Aggregate | Emits")) {
+    if (
+      !content.includes("| ID | Use Case | Actor | Requirement | Command/Query | Aggregate | Emits")
+    ) {
       fail("use-cases.md is missing the expected table header");
     }
   }

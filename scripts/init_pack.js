@@ -12,18 +12,22 @@ const fs = require("node:fs");
 const path = require("node:path");
 const readline = require("node:readline");
 
-function logInfo(msg) { process.stdout.write(`ℹ️  [INFO] ${msg}\n`); }
-function logError(msg) { process.stderr.write(`❌ [ERROR] ${msg}\n`); }
+function logInfo(msg) {
+  process.stdout.write(`ℹ️  [INFO] ${msg}\n`);
+}
+function logError(msg) {
+  process.stderr.write(`❌ [ERROR] ${msg}\n`);
+}
 
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-    "  create-spec-driven-app pack init --out <directory> [--name <name>] [--type backend|frontend] [--dry-run]\n\n" +
-    "Options:\n" +
-    "  --out       Directory to write the new pack (required)\n" +
-    "  --name      Human-readable pack name (prompted if omitted)\n" +
-    "  --type      Project type: backend | frontend  (default: backend)\n" +
-    "  --dry-run   Print the generated pack.yaml without writing to disk\n"
+      "  create-spec-driven-app pack init --out <directory> [--name <name>] [--type backend|frontend] [--dry-run]\n\n" +
+      "Options:\n" +
+      "  --out       Directory to write the new pack (required)\n" +
+      "  --name      Human-readable pack name (prompted if omitted)\n" +
+      "  --type      Project type: backend | frontend  (default: backend)\n" +
+      "  --dry-run   Print the generated pack.yaml without writing to disk\n"
   );
 }
 
@@ -31,20 +35,30 @@ function parseArgs(argv) {
   const opts = { out: null, name: null, type: "backend", dryRun: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--out" && argv[i + 1]) { opts.out = argv[++i]; }
-    else if (a === "--name" && argv[i + 1]) { opts.name = argv[++i]; }
-    else if (a === "--type" && argv[i + 1]) { opts.type = argv[++i]; }
-    else if (a === "--dry-run") { opts.dryRun = true; }
-    else if (a === "--help" || a === "-h") { usage(); process.exit(0); }
+    if (a === "--out" && argv[i + 1]) {
+      opts.out = argv[++i];
+    } else if (a === "--name" && argv[i + 1]) {
+      opts.name = argv[++i];
+    } else if (a === "--type" && argv[i + 1]) {
+      opts.type = argv[++i];
+    } else if (a === "--dry-run") {
+      opts.dryRun = true;
+    } else if (a === "--help" || a === "-h") {
+      usage();
+      process.exit(0);
+    }
   }
   return opts;
 }
 
 function slugify(str) {
-  return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
-function buildPackYaml(name, type, slug) {
+function buildPackYaml(name, type, _slug) {
   return `# yaml-language-server: $schema=../../schemas/pack.schema.json
 schema_version: "1.1.0"
 
@@ -129,7 +143,10 @@ scenarios:
 async function prompt(question) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question(question, (answer) => { rl.close(); resolve(answer.trim()); });
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
   });
 }
 
@@ -155,7 +172,10 @@ async function main() {
       process.exit(2);
     }
     name = await prompt("Pack name (e.g. 'Parking Management Backend'): ");
-    if (!name) { logError("Pack name cannot be empty."); process.exit(2); }
+    if (!name) {
+      logError("Pack name cannot be empty.");
+      process.exit(2);
+    }
   }
 
   const slug = slugify(name);
@@ -178,8 +198,16 @@ async function main() {
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(packFile, yaml, "utf8");
   logInfo(`Created: ${packFile}`);
-  logInfo("Edit the file to replace all TODO placeholders, then run: create-spec-driven-app pack lint --pack-root <root> --pack " + slug + "/" + opts.type);
+  logInfo(
+    "Edit the file to replace all TODO placeholders, then run: create-spec-driven-app pack lint --pack-root <root> --pack " +
+      slug +
+      "/" +
+      opts.type
+  );
   process.exit(0);
 }
 
-main().catch((err) => { logError(err.message); process.exit(1); });
+main().catch((err) => {
+  logError(err.message);
+  process.exit(1);
+});

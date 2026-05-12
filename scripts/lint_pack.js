@@ -8,22 +8,25 @@
  *   create-spec-driven-app pack lint --pack-root <path> --pack <domain/type>
  */
 
-const {
-  loadPack,
-  asArray,
-} = require("./domain-pack/common");
+const { loadPack, asArray } = require("./domain-pack/common");
 
-function logInfo(msg) { process.stdout.write(`ℹ️  [INFO] ${msg}\n`); }
-function logWarn(msg) { process.stdout.write(`⚠️  [WARN] ${msg}\n`); }
-function logError(msg) { process.stderr.write(`❌ [ERROR] ${msg}\n`); }
+function logInfo(msg) {
+  process.stdout.write(`ℹ️  [INFO] ${msg}\n`);
+}
+function logWarn(msg) {
+  process.stdout.write(`⚠️  [WARN] ${msg}\n`);
+}
+function logError(msg) {
+  process.stderr.write(`❌ [ERROR] ${msg}\n`);
+}
 
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-    "  create-spec-driven-app pack lint --pack-root <path> --pack <domain/type>\n\n" +
-    "Options:\n" +
-    "  --pack-root   Root directory containing domain packs (required)\n" +
-    "  --pack        Pack identifier, e.g. parking-management/backend (required)\n"
+      "  create-spec-driven-app pack lint --pack-root <path> --pack <domain/type>\n\n" +
+      "Options:\n" +
+      "  --pack-root   Root directory containing domain packs (required)\n" +
+      "  --pack        Pack identifier, e.g. parking-management/backend (required)\n"
   );
 }
 
@@ -31,9 +34,14 @@ function parseArgs(argv) {
   const opts = { packRoot: null, packId: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--pack-root" && argv[i + 1]) { opts.packRoot = argv[++i]; }
-    else if (a === "--pack" && argv[i + 1]) { opts.packId = argv[++i]; }
-    else if (a === "--help" || a === "-h") { usage(); process.exit(0); }
+    if (a === "--pack-root" && argv[i + 1]) {
+      opts.packRoot = argv[++i];
+    } else if (a === "--pack" && argv[i + 1]) {
+      opts.packId = argv[++i];
+    } else if (a === "--help" || a === "-h") {
+      usage();
+      process.exit(0);
+    }
   }
   return opts;
 }
@@ -57,7 +65,9 @@ function lintRequirementsCoverage(pack, errors, _warnings) {
     )
   );
   const usedInSCN = new Set(
-    asArray(pack.scenarios).map((s) => s.requirement).filter(Boolean)
+    asArray(pack.scenarios)
+      .map((s) => s.requirement)
+      .filter(Boolean)
   );
   for (const id of reqIds) {
     if (!usedInUC.has(id) && !usedInSCN.has(id)) {
@@ -78,7 +88,9 @@ function lintBoundedContextAggregates(pack, errors, _warnings) {
   const bcIds = new Set(asArray(pack.bounded_contexts).map((bc) => bc.id));
   for (const agg of asArray(pack.aggregates)) {
     if (agg.bounded_context && !bcIds.has(agg.bounded_context)) {
-      errors.push(`Aggregate ${agg.id || agg.name} references unknown bounded_context: ${agg.bounded_context}`);
+      errors.push(
+        `Aggregate ${agg.id || agg.name} references unknown bounded_context: ${agg.bounded_context}`
+      );
     }
   }
 }
@@ -109,14 +121,25 @@ function lintRuleContextRefs(pack, _errors, warnings) {
   const bcIds = new Set(asArray(pack.bounded_contexts).map((bc) => bc.id));
   for (const rule of asArray(pack.rules)) {
     if (rule.context && bcIds.size > 0 && !bcIds.has(rule.context)) {
-      warnings.push(`Rule ${rule.id} context '${rule.context}' does not match any bounded_context id.`);
+      warnings.push(
+        `Rule ${rule.id} context '${rule.context}' does not match any bounded_context id.`
+      );
     }
   }
 }
 
 function lintIdUniqueness(pack, errors, _warnings) {
-  const sections = ["requirements", "use_cases", "bounded_contexts", "aggregates",
-    "value_objects", "events", "rules", "scenarios", "commands"];
+  const sections = [
+    "requirements",
+    "use_cases",
+    "bounded_contexts",
+    "aggregates",
+    "value_objects",
+    "events",
+    "rules",
+    "scenarios",
+    "commands",
+  ];
   for (const section of sections) {
     const items = asArray(pack[section]);
     const seen = new Set();
@@ -179,8 +202,12 @@ function main() {
   const { pack } = loadResult;
   const { errors, warnings } = runLint(pack);
 
-  for (const w of warnings) { logWarn(w); }
-  for (const e of errors) { logError(e); }
+  for (const w of warnings) {
+    logWarn(w);
+  }
+  for (const e of errors) {
+    logError(e);
+  }
 
   if (errors.length === 0 && warnings.length === 0) {
     logInfo(`Pack '${opts.packId}' passed all lint checks.`);

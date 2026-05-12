@@ -86,9 +86,13 @@ function main() {
     const passThrough = args.slice(1);
     // Reject --engine=shell — the Bash engine was removed in this release.
     const engineIdx = passThrough.indexOf("--engine");
-    if (passThrough.includes("--engine=shell") ||
-        (engineIdx !== -1 && passThrough[engineIdx + 1] === "shell")) {
-      error("--engine=shell was removed. The CLI is now Node-only. Drop the flag to use the (sole) Node engine.");
+    if (
+      passThrough.includes("--engine=shell") ||
+      (engineIdx !== -1 && passThrough[engineIdx + 1] === "shell")
+    ) {
+      error(
+        "--engine=shell was removed. The CLI is now Node-only. Drop the flag to use the (sole) Node engine."
+      );
       process.exit(2);
     }
     ensureExecutable(initNodeScript);

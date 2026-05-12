@@ -3,10 +3,12 @@
 This project was generated from the SDD MVP template.
 
 ## Context
+
 - Project type: `backend`
 - Domain: `community energy`
 
 ## Structure
+
 - `spec.md`: business manifesto and goals.
 - `AI_RULES.md`: AI execution contract.
 - `features/`: acceptance criteria in Gherkin.
@@ -21,6 +23,7 @@ This project was generated from the SDD MVP template.
 - `docs/specs/adr/`: architecture decision records.
 
 ## Recommended Workflow
+
 1. Define or refine `spec.md`.
 2. Refine domain model documents in `docs/specs/`.
 3. Adapt scenarios in `features/`.
@@ -28,5 +31,6 @@ This project was generated from the SDD MVP template.
 5. Implement software until acceptance criteria pass.
 
 ## Support Command
+
 - Validate spec structure:
   - `../mvp-spec-template/scripts/validate_specs.sh .`

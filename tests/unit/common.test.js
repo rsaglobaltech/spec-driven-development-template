@@ -4,7 +4,6 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 const os = require("node:os");
-const fs = require("node:fs");
 
 const {
   renderTemplate,
@@ -249,18 +248,29 @@ test("parseTraceabilityRows returns empty rows for empty input", () => {
 // ── buildTraceabilityMarkdown ─────────────────────────────────────────────────
 
 test("buildTraceabilityMarkdown produces a markdown table in legacy mode", () => {
-  const rows = [{ feature: "Login", scenario: "Success", technicalArtifact: "AuthService", status: "Draft" }];
+  const rows = [
+    { feature: "Login", scenario: "Success", technicalArtifact: "AuthService", status: "Draft" },
+  ];
   const md = buildTraceabilityMarkdown(rows, "legacy");
   assert.ok(md.includes("| Login |"));
   assert.ok(md.includes("Draft"));
 });
 
 test("buildTraceabilityMarkdown produces rich headers in rich mode", () => {
-  const rows = [{
-    requirement: "REQ-001", scenarioId: "SCN-001", featureFile: "login.feature",
-    useCase: "UC-001", commandOrQuery: "LoginCmd", aggregate: "Session",
-    event: "LoggedIn", technicalArtifact: "AuthSvc", testArtifact: "login.steps", status: "Draft",
-  }];
+  const rows = [
+    {
+      requirement: "REQ-001",
+      scenarioId: "SCN-001",
+      featureFile: "login.feature",
+      useCase: "UC-001",
+      commandOrQuery: "LoginCmd",
+      aggregate: "Session",
+      event: "LoggedIn",
+      technicalArtifact: "AuthSvc",
+      testArtifact: "login.steps",
+      status: "Draft",
+    },
+  ];
   const md = buildTraceabilityMarkdown(rows, "rich");
   assert.ok(md.includes("REQ-001"));
   assert.ok(md.includes("SCN-001"));
