@@ -24,6 +24,21 @@
 - ✅ **Executable acceptance** — Gherkin scenarios become CI gates.
 - 🤖 **AI-ready** — a standardized `AI_RULES.md` keeps coding agents on rails.
 
+## 🆚 How it compares
+
+| Capability | **this** | [spec-kit](https://github.com/github/spec-kit) | [Cursor rules](https://docs.cursor.com/context/rules-for-ai) | [Aider conventions](https://aider.chat/docs/usage/conventions.html) | README only |
+| --- | :-: | :-: | :-: | :-: | :-: |
+| Scaffolds a versioned repo structure | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Reusable domain packs (YAML + JSON Schema 2020-12) | ✅ | ⚠️ | ❌ | ❌ | ❌ |
+| DDD-lite artefacts (aggregates, events, commands) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Traceability matrix + `validate` CI gate | ✅ | ⚠️ | ❌ | ❌ | ❌ |
+| Vendor-neutral (Claude · Cursor · Aider · Copilot) | ✅ | ✅ | ❌ | ✅ | ✅ |
+| VS Code extension + MCP server | ✅ | ❌ | n/a | ❌ | ❌ |
+
+**🧭 What we add:** a **versioned, schema-validated domain pack format** plus a CI-enforced traceability matrix — giving AI agents and humans a shared, drift-proof vocabulary that survives audit trails and refactors. Everything else (`spec-kit`, Cursor, Aider, plain READMEs) optimises for *prompting*; we optimise for *specs as executable contracts*.
+
+→ Full matrix, honest trade-offs, and migration paths in [`docs/comparisons.md`](docs/comparisons.md).
+
 ## ⚡ Quickstart
 
 ```bash
