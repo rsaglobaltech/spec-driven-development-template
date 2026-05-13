@@ -340,25 +340,6 @@ test("expand rejects --pack-root and --pack-repo together", () => {
   assert.match(result.stderr, /either --pack-root or --pack-repo/);
 });
 
-function makeFixtureRemoteRepo(tempRoot) {
-  const remoteRepo = path.join(tempRoot, "remote-pack");
-  fs.mkdirSync(remoteRepo, { recursive: true });
-  fs.cpSync(
-    path.join(ROOT_DIR, "tests", "fixtures", "domain-packs", "parking-management"),
-    path.join(remoteRepo, "parking-management"),
-    { recursive: true }
-  );
-  gitInTest(["init", "--quiet", "--initial-branch=main", remoteRepo]);
-  gitInTest(["config", "user.email", "test@example.com"], { cwd: remoteRepo });
-  gitInTest(["config", "user.name", "Test"], { cwd: remoteRepo });
-  gitInTest(["config", "commit.gpgsign", "false"], { cwd: remoteRepo });
-  gitInTest(["config", "tag.gpgsign", "false"], { cwd: remoteRepo });
-  gitInTest(["add", "."], { cwd: remoteRepo });
-  gitInTest(["commit", "--quiet", "-m", "initial"], { cwd: remoteRepo });
-  gitInTest(["tag", "v0.1.0"], { cwd: remoteRepo });
-  return remoteRepo;
-}
-
 test("specops sync errors when .specops.lock is missing", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-specops-nolock-"));
   fs.mkdirSync(tempRoot, { recursive: true });
