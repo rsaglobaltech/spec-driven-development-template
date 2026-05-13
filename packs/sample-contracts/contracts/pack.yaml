@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../../schemas/pack.schema.json
+schema_version: "1.2.0"
+
+metadata:
+  name: "API Contracts Pack"
+  version: "0.1.0"
+  language: "en"
+  project_type: "contracts"
+
+variables:
+  required:
+    - PROJECT_NAME
+    - PROJECT_SLUG
+    - PROVIDER_SERVICE
+    - CONSUMER_SERVICE
+
+requirements:
+  - id: REQ-001
+    title: "Define REST API contract between provider and consumer"
+    priority: Must
+    description: "A machine-readable OpenAPI 3.x specification describing the provider's HTTP surface."
+    status: Draft
+  - id: REQ-002
+    title: "Publish consumer-driven Pact tests for every endpoint"
+    priority: Must
+    description: "Each consumer must express expected interactions as Pact JSON; provider verifies on CI."
+    status: Draft
+  - id: REQ-003
+    title: "No breaking changes without a major version bump"
+    priority: Must
+    description: "Removing or renaming fields, changing required status, or altering semantics requires a new major version."
+    status: Draft
+  - id: REQ-004
+    title: "AsyncAPI contract for every event published by the provider"
+    priority: Should
+    description: "Asynchronous events must have a machine-readable schema so consumers can generate typed clients."
+    status: Draft
+
+api_contracts:
+  - id: AC-001
+    title: "Provider REST API — v1"
+    type: REST
+    provider: "{{PROVIDER_SERVICE}}"
+    consumers:
+      - "{{CONSUMER_SERVICE}}"
+    schema_ref: "contracts/openapi/provider-v1.yaml"
+    requirement: REQ-001
+  - id: AC-002
+    title: "Provider Events — v1"
+    type: AsyncAPI
+    provider: "{{PROVIDER_SERVICE}}"
+    consumers:
+      - "{{CONSUMER_SERVICE}}"
+    schema_ref: "contracts/asyncapi/provider-events-v1.yaml"
+    requirement: REQ-004
+
+consumer_driven_tests:
+  - id: CDT-001
+    consumer: "{{CONSUMER_SERVICE}}"
+    provider: "{{PROVIDER_SERVICE}}"
+    pact_file: "contracts/pacts/{{CONSUMER_SERVICE}}-{{PROVIDER_SERVICE}}.json"
+    requirement: REQ-002
+
+breaking_change_rules:
+  - contract_id: AC-001
+    requirement: REQ-003
+    rules:
+      - "Removing a required request field is a breaking change"
+      - "Changing an existing response field type is a breaking change"
+      - "Removing an endpoint path is a breaking change"
+      - "Downgrading an optional field to absent is a breaking change"
+  - contract_id: AC-002
+    rules:
+      - "Removing an event channel is a breaking change"
+      - "Adding a required field to an existing event payload is a breaking change"
+      - "Changing the payload schema of an existing event is a breaking change"
+
+outputs:
+  files:
+    - target: "contracts/openapi/provider-v1.yaml"
+      template: "contracts/openapi-stub.yaml.tpl"
+    - target: "contracts/asyncapi/provider-events-v1.yaml"
+      template: "contracts/asyncapi-stub.yaml.tpl"
+    - target: "contracts/pacts/.gitkeep"
+      template: "contracts/pacts-gitkeep.tpl"
+    - target: "docs/specs/contract-traceability.md"
+      template: "contracts/contract-traceability.md.tpl"
+    - target: "AI_RULES.md"
+      template: "contracts/AI_RULES.md.tpl"
+    - target: "docs/specs/test-strategy.md"
+      template: "contracts/test-strategy.md.tpl"
+
+rules:
+  traceability:
+    target: "docs/specs/contract-traceability.md"
+    include_existing_rows: true
+    default_status: Draft

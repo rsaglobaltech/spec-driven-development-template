@@ -9,7 +9,7 @@
   },
   "files": [
     "bin/",
-    "scripts/",
+    "dist/",
     "templates/",
     "examples/",
     "README.md"
@@ -30,15 +30,20 @@
     "cli"
   ],
   "scripts": {
-    "test": "node --test tests/cli.test.js",
-    "test:unit": "node scripts/run-tests.js tests/unit",
-    "test:vscode-unit": "node scripts/run-tests.js packages/vscode-spec-driven/test/unit",
-    "test:mcp-unit": "node scripts/run-tests.js packages/mcp-spec-driven/test/unit",
-    "test:registry-unit": "node scripts/run-tests.js packages/pack-registry/test/unit",
-    "registry:build": "node packages/pack-registry/src/build.js",
-    "test:snapshot": "node scripts/run-tests.js tests/snapshot",
+    "build": "tsc",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prebuild": "npm run clean",
+    "prepack": "npm run build",
+    "pretest": "npm run build",
+    "test": "node --test dist/tests/cli.test.js",
+    "test:unit": "node scripts/run-tests.cjs dist/tests/unit",
+    "test:vscode-unit": "node scripts/run-tests.cjs dist/packages/vscode-spec-driven/test/unit",
+    "test:mcp-unit": "node scripts/run-tests.cjs dist/packages/mcp-spec-driven/test/unit",
+    "test:registry-unit": "node scripts/run-tests.cjs dist/packages/pack-registry/test/unit",
+    "registry:build": "node dist/packages/pack-registry/src/build.js",
+    "test:snapshot": "node scripts/run-tests.cjs dist/tests/snapshot",
     "mutation:pilot": "stryker run stryker.config.mjs",
-    "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov --lines 75 --branches 65 --functions 80 node scripts/run-tests.js tests/unit",
+    "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov --lines 75 --branches 65 --functions 80 node scripts/run-tests.cjs dist/tests/unit",
     "test:bdd": "cucumber-js",
     "test:all": "npm test && npm run test:coverage && npm run test:bdd && npm run test:vscode-unit && npm run test:mcp-unit && npm run test:registry-unit && npm run test:snapshot && npm run registry:build",
     "pack:dry-run": "npm pack --dry-run",
@@ -47,11 +52,12 @@
     "smoke:init": "node bin/create-spec-driven-app.js init --config examples/project.config.example --out /private/tmp --dry-run --no-git --force",
     "smoke:validate": "node bin/create-spec-driven-app.js validate /private/tmp/acme-energy-hub",
     "smoke:expand": "node bin/create-spec-driven-app.js expand --pack-root tests/fixtures/domain-packs --pack parking-management/backend --project-dir /private/tmp/acme-energy-hub --var PROJECT_NAME='Acme Energy Hub' --var PROJECT_SLUG=acme-energy-hub --var DOMAIN='community energy' --dry-run",
-    "lint": "eslint bin/ scripts/ tests/",
-    "lint:fix": "eslint --fix bin/ scripts/ tests/",
-    "format": "prettier --write bin/ scripts/ tests/",
-    "format:check": "prettier --check bin/ scripts/ tests/",
-    "verify": "npm run lint && npm test && npm run pack:dry-run"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"bin/**/*.{ts,js}\" \"scripts/**/*.ts\" \"tests/**/*.ts\" \"packages/**/*.ts\" \"features/**/*.ts\"",
+    "lint:fix": "eslint --fix \"bin/**/*.{ts,js}\" \"scripts/**/*.ts\" \"tests/**/*.ts\" \"packages/**/*.ts\" \"features/**/*.ts\"",
+    "format": "prettier --write \"bin/**/*.{ts,js}\" \"scripts/**/*.ts\" \"tests/**/*.ts\" \"packages/**/*.ts\" \"features/**/*.ts\"",
+    "format:check": "prettier --check \"bin/**/*.{ts,js}\" \"scripts/**/*.ts\" \"tests/**/*.ts\" \"packages/**/*.ts\" \"features/**/*.ts\"",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run pack:dry-run"
   },
   "publishConfig": {
     "access": "public",
@@ -61,10 +67,16 @@
     "@cucumber/cucumber": "^12.8.3",
     "@eslint/js": "^9.39.4",
     "@stryker-mutator/core": "^9.6.1",
+    "@types/cucumber": "^6.0.1",
+    "@types/node": "^25.7.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.3",
+    "@typescript-eslint/parser": "^8.59.3",
     "ajv": "^8.20.0",
     "c8": "^11.0.0",
     "eslint": "^9.39.4",
     "fast-check": "^4.8.0",
-    "prettier": "^3.8.3"
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.3"
   }
 }
