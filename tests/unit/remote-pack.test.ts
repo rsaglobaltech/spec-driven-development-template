@@ -60,7 +60,7 @@ function makeBareSourceRepo(tag) {
 }
 
 let SOURCE_REPO;
-let TAG = "v1.0.0";
+const TAG = "v1.0.0";
 
 before(() => {
   if (!HAS_GIT) return;

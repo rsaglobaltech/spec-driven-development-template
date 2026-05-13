@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const Ajv = require("ajv/dist/2020");
 
-const ROOT = path.resolve(__dirname, "../..");
+const ROOT = path.resolve(__dirname, "../../..");
 const schemaPath = path.join(ROOT, "schemas", "pack.schema.json");
 const FIXTURE_ROOT = path.join(ROOT, "tests/fixtures/domain-packs");
 const FIXTURE_ID = "parking-management/backend";
@@ -121,7 +121,7 @@ test("rejects bounded context with invalid type", () => {
 
 // --- contracts project_type ---
 
-function minimalContractsPack() {
+function minimalContractsPack(): any {
   return {
     schema_version: "1.2.0",
     metadata: {

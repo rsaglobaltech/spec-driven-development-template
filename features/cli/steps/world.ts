@@ -9,7 +9,7 @@ const { spawnSync } = require("node:child_process");
 // Bump to 30s — matches the spawnSync timeout below.
 setDefaultTimeout(30_000);
 
-const ROOT = path.resolve(__dirname, "../../..");
+const ROOT = path.resolve(__dirname, "../../../..");
 const CLI = path.join(ROOT, "bin", "create-spec-driven-app.js");
 
 const BASE_CONFIG = `PROJECT_NAME="BDD Test Project"
@@ -24,6 +24,12 @@ DEVCONTAINER_SUPPORT="false"
 `;
 
 class CliWorld {
+  tmpDir: string;
+  configPath: string;
+  outDir: string;
+  projectDir: string;
+  result: any;
+
   constructor() {
     this.tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sdd-bdd-"));
     this.configPath = path.join(this.tmpDir, "project.config");

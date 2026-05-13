@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const REPO_ROOT = path.resolve(__dirname, "../../../..");
+const REPO_ROOT = path.resolve(__dirname, "../../../../..");
 const CLI = path.join(REPO_ROOT, "bin/create-spec-driven-app.js");
 const CONFIG = path.join(REPO_ROOT, "examples/project.config.example");
 
@@ -40,7 +40,7 @@ test("TOOLS registry exposes all 5 tools", () => {
 });
 
 test("Every tool has description, inputSchema, and handler", () => {
-  for (const [name, tool] of Object.entries(TOOLS)) {
+  for (const [name, tool] of Object.entries(TOOLS) as [string, any][]) {
     assert.ok(typeof tool.description === "string" && tool.description.length > 10, `${name} description`);
     assert.ok(tool.inputSchema && tool.inputSchema.type === "object", `${name} inputSchema`);
     assert.ok(typeof tool.handler === "function", `${name} handler`);

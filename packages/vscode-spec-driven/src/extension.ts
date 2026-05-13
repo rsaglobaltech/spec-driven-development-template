@@ -131,7 +131,7 @@ function findProjectRoot(filePath) {
 function lintPackDocument(doc) {
   const cfg = config();
   const schemaPath = cfg.get("schemaPath") ||
-    path.resolve(__dirname, "../../../schemas/pack.schema.json");
+    path.resolve(__dirname, "../../../../schemas/pack.schema.json");
 
   const { parseError, errors } = validatePackYaml(doc.getText(), schemaPath);
 

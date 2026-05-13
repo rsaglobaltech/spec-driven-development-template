@@ -17,7 +17,7 @@ const { TOOLS } = require("./tools");
 const PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = {
   name: "mcp-spec-driven",
-  version: require("../package.json").version,
+  version: require("../../../../packages/mcp-spec-driven/package.json").version,
 };
 
 // ── JSON-RPC framing over stdio ───────────────────────────────────────────────
@@ -60,7 +60,7 @@ function readMessage(chunk) {
       if (!trimmed) continue;
       try {
         messages.push(JSON.parse(trimmed));
-      } catch (err) {
+      } catch {
         // not JSON — ignore (probably a Content-Length header fragment)
       }
     }
@@ -75,7 +75,7 @@ function writeMessage(message) {
   process.stdout.write(out);
 }
 
-function writeError(id, code, message, data) {
+function writeError(id, code, message, data?) {
   writeMessage({
     jsonrpc: "2.0",
     id,
@@ -114,7 +114,7 @@ function handleMessage(msg) {
 
       case "tools/list":
         writeResult(id, {
-          tools: Object.entries(TOOLS).map(([name, t]) => ({
+          tools: Object.entries(TOOLS).map(([name, t]: [string, any]) => ({
             name,
             description: t.description,
             inputSchema: t.inputSchema,

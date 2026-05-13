@@ -9,10 +9,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const REPO_ROOT = path.resolve(__dirname, "../../..");
+const REPO_ROOT = path.resolve(__dirname, "../../../..");
 const CLI = path.join(REPO_ROOT, "bin/create-spec-driven-app.js");
 
-const { loadPack } = require(path.join(REPO_ROOT, "scripts/domain-pack/common"));
+const { loadPack } = require("../../../scripts/domain-pack/common");
 
 /**
  * @typedef {{ id: string, name: string, version: string, language: string,

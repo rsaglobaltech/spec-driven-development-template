@@ -16,7 +16,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = path.resolve(__dirname, "..");
+const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const TEMPLATES_DIR = path.join(ROOT_DIR, "templates");
 
 function logInfo(msg) {

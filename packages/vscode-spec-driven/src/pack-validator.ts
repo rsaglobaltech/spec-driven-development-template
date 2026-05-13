@@ -14,7 +14,7 @@ const fs = require("node:fs");
 // Resolve the bundled schema relative to this file.
 // In the monorepo the schema lives two directories up; in a packaged .vsix it
 // will be copied alongside the extension root (see .vscodeignore).
-const DEFAULT_SCHEMA_PATH = path.resolve(__dirname, "../../../schemas/pack.schema.json");
+const DEFAULT_SCHEMA_PATH = path.resolve(__dirname, "../../../../schemas/pack.schema.json");
 
 function loadAjv() {
   // ajv/dist/2020 supports JSON Schema draft 2020-12.
@@ -147,7 +147,7 @@ function formatAjvError(err) {
  * Best-effort: scan the YAML lines for a key matching the last segment of the
  * JSON Pointer. Falls back to line 0.
  */
-function findApproximateLine(lines, instancePath, schemaPath) {
+function findApproximateLine(lines, instancePath, _schemaPath?) {
   const parts = (instancePath || "").split("/").filter(Boolean);
   if (parts.length === 0) return 0;
 

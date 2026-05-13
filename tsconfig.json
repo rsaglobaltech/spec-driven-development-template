@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "moduleDetection": "force",
+    "ignoreDeprecations": "6.0",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": ".",
+    "declaration": false,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "noImplicitThis": false,
+    "alwaysStrict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node"]
+  },
+  "include": [
+    "bin/**/*.ts",
+    "scripts/**/*.ts",
+    "packages/**/src/**/*.ts",
+    "packages/**/test/**/*.ts",
+    "tests/**/*.ts",
+    "features/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "templates",
+    "examples",
+    "**/*.tpl"
+  ]
+}

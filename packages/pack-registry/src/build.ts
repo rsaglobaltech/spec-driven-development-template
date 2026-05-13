@@ -17,7 +17,7 @@ const path = require("node:path");
 const { scanPacks } = require("./scan");
 const { renderIndex } = require("./render");
 
-const REPO_ROOT = path.resolve(__dirname, "../../..");
+const REPO_ROOT = path.resolve(__dirname, "../../../..");
 const DEFAULT_PACKS = path.join(REPO_ROOT, "packs");
 const DEFAULT_OUT = path.join(REPO_ROOT, "packages/pack-registry/dist");
 

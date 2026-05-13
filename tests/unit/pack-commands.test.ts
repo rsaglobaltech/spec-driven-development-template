@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const ROOT = path.resolve(__dirname, "../..");
+const ROOT = path.resolve(__dirname, "../../..");
 const CLI = path.join(ROOT, "bin/create-spec-driven-app.js");
 const PACK_ROOT = path.join(ROOT, "tests/fixtures/domain-packs");
 

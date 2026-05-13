@@ -73,7 +73,7 @@ function upsertPackEntry(lock, entry) {
  * Write a lock object to `<projectDir>/.specops.lock`.
  * No-op when `dryRun` is true (returns the path that would have been written).
  */
-function writeLock(projectDir, lock, options = {}) {
+function writeLock(projectDir, lock, options: any = {}) {
   const lockPath = path.join(projectDir, LOCK_FILENAME);
   const json = `${JSON.stringify(lock, null, 2)}\n`;
   if (options.dryRun) return { path: lockPath, written: false };
@@ -82,7 +82,7 @@ function writeLock(projectDir, lock, options = {}) {
   return { path: lockPath, written: true };
 }
 
-function newLock(csdaVersion) {
+function newLock(csdaVersion?) {
   return {
     specops_version: SPECOPS_SCHEMA_VERSION,
     csda_version: csdaVersion || "0.0.0",

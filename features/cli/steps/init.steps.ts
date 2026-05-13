@@ -142,7 +142,7 @@ When("I run {string} without {string}", function (cmd, flag) {
   }
 });
 
-When("I run {string} without providing {string}", function (cmd, varName) {
+When("I run {string} without providing {string}", function (cmd, _varName) {
   if (cmd === "expand") {
     const args = [
       "expand",

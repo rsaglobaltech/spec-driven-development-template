@@ -33,7 +33,7 @@ function safeVersionDir(version) {
   return String(version).replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-function runGit(args, options = {}) {
+function runGit(args, options: any = {}) {
   const result = spawnSync("git", args, {
     encoding: "utf8",
     timeout: options.timeout || GIT_TIMEOUT_MS,

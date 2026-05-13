@@ -18,8 +18,7 @@ const { spawnSync } = require("node:child_process");
 const { readLock } = require("./lock");
 const { readConfig, configToPacks, CONFIG_FILE } = require("./config");
 
-const ROOT_DIR = path.resolve(__dirname, "..", "..");
-const EXPAND_SCRIPT = path.join(ROOT_DIR, "scripts", "expand_domain_pack.js");
+const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 
 function info(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);

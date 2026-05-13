@@ -26,7 +26,7 @@ const { readLock, writeLock, upsertPackEntry, newLock } = require("./specops/loc
 
 const PACKAGE_VERSION = (() => {
   try {
-    return require(path.resolve(__dirname, "..", "package.json")).version || "0.0.0";
+    return require(path.resolve(__dirname, "..", "..", "package.json")).version || "0.0.0";
   } catch {
     return "0.0.0";
   }
