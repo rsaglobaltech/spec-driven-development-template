@@ -92,7 +92,9 @@ function lintRequirementsCoverage(pack, errors, _warnings) {
       !usedInCDT.has(id) &&
       !usedInBCR.has(id)
     ) {
-      errors.push(`REQ ${id} is not referenced by any use case, scenario, api_contract, consumer_driven_test, or breaking_change_rules entry.`);
+      errors.push(
+        `REQ ${id} is not referenced by any use case, scenario, api_contract, consumer_driven_test, or breaking_change_rules entry.`
+      );
     }
   }
 }
