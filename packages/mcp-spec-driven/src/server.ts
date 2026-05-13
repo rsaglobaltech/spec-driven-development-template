@@ -20,7 +20,7 @@ const SERVER_INFO = {
   version: require("../../../../packages/mcp-spec-driven/package.json").version,
 };
 
-// ── JSON-RPC framing over stdio ───────────────────────────────────────────────
+// ── JSON-RPC framing over stdio ──────────────────────────────────────────────────
 
 let buffer = "";
 
@@ -87,7 +87,7 @@ function writeResult(id, result) {
   writeMessage({ jsonrpc: "2.0", id, result });
 }
 
-// ── Method dispatch ───────────────────────────────────────────────────────────
+// ── Method dispatch ──────────────────────────────────────────────────────────────────────
 
 function handleMessage(msg) {
   if (msg.jsonrpc !== "2.0") {
@@ -163,14 +163,14 @@ function handleMessage(msg) {
         if (id !== undefined && id !== null) {
           writeError(id, -32601, `Method not found: ${method}`);
         }
-        // else: notification — ignore unknown notifications
+      // else: notification — ignore unknown notifications
     }
   } catch (err) {
     writeError(id, -32603, `Internal error: ${err.message}`);
   }
 }
 
-// ── Main loop ─────────────────────────────────────────────────────────────────
+// ── Main loop ──────────────────────────────────────────────────────────────────────────────
 
 function main() {
   process.stdin.setEncoding("utf8");
