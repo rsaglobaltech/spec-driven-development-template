@@ -815,6 +815,7 @@ module.exports = {
   normalizeVars,
   parseArgs,
   parseTraceabilityRows,
+  parseYamlLite,
   readTemplate,
   renderTemplate,
   safeResolve,

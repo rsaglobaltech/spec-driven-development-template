@@ -9,14 +9,8 @@
     "metadata",
     "variables",
     "requirements",
-    "bounded_contexts",
-    "use_cases",
-    "commands",
-    "aggregates",
-    "events",
     "outputs",
-    "rules",
-    "scenarios"
+    "rules"
   ],
   "additionalProperties": false,
   "properties": {
@@ -33,7 +27,7 @@
         "name":         { "type": "string", "minLength": 1 },
         "version":      { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
         "language":     { "type": "string", "pattern": "^[a-z]{2}$" },
-        "project_type": { "type": "string", "enum": ["backend", "frontend"] }
+        "project_type": { "type": "string", "enum": ["backend", "frontend", "contracts"] }
       }
     },
     "variables": {
@@ -223,7 +217,80 @@
           "status":               { "$ref": "#/$defs/status" }
         }
       }
+    },
+    "api_contracts": {
+      "type": "array",
+      "description": "REST/GraphQL/event API contracts (contracts project_type only).",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "type", "provider", "consumers", "schema_ref"],
+        "additionalProperties": false,
+        "properties": {
+          "id":         { "type": "string", "pattern": "^AC-\\d+$" },
+          "title":      { "type": "string", "minLength": 1 },
+          "type":       { "type": "string", "enum": ["REST", "GraphQL", "AsyncAPI", "gRPC"] },
+          "provider":   { "type": "string", "minLength": 1 },
+          "consumers":  { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "schema_ref": { "type": "string", "minLength": 1 },
+          "requirement": { "type": "string", "pattern": "^REQ-\\d+$" }
+        }
+      }
+    },
+    "consumer_driven_tests": {
+      "type": "array",
+      "description": "Pact / consumer-driven contract test definitions (contracts project_type only).",
+      "items": {
+        "type": "object",
+        "required": ["id", "consumer", "provider", "pact_file", "requirement"],
+        "additionalProperties": false,
+        "properties": {
+          "id":        { "type": "string", "pattern": "^CDT-\\d+$" },
+          "consumer":  { "type": "string", "minLength": 1 },
+          "provider":  { "type": "string", "minLength": 1 },
+          "pact_file": { "type": "string", "minLength": 1 },
+          "requirement": { "type": "string", "pattern": "^REQ-\\d+$" }
+        }
+      }
+    },
+    "breaking_change_rules": {
+      "type": "array",
+      "description": "Rules that define what constitutes a breaking change for each API contract.",
+      "items": {
+        "type": "object",
+        "required": ["contract_id", "rules"],
+        "additionalProperties": false,
+        "properties": {
+          "contract_id": { "type": "string", "pattern": "^AC-\\d+$" },
+          "rules": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          }
+        }
+      }
     }
+  },
+  "if": {
+    "properties": {
+      "metadata": {
+        "properties": {
+          "project_type": { "enum": ["backend", "frontend"] }
+        }
+      }
+    }
+  },
+  "then": {
+    "required": [
+      "bounded_contexts",
+      "use_cases",
+      "commands",
+      "aggregates",
+      "events",
+      "scenarios"
+    ]
+  },
+  "else": {
+    "required": ["api_contracts"]
   },
   "$defs": {
     "status": {

@@ -28,7 +28,7 @@ function usage() {
     `🚀 create-spec-driven-app\n\n` +
       `Usage:\n` +
       `  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n` +
-      `  create-spec-driven-app validate <project_dir>\n` +
+      `  create-spec-driven-app validate <project_dir> [--strict-tdd]\n` +
       `  create-spec-driven-app expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]\n` +
       `  create-spec-driven-app expand --pack-repo <git-url> --pack-version <tag> --pack <pack-id> --project-dir <path> [--var KEY=VALUE]... [--cache-dir <path>] [--dry-run]\n` +
       `  create-spec-driven-app pack init --out <directory> [--name <name>] [--type backend|frontend] [--dry-run]\n` +
@@ -111,13 +111,21 @@ function main() {
   if (command === "validate") {
     ensureExecutable(validateScript);
 
-    if (args.length !== 2) {
-      error(`'validate' expects exactly one argument: <project_dir>`);
+    const validateArgs = args.slice(1);
+    const positional = validateArgs.filter((a) => !a.startsWith("-"));
+    if (positional.length !== 1) {
+      error(`'validate' expects exactly one positional argument: <project_dir>`);
+      usage();
+      process.exit(2);
+    }
+    const unknownFlags = validateArgs.filter((a) => a.startsWith("-") && a !== "--strict-tdd");
+    if (unknownFlags.length > 0) {
+      error(`Unknown flag(s) for validate: ${unknownFlags.join(", ")}`);
       usage();
       process.exit(2);
     }
 
-    runNodeScript(validateScript, [args[1]]);
+    runNodeScript(validateScript, validateArgs);
     return;
   }
 

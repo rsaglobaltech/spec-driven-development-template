@@ -4,15 +4,19 @@
 /**
  * `specops sync` — re-expands every pack recorded in `.specops.lock`.
  *
+ * Falls back to `specops.config.yaml` when no lockfile exists, allowing
+ * fresh clones to bootstrap before the first lock is written.
+ *
  * No need to re-type --pack-repo / --pack-version / --var flags: the
- * lockfile is the source of truth. Optionally bumps a single pack to a
- * new version via `--pack-version`.
+ * lockfile (or config) is the source of truth. Optionally bumps a single
+ * pack to a new version via `--pack-version`.
  */
 
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const { readLock } = require("./lock");
+const { readConfig, configToPacks, CONFIG_FILE } = require("./config");
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const EXPAND_SCRIPT = path.join(ROOT_DIR, "scripts", "expand_domain_pack.js");
@@ -28,8 +32,9 @@ function usage() {
   process.stdout.write(
     "Usage:\n" +
       "  create-spec-driven-app specops sync [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--dry-run]\n\n" +
-      "Re-expands packs recorded in .specops.lock. With --pack-version, bumps\n" +
-      "the matching pack(s) to a new tag/SHA and updates the lockfile.\n"
+      "Re-expands packs recorded in .specops.lock (or specops.config.yaml if no\n" +
+      "lockfile exists). With --pack-version, bumps the matching pack(s) to a\n" +
+      "new tag/SHA and updates the lockfile.\n"
   );
 }
 
@@ -93,22 +98,36 @@ function buildExpandArgs(entry, version, projectDir, cacheDir, dryRun) {
   return out;
 }
 
+function resolvePacks(projectDir) {
+  const lock = readLock(projectDir);
+  if (lock) {
+    if (!Array.isArray(lock.packs) || lock.packs.length === 0) {
+      throw new Error(".specops.lock has no pack entries.");
+    }
+    return { packs: lock.packs, source: ".specops.lock" };
+  }
+
+  const config = readConfig(projectDir);
+  if (config) {
+    return { packs: configToPacks(config), source: CONFIG_FILE };
+  }
+
+  throw new Error(
+    `No .specops.lock or ${CONFIG_FILE} found in ${projectDir}.\n` +
+      `Run 'expand --pack-repo ...' first, or create a ${CONFIG_FILE}.`
+  );
+}
+
 function main() {
   try {
     const args = parseArgs(process.argv.slice(2));
     const projectDir = path.resolve(args.projectDir);
-    const lock = readLock(projectDir);
-    if (!lock) {
-      error(`No .specops.lock found in ${projectDir}`);
-      process.exit(1);
-    }
-    if (!Array.isArray(lock.packs) || lock.packs.length === 0) {
-      error(".specops.lock has no pack entries.");
-      process.exit(1);
-    }
+    const { packs, source } = resolvePacks(projectDir);
+
+    info(`Reading pack list from ${source}`);
 
     let matched = 0;
-    for (const entry of lock.packs) {
+    for (const entry of packs) {
       if (args.pack && entry.pack_id !== args.pack) continue;
       matched += 1;
 
@@ -141,4 +160,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, buildExpandArgs };
+module.exports = { parseArgs, buildExpandArgs, resolvePacks };

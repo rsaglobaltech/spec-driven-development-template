@@ -57,7 +57,7 @@ test("runs init in dry-run mode with example config", () => {
 test("returns usage error for validate without project dir", () => {
   const result = runCli(["validate"]);
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /expects exactly one argument/);
+  assert.match(result.stderr, /expects exactly one positional argument/);
 });
 
 test("expands domain pack in dry-run mode", () => {
@@ -529,7 +529,7 @@ test("specops sync errors when .specops.lock is missing", () => {
   fs.mkdirSync(tempRoot, { recursive: true });
   const result = runCli(["specops", "sync", "--project-dir", tempRoot]);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /No .specops.lock found/);
+  assert.match(result.stderr, /No \.specops\.lock or specops\.config\.yaml found/);
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
 
