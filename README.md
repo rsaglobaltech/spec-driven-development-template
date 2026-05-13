@@ -27,17 +27,19 @@
 ## ⚡ Quickstart
 
 ```bash
-# 1. Create a config from the example
-cp examples/project.config.example /tmp/my-project.config
+# 1. Copy the example config and edit it (PROJECT_NAME, PROJECT_SLUG, …)
+cp examples/project.config.example /tmp/acme-energy-hub.config
 
 # 2. Generate the project
 npx create-spec-driven-app@latest init \
-  --config /tmp/my-project.config \
+  --config /tmp/acme-energy-hub.config \
   --out /tmp
 
 # 3. Validate
-npx create-spec-driven-app@latest validate /tmp/my-project
+npx create-spec-driven-app@latest validate /tmp/acme-energy-hub
 ```
+
+> The generated directory takes its name from `PROJECT_SLUG` inside the config.
 
 Requires **Node.js ≥ 20**.
 
@@ -82,6 +84,36 @@ npx create-spec-driven-app@latest expand \
 ```
 
 Browse the [curated pack registry](https://rsaglobaltech.github.io/spec-driven-development-template/) or build your own with `pack init`.
+
+### 🔁 Keep packs in sync
+
+`expand` writes a `.specops.lock` that pins each pack to a version and remembers the variables you used. From then on:
+
+```bash
+# Preview what changes when bumping to v0.2.0 (no writes)
+npx create-spec-driven-app specops diff \
+  --project-dir ./smart-parking \
+  --pack-version v0.2.0
+
+# Re-expand everything in .specops.lock (no need to retype --var)
+npx create-spec-driven-app specops sync --project-dir ./smart-parking
+
+# Bump a single pack and rewrite the lockfile
+npx create-spec-driven-app specops sync \
+  --project-dir ./smart-parking \
+  --pack parking-management/backend \
+  --pack-version v0.2.0
+```
+
+Sample `diff` output:
+
+```
+── parking-management/backend @ v0.2.0 (current: v0.1.0) ──
+  + features/pricing/dynamic_pricing.feature
+  ~ docs/specs/use-cases.md
+  ~ docs/specs/traceability.md
+  1 added · 2 modified · 9 unchanged
+```
 
 ## 🧰 Companion tools
 
