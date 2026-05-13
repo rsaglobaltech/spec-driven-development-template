@@ -14,7 +14,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { parseTraceability, classify, hintFor } = require("../../scripts/plan");
+const { parseTraceability, classify, hintFor, detectOrphans } = require("../../scripts/plan");
 const { setRequirementStatus, ALLOWED_STATUSES } = require("../../scripts/done");
 
 const RICH_HEADER =
@@ -34,7 +34,7 @@ function richRow(req, scn, feature, useCase, cmd, agg, evt, tech, test, status) 
   return `| ${req} | ${scn} | ${feature} | ${useCase} | ${cmd} | ${agg} | ${evt} | ${tech} | ${test} | ${status} |`;
 }
 
-// ── parseTraceability ──────────────────────────────────────────────────────────
+// ── parseTraceability ─────────────────────────────────────────────────────────────
 
 test("parseTraceability extracts rich-matrix rows", () => {
   const content = [
@@ -67,7 +67,7 @@ test("parseTraceability ignores divider rows and headers", () => {
   assert.deepEqual(parseTraceability(content), []);
 });
 
-// ── classify ──────────────────────────────────────────────────────────────────
+// ── classify ─────────────────────────────────────────────────────────────────────────
 
 test("classify → NEEDS_FEATURE when the .feature file is missing", () => {
   const dir = mkProject();
@@ -266,7 +266,7 @@ test("classify ignores non-REQ rows (e.g. legend rows starting with letters)", (
   assert.equal(result, null);
 });
 
-// ── hintFor ───────────────────────────────────────────────────────────────────
+// ── hintFor ────────────────────────────────────────────────────────────────────────────
 
 test("hintFor returns a useful message for each category", () => {
   const sample = {
@@ -281,7 +281,7 @@ test("hintFor returns a useful message for each category", () => {
   assert.match(hintFor({ ...sample, category: "NEEDS_STATUS_UPDATE" }), /done REQ-007/);
 });
 
-// ── done.setRequirementStatus ─────────────────────────────────────────────────
+// ── done.setRequirementStatus ──────────────────────────────────────────────────────────
 
 test("setRequirementStatus updates the matching row only", () => {
   const original = [
@@ -368,5 +368,46 @@ test("setRequirementStatus preserves the header rows verbatim", () => {
 test("ALLOWED_STATUSES contains the documented terminal states", () => {
   for (const s of ["Draft", "Approved", "Implemented", "Verified", "Released", "Deprecated"]) {
     assert.ok(ALLOWED_STATUSES.includes(s), `${s} should be allowed`);
+  }
+});
+
+// ── detectOrphans ────────────────────────────────────────────────────────────────────
+
+test("detectOrphans returns features on disk not present in the matrix", () => {
+  const dir = mkProject();
+  try {
+    fs.writeFileSync(path.join(dir, "features", "core", "tracked.feature"), "Feature: ok\n");
+    fs.writeFileSync(path.join(dir, "features", "core", "orphan.feature"), "Feature: lost\n");
+    const items = [
+      {
+        feature_file: "features/core/tracked.feature",
+        requirement: "REQ-001",
+        category: "DONE",
+      },
+    ];
+    const orphans = detectOrphans(dir, items);
+    assert.deepEqual(orphans, ["features/core/orphan.feature"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("detectOrphans returns an empty list when every feature is tracked", () => {
+  const dir = mkProject();
+  try {
+    fs.writeFileSync(path.join(dir, "features", "core", "a.feature"), "Feature: a\n");
+    const items = [{ feature_file: "features/core/a.feature", requirement: "REQ-001" }];
+    assert.deepEqual(detectOrphans(dir, items), []);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("detectOrphans is robust when features/ does not exist", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "plan-no-features-"));
+  try {
+    assert.deepEqual(detectOrphans(dir, []), []);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
