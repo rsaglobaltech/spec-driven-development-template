@@ -27,7 +27,9 @@ test("escape handles null and undefined", () => {
 test("renderCard includes pack name, id, and counts", () => {
   const html = renderCard({
     id: "auth/backend",
+    domain: "auth",
     name: "Auth Pack",
+    description: "Auth description",
     version: "1.0.0",
     language: "en",
     project_type: "backend",
@@ -41,7 +43,8 @@ test("renderCard includes pack name, id, and counts", () => {
   });
   assert.ok(html.includes("Auth Pack"));
   assert.ok(html.includes("auth/backend"));
-  assert.ok(html.includes("5</strong> requirements"));
+  // stat chips: requirements=5, useCases=5, events=5 all render as stat__val spans
+  assert.ok(html.includes('class="stat__val">5</span>'));
   assert.ok(html.includes("verified"));
 });
 
@@ -70,7 +73,8 @@ test("renderIndex emits valid HTML5", () => {
   const html = renderIndex([], { title: "Test", generated: "2026-01-01T00:00:00Z" });
   assert.ok(html.startsWith("<!DOCTYPE html>"));
   assert.ok(html.includes("<title>Test</title>"));
-  assert.ok(html.includes("0 pack(s)"));
+  // count badge shows "0 shown" when there are no packs
+  assert.ok(html.includes("0 shown"));
 });
 
 test("renderIndex shows verified count", () => {
@@ -105,8 +109,10 @@ test("renderIndex shows verified count", () => {
     },
   ];
   const html = renderIndex(packs);
-  assert.ok(html.includes("2 pack(s)"));
-  assert.ok(html.includes("1 verified"));
+  // count badge shows total visible packs
+  assert.ok(html.includes("2 shown"));
+  // KPI tile for verified (lintStatus=pass) shows 1
+  assert.ok(html.includes(">1</span><span class=\"kpi__label\">Verified</span>"));
 });
 
 // ── scanPacks (integration with the real packs/ dir) ──────────────────────────
