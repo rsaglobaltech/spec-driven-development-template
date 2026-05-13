@@ -21,7 +21,7 @@ test("shows help with no args", () => {
   const result = runCli([]);
   assert.equal(result.status, 0);
   assert.match(result.stdout, /create-spec-driven-app/);
-  assert.match(result.stdout, /Usage:/);
+  assert.match(result.stdout, /\bUSAGE\b/i);
   assert.match(result.stdout, /expand --pack-root/);
 });
 
@@ -343,7 +343,7 @@ test("expand rejects --pack-root and --pack-repo together", () => {
   assert.match(result.stderr, /either --pack-root or --pack-repo/);
 });
 
-// ── SpecOps sync + diff (M2) ─────────────────────────────────────────────────
+// ── SpecOps sync + diff (M2) ────────────────────────────────────────────
 
 function makeFixtureRemoteRepo(tempRoot) {
   const remoteRepo = path.join(tempRoot, "remote-pack");
