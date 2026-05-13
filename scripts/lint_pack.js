@@ -69,9 +69,30 @@ function lintRequirementsCoverage(pack, errors, _warnings) {
       .map((s) => s.requirement)
       .filter(Boolean)
   );
+  const usedInAC = new Set(
+    asArray(pack.api_contracts)
+      .map((ac) => ac.requirement)
+      .filter(Boolean)
+  );
+  const usedInCDT = new Set(
+    asArray(pack.consumer_driven_tests)
+      .map((cdt) => cdt.requirement)
+      .filter(Boolean)
+  );
+  const usedInBCR = new Set(
+    asArray(pack.breaking_change_rules)
+      .map((bcr) => bcr.requirement)
+      .filter(Boolean)
+  );
   for (const id of reqIds) {
-    if (!usedInUC.has(id) && !usedInSCN.has(id)) {
-      errors.push(`REQ ${id} is not referenced by any use case or scenario.`);
+    if (
+      !usedInUC.has(id) &&
+      !usedInSCN.has(id) &&
+      !usedInAC.has(id) &&
+      !usedInCDT.has(id) &&
+      !usedInBCR.has(id)
+    ) {
+      errors.push(`REQ ${id} is not referenced by any use case, scenario, api_contract, consumer_driven_test, or breaking_change_rules entry.`);
     }
   }
 }

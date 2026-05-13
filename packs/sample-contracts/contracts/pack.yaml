@@ -63,6 +63,7 @@ consumer_driven_tests:
 
 breaking_change_rules:
   - contract_id: AC-001
+    requirement: REQ-003
     rules:
       - "Removing a required request field is a breaking change"
       - "Changing an existing response field type is a breaking change"
