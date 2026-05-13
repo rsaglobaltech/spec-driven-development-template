@@ -52,8 +52,10 @@ class CliWorld {
   runInit(extra = []) {
     return this.run([
       "init",
-      "--config", this.configPath,
-      "--out", this.outDir,
+      "--config",
+      this.configPath,
+      "--out",
+      this.outDir,
       "--force",
       "--no-git",
       ...extra,
