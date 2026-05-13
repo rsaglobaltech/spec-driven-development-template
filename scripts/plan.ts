@@ -18,6 +18,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { resolveProjectDir } = require("./lib/project-root");
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -177,7 +178,7 @@ function classify(row, projectDir) {
   };
 }
 
-function emitJson(items, projectDir) {
+function emitJson(items, projectDir, orphans) {
   const summary = items.reduce((acc, it) => {
     acc[it.category] = (acc[it.category] || 0) + 1;
     return acc;
@@ -186,6 +187,7 @@ function emitJson(items, projectDir) {
   process.stdout.write(
     JSON.stringify(
       {
+        schema_version: 1,
         project_dir: path.resolve(projectDir),
         total: items.length,
         pending: items.length - (summary.DONE || 0),
@@ -196,6 +198,7 @@ function emitJson(items, projectDir) {
           hint: hintFor(it),
         })),
         requirements: items,
+        orphan_features: orphans,
       },
       null,
       2
@@ -220,7 +223,36 @@ function hintFor(item) {
   }
 }
 
-function emitText(items) {
+function walkFeatures(dir, base = dir) {
+  const out = [];
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...walkFeatures(full, base));
+    } else if (entry.isFile() && entry.name.endsWith(".feature")) {
+      out.push(path.relative(base, full).split(path.sep).join("/"));
+    }
+  }
+  return out;
+}
+
+function detectOrphans(projectDir, items) {
+  const featuresDir = path.join(projectDir, "features");
+  if (!fs.existsSync(featuresDir)) return [];
+  const onDisk = walkFeatures(featuresDir).map((rel) => `features/${rel}`);
+  const tracked = new Set(
+    items.map((it) => (it.feature_file || "").replace(/^`|`$/g, "").trim()).filter((v) => !!v)
+  );
+  return onDisk.filter((rel) => !tracked.has(rel));
+}
+
+function emitText(items, orphans) {
   const buckets = {
     NEEDS_EVERYTHING: [],
     NEEDS_FEATURE: [],
@@ -271,7 +303,17 @@ function emitText(items) {
     }
   }
 
-  if (todo === 0) {
+  if (orphans && orphans.length > 0) {
+    process.stdout.write(
+      `\n  ${c.bold}${c.red}⚠️  Orphan feature files (on disk, not in traceability.md)${c.reset}\n`
+    );
+    for (const f of orphans) process.stdout.write(`    ${c.red}·${c.reset} ${f}\n`);
+    process.stdout.write(
+      `\n  ${c.dim}Either add a row to docs/specs/traceability.md or delete the file.${c.reset}\n`
+    );
+  }
+
+  if (todo === 0 && (!orphans || orphans.length === 0)) {
     process.stdout.write(
       `\n  ${c.green}🎉 Every requirement is implemented and marked done.${c.reset}\n\n`
     );
@@ -284,7 +326,13 @@ function emitText(items) {
 
 function main() {
   const opts = parseArgs(process.argv.slice(2));
-  const projectDir = path.resolve(opts.projectDir);
+  let projectDir;
+  try {
+    projectDir = resolveProjectDir(opts.projectDir);
+  } catch (err) {
+    process.stderr.write(`${err.message}\n`);
+    process.exit(2);
+  }
 
   if (!fs.existsSync(projectDir)) {
     process.stderr.write(`Project directory not found: ${projectDir}\n`);
@@ -300,13 +348,14 @@ function main() {
   const content = fs.readFileSync(tracePath, "utf8");
   const rows = parseTraceability(content);
   const items = rows.map((r) => classify(r, projectDir)).filter((x) => x !== null);
+  const orphans = detectOrphans(projectDir, items);
 
-  if (opts.format === "json") emitJson(items, projectDir);
-  else emitText(items);
+  if (opts.format === "json") emitJson(items, projectDir, orphans);
+  else emitText(items, orphans);
 
   process.exit(0);
 }
 
 if (require.main === module) main();
 
-module.exports = { parseArgs, parseTraceability, classify, hintFor };
+module.exports = { parseArgs, parseTraceability, classify, hintFor, detectOrphans };

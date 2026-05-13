@@ -17,6 +17,7 @@ const { spawnSync } = require("node:child_process");
 
 const { readLock } = require("./lock");
 const { readConfig, configToPacks, CONFIG_FILE } = require("./config");
+const { resolveProjectDir } = require("../lib/project-root");
 
 const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 
@@ -120,7 +121,7 @@ function resolvePacks(projectDir) {
 function main() {
   try {
     const args = parseArgs(process.argv.slice(2));
-    const projectDir = path.resolve(args.projectDir);
+    const projectDir = resolveProjectDir(args.projectDir);
     const { packs, source } = resolvePacks(projectDir);
 
     info(`Reading pack list from ${source}`);

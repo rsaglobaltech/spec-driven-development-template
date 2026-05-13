@@ -21,6 +21,7 @@ const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
 const { readLock } = require("./lock");
+const { resolveProjectDir } = require("../lib/project-root");
 
 const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 const LOCK_FILENAME = ".specops.lock";
@@ -180,7 +181,7 @@ function printChanges(entry, version, changes) {
 function main() {
   try {
     const args = parseArgs(process.argv.slice(2));
-    const projectDir = path.resolve(args.projectDir);
+    const projectDir = resolveProjectDir(args.projectDir);
     const lock = readLock(projectDir);
     if (!lock) {
       error(`No .specops.lock found in ${projectDir}`);

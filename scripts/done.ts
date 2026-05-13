@@ -16,6 +16,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { resolveProjectDir } = require("./lib/project-root");
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -41,12 +42,13 @@ function usage() {
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--status <Status>${c.reset}    ${c.dim}New status (default: Implemented).${c.reset}\n` +
       `                         ${c.dim}One of: ${ALLOWED_STATUSES.join(", ")}.${c.reset}\n` +
-      `    ${c.green}--project-dir <path>${c.reset} ${c.dim}Project root (default: cwd).${c.reset}\n` +
+      `    ${c.green}--project-dir <path>${c.reset} ${c.dim}Project root (auto-detected from cwd if omitted).${c.reset}\n` +
       `    ${c.green}--check${c.reset}              ${c.dim}Run \`validate\` first; abort if it fails.${c.reset}\n` +
+      `    ${c.green}--strict${c.reset}             ${c.dim}Like --check but uses \`validate --strict-tdd\`.${c.reset}\n` +
       `    ${c.green}-h, --help${c.reset}           ${c.dim}Show this help.${c.reset}\n\n` +
       `  ${c.bold}EXAMPLES${c.reset}\n` +
       `    ${c.yellow}$${c.reset} csda done REQ-007\n` +
-      `    ${c.yellow}$${c.reset} csda done REQ-007 --status Verified --check\n\n`
+      `    ${c.yellow}$${c.reset} csda done REQ-007 --status Verified --strict\n\n`
   );
 }
 
@@ -56,13 +58,17 @@ function parseArgs(argv) {
     status: "Implemented",
     projectDir: ".",
     check: false,
+    strict: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--status" && argv[i + 1]) opts.status = argv[++i];
     else if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
     else if (a === "--check") opts.check = true;
-    else if (a === "--help" || a === "-h") {
+    else if (a === "--strict") {
+      opts.strict = true;
+      opts.check = true;
+    } else if (a === "--help" || a === "-h") {
       usage();
       process.exit(0);
     } else if (a.startsWith("-")) {
@@ -107,10 +113,11 @@ function setRequirementStatus(content, reqId, newStatus) {
   return { content: out.join("\n"), updated };
 }
 
-function runValidate(projectDir) {
-  return spawnSync(process.execPath, [VALIDATE_SCRIPT, projectDir], {
-    encoding: "utf8",
-  });
+function runValidate(projectDir, strict) {
+  const args = strict
+    ? [VALIDATE_SCRIPT, projectDir, "--strict-tdd"]
+    : [VALIDATE_SCRIPT, projectDir];
+  return spawnSync(process.execPath, args, { encoding: "utf8" });
 }
 
 function main() {
@@ -134,7 +141,13 @@ function main() {
     process.exit(2);
   }
 
-  const projectDir = path.resolve(opts.projectDir);
+  let projectDir;
+  try {
+    projectDir = resolveProjectDir(opts.projectDir);
+  } catch (err) {
+    process.stderr.write(`${err.message}\n`);
+    process.exit(2);
+  }
   const tracePath = path.join(projectDir, "docs/specs/traceability.md");
   if (!fs.existsSync(tracePath)) {
     process.stderr.write(
@@ -144,9 +157,10 @@ function main() {
   }
 
   if (opts.check) {
-    const r = runValidate(projectDir);
+    const r = runValidate(projectDir, opts.strict);
     if (r.status !== 0) {
-      process.stderr.write(`${c.red}✖${c.reset}  validate failed; aborting status update.\n`);
+      const gate = opts.strict ? "validate --strict-tdd" : "validate";
+      process.stderr.write(`${c.red}✖${c.reset}  ${gate} failed; aborting status update.\n`);
       process.stderr.write(r.stdout || "");
       process.stderr.write(r.stderr || "");
       process.exit(r.status || 1);
