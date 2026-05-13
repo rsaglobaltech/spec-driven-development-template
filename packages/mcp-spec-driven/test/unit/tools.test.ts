@@ -21,14 +21,16 @@ const {
 
 function generateProject() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-test-"));
-  const r = spawnSync(process.execPath, [
-    CLI, "init", "--config", CONFIG, "--out", tmp, "--no-git", "--force",
-  ], { encoding: "utf8", cwd: REPO_ROOT });
+  const r = spawnSync(
+    process.execPath,
+    [CLI, "init", "--config", CONFIG, "--out", tmp, "--no-git", "--force"],
+    { encoding: "utf8", cwd: REPO_ROOT }
+  );
   assert.equal(r.status, 0, `init failed:\n${r.stdout}\n${r.stderr}`);
   return { tmp, projectDir: path.join(tmp, "acme-energy-hub") };
 }
 
-// ── TOOL REGISTRY ─────────────────────────────────────────────────────────────
+// ── TOOL REGISTRY ──────────────────────────────────────────────────────────────────
 
 test("TOOLS registry exposes all 5 tools", () => {
   const names = Object.keys(TOOLS);
@@ -41,13 +43,16 @@ test("TOOLS registry exposes all 5 tools", () => {
 
 test("Every tool has description, inputSchema, and handler", () => {
   for (const [name, tool] of Object.entries(TOOLS) as [string, any][]) {
-    assert.ok(typeof tool.description === "string" && tool.description.length > 10, `${name} description`);
+    assert.ok(
+      typeof tool.description === "string" && tool.description.length > 10,
+      `${name} description`
+    );
     assert.ok(tool.inputSchema && tool.inputSchema.type === "object", `${name} inputSchema`);
     assert.ok(typeof tool.handler === "function", `${name} handler`);
   }
 });
 
-// ── read_spec ─────────────────────────────────────────────────────────────────
+// ── read_spec ────────────────────────────────────────────────────────────────────────
 
 test("read_spec returns spec.md content and lists docs/specs/*.md", () => {
   const { tmp, projectDir } = generateProject();
@@ -56,7 +61,10 @@ test("read_spec returns spec.md content and lists docs/specs/*.md", () => {
     assert.ok(r.specMd.length > 0, "specMd should not be empty");
     assert.ok(r.specMd.includes("Acme Energy Hub"), "specMd should contain project name");
     assert.ok(Array.isArray(r.files));
-    assert.ok(r.files.some((f) => f.endsWith("traceability.md")), "should list traceability.md");
+    assert.ok(
+      r.files.some((f) => f.endsWith("traceability.md")),
+      "should list traceability.md"
+    );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -79,7 +87,7 @@ test("read_spec throws on directory without spec.md", () => {
   }
 });
 
-// ── list_requirements ─────────────────────────────────────────────────────────
+// ── list_requirements ───────────────────────────────────────────────────────────────────
 
 test("list_requirements returns an array of requirement objects", () => {
   const { tmp, projectDir } = generateProject();
@@ -120,7 +128,7 @@ test("list_requirements deduplicates IDs across files", () => {
   }
 });
 
-// ── update_traceability ───────────────────────────────────────────────────────
+// ── update_traceability ─────────────────────────────────────────────────────────────────
 
 test("update_traceability appends a row when not present", () => {
   const { tmp, projectDir } = generateProject();
@@ -173,7 +181,7 @@ test("update_traceability throws on missing required argument", () => {
   }
 });
 
-// ── validate_project ──────────────────────────────────────────────────────────
+// ── validate_project ─────────────────────────────────────────────────────────────────
 
 test("validate_project succeeds on a freshly generated project", () => {
   const { tmp, projectDir } = generateProject();
@@ -192,10 +200,7 @@ test("validate_project succeeds on a freshly generated project", () => {
 test("validate_project throws when projectDir is not a spec-driven project", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "not-spec-"));
   try {
-    assert.throws(
-      () => validateProject({ projectDir: tmp }),
-      /Not a spec-driven project/
-    );
+    assert.throws(() => validateProject({ projectDir: tmp }), /Not a spec-driven project/);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

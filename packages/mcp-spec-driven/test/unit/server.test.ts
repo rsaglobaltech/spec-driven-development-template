@@ -33,7 +33,7 @@ function parseFramed(output) {
   return JSON.parse(match[1]);
 }
 
-// ── readMessage framing ───────────────────────────────────────────────────────
+// ── readMessage framing ────────────────────────────────────────────────────────────────
 
 test("readMessage parses a Content-Length-framed JSON message", () => {
   const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" });
@@ -51,7 +51,7 @@ test("readMessage parses newline-delimited JSON when no Content-Length header", 
   assert.equal(messages[0].method, "ping");
 });
 
-// ── handleMessage: initialize ─────────────────────────────────────────────────
+// ── handleMessage: initialize ─────────────────────────────────────────────────────────────
 
 test("handleMessage responds to initialize with protocolVersion and serverInfo", () => {
   const output = captureStdout(() =>
@@ -64,7 +64,7 @@ test("handleMessage responds to initialize with protocolVersion and serverInfo",
   assert.ok(response.result.capabilities.tools);
 });
 
-// ── handleMessage: tools/list ─────────────────────────────────────────────────
+// ── handleMessage: tools/list ─────────────────────────────────────────────────────────────
 
 test("handleMessage responds to tools/list with all 5 tools", () => {
   const output = captureStdout(() =>
@@ -79,7 +79,7 @@ test("handleMessage responds to tools/list with all 5 tools", () => {
   assert.ok(names.includes("validate_project"));
 });
 
-// ── handleMessage: tools/call ─────────────────────────────────────────────────
+// ── handleMessage: tools/call ─────────────────────────────────────────────────────────────
 
 test("handleMessage returns isError=true for failing tool call", () => {
   const output = captureStdout(() =>
@@ -119,18 +119,16 @@ test("handleMessage returns -32601 for unknown method", () => {
   assert.equal(response.error.code, -32601);
 });
 
-// ── handleMessage: ping ───────────────────────────────────────────────────────
+// ── handleMessage: ping ───────────────────────────────────────────────────────────────────
 
 test("handleMessage responds to ping with empty result", () => {
-  const output = captureStdout(() =>
-    handleMessage({ jsonrpc: "2.0", id: 6, method: "ping" })
-  );
+  const output = captureStdout(() => handleMessage({ jsonrpc: "2.0", id: 6, method: "ping" }));
   const response = parseFramed(output);
   assert.equal(response.id, 6);
   assert.deepEqual(response.result, {});
 });
 
-// ── handleMessage: notifications produce no output ────────────────────────────
+// ── handleMessage: notifications produce no output ────────────────────────
 
 test("handleMessage notification (no id) produces no output for unknown method", () => {
   const output = captureStdout(() =>
