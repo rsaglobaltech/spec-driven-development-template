@@ -137,9 +137,8 @@ function validatePackYaml(content, schemaPath) {
 
 function formatAjvError(err) {
   const ptr = err.instancePath || "(root)";
-  const schema = err.parentSchema && err.parentSchema.description
-    ? ` (${err.parentSchema.description})`
-    : "";
+  const schema =
+    err.parentSchema && err.parentSchema.description ? ` (${err.parentSchema.description})` : "";
   return `${ptr}: ${err.message}${schema}`;
 }
 

@@ -56,7 +56,7 @@ function findIdInTraceability(traceContent, id) {
  * @returns {{ message: string, severity: "error"|"warning"|"info" }[]}
  */
 function parseValidateOutput(stdout, stderr) {
-  const combined = [(stdout || ""), (stderr || "")].join("\n");
+  const combined = [stdout || "", stderr || ""].join("\n");
   const diagnostics = [];
 
   for (const raw of combined.split("\n")) {
