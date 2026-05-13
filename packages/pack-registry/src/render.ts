@@ -14,16 +14,16 @@ function escape(s) {
 }
 
 const DOMAIN_META = {
-  "auth":          { icon: "🔐", tagline: "Authentication, JWT, OAuth2, RBAC & MFA" },
-  "billing":       { icon: "💳", tagline: "Subscriptions, invoicing & payment processing" },
-  "audit-log":     { icon: "📋", tagline: "Immutable event trail, GDPR-compliant queries" },
-  "notifications": { icon: "🔔", tagline: "Email, SMS, push & in-app delivery channels" },
+  auth: { icon: "🔐", tagline: "Authentication, JWT, OAuth2, RBAC & MFA" },
+  billing: { icon: "💳", tagline: "Subscriptions, invoicing & payment processing" },
+  "audit-log": { icon: "📋", tagline: "Immutable event trail, GDPR-compliant queries" },
+  notifications: { icon: "🔔", tagline: "Email, SMS, push & in-app delivery channels" },
   "feature-flags": { icon: "🚩", tagline: "Gradual rollouts, A/B targeting & kill-switches" },
-  "multi-tenant":  { icon: "🏢", tagline: "Tenant isolation, row-level security & onboarding" },
-  "file-storage":  { icon: "📁", tagline: "Upload pipeline, CDN delivery & virus scanning" },
-  "search":        { icon: "🔍", tagline: "Full-text, facets, elasticsearch/pgvector adapters" },
-  "reporting":     { icon: "📊", tagline: "Scheduled reports, export formats & dashboards" },
-  "webhooks":      { icon: "🪝", tagline: "Event delivery, retry logic & HMAC signing" },
+  "multi-tenant": { icon: "🏢", tagline: "Tenant isolation, row-level security & onboarding" },
+  "file-storage": { icon: "📁", tagline: "Upload pipeline, CDN delivery & virus scanning" },
+  search: { icon: "🔍", tagline: "Full-text, facets, elasticsearch/pgvector adapters" },
+  reporting: { icon: "📊", tagline: "Scheduled reports, export formats & dashboards" },
+  webhooks: { icon: "🪝", tagline: "Event delivery, retry logic & HMAC signing" },
 };
 
 const STATUS_CONFIG = {
@@ -58,9 +58,10 @@ function renderCard(pack) {
   --var PROJECT_SLUG=my-app \\
   --var DOMAIN="${escape(pack.domain)}"`;
 
-  const lintSection = pack.lintMessages.length > 0
-    ? `<details class="lint-details"><summary>${pack.lintMessages.length} lint message(s)</summary><ul class="lint-list">${pack.lintMessages.map((m) => `<li>${escape(m)}</li>`).join("")}</ul></details>`
-    : "";
+  const lintSection =
+    pack.lintMessages.length > 0
+      ? `<details class="lint-details"><summary>${pack.lintMessages.length} lint message(s)</summary><ul class="lint-list">${pack.lintMessages.map((m) => `<li>${escape(m)}</li>`).join("")}</ul></details>`
+      : "";
 
   return `
 <article class="card" data-name="${escape(shortName(pack.name).toLowerCase())}" data-id="${escape(pack.id.toLowerCase())}">

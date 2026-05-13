@@ -112,7 +112,7 @@ test("renderIndex shows verified count", () => {
   // count badge shows total visible packs
   assert.ok(html.includes("2 shown"));
   // KPI tile for verified (lintStatus=pass) shows 1
-  assert.ok(html.includes(">1</span><span class=\"kpi__label\">Verified</span>"));
+  assert.ok(html.includes('>1</span><span class="kpi__label">Verified</span>'));
 });
 
 // ── scanPacks (integration with the real packs/ dir) ──────────────────────────
