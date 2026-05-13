@@ -17,9 +17,10 @@ Each recipe is **self-contained** — copy/paste should work end-to-end.
 8. [Build a `contracts` pack for API-first work](#8-build-a-contracts-pack-for-api-first-work)
 9. [Compose multiple packs with `specops.config.yaml`](#9-compose-multiple-packs-with-specopsconfigyaml)
 10. [Bump a pack version safely (`specops diff` + `sync`)](#10-bump-a-pack-version-safely-specops-diff--sync)
-11. [Wire the MCP server into Claude / Cursor / Aider](#11-wire-the-mcp-server-into-claude--cursor--aider)
-12. [Use the VS Code extension](#12-use-the-vs-code-extension)
-13. [Troubleshooting](#13-troubleshooting)
+11. [Close the loop: `plan` → implement → `done`](#11-close-the-loop-plan--implement--done)
+12. [Wire the MCP server into Claude / Cursor / Aider](#12-wire-the-mcp-server-into-claude--cursor--aider)
+13. [Use the VS Code extension](#13-use-the-vs-code-extension)
+14. [Troubleshooting](#14-troubleshooting)
 
 ---
 
@@ -357,7 +358,83 @@ Plain `sync` (no `--pack` / `--pack-version`) re-expands every pack in the lockf
 
 ---
 
-## 11. Wire the MCP server into Claude / Cursor / Aider
+## 11. Close the loop: `plan` → implement → `done`
+
+**Goal:** after a `specops sync` brings new requirements into the project, drive a human or AI agent through the implementation cycle without manually reading every `.feature` file.
+
+```bash
+# 1. After sync (or any time), see what's left
+csda plan
+```
+
+You get a bucketed report:
+
+```
+📋 Plan  (12 requirement(s), 3 pending)
+
+  ❌ Needs everything (no test, no code)
+    REQ-007    SCN-007
+      · feature: features/pricing/dynamic_pricing.feature
+      · test:    src/test/.../DynamicPricingTest.java
+      · code:    src/main/.../DynamicPricing.java
+
+  ⚠️  Test exists, production code missing
+    REQ-008    SCN-008
+      ✓ test:    src/test/.../SeasonalRateTest.java
+      · code:    src/main/.../SeasonalRateService.java
+
+  ⚠️  Artifacts present — run `csda done <REQ>`
+    REQ-009    SCN-009
+
+  Next: read the feature file, write the test, write the code, then run `csda done <REQ-id>`.
+```
+
+For AI agents, swap to JSON:
+
+```bash
+csda plan --format json
+```
+
+```json
+{
+  "total": 12,
+  "pending": 3,
+  "summary": { "NEEDS_EVERYTHING": 1, "NEEDS_IMPLEMENTATION": 1, "NEEDS_STATUS_UPDATE": 1, "DONE": 9 },
+  "next_steps": [
+    { "requirement": "REQ-007", "category": "NEEDS_EVERYTHING", "hint": "Read features/pricing/dynamic_pricing.feature, then write the test, then the production code." }
+  ],
+  "requirements": [ ... ]
+}
+```
+
+### After implementing, mark the REQ done
+
+```bash
+csda done REQ-007                          # → Status="Implemented"
+csda done REQ-007 --status Verified         # → Status="Verified"
+csda done REQ-007 --check                   # runs `validate` first; aborts on red
+```
+
+`done` edits exactly one cell in `docs/specs/traceability.md`. Combined with `validate --strict-tdd` in CI, the matrix is the live source of truth instead of a rear-view mirror.
+
+### AI agent recipe (Claude Desktop / Cursor / Aider with MCP)
+
+The MCP server exposes `plan` and `mark_requirement_done`. A canonical prompt:
+
+```
+1. Call the `plan` tool with projectDir set to my repo.
+2. Pick the first item from next_steps.
+3. Read the feature file (using `read_spec` or your editor).
+4. Write the test file at the expected path. Run the test — confirm it fails.
+5. Write production code until the test passes.
+6. Run `validate_project` to confirm gates are green.
+7. Call `mark_requirement_done` with that requirement id and check=true.
+8. Repeat from step 1 until plan returns pending=0.
+```
+
+---
+
+## 12. Wire the MCP server into Claude / Cursor / Aider
 
 **Goal:** let an MCP-aware AI agent read specs, list requirements, and run `validate` directly.
 
@@ -394,7 +471,7 @@ Restart the client; the tools appear in the model's tool list as `spec-driven.*`
 
 ---
 
-## 12. Use the VS Code extension
+## 13. Use the VS Code extension
 
 **Goal:** get inline diagnostics for `pack.yaml`, code-lens to jump to the traceability row, and validate-on-save.
 
@@ -415,7 +492,7 @@ Settings:
 
 ---
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |

@@ -35,9 +35,11 @@ function error(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>]\n\n" +
+      "  create-spec-driven-app specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--format text|json] [--plan]\n\n" +
       "Reports files that would be added or modified if `specops sync` ran at\n" +
-      "the chosen version. Writes nothing to the project directory.\n"
+      "the chosen version. Writes nothing to the project directory.\n\n" +
+      "With --format json (or its alias --plan), emits a machine-readable\n" +
+      "structure suitable for AI agents and editor integrations.\n"
   );
 }
 
@@ -47,6 +49,7 @@ function parseArgs(argv) {
     pack: "",
     packVersion: "",
     cacheDir: "",
+    format: "text",
   };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
@@ -66,11 +69,22 @@ function parseArgs(argv) {
       args.cacheDir = argv[++i] || "";
       continue;
     }
+    if (token === "--format") {
+      args.format = argv[++i] || "";
+      continue;
+    }
+    if (token === "--plan") {
+      args.format = "json";
+      continue;
+    }
     if (token === "--help" || token === "-h") {
       usage();
       process.exit(0);
     }
     throw new Error(`Unknown argument: ${token}`);
+  }
+  if (!["text", "json"].includes(args.format)) {
+    throw new Error(`Invalid --format: ${args.format}. Expected: text | json.`);
   }
   return args;
 }
@@ -177,6 +191,10 @@ function main() {
       process.exit(1);
     }
 
+    const jsonOut = {
+      project_dir: projectDir,
+      diffs: [] as any[],
+    };
     let matched = 0;
     for (const entry of lock.packs) {
       if (args.pack && entry.pack_id !== args.pack) continue;
@@ -190,11 +208,31 @@ function main() {
           encoding: "utf8",
         });
         if (result.status !== 0) {
-          error(`expand failed for ${entry.pack_id}:\n${result.stderr || result.stdout}`);
+          if (args.format === "json") {
+            jsonOut.diffs.push({
+              pack_id: entry.pack_id,
+              current_version: entry.version,
+              target_version: version,
+              error: result.stderr || result.stdout || "expand failed",
+            });
+          } else {
+            error(`expand failed for ${entry.pack_id}:\n${result.stderr || result.stdout}`);
+          }
           continue;
         }
         const changes = diffDirs(projectDir, tmpDir);
-        printChanges(entry, version, changes);
+        if (args.format === "json") {
+          jsonOut.diffs.push({
+            pack_id: entry.pack_id,
+            current_version: entry.version,
+            target_version: version,
+            added: changes.added,
+            modified: changes.modified,
+            unchanged_count: changes.unchanged.length,
+          });
+        } else {
+          printChanges(entry, version, changes);
+        }
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
@@ -204,7 +242,12 @@ function main() {
       error(`No packs matched${args.pack ? ` --pack ${args.pack}` : ""}.`);
       process.exit(1);
     }
-    info(`Diff completed for ${matched} pack(s).`);
+
+    if (args.format === "json") {
+      process.stdout.write(JSON.stringify(jsonOut, null, 2) + "\n");
+    } else {
+      info(`Diff completed for ${matched} pack(s).`);
+    }
   } catch (err) {
     error(err.message);
     process.exit(1);

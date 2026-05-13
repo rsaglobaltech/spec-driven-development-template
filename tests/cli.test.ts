@@ -538,3 +538,255 @@ test("specops with unknown sub-command exits non-zero", () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unknown specops sub-command/);
 });
+
+// ── plan + done (M3: AI-driven implementation loop) ──────────────────────────
+
+test("plan emits text bucketed by category on a generated project", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-plan-text-"));
+  const slug = `plan-text-${Date.now()}`;
+  const configPath = path.join(tempRoot, "project.config");
+  const projectDir = path.join(tempRoot, slug);
+  fs.writeFileSync(
+    configPath,
+    [
+      'PROJECT_NAME="Plan Text"',
+      `PROJECT_SLUG="${slug}"`,
+      'PROJECT_TYPE="backend"',
+      'DOMAIN="planning"',
+      'STACK="Quarkus 3.x, Java 21, PostgreSQL, RESTEasy Reactive, SmallRye GraphQL, Maven"',
+      'API_STYLE="REST"',
+      'TESTING="JUnit 5, Cucumber"',
+      'LANG="en"',
+      'MODULES=""',
+    ].join("\n") + "\n",
+    "utf8"
+  );
+  const initResult = runCli([
+    "init",
+    "--config",
+    configPath,
+    "--out",
+    tempRoot,
+    "--force",
+    "--no-git",
+  ]);
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const planResult = runCli(["plan", "--project-dir", projectDir]);
+  assert.equal(planResult.status, 0, planResult.stderr);
+  assert.match(planResult.stdout, /Plan/);
+  assert.match(planResult.stdout, /REQ-\d+/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("plan --format json returns a stable, parseable structure", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-plan-json-"));
+  const slug = `plan-json-${Date.now()}`;
+  const configPath = path.join(tempRoot, "project.config");
+  const projectDir = path.join(tempRoot, slug);
+  fs.writeFileSync(
+    configPath,
+    [
+      'PROJECT_NAME="Plan JSON"',
+      `PROJECT_SLUG="${slug}"`,
+      'PROJECT_TYPE="backend"',
+      'DOMAIN="planning"',
+      'STACK="Quarkus 3.x, Java 21, PostgreSQL, RESTEasy Reactive, SmallRye GraphQL, Maven"',
+      'API_STYLE="REST"',
+      'TESTING="JUnit 5, Cucumber"',
+      'LANG="en"',
+      'MODULES=""',
+    ].join("\n") + "\n",
+    "utf8"
+  );
+  runCli(["init", "--config", configPath, "--out", tempRoot, "--force", "--no-git"]);
+
+  const planResult = runCli(["plan", "--project-dir", projectDir, "--format", "json"]);
+  assert.equal(planResult.status, 0, planResult.stderr);
+  const parsed = JSON.parse(planResult.stdout);
+  assert.ok(parsed.project_dir, "project_dir present");
+  assert.equal(typeof parsed.total, "number");
+  assert.equal(typeof parsed.pending, "number");
+  assert.ok(parsed.summary && typeof parsed.summary === "object");
+  assert.ok(Array.isArray(parsed.requirements));
+  assert.ok(Array.isArray(parsed.next_steps));
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("plan rejects an invalid --format", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-plan-bad-format-"));
+  fs.mkdirSync(path.join(tempRoot, "docs", "specs"), { recursive: true });
+  fs.writeFileSync(path.join(tempRoot, "docs", "specs", "traceability.md"), "# x\n", "utf8");
+  const result = runCli(["plan", "--project-dir", tempRoot, "--format", "yaml"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Invalid --format/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("done flips a requirement Status in traceability.md", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-done-flip-"));
+  const slug = `done-flip-${Date.now()}`;
+  const configPath = path.join(tempRoot, "project.config");
+  const projectDir = path.join(tempRoot, slug);
+  fs.writeFileSync(
+    configPath,
+    [
+      'PROJECT_NAME="Done Flip"',
+      `PROJECT_SLUG="${slug}"`,
+      'PROJECT_TYPE="backend"',
+      'DOMAIN="auditing"',
+      'STACK="Quarkus 3.x, Java 21, PostgreSQL, RESTEasy Reactive, SmallRye GraphQL, Maven"',
+      'API_STYLE="REST"',
+      'TESTING="JUnit 5, Cucumber"',
+      'LANG="en"',
+      'MODULES=""',
+    ].join("\n") + "\n",
+    "utf8"
+  );
+  runCli(["init", "--config", configPath, "--out", tempRoot, "--force", "--no-git"]);
+
+  // Inject a synthetic REQ-777 row so we have something deterministic to flip.
+  const tracePath = path.join(projectDir, "docs", "specs", "traceability.md");
+  const trace = fs.readFileSync(tracePath, "utf8");
+  const newRow =
+    "| REQ-777 | SCN-777 | features/test/done.feature | UC-777 | DoneCmd | DoneAgg | DoneEvt | src/main/Done.java | src/test/DoneTest.java | Draft |";
+  fs.writeFileSync(tracePath, trace + "\n" + newRow + "\n", "utf8");
+
+  const result = runCli(["done", "REQ-777", "--project-dir", projectDir]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /REQ-777/);
+  assert.match(result.stdout, /Implemented/);
+
+  const after = fs.readFileSync(tracePath, "utf8");
+  assert.match(after, /REQ-777.*Implemented/);
+  assert.doesNotMatch(after, /REQ-777.*Draft/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("done refuses an invalid REQ-id", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-done-bad-"));
+  fs.mkdirSync(path.join(tempRoot, "docs", "specs"), { recursive: true });
+  fs.writeFileSync(path.join(tempRoot, "docs", "specs", "traceability.md"), "# x\n", "utf8");
+  const result = runCli(["done", "not-a-req", "--project-dir", tempRoot]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Invalid REQ-id/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("done refuses an unknown status", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-done-status-"));
+  fs.mkdirSync(path.join(tempRoot, "docs", "specs"), { recursive: true });
+  fs.writeFileSync(path.join(tempRoot, "docs", "specs", "traceability.md"), "# x\n", "utf8");
+  const result = runCli(["done", "REQ-001", "--status", "Bogus", "--project-dir", tempRoot]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Invalid status/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("done exits non-zero when REQ-id is not in traceability.md", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-done-missing-"));
+  fs.mkdirSync(path.join(tempRoot, "docs", "specs"), { recursive: true });
+  fs.writeFileSync(
+    path.join(tempRoot, "docs", "specs", "traceability.md"),
+    "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |\n" +
+      "|---|---|---|---|---|---|---|---|---|---|\n",
+    "utf8"
+  );
+  const result = runCli(["done", "REQ-999", "--project-dir", tempRoot]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /REQ-999 not found/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("specops diff --format json emits a parseable structure", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-diff-json-"));
+  const remoteRepo = makeFixtureRemoteRepo(tempRoot);
+  const cacheDir = path.join(tempRoot, "cache");
+  const projectDir = path.join(tempRoot, "project");
+  fs.mkdirSync(projectDir, { recursive: true });
+
+  const initial = runCli([
+    "expand",
+    "--pack-repo",
+    remoteRepo,
+    "--pack-version",
+    "v0.1.0",
+    "--pack",
+    "parking-management/backend",
+    "--project-dir",
+    projectDir,
+    "--cache-dir",
+    cacheDir,
+    "--var",
+    "PROJECT_NAME=Smart Parking",
+    "--var",
+    "PROJECT_SLUG=smart-parking",
+    "--var",
+    "DOMAIN=parking operations",
+  ]);
+  assert.equal(initial.status, 0, initial.stderr);
+
+  const diff = runCli([
+    "specops",
+    "diff",
+    "--project-dir",
+    projectDir,
+    "--cache-dir",
+    cacheDir,
+    "--format",
+    "json",
+  ]);
+  assert.equal(diff.status, 0, diff.stderr);
+  const parsed = JSON.parse(diff.stdout);
+  assert.ok(Array.isArray(parsed.diffs));
+  assert.equal(parsed.diffs.length, 1);
+  assert.equal(parsed.diffs[0].pack_id, "parking-management/backend");
+  assert.ok(Array.isArray(parsed.diffs[0].added));
+  assert.ok(Array.isArray(parsed.diffs[0].modified));
+  assert.equal(typeof parsed.diffs[0].unchanged_count, "number");
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("specops diff --plan is an alias for --format json", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-diff-plan-"));
+  const remoteRepo = makeFixtureRemoteRepo(tempRoot);
+  const cacheDir = path.join(tempRoot, "cache");
+  const projectDir = path.join(tempRoot, "project");
+  fs.mkdirSync(projectDir, { recursive: true });
+  runCli([
+    "expand",
+    "--pack-repo",
+    remoteRepo,
+    "--pack-version",
+    "v0.1.0",
+    "--pack",
+    "parking-management/backend",
+    "--project-dir",
+    projectDir,
+    "--cache-dir",
+    cacheDir,
+    "--var",
+    "PROJECT_NAME=Smart Parking",
+    "--var",
+    "PROJECT_SLUG=smart-parking",
+    "--var",
+    "DOMAIN=parking operations",
+  ]);
+  const diff = runCli([
+    "specops",
+    "diff",
+    "--project-dir",
+    projectDir,
+    "--cache-dir",
+    cacheDir,
+    "--plan",
+  ]);
+  assert.equal(diff.status, 0, diff.stderr);
+  const parsed = JSON.parse(diff.stdout);
+  assert.ok(parsed.diffs && parsed.diffs.length === 1);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});

@@ -15,6 +15,8 @@ const packInitScript = path.join(distScripts, "init_pack.js");
 const packLintScript = path.join(distScripts, "lint_pack.js");
 const specopsSyncScript = path.join(distScripts, "specops", "sync.js");
 const specopsDiffScript = path.join(distScripts, "specops", "diff.js");
+const planScript = path.join(distScripts, "plan.js");
+const doneScript = path.join(distScripts, "done.js");
 
 // ── Pretty output helpers ──────────────────────────────────────────────────────────────────
 
@@ -81,6 +83,8 @@ function usage() {
       cmd("⚡", "init", "Scaffold a new spec-driven project from a config file.") +
       cmd("✅", "validate", "Check structure, traceability, Gherkin (+ --strict-tdd gate).") +
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
+      cmd("📋", "plan", "List requirements that still need a test or implementation.") +
+      cmd("✔", "done", "Mark a requirement as Implemented in traceability.md.") +
       section("PACK COMMANDS") +
       cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
       cmd("🔍", "pack lint", "Lint a pack against the JSON Schema 2020-12.") +
@@ -114,6 +118,18 @@ function usage() {
       example(
         `npx create-spec-driven-app@latest specops diff --project-dir ./projects/smart-parking --pack-version v0.2.0`,
         "Preview a version bump"
+      ) +
+      example(
+        `npx create-spec-driven-app@latest plan --project-dir ./projects/smart-parking`,
+        "Show what requirements still need work"
+      ) +
+      example(
+        `npx create-spec-driven-app@latest plan --project-dir ./projects/smart-parking --format json`,
+        "Same, machine-readable for AI agents"
+      ) +
+      example(
+        `npx create-spec-driven-app@latest done REQ-007 --check`,
+        "Mark REQ-007 Implemented (after validate passes)"
       ) +
       example(
         `npx create-spec-driven-app@latest pack init --out ./domain-packs --name "Billing Backend" --type contracts`,
@@ -211,6 +227,18 @@ function main(): void {
     ensureExecutable(expandScript);
     const passThrough = args.slice(1);
     runNodeScript(expandScript, passThrough);
+    return;
+  }
+
+  if (command === "plan") {
+    ensureExecutable(planScript);
+    runNodeScript(planScript, args.slice(1));
+    return;
+  }
+
+  if (command === "done") {
+    ensureExecutable(doneScript);
+    runNodeScript(doneScript, args.slice(1));
     return;
   }
 
