@@ -24,11 +24,23 @@ function isSpecDrivenDir(dir) {
   return false;
 }
 
+// Canonicalise a path through fs.realpathSync so macOS symlinks (e.g. /tmp →
+// /private/tmp) don't cause path-equality surprises downstream — both for the
+// JSON output of `plan` and for assertions in unit tests. Falls back to the
+// input when the path does not yet exist on disk.
+function canonical(p) {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return p;
+  }
+}
+
 function findProjectRoot(start) {
   let dir = path.resolve(start);
   const { root } = path.parse(dir);
   while (true) {
-    if (isSpecDrivenDir(dir)) return dir;
+    if (isSpecDrivenDir(dir)) return canonical(dir);
     if (dir === root) return null;
     dir = path.dirname(dir);
   }
@@ -40,12 +52,16 @@ function findProjectRoot(start) {
  *   2. Otherwise walk up from cwd looking for sentinels.
  *   3. Fall back to cwd.
  *
+ * The returned path is always canonicalised through `fs.realpathSync` when the
+ * directory exists, so cross-platform behaviour (notably macOS /tmp symlinks)
+ * stays consistent.
+ *
  * Pass `requireSentinel: true` to throw when no sentinel is found AND the
  * user did not pass --project-dir.
  */
 function resolveProjectDir(explicit, opts) {
   const passed = explicit && explicit !== "." ? explicit : null;
-  if (passed) return path.resolve(passed);
+  if (passed) return canonical(path.resolve(passed));
 
   const found = findProjectRoot(process.cwd());
   if (found) return found;
@@ -57,7 +73,7 @@ function resolveProjectDir(explicit, opts) {
         "or pass --project-dir explicitly."
     );
   }
-  return path.resolve(process.cwd());
+  return canonical(path.resolve(process.cwd()));
 }
 
 module.exports = { resolveProjectDir, findProjectRoot, isSpecDrivenDir, SENTINELS };
