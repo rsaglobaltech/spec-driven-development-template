@@ -63,7 +63,7 @@ Requires **Node.js ≥ 20**.
 | Command | What it does |
 | --- | --- |
 | `init` | Scaffold a new spec-driven project from a config file. |
-| `validate` | Check structure, traceability, and Gherkin coverage. Add `--strict-tdd` to enforce TDD gates. |
+| `validate` | Check structure, traceability and Gherkin coverage. `--strict-tdd` also fails the build when a `REQ` lacks its `.feature`, its executable test, or its row in `traceability.md`. |
 | `expand` | Apply a domain pack (local path or remote git repo) onto an existing project. |
 | `pack init` / `pack lint` | Scaffold or lint a custom domain pack. |
 | `specops sync` / `specops diff` | Sync a project to a locked pack version, or diff against it. |
@@ -77,7 +77,7 @@ Minimum config (key=value, not shell):
 ```ini
 PROJECT_NAME="Acme Energy Hub"
 PROJECT_SLUG="acme-energy-hub"
-PROJECT_TYPE="backend"          # backend | frontend
+PROJECT_TYPE="backend"          # backend | frontend | contracts
 DOMAIN="community energy"
 STACK="Quarkus 3.x, Java 21, PostgreSQL"
 API_STYLE="REST with DTO boundaries"
@@ -99,6 +99,10 @@ npx create-spec-driven-app@latest expand \
 ```
 
 Browse the [curated pack registry](https://rsaglobaltech.github.io/spec-driven-development-template/) or build your own with `pack init`.
+
+### 📜 `contracts` packs
+
+For API-first work, set `project_type: contracts` in the pack. You get `api_contracts` + `consumer_driven_tests` fields, plus a generated `docs/specs/test-strategy.md` that defines explicit TDD gates. Combined with `validate --strict-tdd`, this enforces "no contract without a test" at PR-time. See the [`sample-contracts`](packs/sample-contracts/contracts/pack.yaml) pack for a reference.
 
 ### 🔁 Keep packs in sync
 
@@ -130,6 +134,26 @@ Sample `diff` output:
   1 added · 2 modified · 9 unchanged
 ```
 
+#### Declarative composition with `specops.config.yaml`
+
+Need to compose multiple packs without writing a lockfile by hand? Commit a `specops.config.yaml` at the project root and `specops sync` reads it as the source of truth on the first run:
+
+```yaml
+specops_version: 1
+packs:
+  - repo: https://github.com/acme/parking-specops.git
+    version: v0.1.0
+    pack_id: backend
+    vars:
+      PROJECT_NAME: Smart Parking
+      DOMAIN: parking operations
+  - repo: https://github.com/acme/billing-specops.git
+    version: v0.2.0
+    pack_id: contracts
+    vars:
+      PROJECT_NAME: Smart Parking
+```
+
 ## 🧰 Companion tools
 
 - 🧠 **MCP server** ([`@spec-driven/mcp-server`](packages/mcp-spec-driven)) — exposes `read_spec`, `list_requirements`, `validate_project` to Claude Desktop, Cursor, Aider.
@@ -137,6 +161,7 @@ Sample `diff` output:
 
 ## 📚 Learn more
 
+- 📖 **[How-to guide](docs/how-to.md)** — step-by-step recipes for every common workflow.
 - [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
 - [Case study — Smart Parking adoption](docs/case-studies/case-1.md)
 - [Comparison vs. spec-kit / Cursor / Aider](docs/comparisons.md)
