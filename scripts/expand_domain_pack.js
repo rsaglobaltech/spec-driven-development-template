@@ -407,7 +407,7 @@ function resolvePackSource(args) {
   return { packRoot: args.packRoot, remote: null };
 }
 
-function updateLockfile(projectDir, packId, remote, dryRun) {
+function updateLockfile(projectDir, packId, remote, vars, dryRun) {
   if (!remote) return;
   const existing = readLock(projectDir) || newLock(PACKAGE_VERSION);
   existing.csda_version = PACKAGE_VERSION;
@@ -417,6 +417,7 @@ function updateLockfile(projectDir, packId, remote, dryRun) {
     commit: remote.commit,
     pack_id: packId,
     expanded_at: new Date().toISOString(),
+    vars: { ...(vars || {}) },
   });
   const result = writeLock(projectDir, updated, { dryRun });
   logInfo(`${dryRun ? "[dry-run] would write" : "Wrote"} ${result.path}`);
@@ -454,7 +455,7 @@ function main() {
     );
     renderDomainDocs(pack, args.projectDir, args.dryRun);
     renderTraceability(pack, args.projectDir, generated, args.dryRun);
-    updateLockfile(args.projectDir, args.pack, source.remote, args.dryRun);
+    updateLockfile(args.projectDir, args.pack, source.remote, vars, args.dryRun);
 
     logInfo(`Generated ${generated.length} scenario file(s).`);
     logInfo("Domain pack expansion completed.");

@@ -4,7 +4,7 @@
 /**
  * Node.js port of validate_specs.sh — same checks, same exit codes.
  * Usage:
- *   node scripts/validate_specs.js <project_dir>
+ *   node scripts/validate_specs.js <project_dir> [--strict-tdd]
  */
 
 const fs = require("node:fs");
@@ -20,7 +20,7 @@ function logError(msg) {
 function usage() {
   process.stdout.write(
     "🔎 Usage:\n" +
-      "  validate_specs.js <project_dir>\n\n" +
+      "  validate_specs.js <project_dir> [--strict-tdd]\n\n" +
       "Checks:\n" +
       "- minimum SDD structure\n" +
       "- required files\n" +
@@ -28,7 +28,11 @@ function usage() {
       "- unresolved placeholders ({{...}})\n" +
       "- feature coverage in traceability.md\n" +
       "- allowed status values in traceability.md\n" +
-      "- expected DDD Lite document headers when present\n"
+      "- expected DDD Lite document headers when present\n\n" +
+      "--strict-tdd additionally enforces:\n" +
+      "- No 'Test Artifact = TBD' when Status is In Dev or later\n" +
+      "- Every requirement has at least one traceability row\n" +
+      "- Every scenario row has a non-empty Scenario ID\n"
   );
 }
 
@@ -74,6 +78,19 @@ const ALLOWED_STATUS = new Set([
   "Deprecated",
 ]);
 
+// Statuses that are "past Draft" — test artifacts must be defined by these.
+const POST_DRAFT_STATUS = new Set([
+  "Needs Clarification",
+  "Domain Reviewed",
+  "Architecture Reviewed",
+  "Ready for Dev",
+  "In Dev",
+  "In Review",
+  "Verified",
+  "Released",
+  "Deprecated",
+]);
+
 const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
 const LEGACY_HEADER = "| Feature | Scenario | Technical artifact | Status |";
@@ -83,8 +100,30 @@ function trimCell(s) {
   return (s || "").trim();
 }
 
+/**
+ * Parse the traceability matrix rows from a markdown table.
+ * Returns an array of cell arrays (strings already trimmed).
+ */
+function parseMatrixRows(content, traceMode) {
+  const rows = [];
+  for (const rawLine of content.split("\n")) {
+    const line = rawLine.trimEnd();
+    if (!line.startsWith("|")) continue;
+    if (line.includes("---")) continue;
+    if (line.includes("| Requirement | Scenario ID |")) continue;
+    if (line.includes("| Feature | Scenario |")) continue;
+    const cells = line.split("|").map(trimCell);
+    rows.push({ cells, traceMode });
+  }
+  return rows;
+}
+
 function main() {
-  const targetDir = process.argv[2];
+  const argv = process.argv.slice(2);
+  const strictTdd = argv.includes("--strict-tdd");
+  const positional = argv.filter((a) => !a.startsWith("-"));
+
+  const targetDir = positional[0];
   if (!targetDir) {
     usage();
     process.exit(2);
@@ -156,33 +195,81 @@ function main() {
 
   // Status validation + duplicate scenario detection
   const seenScenarios = new Set();
-  for (const rawLine of traceContent.split("\n")) {
-    const line = rawLine.trimEnd();
-    if (!line.startsWith("|")) continue;
-    if (line.includes("---")) continue;
-    if (line.includes("| Requirement | Scenario ID |")) continue;
-    if (line.includes("| Feature | Scenario |")) continue;
+  const matrixRows = parseMatrixRows(traceContent, traceMode);
 
-    const cells = line.split("|").map(trimCell);
-    // cells[0] is empty (line starts with |); columns are cells[1..]
+  // Collect requirement IDs referenced in the matrix (for strict-tdd check)
+  const reqsInMatrix = new Set();
 
+  const strictTddViolations = [];
+
+  for (const { cells } of matrixRows) {
     let status;
+    let scenarioId;
+    let testArtifact;
+    let requirementId;
+
     if (traceMode === "rich") {
-      const scenarioId = cells[2] || "";
+      requirementId = cells[1] || "";
+      scenarioId = cells[2] || "";
+      testArtifact = cells[9] || "";
       status = cells[10] || "";
-      if (scenarioId && scenarioId !== "-") {
-        if (seenScenarios.has(scenarioId)) {
-          fail(`Duplicate Scenario ID in traceability.md: ${scenarioId}`);
-        }
-        seenScenarios.add(scenarioId);
-      }
     } else {
+      // legacy: | Feature | Scenario | Technical artifact | Status |
+      scenarioId = cells[2] || "";
+      testArtifact = cells[3] || "";
       status = cells[4] || "";
+    }
+
+    if (requirementId) reqsInMatrix.add(requirementId);
+
+    if (scenarioId && scenarioId !== "-") {
+      if (seenScenarios.has(scenarioId)) {
+        fail(`Duplicate Scenario ID in traceability.md: ${scenarioId}`);
+      }
+      seenScenarios.add(scenarioId);
     }
 
     if (status && !ALLOWED_STATUS.has(status)) {
       fail(`Invalid status in traceability.md: ${status}`);
     }
+
+    // --strict-tdd checks per row
+    if (strictTdd) {
+      if (testArtifact.toUpperCase() === "TBD" && status && POST_DRAFT_STATUS.has(status)) {
+        strictTddViolations.push(
+          `[TDD-1] Test artifact is TBD but status is '${status}' (scenario: ${scenarioId || "(no id)"})`
+        );
+      }
+
+      if (traceMode === "rich" && !scenarioId && status && status !== "Draft") {
+        strictTddViolations.push(
+          `[TDD-2] Traceability row missing Scenario ID with status '${status}' (requirement: ${requirementId || "(none)"})`
+        );
+      }
+    }
+  }
+
+  // --strict-tdd: every requirement in spec.md must appear in the matrix
+  if (strictTdd && traceMode === "rich") {
+    const specPath = path.join(targetDir, "spec.md");
+    const specContent = fs.readFileSync(specPath, "utf8");
+    const reqPattern = /\bREQ-\d+\b/g;
+    const specReqs = new Set(specContent.match(reqPattern) || []);
+    for (const reqId of specReqs) {
+      if (!reqsInMatrix.has(reqId)) {
+        strictTddViolations.push(
+          `[TDD-3] Requirement ${reqId} found in spec.md but has no row in traceability.md`
+        );
+      }
+    }
+  }
+
+  if (strictTddViolations.length > 0) {
+    logError("--strict-tdd violations detected:");
+    for (const v of strictTddViolations) {
+      process.stderr.write(`  ${v}\n`);
+    }
+    process.exit(1);
   }
 
   // Every feature file must be referenced in the matrix.
@@ -217,6 +304,7 @@ function main() {
   logInfo(`- Features detected: ${featureCount}`);
   logInfo("- Base SDD structure: complete");
   logInfo(`- Traceability mode: ${traceMode}`);
+  if (strictTdd) logInfo("- Strict TDD gate: passed");
   process.exit(0);
 }
 

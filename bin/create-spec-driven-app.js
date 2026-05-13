@@ -12,6 +12,8 @@ const validateScript = path.join(rootDir, "scripts", "validate_specs.js");
 const expandScript = path.join(rootDir, "scripts", "expand_domain_pack.js");
 const packInitScript = path.join(rootDir, "scripts", "init_pack.js");
 const packLintScript = path.join(rootDir, "scripts", "lint_pack.js");
+const specopsSyncScript = path.join(rootDir, "scripts", "specops", "sync.js");
+const specopsDiffScript = path.join(rootDir, "scripts", "specops", "diff.js");
 
 function info(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
@@ -26,11 +28,13 @@ function usage() {
     `🚀 create-spec-driven-app\n\n` +
       `Usage:\n` +
       `  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n` +
-      `  create-spec-driven-app validate <project_dir>\n` +
+      `  create-spec-driven-app validate <project_dir> [--strict-tdd]\n` +
       `  create-spec-driven-app expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]\n` +
       `  create-spec-driven-app expand --pack-repo <git-url> --pack-version <tag> --pack <pack-id> --project-dir <path> [--var KEY=VALUE]... [--cache-dir <path>] [--dry-run]\n` +
       `  create-spec-driven-app pack init --out <directory> [--name <name>] [--type backend|frontend] [--dry-run]\n` +
       `  create-spec-driven-app pack lint --pack-root <path> --pack <domain/type>\n` +
+      `  create-spec-driven-app specops sync [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--dry-run]\n` +
+      `  create-spec-driven-app specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>]\n` +
       `  create-spec-driven-app --help\n` +
       `  create-spec-driven-app --version\n\n` +
       `Examples:\n` +
@@ -38,6 +42,8 @@ function usage() {
       `  npx create-spec-driven-app@latest validate ./projects/my-app\n` +
       `  npx create-spec-driven-app@latest expand --pack-root ./domain-packs --pack parking-management/backend --project-dir ./projects/my-app --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking operations"\n` +
       `  npx create-spec-driven-app@latest expand --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git --pack-version v0.1.0 --pack backend --project-dir ./projects/smart-parking --var PROJECT_NAME="Smart Parking" --var PROJECT_SLUG=smart-parking --var DOMAIN="parking operations"\n` +
+      `  npx create-spec-driven-app@latest specops sync --project-dir ./projects/smart-parking\n` +
+      `  npx create-spec-driven-app@latest specops diff --project-dir ./projects/smart-parking --pack-version v0.2.0\n` +
       `  npx create-spec-driven-app@latest pack init --out ./domain-packs --name "Billing Backend"\n` +
       `  npx create-spec-driven-app@latest pack lint --pack-root ./domain-packs --pack billing/backend\n`
   );
@@ -105,13 +111,21 @@ function main() {
   if (command === "validate") {
     ensureExecutable(validateScript);
 
-    if (args.length !== 2) {
-      error(`'validate' expects exactly one argument: <project_dir>`);
+    const validateArgs = args.slice(1);
+    const positional = validateArgs.filter((a) => !a.startsWith("-"));
+    if (positional.length !== 1) {
+      error(`'validate' expects exactly one positional argument: <project_dir>`);
+      usage();
+      process.exit(2);
+    }
+    const unknownFlags = validateArgs.filter((a) => a.startsWith("-") && a !== "--strict-tdd");
+    if (unknownFlags.length > 0) {
+      error(`Unknown flag(s) for validate: ${unknownFlags.join(", ")}`);
       usage();
       process.exit(2);
     }
 
-    runNodeScript(validateScript, [args[1]]);
+    runNodeScript(validateScript, validateArgs);
     return;
   }
 
@@ -135,6 +149,23 @@ function main() {
       return;
     }
     error(`Unknown pack sub-command: ${subCommand || "(none)"}. Expected: init, lint`);
+    usage();
+    process.exit(2);
+  }
+
+  if (command === "specops") {
+    const subCommand = args[1];
+    if (subCommand === "sync") {
+      ensureExecutable(specopsSyncScript);
+      runNodeScript(specopsSyncScript, args.slice(2));
+      return;
+    }
+    if (subCommand === "diff") {
+      ensureExecutable(specopsDiffScript);
+      runNodeScript(specopsDiffScript, args.slice(2));
+      return;
+    }
+    error(`Unknown specops sub-command: ${subCommand || "(none)"}. Expected: sync, diff`);
     usage();
     process.exit(2);
   }
