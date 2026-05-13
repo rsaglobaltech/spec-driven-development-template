@@ -62,18 +62,19 @@ jobs:
         env:
           PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: |
-          if ! [[ "$PACKAGE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+          PACKAGE_VERSION_NORMALIZED="${PACKAGE_VERSION#v}"
+          if ! [[ "$PACKAGE_VERSION_NORMALIZED" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
             echo "Invalid package_version: $PACKAGE_VERSION" >&2
             exit 2
           fi
 
           CURRENT_VERSION="$(node -p "require('./package.json').version")"
-          if [[ "$CURRENT_VERSION" == "$PACKAGE_VERSION" ]]; then
-            echo "package.json is already at $PACKAGE_VERSION; skipping npm version."
+          if [[ "$CURRENT_VERSION" == "$PACKAGE_VERSION_NORMALIZED" ]]; then
+            echo "package.json is already at $PACKAGE_VERSION_NORMALIZED; skipping npm version."
             exit 0
           fi
 
-          npm version "$PACKAGE_VERSION" --no-git-tag-version
+          npm version "$PACKAGE_VERSION_NORMALIZED" --no-git-tag-version
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -86,7 +87,9 @@ jobs:
         run: npm ci
 
       - name: Ensure executable permissions
-        run: chmod +x bin/*.js scripts/*.sh
+        run: |
+          find bin -maxdepth 1 -type f -name "*.js" -exec chmod +x {} +
+          find scripts -maxdepth 1 -type f -name "*.cjs" -exec chmod +x {} +
 
       - name: Run test suite
         run: npm test
