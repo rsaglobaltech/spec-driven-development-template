@@ -75,10 +75,34 @@ test("renderIndex emits valid HTML5", () => {
 
 test("renderIndex shows verified count", () => {
   const packs = [
-    { id: "a", name: "A", version: "1", language: "en", project_type: "backend",
-      requirements: 1, useCases: 1, aggregates: 0, events: 0, scenarios: 1, lintStatus: "pass", lintMessages: [] },
-    { id: "b", name: "B", version: "1", language: "en", project_type: "backend",
-      requirements: 1, useCases: 1, aggregates: 0, events: 0, scenarios: 1, lintStatus: "warn", lintMessages: [] },
+    {
+      id: "a",
+      name: "A",
+      version: "1",
+      language: "en",
+      project_type: "backend",
+      requirements: 1,
+      useCases: 1,
+      aggregates: 0,
+      events: 0,
+      scenarios: 1,
+      lintStatus: "pass",
+      lintMessages: [],
+    },
+    {
+      id: "b",
+      name: "B",
+      version: "1",
+      language: "en",
+      project_type: "backend",
+      requirements: 1,
+      useCases: 1,
+      aggregates: 0,
+      events: 0,
+      scenarios: 1,
+      lintStatus: "warn",
+      lintMessages: [],
+    },
   ];
   const html = renderIndex(packs);
   assert.ok(html.includes("2 pack(s)"));
@@ -111,7 +135,11 @@ test("scanPacks discovers all 11 curated packs", () => {
 test("scanPacks marks every curated pack as verified (lintStatus=pass)", () => {
   const packs = scanPacks(PACKS_DIR);
   for (const p of packs) {
-    assert.equal(p.lintStatus, "pass", `${p.id} should pass lint, got ${p.lintStatus}: ${p.lintMessages.join("; ")}`);
+    assert.equal(
+      p.lintStatus,
+      "pass",
+      `${p.id} should pass lint, got ${p.lintStatus}: ${p.lintMessages.join("; ")}`
+    );
   }
 });
 

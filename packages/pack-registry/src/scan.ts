@@ -92,10 +92,14 @@ function count(arr) {
 }
 
 function runLint(packsRoot, id) {
-  const result = spawnSync(process.execPath, [CLI, "pack", "lint", "--pack-root", packsRoot, "--pack", id], {
-    encoding: "utf8",
-    timeout: 15_000,
-  });
+  const result = spawnSync(
+    process.execPath,
+    [CLI, "pack", "lint", "--pack-root", packsRoot, "--pack", id],
+    {
+      encoding: "utf8",
+      timeout: 15_000,
+    }
+  );
   const combined = (result.stdout || "") + "\n" + (result.stderr || "");
   const errors = [];
   const warnings = [];
