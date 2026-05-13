@@ -30,15 +30,17 @@ function generateProject() {
   return { tmp, projectDir: path.join(tmp, "acme-energy-hub") };
 }
 
-// ── TOOL REGISTRY ──────────────────────────────────────────────────────────────────
+// ── TOOL REGISTRY ────────────────────────────────────────────────────────────────
 
-test("TOOLS registry exposes all 5 tools", () => {
+test("TOOLS registry exposes the documented tools", () => {
   const names = Object.keys(TOOLS);
   assert.ok(names.includes("read_spec"));
   assert.ok(names.includes("list_requirements"));
   assert.ok(names.includes("update_traceability"));
   assert.ok(names.includes("lint_pack"));
   assert.ok(names.includes("validate_project"));
+  assert.ok(names.includes("plan"));
+  assert.ok(names.includes("mark_requirement_done"));
 });
 
 test("Every tool has description, inputSchema, and handler", () => {
@@ -52,7 +54,7 @@ test("Every tool has description, inputSchema, and handler", () => {
   }
 });
 
-// ── read_spec ────────────────────────────────────────────────────────────────────────
+// ── read_spec ──────────────────────────────────────────────────────────────────────
 
 test("read_spec returns spec.md content and lists docs/specs/*.md", () => {
   const { tmp, projectDir } = generateProject();
@@ -87,7 +89,7 @@ test("read_spec throws on directory without spec.md", () => {
   }
 });
 
-// ── list_requirements ───────────────────────────────────────────────────────────────────
+// ── list_requirements ────────────────────────────────────────────────────────────────
 
 test("list_requirements returns an array of requirement objects", () => {
   const { tmp, projectDir } = generateProject();
@@ -128,7 +130,7 @@ test("list_requirements deduplicates IDs across files", () => {
   }
 });
 
-// ── update_traceability ─────────────────────────────────────────────────────────────────
+// ── update_traceability ──────────────────────────────────────────────────────────────
 
 test("update_traceability appends a row when not present", () => {
   const { tmp, projectDir } = generateProject();
@@ -181,7 +183,7 @@ test("update_traceability throws on missing required argument", () => {
   }
 });
 
-// ── validate_project ─────────────────────────────────────────────────────────────────
+// ── validate_project ────────────────────────────────────────────────────────────
 
 test("validate_project succeeds on a freshly generated project", () => {
   const { tmp, projectDir } = generateProject();

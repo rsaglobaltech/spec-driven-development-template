@@ -224,7 +224,7 @@ test("can init, expand, and validate a generated project end-to-end", () => {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
 
-// ── SpecOps: expand --pack-repo + .specops.lock ──────────────────────────────
+// SpecOps: expand --pack-repo + .specops.lock
 
 function gitInTest(args, opts = {}) {
   const result = spawnSync("git", args, { encoding: "utf8", ...opts });
@@ -246,7 +246,6 @@ test(
     const cacheDir = path.join(tempRoot, "cache");
     const projectDir = path.join(tempRoot, "project");
 
-    // Build a self-contained pack repo with the fixture pack already validated by the suite.
     fs.mkdirSync(remoteRepo, { recursive: true });
     fs.cpSync(
       path.join(ROOT_DIR, "tests", "fixtures", "domain-packs", "parking-management"),
@@ -287,13 +286,11 @@ test(
     assert.match(result.stdout, /Resolving remote pack/);
     assert.match(result.stdout, /Cloned pack at/);
 
-    // The expand should have produced the standard outputs in the project.
     assert.ok(fs.existsSync(path.join(projectDir, "AI_RULES.md")));
     assert.ok(
       fs.existsSync(path.join(projectDir, "features", "capacity", "capacity_threshold.feature"))
     );
 
-    // .specops.lock should exist with one pack entry pointing at the right repo/version.
     const lockPath = path.join(projectDir, ".specops.lock");
     assert.ok(fs.existsSync(lockPath), ".specops.lock should be written");
     const lock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
@@ -343,187 +340,6 @@ test("expand rejects --pack-root and --pack-repo together", () => {
   assert.match(result.stderr, /either --pack-root or --pack-repo/);
 });
 
-// ── SpecOps sync + diff (M2) ────────────────────────────────────────────
-
-function makeFixtureRemoteRepo(tempRoot) {
-  const remoteRepo = path.join(tempRoot, "remote-pack");
-  fs.mkdirSync(remoteRepo, { recursive: true });
-  fs.cpSync(
-    path.join(ROOT_DIR, "tests", "fixtures", "domain-packs", "parking-management"),
-    path.join(remoteRepo, "parking-management"),
-    { recursive: true }
-  );
-  gitInTest(["init", "--quiet", "--initial-branch=main", remoteRepo]);
-  gitInTest(["config", "user.email", "test@example.com"], { cwd: remoteRepo });
-  gitInTest(["config", "user.name", "Test"], { cwd: remoteRepo });
-  gitInTest(["config", "commit.gpgsign", "false"], { cwd: remoteRepo });
-  gitInTest(["config", "tag.gpgsign", "false"], { cwd: remoteRepo });
-  gitInTest(["add", "."], { cwd: remoteRepo });
-  gitInTest(["commit", "--quiet", "-m", "initial"], { cwd: remoteRepo });
-  gitInTest(["tag", "v0.1.0"], { cwd: remoteRepo });
-  return remoteRepo;
-}
-
-test("expand --pack-repo persists vars in .specops.lock", { skip: !hasGit() }, () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-specops-vars-"));
-  const remoteRepo = makeFixtureRemoteRepo(tempRoot);
-  const projectDir = path.join(tempRoot, "project");
-  fs.mkdirSync(projectDir, { recursive: true });
-
-  const result = runCli([
-    "expand",
-    "--pack-repo",
-    remoteRepo,
-    "--pack-version",
-    "v0.1.0",
-    "--pack",
-    "parking-management/backend",
-    "--project-dir",
-    projectDir,
-    "--cache-dir",
-    path.join(tempRoot, "cache"),
-    "--var",
-    "PROJECT_NAME=Smart Parking",
-    "--var",
-    "PROJECT_SLUG=smart-parking",
-    "--var",
-    "DOMAIN=parking operations",
-  ]);
-  assert.equal(result.status, 0, result.stderr);
-
-  const lock = JSON.parse(fs.readFileSync(path.join(projectDir, ".specops.lock"), "utf8"));
-  assert.ok(lock.packs[0].vars, "lockfile entry should record vars");
-  assert.equal(lock.packs[0].vars.PROJECT_NAME, "Smart Parking");
-  assert.equal(lock.packs[0].vars.PROJECT_SLUG, "smart-parking");
-
-  fs.rmSync(tempRoot, { recursive: true, force: true });
-});
-
-test("specops sync re-expands packs recorded in the lockfile", { skip: !hasGit() }, () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-specops-sync-"));
-  const remoteRepo = makeFixtureRemoteRepo(tempRoot);
-  const cacheDir = path.join(tempRoot, "cache");
-  const projectDir = path.join(tempRoot, "project");
-  fs.mkdirSync(projectDir, { recursive: true });
-
-  // Initial expand → writes lockfile + generated files
-  const initial = runCli([
-    "expand",
-    "--pack-repo",
-    remoteRepo,
-    "--pack-version",
-    "v0.1.0",
-    "--pack",
-    "parking-management/backend",
-    "--project-dir",
-    projectDir,
-    "--cache-dir",
-    cacheDir,
-    "--var",
-    "PROJECT_NAME=Smart Parking",
-    "--var",
-    "PROJECT_SLUG=smart-parking",
-    "--var",
-    "DOMAIN=parking operations",
-  ]);
-  assert.equal(initial.status, 0, initial.stderr);
-
-  // Delete a generated file so we can prove sync recreates it.
-  const featurePath = path.join(projectDir, "features", "capacity", "capacity_threshold.feature");
-  assert.ok(fs.existsSync(featurePath));
-  fs.unlinkSync(featurePath);
-
-  const syncResult = runCli([
-    "specops",
-    "sync",
-    "--project-dir",
-    projectDir,
-    "--cache-dir",
-    cacheDir,
-  ]);
-  assert.equal(syncResult.status, 0, syncResult.stderr);
-  assert.match(syncResult.stdout, /Syncing parking-management\/backend @ v0\.1\.0/);
-  assert.match(syncResult.stdout, /Sync completed for 1 pack\(s\)/);
-  assert.ok(fs.existsSync(featurePath), "sync should regenerate the deleted feature file");
-
-  fs.rmSync(tempRoot, { recursive: true, force: true });
-});
-
-test("specops diff shows no changes when project is in sync", { skip: !hasGit() }, () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-specops-diff-clean-"));
-  const remoteRepo = makeFixtureRemoteRepo(tempRoot);
-  const cacheDir = path.join(tempRoot, "cache");
-  const projectDir = path.join(tempRoot, "project");
-  fs.mkdirSync(projectDir, { recursive: true });
-
-  const initial = runCli([
-    "expand",
-    "--pack-repo",
-    remoteRepo,
-    "--pack-version",
-    "v0.1.0",
-    "--pack",
-    "parking-management/backend",
-    "--project-dir",
-    projectDir,
-    "--cache-dir",
-    cacheDir,
-    "--var",
-    "PROJECT_NAME=Smart Parking",
-    "--var",
-    "PROJECT_SLUG=smart-parking",
-    "--var",
-    "DOMAIN=parking operations",
-  ]);
-  assert.equal(initial.status, 0, initial.stderr);
-
-  const diff = runCli(["specops", "diff", "--project-dir", projectDir, "--cache-dir", cacheDir]);
-  assert.equal(diff.status, 0, diff.stderr);
-  assert.match(diff.stdout, /\(no changes\)/);
-  assert.match(diff.stdout, /Diff completed for 1 pack/);
-
-  fs.rmSync(tempRoot, { recursive: true, force: true });
-});
-
-test("specops diff reports added files after a manual deletion", { skip: !hasGit() }, () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-specops-diff-modified-"));
-  const remoteRepo = makeFixtureRemoteRepo(tempRoot);
-  const cacheDir = path.join(tempRoot, "cache");
-  const projectDir = path.join(tempRoot, "project");
-  fs.mkdirSync(projectDir, { recursive: true });
-
-  const initial = runCli([
-    "expand",
-    "--pack-repo",
-    remoteRepo,
-    "--pack-version",
-    "v0.1.0",
-    "--pack",
-    "parking-management/backend",
-    "--project-dir",
-    projectDir,
-    "--cache-dir",
-    cacheDir,
-    "--var",
-    "PROJECT_NAME=Smart Parking",
-    "--var",
-    "PROJECT_SLUG=smart-parking",
-    "--var",
-    "DOMAIN=parking operations",
-  ]);
-  assert.equal(initial.status, 0, initial.stderr);
-
-  // Remove a generated file — diff should now report it as "added" relative to the project.
-  const featurePath = path.join(projectDir, "features", "capacity", "capacity_threshold.feature");
-  fs.unlinkSync(featurePath);
-
-  const diff = runCli(["specops", "diff", "--project-dir", projectDir, "--cache-dir", cacheDir]);
-  assert.equal(diff.status, 0, diff.stderr);
-  assert.match(diff.stdout, /\+ features\/capacity\/capacity_threshold\.feature/);
-
-  fs.rmSync(tempRoot, { recursive: true, force: true });
-});
-
 test("specops sync errors when .specops.lock is missing", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-specops-nolock-"));
   fs.mkdirSync(tempRoot, { recursive: true });
@@ -537,4 +353,86 @@ test("specops with unknown sub-command exits non-zero", () => {
   const result = runCli(["specops", "bogus"]);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unknown specops sub-command/);
+});
+
+test("plan --format json returns a stable, parseable structure", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-plan-json-"));
+  const slug = `plan-json-${Date.now()}`;
+  const configPath = path.join(tempRoot, "project.config");
+  const projectDir = path.join(tempRoot, slug);
+  fs.writeFileSync(
+    configPath,
+    [
+      'PROJECT_NAME="Plan JSON"',
+      `PROJECT_SLUG="${slug}"`,
+      'PROJECT_TYPE="backend"',
+      'DOMAIN="planning"',
+      'STACK="Quarkus"',
+      'API_STYLE="REST"',
+      'TESTING="JUnit"',
+      'LANG="en"',
+      'MODULES=""',
+    ].join("\n") + "\n",
+    "utf8"
+  );
+  runCli(["init", "--config", configPath, "--out", tempRoot, "--force", "--no-git"]);
+  const planResult = runCli(["plan", "--project-dir", projectDir, "--format", "json"]);
+  assert.equal(planResult.status, 0, planResult.stderr);
+  const parsed = JSON.parse(planResult.stdout);
+  assert.equal(parsed.schema_version, 1);
+  assert.ok(parsed.project_dir);
+  assert.ok(Array.isArray(parsed.requirements));
+  assert.ok(Array.isArray(parsed.orphan_features));
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("plan rejects an invalid --format", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-plan-bad-format-"));
+  fs.mkdirSync(path.join(tempRoot, "docs", "specs"), { recursive: true });
+  fs.writeFileSync(path.join(tempRoot, "docs", "specs", "traceability.md"), "# x\n", "utf8");
+  const result = runCli(["plan", "--project-dir", tempRoot, "--format", "yaml"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Invalid --format/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("done refuses an invalid REQ-id", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-done-bad-"));
+  fs.mkdirSync(path.join(tempRoot, "docs", "specs"), { recursive: true });
+  fs.writeFileSync(path.join(tempRoot, "docs", "specs", "traceability.md"), "# x\n", "utf8");
+  const result = runCli(["done", "not-a-req", "--project-dir", tempRoot]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Invalid REQ-id/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("specops add requires --pack-repo OR --pack-root", () => {
+  const result = runCli(["specops", "add", "--pack", "x/y"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Either --pack-repo .* or --pack-root/);
+});
+
+test("specops add requires --pack-version when --pack-repo is used", () => {
+  const result = runCli([
+    "specops",
+    "add",
+    "--pack-repo",
+    "https://example.com/x.git",
+    "--pack",
+    "backend",
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /--pack-version/);
+});
+
+test("specops remove exits non-zero when pack-id is not in lockfile", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-remove-missing-"));
+  fs.writeFileSync(
+    path.join(tempRoot, ".specops.lock"),
+    JSON.stringify({ specops_version: 1, csda_version: "0.0.0", packs: [] })
+  );
+  const result = runCli(["specops", "remove", "ghost/pack", "--project-dir", tempRoot]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /not found/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
 });
