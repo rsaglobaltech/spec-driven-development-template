@@ -15,10 +15,12 @@ const packInitScript = path.join(distScripts, "init_pack.js");
 const packLintScript = path.join(distScripts, "lint_pack.js");
 const specopsSyncScript = path.join(distScripts, "specops", "sync.js");
 const specopsDiffScript = path.join(distScripts, "specops", "diff.js");
+const specopsAddScript = path.join(distScripts, "specops", "add.js");
+const specopsRemoveScript = path.join(distScripts, "specops", "remove.js");
 const planScript = path.join(distScripts, "plan.js");
 const doneScript = path.join(distScripts, "done.js");
 
-// ── Pretty output helpers ──────────────────────────────────────────────────────────────────
+// ── Pretty output helpers ─────────────────────────────────────────────────────────
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -89,6 +91,8 @@ function usage() {
       cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
       cmd("🔍", "pack lint", "Lint a pack against the JSON Schema 2020-12.") +
       section("SPECOPS COMMANDS") +
+      cmd("➕", "specops add", "Add a pack (npm-install-style); writes .specops.lock.") +
+      cmd("➖", "specops remove", "Drop a pack entry from .specops.lock.") +
       cmd("🔁", "specops sync", "Re-expand packs from .specops.lock or specops.config.yaml.") +
       cmd("📊", "specops diff", "Preview what would change on a version bump (no writes).") +
       section("GLOBAL FLAGS") +
@@ -271,7 +275,19 @@ function main(): void {
       runNodeScript(specopsDiffScript, args.slice(2));
       return;
     }
-    error(`Unknown specops sub-command: ${subCommand || "(none)"}. Expected: sync, diff`);
+    if (subCommand === "add") {
+      ensureExecutable(specopsAddScript);
+      runNodeScript(specopsAddScript, args.slice(2));
+      return;
+    }
+    if (subCommand === "remove") {
+      ensureExecutable(specopsRemoveScript);
+      runNodeScript(specopsRemoveScript, args.slice(2));
+      return;
+    }
+    error(
+      `Unknown specops sub-command: ${subCommand || "(none)"}. Expected: add, remove, sync, diff`
+    );
     usage();
     process.exit(2);
   }
