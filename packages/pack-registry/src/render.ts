@@ -49,7 +49,7 @@ function renderCard(pack) {
 </article>`;
 }
 
-function renderIndex(packs, options = {}) {
+function renderIndex(packs, options: any = {}) {
   const title = options.title || "Spec-Driven Pack Registry";
   const generated = options.generated || new Date().toISOString();
   const passed = packs.filter((p) => p.lintStatus === "pass").length;

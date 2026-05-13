@@ -11,7 +11,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────────
 
 function ensureProjectDir(projectDir) {
   if (!projectDir || typeof projectDir !== "string") {
@@ -27,7 +27,7 @@ function ensureProjectDir(projectDir) {
   return projectDir;
 }
 
-// ── Tool: read_spec ───────────────────────────────────────────────────────────
+// ── Tool: read_spec ────────────────────────────────────────────────────────────────
 
 /**
  * Returns the full content of spec.md and any other top-level spec markdown.
@@ -51,7 +51,7 @@ function readSpec(args) {
   return { specMd, files: files.sort() };
 }
 
-// ── Tool: list_requirements ───────────────────────────────────────────────────
+// ── Tool: list_requirements ──────────────────────────────────────────────────────────
 
 const REQ_LINE = /\bREQ-(\d{3,})\b/g;
 const REQ_HEADING = /^(##+)\s*(REQ-\d{3,})\b\s*[:\-—]?\s*(.*)$/m;
@@ -88,7 +88,11 @@ function listRequirements(args) {
           } else {
             // Fall back to remainder of the line after the ID
             const idx = line.indexOf(id);
-            title = line.slice(idx + id.length).replace(/^[\s:\-—|]+/, "").replace(/\|.*$/, "").trim();
+            title = line
+              .slice(idx + id.length)
+              .replace(/^[\s:\-—|]+/, "")
+              .replace(/\|.*$/, "")
+              .trim();
           }
           requirements.set(id, { id, title, file: source.file, line: i });
         }
@@ -101,7 +105,7 @@ function listRequirements(args) {
   };
 }
 
-// ── Tool: update_traceability ─────────────────────────────────────────────────
+// ── Tool: update_traceability ─────────────────────────────────────────────────────────
 
 /**
  * Append a single row to the traceability matrix. Idempotent: if a row already
@@ -138,7 +142,7 @@ function updateTraceability(args) {
   return { updated: true, rowsAdded: 1 };
 }
 
-// ── Tool: lint_pack ───────────────────────────────────────────────────────────
+// ── Tool: lint_pack ────────────────────────────────────────────────────────────────
 
 /**
  * Run `create-spec-driven-app pack lint` against a pack and return parsed output.
@@ -172,7 +176,7 @@ function lintPack(args) {
   };
 }
 
-// ── Tool: validate_project ────────────────────────────────────────────────────
+// ── Tool: validate_project ─────────────────────────────────────────────────────────
 
 /**
  * Run `create-spec-driven-app validate <projectDir>` and return parsed output.
@@ -182,11 +186,11 @@ function lintPack(args) {
 function validateProject(args) {
   const dir = ensureProjectDir(args.projectDir);
   const cliCmd = (args.cliPath || "npx create-spec-driven-app").trim().split(/\s+/);
-  const result = spawnSync(
-    cliCmd[0],
-    [...cliCmd.slice(1), "validate", dir],
-    { encoding: "utf8", timeout: 30_000, shell: process.platform === "win32" }
-  );
+  const result = spawnSync(cliCmd[0], [...cliCmd.slice(1), "validate", dir], {
+    encoding: "utf8",
+    timeout: 30_000,
+    shell: process.platform === "win32",
+  });
 
   const combined = (result.stdout || "") + "\n" + (result.stderr || "");
   const errors = [];
@@ -205,7 +209,7 @@ function validateProject(args) {
   };
 }
 
-// ── Tool registry ─────────────────────────────────────────────────────────────
+// ── Tool registry ────────────────────────────────────────────────────────────────
 
 const TOOLS = {
   read_spec: {
@@ -214,7 +218,10 @@ const TOOLS = {
     inputSchema: {
       type: "object",
       properties: {
-        projectDir: { type: "string", description: "Absolute path to the spec-driven project root." },
+        projectDir: {
+          type: "string",
+          description: "Absolute path to the spec-driven project root.",
+        },
       },
       required: ["projectDir"],
     },
@@ -225,7 +232,10 @@ const TOOLS = {
     inputSchema: {
       type: "object",
       properties: {
-        projectDir: { type: "string", description: "Absolute path to the spec-driven project root." },
+        projectDir: {
+          type: "string",
+          description: "Absolute path to the spec-driven project root.",
+        },
       },
       required: ["projectDir"],
     },
@@ -239,7 +249,10 @@ const TOOLS = {
         projectDir: { type: "string" },
         requirement: { type: "string", description: "e.g. REQ-001" },
         scenario: { type: "string", description: "e.g. SCN-005 (optional)" },
-        feature: { type: "string", description: "Path to the .feature file (relative to project root)" },
+        feature: {
+          type: "string",
+          description: "Path to the .feature file (relative to project root)",
+        },
         status: { type: "string", enum: ["Draft", "Approved", "Implemented", "Verified"] },
       },
       required: ["projectDir", "requirement", "feature", "status"],
@@ -252,8 +265,14 @@ const TOOLS = {
       type: "object",
       properties: {
         packRoot: { type: "string", description: "Directory containing pack folders." },
-        packId: { type: "string", description: "Pack identifier, e.g. parking-management/backend." },
-        cliPath: { type: "string", description: "Override the CLI command (default: 'npx create-spec-driven-app')." },
+        packId: {
+          type: "string",
+          description: "Pack identifier, e.g. parking-management/backend.",
+        },
+        cliPath: {
+          type: "string",
+          description: "Override the CLI command (default: 'npx create-spec-driven-app').",
+        },
       },
       required: ["packRoot", "packId"],
     },

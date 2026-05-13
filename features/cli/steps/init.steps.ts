@@ -19,7 +19,7 @@ After(function () {
   this.cleanup();
 });
 
-// ── Given ─────────────────────────────────────────────────────────────────────
+// ── Given ────────────────────────────────────────────────────────────────────
 
 Given("a valid project config file", function () {
   this.writeConfig(BASE_CONFIG);
@@ -33,8 +33,7 @@ Given("a config file missing {string}", function (key) {
 });
 
 Given("a config file with {string} set to {string}", function (key, value) {
-  const cfg = BASE_CONFIG
-    .split("\n")
+  const cfg = BASE_CONFIG.split("\n")
     .filter((l) => !l.startsWith(key))
     .concat([`${key}="${value}"`])
     .join("\n");
@@ -71,7 +70,7 @@ Given("the parking-management domain pack", function () {
   this.packId = "parking-management/backend";
 });
 
-// ── When ──────────────────────────────────────────────────────────────────────
+// ── When ─────────────────────────────────────────────────────────────────────
 
 When("I run {string} with the config file", function (cmd) {
   if (cmd === "init") {
@@ -90,12 +89,18 @@ When("I run {string} with {string}", function (cmd, flag) {
       : [];
     this.lastResult = this.run([
       "expand",
-      "--pack-root", this.packRoot,
-      "--pack", this.packId,
-      "--project-dir", this.projectDir,
-      "--var", "PROJECT_NAME=BDD Test",
-      "--var", "PROJECT_SLUG=bdd-test",
-      "--var", "DOMAIN=testing",
+      "--pack-root",
+      this.packRoot,
+      "--pack",
+      this.packId,
+      "--project-dir",
+      this.projectDir,
+      "--var",
+      "PROJECT_NAME=BDD Test",
+      "--var",
+      "PROJECT_SLUG=bdd-test",
+      "--var",
+      "DOMAIN=testing",
       "--dry-run",
     ]);
   }
@@ -120,12 +125,18 @@ When("I run {string} on that project", function (cmd) {
 When("I run {string} on the project", function (cmd) {
   this.lastResult = this.run([
     cmd,
-    "--pack-root", this.packRoot,
-    "--pack", this.packId,
-    "--project-dir", this.projectDir,
-    "--var", `PROJECT_NAME=BDD Test Project`,
-    "--var", "PROJECT_SLUG=bdd-test-project",
-    "--var", "DOMAIN=testing",
+    "--pack-root",
+    this.packRoot,
+    "--pack",
+    this.packId,
+    "--project-dir",
+    this.projectDir,
+    "--var",
+    `PROJECT_NAME=BDD Test Project`,
+    "--var",
+    "PROJECT_SLUG=bdd-test-project",
+    "--var",
+    "DOMAIN=testing",
   ]);
 });
 
@@ -135,26 +146,32 @@ When("I run {string} without {string}", function (cmd, flag) {
   } else if (cmd === "expand" && flag.includes("PROJECT_NAME")) {
     this.lastResult = this.run([
       "expand",
-      "--pack-root", this.packRoot,
-      "--pack", this.packId,
-      "--project-dir", this.projectDir,
+      "--pack-root",
+      this.packRoot,
+      "--pack",
+      this.packId,
+      "--project-dir",
+      this.projectDir,
     ]);
   }
 });
 
-When("I run {string} without providing {string}", function (cmd, varName) {
+When("I run {string} without providing {string}", function (cmd, _varName) {
   if (cmd === "expand") {
     const args = [
       "expand",
-      "--pack-root", this.packRoot,
-      "--pack", this.packId,
-      "--project-dir", this.projectDir,
+      "--pack-root",
+      this.packRoot,
+      "--pack",
+      this.packId,
+      "--project-dir",
+      this.projectDir,
     ];
     this.lastResult = this.run(args);
   }
 });
 
-// ── Then ──────────────────────────────────────────────────────────────────────
+// ── Then ─────────────────────────────────────────────────────────────────────
 
 Then("the command exits with code {int}", function (code) {
   const result = this.lastResult || this.result;
@@ -186,7 +203,9 @@ Then("no files are written to the output directory", function () {
 Then("no feature files are written", function () {
   const featuresDir = path.join(this.projectDir, "features");
   if (!fs.existsSync(featuresDir)) return;
-  const current = fs.readdirSync(featuresDir, { recursive: true }).filter((f) => f.endsWith(".feature"));
+  const current = fs
+    .readdirSync(featuresDir, { recursive: true })
+    .filter((f) => f.endsWith(".feature"));
   const before = this.featureFilesBeforeExpand || [];
   const added = current.filter((f) => !before.includes(f));
   assert.equal(added.length, 0, `New .feature files written in dry-run: ${added.join(", ")}`);

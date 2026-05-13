@@ -5,7 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = path.resolve(__dirname, "..");
+const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
 const PKG = require(path.join(ROOT_DIR, "package.json"));
 

@@ -5,14 +5,14 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 // Resolve relative to the monorepo root so tests run from either location
-const REPO_ROOT = path.resolve(__dirname, "../../../..");
+const REPO_ROOT = path.resolve(__dirname, "../../../../..");
 const { validatePackYaml, findApproximateLine } = require("../../src/pack-validator");
 const SCHEMA_PATH = path.join(REPO_ROOT, "schemas/pack.schema.json");
 
-// ── findApproximateLine ───────────────────────────────────────────────────────
+// ── findApproximateLine ───────────────────────────────────────────────────────────────
 
 test("findApproximateLine finds the deepest matching key in the path", () => {
-  const lines = ["schema_version: \"1.0.0\"", "metadata:", "  name: Test"];
+  const lines = ['schema_version: "1.0.0"', "metadata:", "  name: Test"];
   // /metadata/name → function finds 'name:' at line 2 (deepest match wins)
   assert.equal(findApproximateLine(lines, "/metadata/name", ""), 2);
 });
@@ -27,7 +27,7 @@ test("findApproximateLine returns 0 when key not found", () => {
   assert.equal(findApproximateLine(lines, "/nonexistent", ""), 0);
 });
 
-// ── validatePackYaml — YAML parse errors ──────────────────────────────────────
+// ── validatePackYaml — YAML parse errors ──────────────────────────────────────────
 
 test("validatePackYaml returns parseError on invalid YAML", () => {
   const content = "key: [\nbad yaml";
@@ -42,11 +42,14 @@ test("validatePackYaml returns parseError for scalar YAML", () => {
   assert.ok(result.parseError, "scalar YAML should be a parse error");
 });
 
-// ── validatePackYaml — schema validation ─────────────────────────────────────
+// ── validatePackYaml — schema validation ──────────────────────────────────────────
 
 test("validatePackYaml passes on the parking-management fixture", () => {
   const fs = require("node:fs");
-  const fixturePath = path.join(REPO_ROOT, "tests/fixtures/domain-packs/parking-management/backend/pack.yaml");
+  const fixturePath = path.join(
+    REPO_ROOT,
+    "tests/fixtures/domain-packs/parking-management/backend/pack.yaml"
+  );
   const content = fs.readFileSync(fixturePath, "utf8");
   const result = validatePackYaml(content, SCHEMA_PATH);
   assert.equal(result.parseError, null, "should not have parse error");
@@ -98,7 +101,7 @@ requirements:
 });
 
 test("validatePackYaml reports warning when schema file not found", () => {
-  const content = "schema_version: \"1.0.0\"\n";
+  const content = 'schema_version: "1.0.0"\n';
   const result = validatePackYaml(content, "/nonexistent/path/pack.schema.json");
   assert.equal(result.parseError, null);
   assert.equal(result.errors.length, 1);

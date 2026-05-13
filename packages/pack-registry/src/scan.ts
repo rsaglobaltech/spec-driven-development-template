@@ -9,10 +9,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const REPO_ROOT = path.resolve(__dirname, "../../..");
+const REPO_ROOT = path.resolve(__dirname, "../../../..");
 const CLI = path.join(REPO_ROOT, "bin/create-spec-driven-app.js");
 
-const { loadPack } = require(path.join(REPO_ROOT, "scripts/domain-pack/common"));
+const { loadPack } = require("../../../scripts/domain-pack/common");
 
 /**
  * @typedef {{ id: string, name: string, version: string, language: string,
@@ -92,10 +92,14 @@ function count(arr) {
 }
 
 function runLint(packsRoot, id) {
-  const result = spawnSync(process.execPath, [CLI, "pack", "lint", "--pack-root", packsRoot, "--pack", id], {
-    encoding: "utf8",
-    timeout: 15_000,
-  });
+  const result = spawnSync(
+    process.execPath,
+    [CLI, "pack", "lint", "--pack-root", packsRoot, "--pack", id],
+    {
+      encoding: "utf8",
+      timeout: 15_000,
+    }
+  );
   const combined = (result.stdout || "") + "\n" + (result.stderr || "");
   const errors = [];
   const warnings = [];

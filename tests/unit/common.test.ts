@@ -19,7 +19,7 @@ const {
   hasStructuredDomainModel,
 } = require("../../scripts/domain-pack/common");
 
-const FIXTURE_ROOT = path.resolve(__dirname, "../fixtures/domain-packs");
+const FIXTURE_ROOT = path.resolve(__dirname, "../../../tests/fixtures/domain-packs");
 const FIXTURE_ID = "parking-management/backend";
 
 // ── renderTemplate ────────────────────────────────────────────────────────────

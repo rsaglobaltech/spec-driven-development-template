@@ -15,14 +15,14 @@ const { validatePackYaml } = require("./pack-validator");
 const { findRequirementIds, findIdInTraceability, parseValidateOutput } = require("./traceability");
 const { runValidate } = require("./validate-runner");
 
-// ── Diagnostic collections ────────────────────────────────────────────────────
+// ── Diagnostic collections ──────────────────────────────────────────────────────────────
 
 /** @type {vscode.DiagnosticCollection} */
 let packDiagnostics;
 /** @type {vscode.DiagnosticCollection} */
 let validateDiagnostics;
 
-// ── Activation ────────────────────────────────────────────────────────────────
+// ── Activation ────────────────────────────────────────────────────────────────────────────
 
 /**
  * Called once when VS Code first activates the extension.
@@ -59,10 +59,7 @@ function activate(context) {
 
   // CodeLens: "Reveal REQ-NNN in traceability" above every requirement ID
   context.subscriptions.push(
-    vscode.languages.registerCodeLensProvider(
-      { scheme: "file" },
-      new RequirementCodeLensProvider()
-    )
+    vscode.languages.registerCodeLensProvider({ scheme: "file" }, new RequirementCodeLensProvider())
   );
 
   // Commands
@@ -71,10 +68,7 @@ function activate(context) {
       "spec-driven.revealInTraceability",
       cmdRevealInTraceability
     ),
-    vscode.commands.registerCommand(
-      "spec-driven.validateProject",
-      cmdValidateProject
-    )
+    vscode.commands.registerCommand("spec-driven.validateProject", cmdValidateProject)
   );
 
   // Lint any pack.yaml files already open when extension activates
@@ -88,7 +82,7 @@ function deactivate() {
   validateDiagnostics?.dispose();
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────────
 
 /** @returns {vscode.WorkspaceConfiguration} */
 function config() {
@@ -126,21 +120,19 @@ function findProjectRoot(filePath) {
   return null;
 }
 
-// ── pack.yaml linting ─────────────────────────────────────────────────────────
+// ── pack.yaml linting ──────────────────────────────────────────────────────────────────
 
 function lintPackDocument(doc) {
   const cfg = config();
-  const schemaPath = cfg.get("schemaPath") ||
-    path.resolve(__dirname, "../../../schemas/pack.schema.json");
+  const schemaPath =
+    cfg.get("schemaPath") || path.resolve(__dirname, "../../../../schemas/pack.schema.json");
 
   const { parseError, errors } = validatePackYaml(doc.getText(), schemaPath);
 
   const diags = [];
 
   if (parseError) {
-    diags.push(
-      makeDiag(parseError.line, parseError.col, parseError.message, parseError.severity)
-    );
+    diags.push(makeDiag(parseError.line, parseError.col, parseError.message, parseError.severity));
   }
 
   for (const e of errors) {
@@ -160,12 +152,12 @@ function makeDiag(line, col, message, severity) {
     severity === "error"
       ? vscode.DiagnosticSeverity.Error
       : severity === "warning"
-      ? vscode.DiagnosticSeverity.Warning
-      : vscode.DiagnosticSeverity.Information
+        ? vscode.DiagnosticSeverity.Warning
+        : vscode.DiagnosticSeverity.Information
   );
 }
 
-// ── Project validate ──────────────────────────────────────────────────────────
+// ── Project validate ─────────────────────────────────────────────────────────────────
 
 function triggerProjectValidate(projectDir, cliPath) {
   const result = runValidate(projectDir, cliPath);
@@ -173,7 +165,7 @@ function triggerProjectValidate(projectDir, cliPath) {
   if (result.spawnError) {
     vscode.window.showErrorMessage(
       `Spec-Driven: could not run validate — ${result.spawnError}. ` +
-      `Check the 'spec-driven.cliPath' setting.`
+        `Check the 'spec-driven.cliPath' setting.`
     );
     return;
   }
@@ -190,9 +182,7 @@ function triggerProjectValidate(projectDir, cliPath) {
 
   validateDiagnostics.set(
     anchorUri,
-    diags
-      .filter((d) => d.severity !== "info")
-      .map((d) => makeDiag(0, 0, d.message, d.severity))
+    diags.filter((d) => d.severity !== "info").map((d) => makeDiag(0, 0, d.message, d.severity))
   );
 
   if (result.exitCode === 0) {
@@ -211,12 +201,14 @@ function triggerProjectValidate(projectDir, cliPath) {
   }
 }
 
-// ── Commands ──────────────────────────────────────────────────────────────────
+// ── Commands ────────────────────────────────────────────────────────────────────────
 
 /** Command: spec-driven.revealInTraceability */
 async function cmdRevealInTraceability(editor) {
   if (!editor) {
-    vscode.window.showInformationMessage("Open a file first, then place the cursor on a requirement ID.");
+    vscode.window.showInformationMessage(
+      "Open a file first, then place the cursor on a requirement ID."
+    );
     return;
   }
 
@@ -259,14 +251,9 @@ async function cmdRevealInTraceability(editor) {
   if (targetLine >= 0) {
     const pos = new vscode.Position(targetLine, 0);
     targetEditor.selection = new vscode.Selection(pos, pos);
-    targetEditor.revealRange(
-      new vscode.Range(pos, pos),
-      vscode.TextEditorRevealType.InCenter
-    );
+    targetEditor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
   } else {
-    vscode.window.showInformationMessage(
-      `${id} is not yet listed in the traceability matrix.`
-    );
+    vscode.window.showInformationMessage(`${id} is not yet listed in the traceability matrix.`);
   }
 }
 
@@ -286,7 +273,7 @@ async function cmdValidateProject() {
   }
 }
 
-// ── CodeLens provider ─────────────────────────────────────────────────────────
+// ── CodeLens provider ─────────────────────────────────────────────────────────────────
 
 class RequirementCodeLensProvider {
   /**

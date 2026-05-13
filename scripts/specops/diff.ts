@@ -22,8 +22,7 @@ const { spawnSync } = require("node:child_process");
 
 const { readLock } = require("./lock");
 
-const ROOT_DIR = path.resolve(__dirname, "..", "..");
-const EXPAND_SCRIPT = path.join(ROOT_DIR, "scripts", "expand_domain_pack.js");
+const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 const LOCK_FILENAME = ".specops.lock";
 
 function info(msg) {

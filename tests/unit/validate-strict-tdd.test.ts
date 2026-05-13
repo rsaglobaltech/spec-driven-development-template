@@ -15,7 +15,7 @@ function mktemp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "strict-tdd-"));
 }
 
-function buildProject(root, overrides = {}) {
+function buildProject(root, overrides: any = {}) {
   fs.mkdirSync(path.join(root, "features"), { recursive: true });
   fs.mkdirSync(path.join(root, "docs/specs/adr"), { recursive: true });
 
