@@ -16,37 +16,114 @@ const packLintScript = path.join(distScripts, "lint_pack.js");
 const specopsSyncScript = path.join(distScripts, "specops", "sync.js");
 const specopsDiffScript = path.join(distScripts, "specops", "diff.js");
 
+// ── Pretty output helpers ──────────────────────────────────────────────────────────────────
+
+const COLOR_ENABLED =
+  process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
+
+const c = {
+  reset: COLOR_ENABLED ? "\x1b[0m" : "",
+  bold: COLOR_ENABLED ? "\x1b[1m" : "",
+  dim: COLOR_ENABLED ? "\x1b[2m" : "",
+  red: COLOR_ENABLED ? "\x1b[31m" : "",
+  green: COLOR_ENABLED ? "\x1b[32m" : "",
+  yellow: COLOR_ENABLED ? "\x1b[33m" : "",
+  blue: COLOR_ENABLED ? "\x1b[34m" : "",
+  magenta: COLOR_ENABLED ? "\x1b[35m" : "",
+  cyan: COLOR_ENABLED ? "\x1b[36m" : "",
+};
+
 function info(msg: string): void {
-  process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
+  process.stdout.write(`${c.cyan}ℹ${c.reset}  ${msg}\n`);
 }
 
 function error(msg: string): void {
-  process.stderr.write(`❌ [ERROR] ${msg}\n`);
+  process.stderr.write(`${c.red}✖${c.reset}  ${msg}\n`);
+}
+
+function banner(): string {
+  return (
+    `\n` +
+    `  ${c.bold}${c.cyan}🧭 create-spec-driven-app${c.reset}  ${c.dim}v${VERSION}${c.reset}\n` +
+    `  ${c.dim}Spec-Driven Development scaffolding — specs as executable contracts.${c.reset}\n`
+  );
+}
+
+function section(title: string): string {
+  return `\n  ${c.bold}${title}${c.reset}\n`;
+}
+
+function cmd(emoji: string, name: string, summary: string, pad = 16): string {
+  // Use Array.from to count code points (emojis with surrogate pairs count as 1)
+  const visible = Array.from(name).length;
+  const padding = " ".repeat(Math.max(1, pad - visible));
+  return `    ${c.green}${emoji}${c.reset}  ${c.green}${name}${c.reset}${padding}${c.dim}${summary}${c.reset}\n`;
+}
+
+function flag(name: string, summary: string, pad = 18): string {
+  const visible = Array.from(name).length;
+  const padding = " ".repeat(Math.max(1, pad - visible));
+  return `    ${c.green}${name}${c.reset}${padding}${c.dim}${summary}${c.reset}\n`;
+}
+
+function example(line: string, comment?: string): string {
+  const prefix = comment ? `    ${c.dim}# ${comment}${c.reset}\n` : "";
+  return `${prefix}    ${c.yellow}$${c.reset} ${line}\n`;
 }
 
 function usage() {
   process.stdout.write(
-    `🚀 create-spec-driven-app\n\n` +
-      `Usage:\n` +
-      `  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n` +
-      `  create-spec-driven-app validate <project_dir> [--strict-tdd]\n` +
-      `  create-spec-driven-app expand --pack-root <path> --pack <domain/type> --project-dir <path> [--var KEY=VALUE]... [--dry-run] [--no-examples]\n` +
-      `  create-spec-driven-app expand --pack-repo <git-url> --pack-version <tag> --pack <pack-id> --project-dir <path> [--var KEY=VALUE]... [--cache-dir <path>] [--dry-run]\n` +
-      `  create-spec-driven-app pack init --out <directory> [--name <name>] [--type backend|frontend] [--dry-run]\n` +
-      `  create-spec-driven-app pack lint --pack-root <path> --pack <domain/type>\n` +
-      `  create-spec-driven-app specops sync [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--dry-run]\n` +
-      `  create-spec-driven-app specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>]\n` +
-      `  create-spec-driven-app --help\n` +
-      `  create-spec-driven-app --version\n\n` +
-      `Examples:\n` +
-      `  npx create-spec-driven-app@latest init --config ./project.config --out ./projects\n` +
-      `  npx create-spec-driven-app@latest validate ./projects/my-app\n` +
-      `  npx create-spec-driven-app@latest expand --pack-root ./domain-packs --pack parking-management/backend --project-dir ./projects/my-app --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking operations"\n` +
-      `  npx create-spec-driven-app@latest expand --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git --pack-version v0.1.0 --pack backend --project-dir ./projects/smart-parking --var PROJECT_NAME="Smart Parking" --var PROJECT_SLUG=smart-parking --var DOMAIN="parking operations"\n` +
-      `  npx create-spec-driven-app@latest specops sync --project-dir ./projects/smart-parking\n` +
-      `  npx create-spec-driven-app@latest specops diff --project-dir ./projects/smart-parking --pack-version v0.2.0\n` +
-      `  npx create-spec-driven-app@latest pack init --out ./domain-packs --name "Billing Backend"\n` +
-      `  npx create-spec-driven-app@latest pack lint --pack-root ./domain-packs --pack billing/backend\n`
+    banner() +
+      section("USAGE") +
+      `    ${c.cyan}create-spec-driven-app${c.reset} ${c.bold}<command>${c.reset} [options]\n` +
+      `    ${c.dim}Run ‘<command> --help’ for per-command details.${c.reset}\n` +
+      section("CORE COMMANDS") +
+      cmd("⚡", "init", "Scaffold a new spec-driven project from a config file.") +
+      cmd("✅", "validate", "Check structure, traceability, Gherkin (+ --strict-tdd gate).") +
+      cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
+      section("PACK COMMANDS") +
+      cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
+      cmd("🔍", "pack lint", "Lint a pack against the JSON Schema 2020-12.") +
+      section("SPECOPS COMMANDS") +
+      cmd("🔁", "specops sync", "Re-expand packs from .specops.lock or specops.config.yaml.") +
+      cmd("📊", "specops diff", "Preview what would change on a version bump (no writes).") +
+      section("GLOBAL FLAGS") +
+      flag("-h, --help", "Show this help.") +
+      flag("-v, --version", "Show CLI version.") +
+      section("EXAMPLES") +
+      example(
+        `npx create-spec-driven-app@latest init --config ./project.config --out ./projects`,
+        "Generate a new project"
+      ) +
+      example(
+        `npx create-spec-driven-app@latest validate ./projects/my-app --strict-tdd`,
+        "Validate with the TDD gate"
+      ) +
+      example(
+        `npx create-spec-driven-app@latest expand --pack-root ./domain-packs \\\n        --pack parking-management/backend --project-dir ./projects/my-app \\\n        --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking ops"`,
+        "Apply a local pack"
+      ) +
+      example(
+        `npx create-spec-driven-app@latest expand --pack-repo https://github.com/acme/parking-specops.git \\\n        --pack-version v0.1.0 --pack backend --project-dir ./projects/smart-parking \\\n        --var PROJECT_NAME="Smart Parking"`,
+        "Apply a remote pack pinned to a git tag"
+      ) +
+      example(
+        `npx create-spec-driven-app@latest specops sync --project-dir ./projects/smart-parking`,
+        "Re-expand everything in .specops.lock / specops.config.yaml"
+      ) +
+      example(
+        `npx create-spec-driven-app@latest specops diff --project-dir ./projects/smart-parking --pack-version v0.2.0`,
+        "Preview a version bump"
+      ) +
+      example(
+        `npx create-spec-driven-app@latest pack init --out ./domain-packs --name "Billing Backend" --type contracts`,
+        "Scaffold a contracts-flavoured pack"
+      ) +
+      section("LEARN MORE") +
+      `    ${c.dim}📖 How-to guide   ${c.reset}${c.blue}https://github.com/rsaglobaltech/spec-driven-development-template/blob/main/docs/how-to.md${c.reset}\n` +
+      `    ${c.dim}🌐 Documentation  ${c.reset}${c.blue}https://rsaglobaltech.github.io/spec-driven-development-template/${c.reset}\n` +
+      `    ${c.dim}🪲 Report a bug   ${c.reset}${c.blue}https://github.com/rsaglobaltech/spec-driven-development-template/issues${c.reset}\n` +
+      `\n`
   );
 }
 
