@@ -143,19 +143,22 @@ lipstick we rent.
 
 ## 5. TODO
 
-### Phase 1 — `pack lint --graph` (low risk, high leverage)
+### Phase 1 — `pack lint --graph` (low risk, high leverage) — ✅ DONE
 
-- [ ] Add `--graph` flag to `pack lint` (`scripts/lint_pack.ts`).
-- [ ] Add `--graph-format <mermaid|dot>` (default `mermaid`).
-- [ ] Build the node/edge model from the already-parsed pack:
-      REQ → UC → (CMD|QUERY) → AGG → EVT.
-- [ ] Render Mermaid `graph LR` text to stdout.
-- [ ] Mark broken edges (reference to a non-existent ID) in red +
-      print them as a summary list — reuse existing lint error collection.
-- [ ] Unit tests: graph model from a fixture pack; broken-link detection;
-      Mermaid serialization snapshot.
-- [ ] Docs: section in `docs/specs/domain-pack-format.md` + example output.
-- [ ] (Optional) `--graph-out <file.md>` to write instead of stdout.
+- [x] Add `--graph` flag to `pack lint` (`scripts/lint_pack.ts`).
+- [x] Add `--graph-format <mermaid|dot>` (default `mermaid`).
+- [x] Build the node/edge model from the already-parsed pack:
+      REQ → UC → (CMD|QUERY) → AGG → EVT (`buildPackGraph`).
+- [x] Render Mermaid `graph LR` text to stdout (`renderMermaid`); DOT too
+      (`renderDot`).
+- [x] Mark broken edges (reference to a non-existent ID) as red `missing`
+      nodes + print them as a summary list; exit non-zero on any break.
+- [x] Unit tests: graph model, broken-link detection, Mermaid/DOT
+      serialization (`tests/unit/pack-lint-graph.test.ts`); CLI
+      integration tests in `tests/cli.test.ts`.
+- [x] Docs: section 5b in `docs/specs/domain-pack-format.md`.
+- [ ] (Optional, deferred) `--graph-out <file.md>` to write instead of
+      stdout — shell redirection covers this for now.
 
 ### Phase 2 — VS Code extension authoring upticks
 

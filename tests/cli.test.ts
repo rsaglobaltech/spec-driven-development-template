@@ -680,3 +680,54 @@ test("harness run skips an existing branch unless --force", { skip: !hasGit() },
 
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
+
+// ── pack lint --graph (visual reference graph, M-visual Phase 1) ─────────
+
+test("pack lint --graph renders the reference graph as Mermaid", () => {
+  const result = runCli([
+    "pack",
+    "lint",
+    "--pack-root",
+    "tests/fixtures/domain-packs",
+    "--pack",
+    "parking-management/backend",
+    "--graph",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^graph LR/);
+  assert.match(result.stdout, /REQ_REQ_001\["REQ-001"\]:::requirement/);
+  assert.match(result.stdout, /-->\|implements\|/);
+});
+
+test("pack lint --graph --graph-format dot renders a DOT digraph", () => {
+  const result = runCli([
+    "pack",
+    "lint",
+    "--pack-root",
+    "tests/fixtures/domain-packs",
+    "--pack",
+    "parking-management/backend",
+    "--graph",
+    "--graph-format",
+    "dot",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^digraph pack \{/);
+  assert.match(result.stdout, /rankdir=LR;/);
+});
+
+test("pack lint --graph rejects an unknown --graph-format", () => {
+  const result = runCli([
+    "pack",
+    "lint",
+    "--pack-root",
+    "tests/fixtures/domain-packs",
+    "--pack",
+    "parking-management/backend",
+    "--graph",
+    "--graph-format",
+    "svg",
+  ]);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Invalid --graph-format/);
+});

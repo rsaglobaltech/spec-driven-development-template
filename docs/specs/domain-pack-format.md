@@ -414,6 +414,37 @@ By default these are **warnings**. `pack lint --strict` promotes them to
 
 ---
 
+## 5b. Reference graph (`pack lint --graph`)
+
+The hardest part of authoring a pack is keeping the ID cross-references
+consistent by hand: `REQ-001 → UC-001 → CMD-001 / AGG-001 → EVT-001`. One
+typo and the linker breaks.
+
+`pack lint --graph` renders that spine so you can _see_ it:
+
+```bash
+# Mermaid (default) — renders natively in GitHub and VS Code
+create-spec-driven-app pack lint --pack-root ./packs --pack billing/backend --graph
+
+# Graphviz DOT
+create-spec-driven-app pack lint --pack-root ./packs --pack billing/backend --graph --graph-format dot
+```
+
+- Nodes: requirements, use cases, commands/queries, aggregates, events —
+  one colour per type.
+- Edges: `implements`, `dispatches`/`runs`, `handled by`, `emits`.
+- A reference to an ID or name that does not exist becomes a red
+  **missing** node, so the break is visible in the diagram. Every
+  dangling reference is also listed on stderr, and the command **exits
+  non-zero** — making `--graph` usable as a CI link-check, not just a
+  drawing tool.
+
+The output is plain text: pipe it into any Mermaid/DOT renderer, commit
+it to a doc, or paste it into a diagram tool. No account, no network, no
+vendor dependency.
+
+---
+
 ## 6. References
 
 - Example pack: [`tests/fixtures/domain-packs/parking-management/backend/pack.yaml`](../../tests/fixtures/domain-packs/parking-management/backend/pack.yaml)
