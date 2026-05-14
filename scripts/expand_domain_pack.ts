@@ -8,6 +8,7 @@ const {
   entityLabel,
   ensureProjectDir,
   formatList,
+  getWrittenFiles,
   hasStructuredDomainModel,
   loadPack,
   logError,
@@ -17,12 +18,14 @@ const {
   parseTraceabilityRows,
   readTemplate,
   renderTemplate,
+  resetWrittenFiles,
   safeResolve,
   validatePackModel,
   writeFile,
 } = require("./domain-pack/common");
 const { resolveRemotePack } = require("./domain-pack/remote");
 const { readLock, writeLock, upsertPackEntry, newLock } = require("./specops/lock");
+const { snapshotBaseline } = require("./specops/manifest");
 
 const PACKAGE_VERSION = (() => {
   try {
@@ -423,6 +426,29 @@ function updateLockfile(projectDir, packId, remote, vars, dryRun) {
   logInfo(`${dryRun ? "[dry-run] would write" : "Wrote"} ${result.path}`);
 }
 
+/**
+ * Snapshot every file just rendered as the baseline for this pack, so a
+ * later `specops sync` has a three-way merge base. Remote packs only —
+ * `sync` only operates on lockfile-tracked (remote) packs.
+ */
+function updateBaseline(projectDir, packId, remote, dryRun) {
+  if (!remote) return;
+  const entries = getWrittenFiles().map((written) => ({
+    rel: path.relative(projectDir, written.file).split(path.sep).join("/"),
+    content: written.content,
+  }));
+  const result = snapshotBaseline(
+    projectDir,
+    packId,
+    entries,
+    { version: remote.version },
+    { dryRun }
+  );
+  if (result.written) {
+    logInfo(`Recorded baseline for ${result.count} file(s) under .specops/baseline/${packId}`);
+  }
+}
+
 function main() {
   try {
     const args = parseArgs(process.argv.slice(2));
@@ -444,6 +470,7 @@ function main() {
     ensureProjectDir(args.projectDir, args.dryRun);
 
     logInfo(`Using pack: ${packFile}`);
+    resetWrittenFiles();
     renderStaticFiles(pack, packRoot, args.projectDir, vars, args.dryRun);
     const generated = renderScenarios(
       pack,
@@ -456,6 +483,7 @@ function main() {
     renderDomainDocs(pack, args.projectDir, args.dryRun);
     renderTraceability(pack, args.projectDir, generated, args.dryRun);
     updateLockfile(args.projectDir, args.pack, source.remote, vars, args.dryRun);
+    updateBaseline(args.projectDir, args.pack, source.remote, args.dryRun);
 
     logInfo(`Generated ${generated.length} scenario file(s).`);
     logInfo("Domain pack expansion completed.");

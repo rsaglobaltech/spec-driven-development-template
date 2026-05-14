@@ -1,6 +1,6 @@
 # SpecOps Workflow
 
-**Status:** Stable (M1 — remote packs + lockfile, M2 — `sync` and `diff`)
+**Status:** Stable (M1 — remote packs + lockfile, M2 — `sync` and `diff`, M3 — conflict detection)
 **Owner:** create-spec-driven-app
 **Companion ADRs:** [ADR-0009](./adr/0009-specops-remote-packs.md), [ADR-0010](./adr/0010-specops-sync-diff.md)
 
@@ -36,11 +36,11 @@ smart-parking                   → implementation (the actual code)
 
 Each has a different lifecycle:
 
-| Piece | Changes when… |
-|---|---|
-| **Tool** | the CLI gains features or fixes |
-| **Pack** | the domain evolves (new requirements, scenarios, events) |
-| **Implementation** | features are built |
+| Piece              | Changes when…                                            |
+| ------------------ | -------------------------------------------------------- |
+| **Tool**           | the CLI gains features or fixes                          |
+| **Pack**           | the domain evolves (new requirements, scenarios, events) |
+| **Implementation** | features are built                                       |
 
 The pack is consumed by tagged version, exactly like an npm dependency.
 
@@ -48,10 +48,10 @@ The pack is consumed by tagged version, exactly like an npm dependency.
 
 `expand` now has two mutually-exclusive sources for the pack:
 
-| Flag | Use when |
-|---|---|
-| `--pack-root <local-dir>` | The pack lives next to the project (monorepo) or has been cloned manually |
-| `--pack-repo <git-url> --pack-version <tag>` | The pack lives in its own Git repo and is consumed by tagged version |
+| Flag                                         | Use when                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------- |
+| `--pack-root <local-dir>`                    | The pack lives next to the project (monorepo) or has been cloned manually |
+| `--pack-repo <git-url> --pack-version <tag>` | The pack lives in its own Git repo and is consumed by tagged version      |
 
 `--pack-version` accepts a tag or a commit SHA. Tags are recommended;
 commits are useful when pinning to a specific revision.
@@ -72,15 +72,15 @@ lockfile to the project root:
   "csda_version": "0.1.0-beta.4",
   "packs": [
     {
-      "repo":        "https://github.com/rsaglobaltech/parking-management-specops.git",
-      "version":     "v0.1.0",
-      "commit":      "c37fbcb1a2…",
-      "pack_id":     "backend",
+      "repo": "https://github.com/rsaglobaltech/parking-management-specops.git",
+      "version": "v0.1.0",
+      "commit": "c37fbcb1a2…",
+      "pack_id": "backend",
       "expanded_at": "2026-05-12T18:30:00.000Z",
       "vars": {
         "PROJECT_NAME": "Smart Parking",
         "PROJECT_SLUG": "smart-parking",
-        "DOMAIN":       "parking operations"
+        "DOMAIN": "parking operations"
       }
     }
   ]
@@ -100,11 +100,31 @@ lockfile to the project root:
 
 **Convention:** commit `.specops.lock` to your project repository.
 
+## `.specops/` — the baseline manifest
+
+After a successful (non–dry-run) `expand --pack-repo …`, the CLI also
+records a **baseline** under `.specops/`:
+
+```text
+.specops/
+  manifest.json              index: pack_id -> { version, files: {rel: sha256} }
+  baseline/<pack_id>/<rel>   verbatim copy of what the pack last rendered
+```
+
+This is the missing "common ancestor" that lets `specops sync` do a
+three-way merge instead of blindly overwriting. It is what tells sync
+whether a file was edited by you (or an AI agent) since the last sync.
+
+**Convention:** commit `.specops/` to your project repository — a fresh
+clone needs it for the next `sync` to have a merge base.
+
 ## `specops sync`
 
-Re-expands every pack listed in `.specops.lock` — useful after re-cloning
-the project, after manually editing generated files, or to bump a pack to
-a new version without re-typing the original flags.
+Re-expands every pack listed in `.specops.lock` and **three-way merges**
+the result into the project, preserving local edits. Useful after
+re-cloning the project, after hand-editing (or agent-editing) generated
+files, or to bump a pack to a new version without re-typing the original
+flags.
 
 ```bash
 # Re-expand everything at the locked versions
@@ -118,17 +138,48 @@ npx create-spec-driven-app specops sync \
 
 # Preview without writing anything
 npx create-spec-driven-app specops sync --project-dir ./smart-parking --dry-run
+
+# Pack always wins — discard local edits
+npx create-spec-driven-app specops sync --project-dir ./smart-parking --force
+
+# Never write conflict markers — leave conflicting files untouched
+npx create-spec-driven-app specops sync --project-dir ./smart-parking --abort-on-conflict
 ```
 
 Behaviour:
 
 - Reads `.specops.lock` from `--project-dir` (defaults to `.`).
-- For each entry (or the one matching `--pack`), calls `expand` with
-  `--pack-repo`, `--pack-version`, `--pack`, `--project-dir`, and every
-  `--var KEY=VALUE` from the locked `vars` block.
+- For each entry (or the one matching `--pack`), renders the pack into a
+  throwaway temp dir, then reconciles each file against the project using
+  the `.specops/` baseline as the merge base.
 - Use `--pack-version` to override the locked version; the lockfile is
   rewritten with the new tag + commit.
-- Exits non-zero if no lockfile is found or `--pack` does not match.
+- Exits non-zero if no lockfile is found, `--pack` does not match, or any
+  file is left in a conflicted state.
+
+### Per-file outcomes
+
+For each file the pack renders, sync compares three versions — `base`
+(`.specops/baseline/`), `local` (the project copy) and `incoming` (the new
+render) — and classifies the file:
+
+| Outcome     | Meaning                                                                                                     |
+| ----------- | ----------------------------------------------------------------------------------------------------------- |
+| `added`     | File did not exist locally — written                                                                        |
+| `unchanged` | Local already matches the new render                                                                        |
+| `updated`   | Local was untouched since last sync — replaced with the new render                                          |
+| `kept`      | Pack did not change this file but you did — local edits preserved                                           |
+| `merged`    | Both sides changed, non-overlapping — three-way merged cleanly                                              |
+| `CONFLICT`  | Both sides changed the same lines — git-style merge markers written (or skipped with `--abort-on-conflict`) |
+
+`--force` overwrites locally-edited files with the pack version.
+`--abort-on-conflict` leaves conflicting files untouched instead of
+writing markers. The two flags are mutually exclusive. When any file ends
+up conflicted, sync exits non-zero so CI and AI-agent harnesses can detect
+that a human needs to intervene.
+
+Conflicting files keep their previous baseline, so re-running `sync` after
+you resolve the markers picks up cleanly from where it left off.
 
 ## `specops diff`
 
@@ -240,12 +291,13 @@ Shipped:
 
 - **M1** — remote packs + `.specops.lock`
 - **M2** — `specops sync` + `specops diff`
+- **M3** — conflict detection: `.specops/` baseline + three-way merge in `sync`
 
 Planned:
 
 - `validate --against-lock` — fail in CI if the project has drifted from
   the locked pack version (uses the same diff machinery as `specops
-  diff`, just exits non-zero on any difference).
+diff`, just exits non-zero on any difference).
 - Multi-pack composition helpers — apply several packs from one config
   file without re-typing each invocation.
 

@@ -79,7 +79,7 @@ function hashFile(filePath) {
   return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
 
-const IGNORE_DIRS = new Set([".git", "node_modules", "_site", ".cache"]);
+const IGNORE_DIRS = new Set([".git", "node_modules", "_site", ".cache", ".specops"]);
 const IGNORE_FILES = new Set([LOCK_FILENAME]);
 
 function walkFiles(root) {

@@ -85,7 +85,11 @@ function usage() {
       cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
       cmd("🔍", "pack lint", "Lint a pack against the JSON Schema 2020-12.") +
       section("SPECOPS COMMANDS") +
-      cmd("🔁", "specops sync", "Re-expand packs from .specops.lock or specops.config.yaml.") +
+      cmd(
+        "🔁",
+        "specops sync",
+        "Re-expand packs and three-way merge them, preserving local edits."
+      ) +
       cmd("📊", "specops diff", "Preview what would change on a version bump (no writes).") +
       section("GLOBAL FLAGS") +
       flag("-h, --help", "Show this help.") +

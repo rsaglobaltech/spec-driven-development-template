@@ -449,6 +449,66 @@ test("specops sync re-expands packs recorded in the lockfile", { skip: !hasGit()
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
 
+test("specops sync preserves local edits instead of overwriting them", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-specops-sync-keep-"));
+  const remoteRepo = makeFixtureRemoteRepo(tempRoot);
+  const cacheDir = path.join(tempRoot, "cache");
+  const projectDir = path.join(tempRoot, "project");
+  fs.mkdirSync(projectDir, { recursive: true });
+
+  const initial = runCli([
+    "expand",
+    "--pack-repo",
+    remoteRepo,
+    "--pack-version",
+    "v0.1.0",
+    "--pack",
+    "parking-management/backend",
+    "--project-dir",
+    projectDir,
+    "--cache-dir",
+    cacheDir,
+    "--var",
+    "PROJECT_NAME=Smart Parking",
+    "--var",
+    "PROJECT_SLUG=smart-parking",
+    "--var",
+    "DOMAIN=parking operations",
+  ]);
+  assert.equal(initial.status, 0, initial.stderr);
+
+  // expand should record a baseline manifest for the conflict detector.
+  assert.ok(
+    fs.existsSync(path.join(projectDir, ".specops", "manifest.json")),
+    "expand should write .specops/manifest.json"
+  );
+
+  // Hand-edit a generated file the way a human or an AI agent would.
+  const aiRulesPath = path.join(projectDir, "AI_RULES.md");
+  const edited = `${fs.readFileSync(aiRulesPath, "utf8")}\n<!-- my local note -->\n`;
+  fs.writeFileSync(aiRulesPath, edited, "utf8");
+
+  // Re-sync at the SAME version: the pack did not change this file, so the
+  // local edit must survive.
+  const syncResult = runCli([
+    "specops",
+    "sync",
+    "--project-dir",
+    projectDir,
+    "--cache-dir",
+    cacheDir,
+  ]);
+  assert.equal(syncResult.status, 0, syncResult.stderr);
+  assert.match(syncResult.stdout, /kept/);
+  assert.equal(
+    fs.readFileSync(aiRulesPath, "utf8"),
+    edited,
+    "sync must not clobber the local edit"
+  );
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
 test("specops diff shows no changes when project is in sync", { skip: !hasGit() }, () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-specops-diff-clean-"));
   const remoteRepo = makeFixtureRemoteRepo(tempRoot);
