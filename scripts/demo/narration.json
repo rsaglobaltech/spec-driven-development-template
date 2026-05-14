@@ -1,0 +1,55 @@
+{
+  "voice": "alloy",
+  "title": "create-spec-driven-app — full step-by-step demo",
+  "note": "One segment per section of demo.tape, in order. The build script inserts a 2.5s gap between segments so the voice tracks the screen.",
+  "segments": [
+    {
+      "id": "intro",
+      "text": "create-spec-driven-app treats specifications as first-class, testable, traceable artifacts. This demo follows the end-to-end tutorial, one command at a time."
+    },
+    {
+      "id": "init",
+      "text": "Step one: scaffold. A small YAML config — project name, stack, testing tools — and init generates a complete, valid spec-driven project: a requirements document, a place for Gherkin scenarios, and the traceability matrix that ties code back to specs."
+    },
+    {
+      "id": "specops-add",
+      "text": "Step two: apply a domain pack. A pack is reusable, versioned domain knowledge. specops add pulls a pinned version of it into your project, renders its scenarios, and writes a lockfile that remembers exactly where it came from."
+    },
+    {
+      "id": "validate",
+      "text": "Step three: validate. It checks structure, traceability, and Gherkin. With the strict T-D-D gate, the build fails whenever the matrix runs ahead of the tests — no requirement can claim to be done while the gates are red."
+    },
+    {
+      "id": "diff-sync",
+      "text": "Keeping the pack in sync. specops sync re-renders everything from the lockfile. When a new pack version ships, specops diff previews exactly what would change, writing nothing — and specops sync, with the version flag, applies it through a three-way merge that preserves your local edits."
+    },
+    {
+      "id": "plan",
+      "text": "Step four: plan. It reads the matrix and the filesystem and tells you, per requirement, exactly what is missing — the feature file, the test, the production code, or just a status update. The JSON form is the task queue for AI agents and CI."
+    },
+    {
+      "id": "done",
+      "text": "Step five: close the loop. Once the test and the code for a requirement exist and pass, done updates its status in the matrix. With the check flag it validates first, so the matrix never gets ahead of reality."
+    },
+    {
+      "id": "add-requirement",
+      "text": "Step six: add a new requirement that is yours, not the pack's. Describe it in the spec, write the Gherkin scenario, add one row to the traceability matrix — then validate and plan pick it up. This local requirement survives every future pack sync."
+    },
+    {
+      "id": "remove",
+      "text": "Step eight: removing a pack is just as clean. specops remove drops it from the lockfile — shown here as a dry run — and leaves your generated files in place for you to review."
+    },
+    {
+      "id": "authoring",
+      "text": "Step nine: the authoring side. pack lint graph draws a pack's requirement-to-use-case-to-command-aggregate-event spine and flags any broken reference. pack infer flips the flow — write the scenario first, and it proposes the pack model for you."
+    },
+    {
+      "id": "harness",
+      "text": "Step eleven: automate delivery. The harness runs the plan, context, agent, verify, done loop for every pending requirement, in isolated git worktrees, with any AI agent you configure — opencode, Claude, Aider. Here is a dry run showing the prompt it would hand the agent."
+    },
+    {
+      "id": "outro",
+      "text": "Specs as executable contracts — for humans and AI agents alike. The full step-by-step guide is in docs slash tutorial dot md. Find it on GitHub and on npm as create-spec-driven-app."
+    }
+  ]
+}
