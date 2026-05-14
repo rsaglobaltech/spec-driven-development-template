@@ -49,6 +49,29 @@ cat > "$WRAPPER_DIR/csda" <<EOF
 exec node "$REPO_ROOT/bin/create-spec-driven-app.js" "\$@"
 EOF
 chmod +x "$WRAPPER_DIR/csda"
+
+# Helper invoked by the tape for Step 6. The file contents have embedded
+# double quotes, which VHS `Type` cannot express — so the messy file
+# creation lives in real bash here and the tape just calls `demo-add-req`.
+cat > "$WRAPPER_DIR/demo-add-req" <<'EOF'
+#!/usr/bin/env bash
+set -e
+printf '\n## REQ-101 — Reserve a parking spot in advance\n' >> spec.md
+mkdir -p features/reservations
+cat > features/reservations/reserve_spot.feature <<'FEOF'
+@REQ-101
+Feature: Reserve a parking spot
+  Scenario: Reserving an available spot for a future window
+    Given spot "A-12" is free between "09:00" and "11:00"
+    When an operator reserves spot "A-12" for that window
+    Then spot "A-12" is marked "Reserved" for that window
+    And a "SpotReserved" event is emitted
+FEOF
+printf '%s\n' '| REQ-101 | SCN-101 | `features/reservations/reserve_spot.feature` | UC-101 | ReserveSpotCommand | ParkingFacility | SpotReserved | ReservationService.java | ReservationServiceTest | Draft |' >> docs/specs/traceability.md
+echo "added REQ-101 → spec.md section + features/reservations/reserve_spot.feature + traceability row"
+EOF
+chmod +x "$WRAPPER_DIR/demo-add-req"
+
 export PATH="$WRAPPER_DIR:$PATH"
 
 # ── 2. Build a local, versioned pack repo (v0.1.0 + v0.2.0) ──────────────────

@@ -137,21 +137,14 @@ Sleep 800ms
 # ════════════════════════════════════════════════════════════════════════════
 Type "# Step 6 — Add a project-local requirement: spec -> scenario -> matrix row." Enter
 Sleep 2.5s
-Type "printf '\n## REQ-101 — Reserve a parking spot in advance\n' >> spec.md" Enter
-Sleep 1.2s
-Type "mkdir -p features/reservations" Enter
-Type "cat > features/reservations/reserve_spot.feature <<'EOF'" Enter
-Type "@REQ-101" Enter
-Type "Feature: Reserve a parking spot" Enter
-Type "  Scenario: Reserving an available spot for a future window" Enter
-Type "    Given spot \"A-12\" is free between \"09:00\" and \"11:00\"" Enter
-Type "    When an operator reserves spot \"A-12\" for that window" Enter
-Type "    Then spot \"A-12\" is marked \"Reserved\" for that window" Enter
-Type "    And a \"SpotReserved\" event is emitted" Enter
-Type "EOF" Enter
+Type "# demo-add-req appends a spec.md section, writes a .feature, adds a matrix row." Enter
 Sleep 1.5s
-Type "echo '| REQ-101 | SCN-101 | \`features/reservations/reserve_spot.feature\` | UC-101 | ReserveSpotCommand | ParkingFacility | SpotReserved | ReservationService.java | ReservationServiceTest | Draft |' >> docs/specs/traceability.md" Enter
-Sleep 1.5s
+Type "demo-add-req" Enter
+Sleep 2.5s
+Type "cat features/reservations/reserve_spot.feature" Enter
+Sleep 4.5s
+Type "# Validate the new requirement is wired in, then see it in the plan." Enter
+Sleep 2s
 Type "csda validate . --strict-tdd && csda plan | tail -8" Enter
 Sleep 6s
 Type "clear" Enter
