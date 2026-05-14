@@ -21,6 +21,7 @@ for the policy on when and how to write an ADR.
 | [0011](0011-contracts-pack-tdd-enforcement.md) | Contracts pack + `--strict-tdd` gate                    | Accepted               | 2026-05-13 |
 | [0012](0012-plan-done-implementation-loop.md)  | `plan` + `done` implementation loop                     | Accepted               | 2026-05-13 |
 | [0013](0013-harness-run-loop.md)               | `harness run` — spec-driven delivery loop for AI agents | Accepted               | 2026-05-14 |
+| [0014](0014-pack-infer-heuristic.md)           | `pack infer` — heuristic .feature → pack.yaml inference | Accepted               | 2026-05-14 |
 
 ## Template
 

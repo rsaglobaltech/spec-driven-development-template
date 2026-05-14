@@ -181,14 +181,16 @@ Pure foundation: `packages/vscode-spec-driven/src/pack-graph.ts`
       panel, refreshing on edit/save (`renderPackMermaid` + WebviewPanel).
 - [x] Extension tests for the pure logic (`pack-graph.test.ts`, 20 tests).
 
-### Phase 3 — `pack infer` (separate track, highest ergonomic leverage)
+### Phase 3 — `pack infer` (separate track, highest ergonomic leverage) — ✅ DONE
 
-- [ ] Spec the inference: `.feature` file → proposed `use_cases`,
-      `commands`, `events` skeleton.
-- [ ] `pack infer --from <feature-file>` emits a YAML fragment to merge.
-- [ ] Decide: heuristic parse vs. LLM-assisted (shell-out, vendor-neutral —
-      same pattern as `harness run`).
-- [ ] Tests + docs + ADR.
+- [x] Spec the inference: `.feature` file → proposed `requirements`,
+      `use_cases`, `commands`, `events`, `scenarios` skeleton.
+- [x] `pack infer --from <feature-file>` emits a YAML fragment (or
+      `--format json`) to stdout (`scripts/infer_pack.ts`).
+- [x] Decision: **heuristic** for v1 — deterministic, testable, offline,
+      zero-dep. LLM-assisted kept as a future `--llm` flag (ADR-0014).
+- [x] Tests (`tests/unit/pack-infer.test.ts` + CLI integration tests),
+      docs (`domain-pack-format.md` §5c), ADR-0014.
 
 ### Phase 4 — StudioApp (DEFERRED — do not start)
 

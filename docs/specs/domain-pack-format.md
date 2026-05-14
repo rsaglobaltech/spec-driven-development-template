@@ -445,6 +445,40 @@ vendor dependency.
 
 ---
 
+## 5c. Inferring a pack from a `.feature` (`pack infer`)
+
+The default authoring flow is model-first: write `requirements` →
+`use_cases` → `commands` → `events`, then the scenarios. That has a
+waterfall smell — the executable artifact comes last.
+
+`pack infer` inverts it. Write the Gherkin `.feature` first, then:
+
+```bash
+create-spec-driven-app pack infer --from ./drafts/capacity.feature
+```
+
+prints a proposed `pack.yaml` fragment — `requirements`, `use_cases`,
+`commands`, `events`, `scenarios` — derived heuristically from the file:
+
+| Source in the `.feature`                 | Becomes                                                  |
+| ---------------------------------------- | -------------------------------------------------------- |
+| `@REQ-001` tag                           | a `requirement` reference (else a `REQ-XXX` placeholder) |
+| `Feature:` name                          | the `use_case` name                                      |
+| `When` step                              | a proposed `command` (PascalCased)                       |
+| Quoted PascalCase token in a `Then` step | a proposed `event`                                       |
+| each `Scenario:`                         | a `scenarios[]` entry                                    |
+
+The inference is **heuristic and deterministic** — no LLM, no network.
+Anything it cannot infer is left as an explicit `TODO:` string, so the
+fragment is a starting skeleton to review and fill in, never a
+silently-guessed final answer. `--format json` emits the same model as a
+structured object for tooling.
+
+> An LLM-assisted mode (shell-out, vendor-neutral — the same pattern as
+> `harness run`) is a possible follow-up behind a `--llm` flag.
+
+---
+
 ## 6. References
 
 - Example pack: [`tests/fixtures/domain-packs/parking-management/backend/pack.yaml`](../../tests/fixtures/domain-packs/parking-management/backend/pack.yaml)

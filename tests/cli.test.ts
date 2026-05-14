@@ -731,3 +731,54 @@ test("pack lint --graph rejects an unknown --graph-format", () => {
   assert.equal(result.status, 2);
   assert.match(result.stderr, /Invalid --graph-format/);
 });
+
+// ── pack infer (.feature → pack.yaml skeleton, M-visual Phase 3) ─────────
+
+test("pack infer proposes a pack.yaml fragment from a .feature file", () => {
+  const result = runCli([
+    "pack",
+    "infer",
+    "--from",
+    "tests/fixtures/domain-packs/parking-management/backend/templates/features/capacity/capacity_threshold.feature.tpl",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /# Proposed pack\.yaml fragment inferred from/);
+  assert.match(result.stdout, /requirements:/);
+  assert.match(result.stdout, /use_cases:/);
+  assert.match(result.stdout, /commands:/);
+  assert.match(result.stdout, /events:/);
+  assert.match(result.stdout, /scenarios:/);
+  assert.match(result.stdout, /CapacityThresholdReached/);
+});
+
+test("pack infer --format json emits a structured model", () => {
+  const result = runCli([
+    "pack",
+    "infer",
+    "--from",
+    "tests/fixtures/domain-packs/parking-management/backend/templates/features/capacity/capacity_threshold.feature.tpl",
+    "--format",
+    "json",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.schema_version, 1);
+  assert.ok(Array.isArray(parsed.scenarios));
+  assert.ok(parsed.use_cases[0].name.length > 0);
+});
+
+test("pack infer requires --from", () => {
+  const result = runCli(["pack", "infer"]);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /--from .* is required/);
+});
+
+test("pack infer exits non-zero on a feature file with no scenarios", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-infer-empty-"));
+  const featurePath = path.join(tempRoot, "empty.feature");
+  fs.writeFileSync(featurePath, "Feature: Nothing here\n", "utf8");
+  const result = runCli(["pack", "infer", "--from", featurePath]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /No Gherkin scenarios/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
