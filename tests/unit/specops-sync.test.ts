@@ -53,6 +53,24 @@ test("parseArgs rejects --force together with --abort-on-conflict", () => {
   assert.throws(() => parseArgs(["--force", "--abort-on-conflict"]), /mutually exclusive/);
 });
 
+test("parseArgs collects repeated --var into a vars map", () => {
+  const args = parseArgs(["--var", "STACK=Node 20", "--var", "EXTRA=on"]);
+  assert.deepEqual(args.vars, { STACK: "Node 20", EXTRA: "on" });
+});
+
+test("parseArgs rejects a malformed --var", () => {
+  assert.throws(() => parseArgs(["--var", "NOEQUALS"]), /KEY=VALUE/);
+});
+
+test("buildExpandArgs lets --var extend and override the lockfile vars", () => {
+  const entry = { repo: "r", pack_id: "backend", version: "v1", vars: { PROJECT_NAME: "Old" } };
+  const out = buildExpandArgs(entry, "v2", "/p", "", false, { PROJECT_NAME: "New", STACK: "Node" });
+  // CLI value wins; new key is added.
+  assert.ok(out.includes("PROJECT_NAME=New"));
+  assert.ok(!out.includes("PROJECT_NAME=Old"));
+  assert.ok(out.includes("STACK=Node"));
+});
+
 // ── reconcileFile — three-way classification ─────────────────────────────────
 
 function tmpProject() {

@@ -42,6 +42,23 @@ test("parseArgs throws on unknown flag", () => {
   assert.throws(() => parseArgs(["--bogus"]), /Unknown argument/);
 });
 
+test("parseArgs collects repeated --var into a vars map", () => {
+  const args = parseArgs(["--var", "STACK=Node 20", "--var", "EXTRA=on"]);
+  assert.deepEqual(args.vars, { STACK: "Node 20", EXTRA: "on" });
+});
+
+test("parseArgs rejects a malformed --var", () => {
+  assert.throws(() => parseArgs(["--var", "NOEQUALS"]), /KEY=VALUE/);
+});
+
+test("buildExpandArgs lets --var extend and override the lockfile vars", () => {
+  const entry = { repo: "r", pack_id: "backend", version: "v1", vars: { PROJECT_NAME: "Old" } };
+  const out = buildExpandArgs(entry, "v2", "/tmp/x", "", { PROJECT_NAME: "New", STACK: "Node" });
+  assert.ok(out.includes("PROJECT_NAME=New"));
+  assert.ok(!out.includes("PROJECT_NAME=Old"));
+  assert.ok(out.includes("STACK=Node"));
+});
+
 // ── walkFiles ────────────────────────────────────────────────────────────────
 
 test("walkFiles returns POSIX-relative paths from a directory tree", () => {
