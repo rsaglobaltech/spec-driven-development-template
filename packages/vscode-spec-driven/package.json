@@ -5,9 +5,21 @@
   "version": "0.1.0",
   "publisher": "rsaglobaltech",
   "license": "MIT",
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Linters", "Other"],
-  "keywords": ["spec-driven", "BDD", "DDD", "gherkin", "traceability", "pack.yaml"],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "spec-driven",
+    "BDD",
+    "DDD",
+    "gherkin",
+    "traceability",
+    "pack.yaml"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/rsaglobaltech/spec-driven-development-template.git",
@@ -28,6 +40,10 @@
       {
         "command": "spec-driven.validateProject",
         "title": "Spec-Driven: Validate Project"
+      },
+      {
+        "command": "spec-driven.showPackGraph",
+        "title": "Spec-Driven: Show Pack Graph"
       }
     ],
     "menus": {
@@ -41,6 +57,11 @@
           "command": "spec-driven.validateProject",
           "when": "workspaceFolderCount > 0",
           "group": "spec-driven@2"
+        },
+        {
+          "command": "spec-driven.showPackGraph",
+          "when": "resourceFilename == pack.yaml",
+          "group": "spec-driven@3"
         }
       ]
     },

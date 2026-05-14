@@ -41,17 +41,17 @@ create/update/render diagrams.
 
 **Verdict: not a fit as a core dependency. Marginal, optional value for read-only viz.**
 
-| Criterion | Assessment |
-|---|---|
-| Solves cross-referencing? | No. Eraser renders diagrams *from* text; it does not author or validate cross-referenced YAML. |
-| Solves "what IDs exist"? | No. It has no model of `pack.yaml` semantics. |
-| Inverts the flow (`.feature` → model)? | No. |
-| Direction of data flow | Wrong way. We already *have* the structured data; we would only be feeding it to Eraser to draw. We can draw it ourselves. |
-| Vendor lock-in | Yes — cloud, paid tiers, account required. Pack authoring would depend on a third-party SaaS being up. |
-| Offline / CI | No. Diagrams render server-side. |
-| Fits "vendor-neutral" thesis | No. The harness work just went out of its way to shell-out to *any* agent precisely to avoid lock-in. Adopting Eraser as the authoring surface contradicts that. |
+| Criterion                              | Assessment                                                                                                                                                       |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Solves cross-referencing?              | No. Eraser renders diagrams _from_ text; it does not author or validate cross-referenced YAML.                                                                   |
+| Solves "what IDs exist"?               | No. It has no model of `pack.yaml` semantics.                                                                                                                    |
+| Inverts the flow (`.feature` → model)? | No.                                                                                                                                                              |
+| Direction of data flow                 | Wrong way. We already _have_ the structured data; we would only be feeding it to Eraser to draw. We can draw it ourselves.                                       |
+| Vendor lock-in                         | Yes — cloud, paid tiers, account required. Pack authoring would depend on a third-party SaaS being up.                                                           |
+| Offline / CI                           | No. Diagrams render server-side.                                                                                                                                 |
+| Fits "vendor-neutral" thesis           | No. The harness work just went out of its way to shell-out to _any_ agent precisely to avoid lock-in. Adopting Eraser as the authoring surface contradicts that. |
 
-**Where Eraser *could* marginally help:** a one-off, opt-in "export pack
+**Where Eraser _could_ marginally help:** a one-off, opt-in "export pack
 graph to Eraser" command for someone who already pays for it and wants a
 prettier canvas. That is a nice-to-have plugin, not a foundation. Do not
 build the authoring story on it.
@@ -80,7 +80,7 @@ recommended first step.
 
 `packages/vscode-spec-driven` already does pack.yaml schema squigglies +
 validate-on-save + traceability navigation. It is the natural home for
-*interactive* authoring:
+_interactive_ authoring:
 
 - Hover an `AGG-001` ref → go-to-definition / peek.
 - Autocomplete reference fields from IDs that exist in the file.
@@ -104,7 +104,7 @@ forms, live preview).
   format still has open ergonomic questions (DDD opt-in, `pack infer`).
   Stabilize the format first; a GUI built now would fight every change.
 - The CLI must stay the source of truth. Anything visual should be a
-  *thin layer over the CLI*, not a replacement — otherwise the two drift.
+  _thin layer over the CLI_, not a replacement — otherwise the two drift.
 - If a richer visual editor is ever justified, the VS Code extension
   (3.2) is the cheaper delivery vehicle than a from-scratch app.
 
@@ -117,7 +117,7 @@ Not a "visual" tool, but the highest-leverage ergonomic move and it
 belongs in this evaluation. Author writes the `.feature` first; the tool
 proposes `use_cases` / `commands` / `events`. Turns authoring from
 model→scenario into scenario→model. Kills the waterfall smell that a
-visual model-first editor would actually *reinforce*.
+visual model-first editor would actually _reinforce_.
 
 ---
 
@@ -160,11 +160,11 @@ lipstick we rent.
 - [ ] (Optional, deferred) `--graph-out <file.md>` to write instead of
       stdout — shell redirection covers this for now.
 
-### Phase 2 — VS Code extension authoring upticks — ◑ IN PROGRESS (5/6)
+### Phase 2 — VS Code extension authoring upticks — ✅ DONE
 
 Pure foundation: `packages/vscode-spec-driven/src/pack-graph.ts`
-(`analyzePackGraph`, `referenceKindForLine`, `findDeclarationPosition`),
-unit-tested in `test/unit/pack-graph.test.ts`.
+(`analyzePackGraph`, `referenceKindForLine`, `findDeclarationPosition`,
+`renderPackMermaid`), unit-tested in `test/unit/pack-graph.test.ts`.
 
 - [x] Reference-field autocomplete: when editing a `requirement:`,
       `aggregate:`, `command:`, `query:` field or an `emits:`/`requirements:`
@@ -176,9 +176,10 @@ unit-tested in `test/unit/pack-graph.test.ts`.
       `id: REQ-NNN` declaration line.
 - [x] Diagnostic for dangling references — mirrors `pack lint`'s cross-ref
       errors live in the editor, with line/col positions.
-- [ ] Graph webview: render the Phase 1 Mermaid output in a side panel,
-      refresh on save. (Remaining — separate vscode-webview step.)
-- [x] Extension tests for the pure logic (`pack-graph.test.ts`, 15 tests).
+- [x] Graph webview: `Spec-Driven: Show Pack Graph` renders the
+      `REQ→UC→CMD/QUERY/AGG/EVT` graph (Mermaid via jsDelivr CDN) in a side
+      panel, refreshing on edit/save (`renderPackMermaid` + WebviewPanel).
+- [x] Extension tests for the pure logic (`pack-graph.test.ts`, 20 tests).
 
 ### Phase 3 — `pack infer` (separate track, highest ergonomic leverage)
 

@@ -48,6 +48,34 @@ Run the same action from the Command Palette:
 `Spec-Driven: Validate Project` — runs validate on every workspace folder
 regardless of the save trigger.
 
+### 5. pack.yaml cross-reference authoring
+
+The hardest part of writing a `pack.yaml` is keeping IDs consistent
+(`REQ → UC → CMD/QUERY/AGG → EVT`). The extension makes those references
+first-class:
+
+- **Dangling-reference diagnostics** — a `use_case` that points at a
+  requirement, command, query, aggregate or event that does not exist is
+  underlined as you type. (The JSON Schema validates shape; this validates
+  referential integrity.)
+- **Reference autocomplete** — inside a `requirement:`, `command:`,
+  `query:` or `aggregate:` field, or an `emits:` / `requirements:` list
+  item, completions offer the IDs/names actually declared in the pack.
+- **Go-to-definition** — `F12` on any reference jumps to its `id:` / `name:`
+  declaration line.
+- **Requirement reference counts** — a CodeLens on each `id: REQ-NNN`
+  declaration shows how many use cases and scenarios reference it.
+
+### 6. Pack Graph webview
+
+`Spec-Driven: Show Pack Graph` (also on the `pack.yaml` editor context
+menu) opens a side panel that renders the pack's
+`REQ → UC → CMD/QUERY/AGG/EVT` graph with Mermaid. Dangling references
+appear as red **missing** nodes. The panel refreshes as you edit and save.
+
+> The webview loads Mermaid from jsDelivr, so this one feature needs
+> network access. Everything else works fully offline.
+
 ---
 
 ## Requirements
@@ -60,12 +88,12 @@ regardless of the save trigger.
 
 ## Extension Settings
 
-| Setting | Default | Description |
-|---|---|---|
-| `spec-driven.cliPath` | `npx create-spec-driven-app` | How to invoke the CLI |
-| `spec-driven.validateOnSave` | `true` | Run validate automatically on save |
-| `spec-driven.schemaPath` | _(empty)_ | Override path to `pack.schema.json` |
-| `spec-driven.codeLens` | `true` | Show CodeLens above requirement IDs |
+| Setting                      | Default                      | Description                         |
+| ---------------------------- | ---------------------------- | ----------------------------------- |
+| `spec-driven.cliPath`        | `npx create-spec-driven-app` | How to invoke the CLI               |
+| `spec-driven.validateOnSave` | `true`                       | Run validate automatically on save  |
+| `spec-driven.schemaPath`     | _(empty)_                    | Override path to `pack.schema.json` |
+| `spec-driven.codeLens`       | `true`                       | Show CodeLens above requirement IDs |
 
 ---
 
@@ -96,10 +124,13 @@ To launch the extension in a VS Code Extension Development Host:
 src/
 ├── extension.js       # VS Code adapter (only file that imports vscode)
 ├── pack-validator.js  # Pure: YAML parse + AJV schema validation
+├── pack-graph.js      # Pure: cross-reference graph, dangling-ref detection,
+│                      #       autocomplete candidates, Mermaid rendering
 ├── traceability.js    # Pure: requirement ID finder + traceability navigator
 └── validate-runner.js # Pure: spawns CLI subprocess
 test/unit/
 ├── pack-validator.test.js
+├── pack-graph.test.js
 └── traceability.test.js
 ```
 

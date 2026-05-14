@@ -244,6 +244,154 @@ function findDeclarationPosition(content, idOrName) {
   return null;
 }
 
+// ── Mermaid graph (for the webview) ───────────────────────────────────────────
+//
+// The editor-side mirror of the CLI's `pack lint --graph`: same spine
+// (REQ → UC → CMD/QUERY/AGG/EVT), same node classes, rendered as Mermaid so the
+// webview can draw it offline without shelling out to the CLI.
+
+function sanitizeNodeId(id) {
+  return id.replace(/[^A-Za-z0-9]/g, "_");
+}
+
+/**
+ * Build the node/edge model from parsed pack content. Dangling references
+ * become `missing`-typed nodes so the break is visible in the diagram.
+ * @returns {{ nodes: {id:string,type:string,label:string}[], edges: {from:string,to:string,kind:string}[] }}
+ */
+function buildPackGraphModel(pack) {
+  const nodes = [];
+  const edges = [];
+  const seen = new Set();
+  const addNode = (id, type, label) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    nodes.push({ id, type, label });
+  };
+  const missingNode = (kind, ref) => {
+    const id = `MISSING:${kind}:${ref}`;
+    addNode(id, "missing", ref);
+    return id;
+  };
+  if (!pack || typeof pack !== "object") return { nodes, edges };
+
+  const declared = collectDeclared(pack);
+  const labelOf = (e, fallback) =>
+    e.id && e.name ? `${e.id} ${e.name}` : e.id || e.name || fallback;
+
+  for (const r of asArray(pack.requirements)) {
+    if (r && r.id) addNode(`REQ:${r.id}`, "requirement", String(r.id));
+  }
+  for (const u of asArray(pack.use_cases)) {
+    if (u && u.id) addNode(`UC:${u.id}`, "use_case", labelOf(u, "(use case)"));
+  }
+  for (const c of asArray(pack.commands)) {
+    if (c) addNode(`CMD:${c.id || c.name}`, "command", labelOf(c, "(command)"));
+  }
+  for (const q of asArray(pack.queries)) {
+    if (q) addNode(`QUERY:${q.id || q.name}`, "query", labelOf(q, "(query)"));
+  }
+  for (const a of asArray(pack.aggregates)) {
+    if (a) addNode(`AGG:${a.id || a.name}`, "aggregate", labelOf(a, "(aggregate)"));
+  }
+  for (const e of asArray(pack.events)) {
+    if (e) addNode(`EVT:${e.id || e.name}`, "event", labelOf(e, "(event)"));
+  }
+
+  // Index commands/queries/aggregates/events by every key they answer to.
+  const indexByKey = (items, prefix) => {
+    const map = new Map();
+    for (const it of asArray(items)) {
+      if (!it) continue;
+      const node = `${prefix}:${it.id || it.name}`;
+      if (it.id) map.set(String(it.id), node);
+      if (it.name) map.set(String(it.name), node);
+    }
+    return map;
+  };
+  const cmdNodes = indexByKey(pack.commands, "CMD");
+  const queryNodes = indexByKey(pack.queries, "QUERY");
+  const aggNodes = indexByKey(pack.aggregates, "AGG");
+  const evtNodes = indexByKey(pack.events, "EVT");
+  const reqNodes = new Map(
+    asArray(pack.requirements)
+      .filter((r) => r && r.id)
+      .map((r) => [String(r.id), `REQ:${r.id}`])
+  );
+
+  for (const u of asArray(pack.use_cases)) {
+    if (!u || typeof u !== "object") continue;
+    const from = `UC:${u.id}`;
+
+    const reqRefs = asArray(u.requirements || (u.requirement ? [u.requirement] : []));
+    for (const ref of reqRefs) {
+      const to = reqNodes.get(String(ref)) || missingNode("requirement", ref);
+      edges.push({ from: to, to: from, kind: "implements" });
+    }
+    if (u.command) {
+      edges.push({
+        from,
+        to: cmdNodes.get(String(u.command)) || missingNode("command", u.command),
+        kind: "dispatches",
+      });
+    }
+    if (u.query) {
+      edges.push({
+        from,
+        to: queryNodes.get(String(u.query)) || missingNode("query", u.query),
+        kind: "runs",
+      });
+    }
+    if (u.aggregate) {
+      edges.push({
+        from,
+        to: aggNodes.get(String(u.aggregate)) || missingNode("aggregate", u.aggregate),
+        kind: "handled by",
+      });
+    }
+    for (const ref of asArray(u.emits)) {
+      edges.push({
+        from,
+        to: evtNodes.get(String(ref)) || missingNode("event", ref),
+        kind: "emits",
+      });
+    }
+  }
+
+  void declared;
+  return { nodes, edges };
+}
+
+/** Render a pack.yaml document as a Mermaid `graph LR` string. */
+function renderPackMermaid(content) {
+  let pack;
+  try {
+    pack = yaml.load(content, { json: true });
+  } catch {
+    pack = null;
+  }
+  const { nodes, edges } = buildPackGraphModel(pack);
+  const lines = ["graph LR"];
+  if (nodes.length === 0) {
+    lines.push('  empty["(no requirements / use cases declared yet)"]');
+  }
+  for (const n of nodes) {
+    lines.push(`  ${sanitizeNodeId(n.id)}["${n.label.replace(/"/g, "'")}"]:::${n.type}`);
+  }
+  for (const e of edges) {
+    lines.push(`  ${sanitizeNodeId(e.from)} -->|${e.kind}| ${sanitizeNodeId(e.to)}`);
+  }
+  lines.push("");
+  lines.push("  classDef requirement fill:#e7f5ff,stroke:#1c7ed6;");
+  lines.push("  classDef use_case fill:#fff9db,stroke:#f08c00;");
+  lines.push("  classDef command fill:#f3f0ff,stroke:#7048e8;");
+  lines.push("  classDef query fill:#f3f0ff,stroke:#7048e8;");
+  lines.push("  classDef aggregate fill:#ebfbee,stroke:#2f9e44;");
+  lines.push("  classDef event fill:#fff0f6,stroke:#c2255c;");
+  lines.push("  classDef missing fill:#ff6b6b,stroke:#c92a2a,color:#fff;");
+  return lines.join("\n");
+}
+
 module.exports = {
   collectDeclared,
   findReferencePosition,
@@ -252,4 +400,6 @@ module.exports = {
   analyzePackGraph,
   referenceKindForLine,
   findDeclarationPosition,
+  buildPackGraphModel,
+  renderPackMermaid,
 };

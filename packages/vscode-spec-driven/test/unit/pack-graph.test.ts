@@ -9,6 +9,8 @@ const {
   analyzePackGraph,
   referenceKindForLine,
   findDeclarationPosition,
+  buildPackGraphModel,
+  renderPackMermaid,
 } = require("../../src/pack-graph");
 
 const GOOD_PACK = `
@@ -165,4 +167,43 @@ test("findDeclarationPosition locates a name declaration", () => {
 
 test("findDeclarationPosition returns null when the entity is not declared", () => {
   assert.equal(findDeclarationPosition(GOOD_PACK, "REQ-404"), null);
+});
+
+// ── buildPackGraphModel / renderPackMermaid ──────────────────────────────────
+
+test("buildPackGraphModel wires the REQ→UC→CMD/AGG/EVT spine", () => {
+  const yaml = require("js-yaml");
+  const { nodes, edges } = buildPackGraphModel(yaml.load(GOOD_PACK));
+  const types = [...new Set(nodes.map((n) => n.type))].sort();
+  assert.deepEqual(types, ["aggregate", "command", "event", "requirement", "use_case"]);
+
+  const edge = (from, kind) => edges.find((e) => e.from === from && e.kind === kind);
+  assert.equal(edge("REQ:REQ-001", "implements").to, "UC:UC-001");
+  assert.equal(edge("UC:UC-001", "dispatches").to, "CMD:CMD-001");
+  assert.equal(edge("UC:UC-001", "emits").to, "EVT:EVT-001");
+});
+
+test("buildPackGraphModel turns a dangling reference into a missing node", () => {
+  const yaml = require("js-yaml");
+  const bad = yaml.load(`
+use_cases:
+  - id: UC-001
+    command: GhostCommand
+commands: []
+`);
+  const { nodes } = buildPackGraphModel(bad);
+  assert.ok(nodes.some((n) => n.type === "missing" && n.label === "GhostCommand"));
+});
+
+test("renderPackMermaid emits a graph with sanitized ids and classDefs", () => {
+  const mermaid = renderPackMermaid(GOOD_PACK);
+  assert.match(mermaid, /^graph LR/);
+  assert.match(mermaid, /REQ_REQ_001\["REQ-001"\]:::requirement/);
+  assert.match(mermaid, /-->\|implements\|/);
+  assert.match(mermaid, /classDef missing fill:#ff6b6b/);
+});
+
+test("renderPackMermaid degrades gracefully on empty or unparseable content", () => {
+  assert.match(renderPackMermaid(""), /no requirements \/ use cases/);
+  assert.match(renderPackMermaid("not: : valid"), /^graph LR/);
 });

@@ -14,7 +14,12 @@ const fs = require("node:fs");
 const { validatePackYaml } = require("./pack-validator");
 const { findRequirementIds, findIdInTraceability, parseValidateOutput } = require("./traceability");
 const { runValidate } = require("./validate-runner");
-const { analyzePackGraph, referenceKindForLine, findDeclarationPosition } = require("./pack-graph");
+const {
+  analyzePackGraph,
+  referenceKindForLine,
+  findDeclarationPosition,
+  renderPackMermaid,
+} = require("./pack-graph");
 
 // ── Diagnostic collections ──────────────────────────────────────────────────────────────
 
@@ -22,6 +27,12 @@ const { analyzePackGraph, referenceKindForLine, findDeclarationPosition } = requ
 let packDiagnostics;
 /** @type {vscode.DiagnosticCollection} */
 let validateDiagnostics;
+
+// The single live "Pack Graph" webview panel, and the pack.yaml it mirrors.
+/** @type {vscode.WebviewPanel|null} */
+let packGraphPanel = null;
+/** @type {string|null} */
+let packGraphFsPath = null;
 
 // ── Activation ────────────────────────────────────────────────────────────────────────────
 
@@ -48,14 +59,17 @@ function activate(context) {
     })
   );
 
-  // Run project-level validate on save (opt-in via setting)
+  // Run project-level validate on save (opt-in via setting); refresh the
+  // Pack Graph webview when its source pack.yaml is saved or edited.
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
+      refreshPackGraphFor(doc);
       const cfg = config();
       if (!cfg.get("validateOnSave")) return;
       const root = findProjectRoot(doc.uri.fsPath);
       if (root) triggerProjectValidate(root, cfg.get("cliPath"));
-    })
+    }),
+    vscode.workspace.onDidChangeTextDocument((evt) => refreshPackGraphFor(evt.document))
   );
 
   // CodeLens: "Reveal REQ-NNN in traceability" above every requirement ID
@@ -81,7 +95,8 @@ function activate(context) {
       "spec-driven.revealInTraceability",
       cmdRevealInTraceability
     ),
-    vscode.commands.registerCommand("spec-driven.validateProject", cmdValidateProject)
+    vscode.commands.registerCommand("spec-driven.validateProject", cmdValidateProject),
+    vscode.commands.registerCommand("spec-driven.showPackGraph", cmdShowPackGraph)
   );
 
   // Lint any pack.yaml files already open when extension activates
@@ -93,6 +108,7 @@ function activate(context) {
 function deactivate() {
   packDiagnostics?.dispose();
   validateDiagnostics?.dispose();
+  packGraphPanel?.dispose();
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────────
@@ -290,6 +306,119 @@ async function cmdValidateProject() {
   for (const folder of folders) {
     triggerProjectValidate(folder.uri.fsPath, cliPath);
   }
+}
+
+// ── Pack Graph webview ────────────────────────────────────────────────────────────────
+
+/** Command: spec-driven.showPackGraph */
+function cmdShowPackGraph() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || !isPackYaml(editor.document)) {
+    vscode.window.showInformationMessage("Open a pack.yaml file, then run this command.");
+    return;
+  }
+  const doc = editor.document;
+
+  if (packGraphPanel) {
+    packGraphFsPath = doc.fileName;
+    packGraphPanel.title = `Pack Graph — ${path.basename(path.dirname(doc.fileName))}`;
+    packGraphPanel.reveal(vscode.ViewColumn.Beside);
+    postPackGraph(doc);
+    return;
+  }
+
+  packGraphPanel = vscode.window.createWebviewPanel(
+    "specDrivenPackGraph",
+    `Pack Graph — ${path.basename(path.dirname(doc.fileName))}`,
+    vscode.ViewColumn.Beside,
+    { enableScripts: true, retainContextWhenHidden: true }
+  );
+  packGraphFsPath = doc.fileName;
+  packGraphPanel.webview.html = packGraphHtml(packGraphPanel.webview);
+  packGraphPanel.onDidDispose(() => {
+    packGraphPanel = null;
+    packGraphFsPath = null;
+  });
+  // The webview tells us when its script is ready, then we send the graph.
+  packGraphPanel.webview.onDidReceiveMessage((msg) => {
+    if (msg && msg.type === "ready") postPackGraph(doc);
+  });
+}
+
+/** Re-render the webview when its source pack.yaml changes. */
+function refreshPackGraphFor(doc) {
+  if (!packGraphPanel || !packGraphFsPath) return;
+  if (doc.fileName !== packGraphFsPath) return;
+  postPackGraph(doc);
+}
+
+function postPackGraph(doc) {
+  if (!packGraphPanel) return;
+  packGraphPanel.webview.postMessage({
+    type: "update",
+    mermaid: renderPackMermaid(doc.getText()),
+  });
+}
+
+function nonce() {
+  let s = "";
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  for (let i = 0; i < 24; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+/**
+ * Static webview shell. Mermaid is loaded from jsDelivr (the webview needs
+ * network for this feature); the graph text arrives via postMessage so edits
+ * re-render without reloading the CDN script.
+ */
+function packGraphHtml(webview) {
+  const n = nonce();
+  const cdn = "https://cdn.jsdelivr.net";
+  const csp =
+    `default-src 'none'; ` +
+    `img-src ${webview.cspSource} data:; ` +
+    `style-src ${webview.cspSource} 'unsafe-inline'; ` +
+    `script-src 'nonce-${n}' ${cdn};`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="${csp}" />
+  <style>
+    body { font-family: var(--vscode-font-family); padding: 0; margin: 0; }
+    #toolbar { padding: 6px 10px; font-size: 12px; opacity: 0.7; }
+    #graph { padding: 10px; }
+    .err { color: var(--vscode-errorForeground); padding: 10px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div id="toolbar">REQ → UC → CMD/QUERY/AGG/EVT — refreshes on save</div>
+  <div id="graph">Loading…</div>
+  <script nonce="${n}" src="${cdn}/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script nonce="${n}">
+    const vscode = acquireVsCodeApi();
+    let ready = false;
+    if (window.mermaid) {
+      mermaid.initialize({ startOnLoad: false, securityLevel: "strict" });
+      ready = true;
+    }
+    const graphEl = document.getElementById("graph");
+    window.addEventListener("message", async (event) => {
+      const msg = event.data;
+      if (!msg || msg.type !== "update") return;
+      if (!ready) { graphEl.innerHTML = '<div class="err">Mermaid failed to load (no network?).</div>'; return; }
+      try {
+        const { svg } = await mermaid.render("packGraph", msg.mermaid);
+        graphEl.innerHTML = svg;
+      } catch (e) {
+        graphEl.innerHTML = '<div class="err">Could not render graph:\\n' + String(e && e.message || e) + '</div>';
+      }
+    });
+    vscode.postMessage({ type: "ready" });
+  </script>
+</body>
+</html>`;
 }
 
 // ── CodeLens provider ─────────────────────────────────────────────────────────────────
