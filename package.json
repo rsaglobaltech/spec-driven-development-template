@@ -5,7 +5,8 @@
   "license": "MIT",
   "type": "commonjs",
   "bin": {
-    "create-spec-driven-app": "bin/create-spec-driven-app.js"
+    "create-spec-driven-app": "bin/create-spec-driven-app.js",
+    "csda": "bin/create-spec-driven-app.js"
   },
   "files": [
     "bin/",
