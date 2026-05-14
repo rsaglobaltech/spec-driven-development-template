@@ -43,11 +43,11 @@
 
 ```bash
 # 1. Copy the example config and edit it (PROJECT_NAME, PROJECT_SLUG, …)
-cp examples/project.config.example /tmp/acme-energy-hub.config
+cp examples/project.yaml.example /tmp/acme-energy-hub.yaml
 
 # 2. Generate the project
 npx create-spec-driven-app@latest init \
-  --config /tmp/acme-energy-hub.config \
+  --config /tmp/acme-energy-hub.yaml \
   --out /tmp
 
 # 3. Validate
@@ -83,19 +83,23 @@ Full reference: `npx create-spec-driven-app --help` · **[End-to-end tutorial](d
 
 ## ⚙️ Configuration
 
-Minimum config (key=value, not shell):
+`init --config` accepts a **YAML mapping** (`.yaml` / `.yml`) or the legacy
+`KEY="value"` format (`.config`) — the parser is chosen by file extension.
 
-```ini
-PROJECT_NAME="Acme Energy Hub"
-PROJECT_SLUG="acme-energy-hub"
-PROJECT_TYPE="backend"          # backend | frontend | contracts
-DOMAIN="community energy"
-STACK="Quarkus 3.x, Java 21, PostgreSQL"
-API_STYLE="REST with DTO boundaries"
-TESTING="JUnit 5, Testcontainers, Cucumber"
+```yaml
+# project.yaml — a flat mapping, same keys either way
+PROJECT_NAME: Acme Energy Hub
+PROJECT_SLUG: acme-energy-hub
+PROJECT_TYPE: backend # backend | frontend | contracts
+DOMAIN: community energy
+STACK: Quarkus 3.x, Java 21, PostgreSQL
+API_STYLE: REST with DTO boundaries
+TESTING: JUnit 5, Testcontainers, Cucumber
 ```
 
-Optional: `LANG`, `MODULES="auth,dashboard,billing"`. See [`examples/project.config.example`](examples/project.config.example).
+Optional: `LANG`, `MODULES: "auth,dashboard,billing"`. See
+[`examples/project.yaml.example`](examples/project.yaml.example) (YAML) or
+[`examples/project.config.example`](examples/project.config.example) (legacy).
 
 ## 🧪 Domain packs
 

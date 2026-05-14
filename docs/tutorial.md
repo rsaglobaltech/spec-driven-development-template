@@ -85,31 +85,38 @@ csda --help             # the full command list
 ## 3. Step 1 — Scaffold the project (`init`)
 
 `init` generates an empty-but-valid spec-driven project from a config file.
+The config can be a **YAML mapping** (`.yaml` / `.yml`) or the legacy
+`KEY="value"` format (`.config`) — `init` picks the parser from the file
+extension. This tutorial uses YAML.
 
 ```bash
 mkdir -p ~/sandbox && cd ~/sandbox
 
-cat > smart-parking.config <<'EOF'
+cat > smart-parking.yaml <<'EOF'
 # Required
-PROJECT_NAME="Smart Parking"
-PROJECT_SLUG="smart-parking"
-PROJECT_TYPE="backend"          # backend | frontend
-DOMAIN="parking operations"
-STACK="Quarkus 3.x, Java 21, PostgreSQL, RESTEasy Reactive, Maven"
-API_STYLE="REST with DTO boundaries"
-TESTING="JUnit 5, Testcontainers, Cucumber"
+PROJECT_NAME: Smart Parking
+PROJECT_SLUG: smart-parking
+PROJECT_TYPE: backend # backend | frontend
+DOMAIN: parking operations
+STACK: Quarkus 3.x, Java 21, PostgreSQL, RESTEasy Reactive, Maven
+API_STYLE: REST with DTO boundaries
+TESTING: JUnit 5, Testcontainers, Cucumber
 
 # Optional
-LANG="en"
-MODULES=""                      # e.g. "auth,billing"
+LANG: en
+MODULES: "" # e.g. auth,billing
 EOF
 
-csda init --config ./smart-parking.config --out .
+csda init --config ./smart-parking.yaml --out .
 cd smart-parking
 ```
 
 **Flags:** `--force` (overwrite an existing target), `--dry-run` (print
 actions, write nothing), `--no-git` (skip `git init`).
+
+> The YAML config is a **flat mapping** — the same keys as the legacy
+> format, no nesting. `init` warns on unknown keys and fails on a missing
+> required one. See [`examples/project.yaml.example`](../examples/project.yaml.example).
 
 **What you get:**
 
@@ -656,7 +663,7 @@ The `mcp-spec-driven` server exposes `plan`, `mark_requirement_done`,
 
 | Command                                                               | What it does                                                             |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `csda init --config <f> --out <dir>`                                  | Scaffold a new spec-driven project                                       |
+| `csda init --config <f.yaml> --out <dir>`                             | Scaffold a new spec-driven project (YAML or legacy `.config`)            |
 | `csda validate <dir> [--strict-tdd]`                                  | Check structure, traceability, Gherkin; `--strict-tdd` adds the TDD gate |
 | `csda expand --pack-repo … --pack-version … --pack …`                 | Low-level pack render (what `sync` calls)                                |
 | `csda plan [--format json]`                                           | List requirements still needing work                                     |
