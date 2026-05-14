@@ -160,18 +160,25 @@ lipstick we rent.
 - [ ] (Optional, deferred) `--graph-out <file.md>` to write instead of
       stdout — shell redirection covers this for now.
 
-### Phase 2 — VS Code extension authoring upticks
+### Phase 2 — VS Code extension authoring upticks — ◑ IN PROGRESS (5/6)
 
-- [ ] Reference-field autocomplete: when editing a `requirement:`,
-      `aggregate:`, `command:`, `emits:` field, suggest IDs/names that
-      exist in the current `pack.yaml`.
-- [ ] Go-to-definition / peek on an ID reference.
-- [ ] CodeLens on `requirements[]`: "N use cases · M scenarios reference this".
-- [ ] Diagnostic for dangling references (mirror `pack lint`'s cross-ref
-      errors live in the editor).
+Pure foundation: `packages/vscode-spec-driven/src/pack-graph.ts`
+(`analyzePackGraph`, `referenceKindForLine`, `findDeclarationPosition`),
+unit-tested in `test/unit/pack-graph.test.ts`.
+
+- [x] Reference-field autocomplete: when editing a `requirement:`,
+      `aggregate:`, `command:`, `query:` field or an `emits:`/`requirements:`
+      list item, suggest IDs/names declared in the current `pack.yaml`
+      (`PackReferenceCompletionProvider`).
+- [x] Go-to-definition on an ID/name reference — jumps to its `id:`/`name:`
+      declaration (`PackReferenceDefinitionProvider`).
+- [x] CodeLens on `requirements[]`: "N use case(s) · M scenario(s)" on each
+      `id: REQ-NNN` declaration line.
+- [x] Diagnostic for dangling references — mirrors `pack lint`'s cross-ref
+      errors live in the editor, with line/col positions.
 - [ ] Graph webview: render the Phase 1 Mermaid output in a side panel,
-      refresh on save.
-- [ ] Extension tests for the above.
+      refresh on save. (Remaining — separate vscode-webview step.)
+- [x] Extension tests for the pure logic (`pack-graph.test.ts`, 15 tests).
 
 ### Phase 3 — `pack infer` (separate track, highest ergonomic leverage)
 

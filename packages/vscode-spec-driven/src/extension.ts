@@ -14,6 +14,7 @@ const fs = require("node:fs");
 const { validatePackYaml } = require("./pack-validator");
 const { findRequirementIds, findIdInTraceability, parseValidateOutput } = require("./traceability");
 const { runValidate } = require("./validate-runner");
+const { analyzePackGraph, referenceKindForLine, findDeclarationPosition } = require("./pack-graph");
 
 // ── Diagnostic collections ──────────────────────────────────────────────────────────────
 
@@ -60,6 +61,18 @@ function activate(context) {
   // CodeLens: "Reveal REQ-NNN in traceability" above every requirement ID
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider({ scheme: "file" }, new RequirementCodeLensProvider())
+  );
+
+  // pack.yaml authoring: reference-field autocomplete + go-to-definition.
+  context.subscriptions.push(
+    vscode.languages.registerCompletionItemProvider(
+      { scheme: "file", language: "yaml" },
+      new PackReferenceCompletionProvider()
+    ),
+    vscode.languages.registerDefinitionProvider(
+      { scheme: "file", language: "yaml" },
+      new PackReferenceDefinitionProvider()
+    )
   );
 
   // Commands
@@ -137,6 +150,12 @@ function lintPackDocument(doc) {
 
   for (const e of errors) {
     diags.push(makeDiag(e.line, e.col, e.message, e.severity));
+  }
+
+  // Cross-reference linting: dangling REQ/CMD/AGG/EVT references that the
+  // JSON Schema cannot catch (it validates shape, not referential integrity).
+  for (const d of analyzePackGraph(doc.getText()).dangling) {
+    diags.push(makeDiag(d.line, d.col, d.message, d.severity));
   }
 
   packDiagnostics.set(doc.uri, diags);
@@ -284,7 +303,7 @@ class RequirementCodeLensProvider {
     const cfg = config();
     if (!cfg.get("codeLens")) return [];
 
-    return findRequirementIds(document.getText()).map(({ id, line, col, endCol }) => {
+    const lenses = findRequirementIds(document.getText()).map(({ id, line, col, endCol }) => {
       const range = new vscode.Range(line, col, line, endCol);
       return new vscode.CodeLens(range, {
         title: `$(link-external) Reveal ${id} in traceability`,
@@ -292,6 +311,90 @@ class RequirementCodeLensProvider {
         tooltip: `Open docs/specs/traceability.md at ${id}`,
       });
     });
+
+    // In pack.yaml, show how many use cases / scenarios reference each
+    // requirement, right on its declaration line.
+    if (isPackYaml(document)) {
+      const { refCounts } = analyzePackGraph(document.getText());
+      const lines = document.getText().split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(/\bid:\s*["']?(REQ-\d+)\b/);
+        if (!m) continue;
+        const counts = refCounts.get(m[1]) || { useCases: 0, scenarios: 0 };
+        const idCol = lines[i].indexOf(m[1]);
+        const range = new vscode.Range(i, Math.max(0, idCol), i, idCol + m[1].length);
+        lenses.push(
+          new vscode.CodeLens(range, {
+            title:
+              `$(references) ${counts.useCases} use case(s) · ` + `${counts.scenarios} scenario(s)`,
+            command: "",
+            tooltip: `${m[1]} is referenced by ${counts.useCases} use case(s) and ${counts.scenarios} scenario(s) in this pack.`,
+          })
+        );
+      }
+    }
+
+    return lenses;
+  }
+}
+
+// ── pack.yaml reference autocomplete ──────────────────────────────────────────────────
+
+const KIND_DETAIL = {
+  requirement: "requirement",
+  command: "command",
+  query: "query",
+  aggregate: "aggregate",
+  event: "event",
+};
+
+class PackReferenceCompletionProvider {
+  /**
+   * @param {vscode.TextDocument} document
+   * @param {vscode.Position} position
+   * @returns {vscode.CompletionItem[]}
+   */
+  provideCompletionItems(document, position) {
+    if (!isPackYaml(document)) return [];
+
+    const lines = document.getText().split("\n");
+    const kind = referenceKindForLine(lines, position.line);
+    if (!kind) return [];
+
+    const { declared } = analyzePackGraph(document.getText());
+    const candidates = declared[kind];
+    if (!candidates || candidates.size === 0) return [];
+
+    return [...candidates].sort().map((value) => {
+      const item = new vscode.CompletionItem(value, vscode.CompletionItemKind.Reference);
+      item.detail = `pack.yaml ${KIND_DETAIL[kind]}`;
+      return item;
+    });
+  }
+}
+
+// ── pack.yaml go-to-definition ────────────────────────────────────────────────────────
+
+class PackReferenceDefinitionProvider {
+  /**
+   * @param {vscode.TextDocument} document
+   * @param {vscode.Position} position
+   * @returns {vscode.Location|null}
+   */
+  provideDefinition(document, position) {
+    if (!isPackYaml(document)) return null;
+
+    const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z][A-Za-z0-9_-]*/);
+    if (!wordRange) return null;
+
+    const token = document.getText(wordRange);
+    const decl = findDeclarationPosition(document.getText(), token);
+    if (!decl) return null;
+
+    // Don't jump from a declaration to itself.
+    if (decl.line === position.line) return null;
+
+    return new vscode.Location(document.uri, new vscode.Position(decl.line, decl.col));
   }
 }
 
