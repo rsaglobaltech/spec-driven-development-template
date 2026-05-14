@@ -195,6 +195,7 @@ See the [harness spec](docs/specs/harness.md).
 ## 📚 Learn more
 
 - 🚗 **[End-to-end tutorial](docs/tutorial.md)** — build Smart Parking on the real `parking-management-specops` pack; every command, plus adding new requirements.
+- 🎬 **[Automated demo video](scripts/demo/)** — `npm run demo:video` records a real terminal demo (VHS) with an optional AI voice-over.
 - 📖 **[How-to guide](docs/how-to.md)** — step-by-step recipes for every common workflow.
 - [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
 - [Case study — Smart Parking adoption](docs/case-studies/case-1.md)

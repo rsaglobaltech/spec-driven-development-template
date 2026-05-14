@@ -1,0 +1,38 @@
+{
+  "voice": "alloy",
+  "title": "create-spec-driven-app — automated demo",
+  "segments": [
+    {
+      "id": "intro",
+      "text": "create-spec-driven-app treats specifications as first-class, testable, traceable artifacts. Here is the whole workflow in under two minutes."
+    },
+    {
+      "id": "init",
+      "text": "Step one: scaffold. A small config file — project name, stack, testing tools — and init generates a complete spec-driven project: a requirements document, a traceability matrix, and a place for Gherkin scenarios."
+    },
+    {
+      "id": "specops-add",
+      "text": "Step two: apply a domain pack. A pack is versioned, reusable domain knowledge — requirements, use cases, commands, aggregates, events. specops add layers it onto the project the way npm install adds a dependency, and records the source in a lockfile."
+    },
+    {
+      "id": "plan",
+      "text": "Step three: plan. It reads the traceability matrix and the filesystem and tells you, per requirement, exactly what is missing — the feature file, the test, the production code, or just a status update."
+    },
+    {
+      "id": "validate",
+      "text": "Step four: validate. It checks structure, traceability and Gherkin. With the strict T-D-D gate, the build fails whenever the matrix runs ahead of reality — no requirement marked done without its test."
+    },
+    {
+      "id": "graph",
+      "text": "Step five: see the graph. pack lint --graph renders the requirement-to-use-case-to-command-aggregate-event spine as Mermaid, and shouts about any dangling reference — a CI link-check for your domain model."
+    },
+    {
+      "id": "harness",
+      "text": "Step six: automate delivery. The harness runs the plan, context, agent, verify, done loop for every pending requirement, in isolated git worktrees, with any AI agent you configure. Here is a dry run showing the prompt it would hand the agent."
+    },
+    {
+      "id": "outro",
+      "text": "Specs as executable contracts — for humans and AI agents alike. Find it on GitHub and on npm as create-spec-driven-app."
+    }
+  ]
+}
