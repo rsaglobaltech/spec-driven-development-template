@@ -517,3 +517,166 @@ test("specops remove exits non-zero when pack-id is not in lockfile", () => {
   assert.match(result.stderr, /not found/);
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
+
+// ── Harness: plan → agent → verify → done loop (M5) ──────────────────────
+
+// Build a minimal spec-driven project that passes `validate --strict-tdd`
+// and has exactly one pending requirement (REQ-001, no artifacts on disk).
+function makeHarnessProject(tempRoot) {
+  const projectDir = path.join(tempRoot, "project");
+  fs.mkdirSync(path.join(projectDir, "features"), { recursive: true });
+  fs.mkdirSync(path.join(projectDir, "docs", "specs", "adr"), { recursive: true });
+
+  fs.writeFileSync(
+    path.join(projectDir, "spec.md"),
+    "# Spec\n\n## REQ-001 — Health endpoint\n\nExpose a health check.\n",
+    "utf8"
+  );
+  fs.writeFileSync(path.join(projectDir, "AI_RULES.md"), "# AI Rules\n\nStack: Node 20.\n", "utf8");
+  fs.writeFileSync(path.join(projectDir, "README.md"), "# Harness Fixture\n", "utf8");
+  fs.writeFileSync(path.join(projectDir, "docs", "specs", "adr", "README.md"), "# ADRs\n", "utf8");
+  fs.writeFileSync(
+    path.join(projectDir, "features", "health.feature"),
+    "Feature: Health\n  Scenario: ok\n    Given the service is up\n    Then /health returns 200\n",
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(projectDir, "docs", "specs", "traceability.md"),
+    [
+      "# Traceability Matrix",
+      "",
+      "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |",
+      "|---|---|---|---|---|---|---|---|---|---|",
+      "| REQ-001 | SCN-001 | `features/health.feature` | UC-001 | CMD-001 | AGG-001 | EVT-001 | `src/health.js` | `test/health.test.js` | Draft |",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+
+  gitInTest(["init", "--quiet", "--initial-branch=main", projectDir]);
+  gitInTest(["config", "user.email", "test@example.com"], { cwd: projectDir });
+  gitInTest(["config", "user.name", "Test"], { cwd: projectDir });
+  gitInTest(["config", "commit.gpgsign", "false"], { cwd: projectDir });
+  gitInTest(["add", "."], { cwd: projectDir });
+  gitInTest(["commit", "--quiet", "-m", "initial"], { cwd: projectDir });
+  return projectDir;
+}
+
+test("harness run --dry-run prints prompts without touching git", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-dry-"));
+  const projectDir = makeHarnessProject(tempRoot);
+
+  const result = runCli(["harness", "run", "--project-dir", projectDir, "--dry-run"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /# Implement REQ-001/);
+  assert.match(result.stdout, /branch harness\/REQ-001/);
+
+  // No worktree or branch should have been created.
+  const branches = spawnSync("git", ["-C", projectDir, "branch", "--list", "harness/*"], {
+    encoding: "utf8",
+  });
+  assert.equal(branches.stdout.trim(), "");
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("harness run errors when no agent is configured", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-noagent-"));
+  const projectDir = makeHarnessProject(tempRoot);
+
+  const result = runCli(["harness", "run", "--project-dir", projectDir]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /No agent configured/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("harness run refuses a dirty working tree", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-dirty-"));
+  const projectDir = makeHarnessProject(tempRoot);
+  fs.writeFileSync(path.join(projectDir, "uncommitted.txt"), "wip\n", "utf8");
+
+  const result = runCli([
+    "harness",
+    "run",
+    "--project-dir",
+    projectDir,
+    "--agent",
+    "cat {prompt_file} > /dev/null",
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /not clean/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test(
+  "harness run drives a requirement to pass: worktree, gate, done, commit",
+  { skip: !hasGit() },
+  () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-pass-"));
+    const projectDir = makeHarnessProject(tempRoot);
+
+    // Agent: drop a file proving it ran, then consume the prompt file.
+    const result = runCli([
+      "harness",
+      "run",
+      "--project-dir",
+      projectDir,
+      "--agent",
+      "touch agent-ran.txt && cat {prompt_file} > /dev/null",
+    ]);
+
+    assert.equal(result.status, 0, result.stderr + result.stdout);
+    assert.match(result.stdout, /REQ-001\s+pass/);
+    assert.match(result.stdout, /1 passed/);
+
+    // The harness/REQ-001 branch exists with the agent's file + done's status flip.
+    const branches = spawnSync("git", ["-C", projectDir, "branch", "--list", "harness/REQ-001"], {
+      encoding: "utf8",
+    });
+    assert.match(branches.stdout, /harness\/REQ-001/);
+
+    const show = spawnSync("git", ["-C", projectDir, "show", "harness/REQ-001:agent-ran.txt"], {
+      encoding: "utf8",
+    });
+    assert.equal(show.status, 0, "agent's file should be committed on the branch");
+
+    const trace = spawnSync(
+      "git",
+      ["-C", projectDir, "show", "harness/REQ-001:docs/specs/traceability.md"],
+      { encoding: "utf8" }
+    );
+    assert.match(trace.stdout, /REQ-001 \|.*\| Implemented \|/);
+
+    // The main working tree is untouched.
+    assert.equal(
+      spawnSync("git", ["-C", projectDir, "status", "--porcelain"], {
+        encoding: "utf8",
+      }).stdout.trim(),
+      ""
+    );
+
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+);
+
+test("harness run skips an existing branch unless --force", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-skip-"));
+  const projectDir = makeHarnessProject(tempRoot);
+  gitInTest(["branch", "harness/REQ-001"], { cwd: projectDir });
+
+  const result = runCli([
+    "harness",
+    "run",
+    "--project-dir",
+    projectDir,
+    "--agent",
+    "cat {prompt_file} > /dev/null",
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout, /REQ-001\s+skipped/);
+  assert.match(result.stdout, /already exists/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
