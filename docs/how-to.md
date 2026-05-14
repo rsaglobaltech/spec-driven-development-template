@@ -3,7 +3,9 @@
 Step-by-step recipes for the most common workflows with `create-spec-driven-app`.
 Each recipe is **self-contained** — copy/paste should work end-to-end.
 
-> Prerequisites: **Node.js ≥ 20**, `git`, a shell. All recipes use `npx create-spec-driven-app@latest`; pin the version (e.g. `@0.1.0-beta.3`) for reproducible CI.
+> Prerequisites: **Node.js ≥ 20**, `git`, a shell. All recipes use `csda` (a short alias the package installs for `create-spec-driven-app`) and pin to a published version for reproducible CI.
+
+> **Auto-detect project root**: every command that operates on a project (`plan`, `done`, `validate`, `specops *`) accepts `--project-dir <path>` but **also walks up from your current directory** looking for `spec.md`, `.specops.lock`, or `specops.config.yaml`. Run any of them from inside your project tree without flags.
 
 ## Table of contents
 
@@ -17,9 +19,12 @@ Each recipe is **self-contained** — copy/paste should work end-to-end.
 8. [Build a `contracts` pack for API-first work](#8-build-a-contracts-pack-for-api-first-work)
 9. [Compose multiple packs with `specops.config.yaml`](#9-compose-multiple-packs-with-specopsconfigyaml)
 10. [Bump a pack version safely (`specops diff` + `sync`)](#10-bump-a-pack-version-safely-specops-diff--sync)
-11. [Wire the MCP server into Claude / Cursor / Aider](#11-wire-the-mcp-server-into-claude--cursor--aider)
-12. [Use the VS Code extension](#12-use-the-vs-code-extension)
-13. [Troubleshooting](#13-troubleshooting)
+11. [Close the loop: `plan` → implement → `done`](#11-close-the-loop-plan--implement--done)
+12. [Wire the MCP server into Claude / Cursor / Aider](#12-wire-the-mcp-server-into-claude--cursor--aider)
+13. [Use the VS Code extension](#13-use-the-vs-code-extension)
+14. [Wire `validate` into a pre-commit hook](#14-wire-validate-into-a-pre-commit-hook)
+15. [End-to-end walkthrough with `parking-management-specops`](#15-end-to-end-walkthrough-with-parking-management-specops)
+16. [Troubleshooting](#16-troubleshooting)
 
 ---
 
@@ -207,24 +212,40 @@ outputs:
 
 **Goal:** layer a pack onto a project generated in §1, supplying its template variables.
 
+The recommended ergonomic path is `specops add` (npm-install-style):
+
 ```bash
-# Local pack root
-npx create-spec-driven-app@latest expand \
+# From inside your project (auto-detected project dir)
+csda specops add \
+  --pack-repo https://github.com/acme/billing-specops.git \
+  --pack-version v0.1.0 \
+  --pack backend \
+  --var PROJECT_NAME="Acme Energy Hub" \
+  --var PROJECT_SLUG=acme-energy-hub \
+  --var DOMAIN="community energy"
+```
+
+`add` writes/updates `.specops.lock` so subsequent `specops sync` / `specops diff` calls remember the source, version, and vars.
+
+Lower-level alternative (`expand`) — same behaviour, more flags:
+
+```bash
+csda expand \
   --pack-root ./domain-packs \
   --pack billing/backend \
   --project-dir /tmp/acme-energy-hub \
   --var PROJECT_NAME="Acme Energy Hub" \
   --var PROJECT_SLUG=acme-energy-hub \
   --var DOMAIN="community energy"
-
-# Remote pack (git tag)
-npx create-spec-driven-app@latest expand \
-  --pack-repo https://github.com/acme/billing-specops.git \
-  --pack-version v0.1.0 \
-  --pack backend \
-  --project-dir /tmp/acme-energy-hub \
-  --var PROJECT_NAME="Acme Energy Hub"
 ```
+
+To take a pack OFF the project:
+
+```bash
+csda specops remove parking-management/backend
+```
+
+> `remove` drops the entry from `.specops.lock` but does **not** delete generated files — you might have hand-edited tests pointing at them. Use `git status` afterwards and clean up by hand.
 
 Side effects:
 
@@ -357,7 +378,86 @@ Plain `sync` (no `--pack` / `--pack-version`) re-expands every pack in the lockf
 
 ---
 
-## 11. Wire the MCP server into Claude / Cursor / Aider
+## 11. Close the loop: `plan` → implement → `done`
+
+**Goal:** after a `specops sync` brings new requirements into the project, drive a human or AI agent through the implementation cycle without manually reading every `.feature` file.
+
+```bash
+# 1. After sync (or any time), see what's left
+csda plan
+```
+
+You get a bucketed report:
+
+```
+📋 Plan  (12 requirement(s), 3 pending)
+
+  ❌ Needs everything (no test, no code)
+    REQ-007    SCN-007
+      · feature: features/pricing/dynamic_pricing.feature
+      · test:    src/test/.../DynamicPricingTest.java
+      · code:    src/main/.../DynamicPricing.java
+
+  ⚠️  Test exists, production code missing
+    REQ-008    SCN-008
+      ✓ test:    src/test/.../SeasonalRateTest.java
+      · code:    src/main/.../SeasonalRateService.java
+
+  ⚠️  Artifacts present — run `csda done <REQ>`
+    REQ-009    SCN-009
+
+  Next: read the feature file, write the test, write the code, then run `csda done <REQ-id>`.
+```
+
+For AI agents, swap to JSON:
+
+```bash
+csda plan --format json
+```
+
+```json
+{
+  "schema_version": 1,
+  "total": 12,
+  "pending": 3,
+  "summary": { "NEEDS_EVERYTHING": 1, "NEEDS_IMPLEMENTATION": 1, "NEEDS_STATUS_UPDATE": 1, "DONE": 9 },
+  "next_steps": [
+    { "requirement": "REQ-007", "category": "NEEDS_EVERYTHING", "hint": "Read features/pricing/dynamic_pricing.feature, then write the test, then the production code." }
+  ],
+  "requirements": [],
+  "orphan_features": []
+}
+```
+
+### After implementing, mark the REQ done
+
+```bash
+csda done REQ-007                          # → Status="Implemented"
+csda done REQ-007 --status Verified         # → Status="Verified"
+csda done REQ-007 --check                   # runs `validate` first; aborts on red
+csda done REQ-007 --strict                  # like --check but uses `validate --strict-tdd`
+```
+
+`done` edits exactly one cell in `docs/specs/traceability.md`. Combined with `validate --strict-tdd` in CI, the matrix is the live source of truth instead of a rear-view mirror.
+
+### AI agent recipe (Claude Desktop / Cursor / Aider with MCP)
+
+The MCP server exposes `plan` and `mark_requirement_done`. A canonical prompt:
+
+```
+1. Call the `plan` tool with projectDir set to my repo.
+2. Pick the first item from next_steps.
+3. Read the feature file (using `read_spec` or your editor).
+4. Write the test file at the expected path. Run the test — confirm it fails.
+5. Write production code until the test passes.
+6. Run `validate_project` to confirm gates are green.
+7. Call `mark_requirement_done` with that requirement id and check=true.
+8. Repeat from step 1 until plan returns pending=0.
+```
+
+---
+
+## 12. Wire the MCP server into Claude / Cursor / Aider
 
 **Goal:** let an MCP-aware AI agent read specs, list requirements, and run `validate` directly.
 
@@ -389,12 +489,14 @@ Tools exposed by the server:
 | `update_traceability` | Idempotently appends a row to `traceability.md`. |
 | `lint_pack` | Runs `pack lint` and returns structured errors. |
 | `validate_project` | Runs `validate` (or `validate --strict-tdd`) and parses the output. |
+| `plan` | Returns the same JSON as `csda plan --format json`. |
+| `mark_requirement_done` | Mirrors `csda done <REQ>` (supports `--check`/`--strict`). |
 
 Restart the client; the tools appear in the model's tool list as `spec-driven.*`.
 
 ---
 
-## 12. Use the VS Code extension
+## 13. Use the VS Code extension
 
 **Goal:** get inline diagnostics for `pack.yaml`, code-lens to jump to the traceability row, and validate-on-save.
 
@@ -415,7 +517,99 @@ Settings:
 
 ---
 
-## 13. Troubleshooting
+## 14. Wire `validate` into a pre-commit hook
+
+**Goal:** block commits that drop a `REQ` without a `.feature` or a `traceability.md` row before they ever leave the developer's machine.
+
+Plain shell (works without husky/lefthook):
+
+```bash
+# .git/hooks/pre-commit  (chmod +x)
+#!/usr/bin/env bash
+set -e
+echo "→ csda validate --strict-tdd"
+npx --yes create-spec-driven-app@0.1.0 validate . --strict-tdd
+echo "→ csda specops diff (must be clean)"
+DIFF=$(npx --yes create-spec-driven-app@0.1.0 specops diff --format json 2>/dev/null || true)
+if echo "$DIFF" | grep -q '"added":\[\([^]].\)\]\|"modified":\[\([^]].\)\]'; then
+  echo "✖ Pack content drifted. Run \`csda specops sync\` and commit again."
+  exit 1
+fi
+```
+
+Or with **husky** (`package.json`):
+
+```bash
+npm install --save-dev husky
+npx husky init
+echo 'npx --yes create-spec-driven-app@latest validate . --strict-tdd' > .husky/pre-commit
+```
+
+Mirror the same call in CI (see §4) so the gate survives `--no-verify`.
+
+---
+
+## 15. End-to-end walkthrough with `parking-management-specops`
+
+**Goal:** end-to-end exercise using the real demo pack repo at `https://github.com/rsaglobaltech/parking-management-specops`.
+
+```bash
+# 0. Pick a working directory
+mkdir -p ~/sandbox && cd ~/sandbox
+
+# 1. Generate the consumer project
+cat > smart-parking.config <<'EOF'
+PROJECT_NAME="Smart Parking"
+PROJECT_SLUG="smart-parking"
+PROJECT_TYPE="backend"
+DOMAIN="parking operations"
+STACK="Quarkus 3.x, Java 21, PostgreSQL"
+API_STYLE="REST with DTO boundaries"
+TESTING="JUnit 5, Testcontainers, Cucumber"
+LANG="en"
+MODULES=""
+EOF
+
+csda init --config ./smart-parking.config --out . --no-git
+cd smart-parking
+
+# 2. Apply the parking-management pack (pinned to v0.1.0)
+csda specops add \
+  --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \
+  --pack-version v0.1.0 \
+  --pack backend \
+  --var PROJECT_NAME="Smart Parking" \
+  --var PROJECT_SLUG=smart-parking \
+  --var DOMAIN="parking operations"
+
+# 3. See what work the pack created
+csda plan
+
+# 4. (Optional) Same, machine-readable for an AI agent
+csda plan --format json | tail -40
+
+# 5. Implement one REQ (this is the "human + AI" loop)
+#    Read features/.../*.feature, write the test, write the production code.
+#    Then close the loop:
+csda done REQ-001 --check        # runs validate first, aborts on red
+
+# 6. When pack v0.2.0 lands upstream, preview the diff before applying
+csda specops diff --pack-version v0.2.0
+csda specops diff --pack-version v0.2.0 --format json
+
+# 7. Apply the bump
+csda specops sync --pack-version v0.2.0
+csda plan                         # see what's newly NEEDS_*
+
+# 8. Drop the pack entirely if needed
+csda specops remove parking-management/backend
+```
+
+Every command above also works **without** flags from inside the project tree (project root auto-detected). For CI, see §4 for the workflow YAML and §14 for the local pre-commit gate.
+
+---
+
+## 16. Troubleshooting
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |

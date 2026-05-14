@@ -669,6 +669,10 @@ function readTemplate(packRoot, templatePath) {
   return fs.readFileSync(path.resolve(packRoot, templatePath), "utf8");
 }
 
+// Records every file written in the current process so `expand` can snapshot
+// a baseline after rendering. Reset per expansion via resetWrittenFiles().
+const _writtenFiles = [];
+
 function writeFile(targetFile, content, dryRun) {
   if (dryRun) {
     logInfo(`[dry-run] write ${targetFile}`);
@@ -677,6 +681,15 @@ function writeFile(targetFile, content, dryRun) {
 
   fs.mkdirSync(path.dirname(targetFile), { recursive: true });
   fs.writeFileSync(targetFile, content, "utf8");
+  _writtenFiles.push({ file: targetFile, content });
+}
+
+function getWrittenFiles() {
+  return _writtenFiles.slice();
+}
+
+function resetWrittenFiles() {
+  _writtenFiles.length = 0;
 }
 
 function safeResolve(projectDir, relativePath) {
@@ -818,6 +831,8 @@ module.exports = {
   parseYamlLite,
   readTemplate,
   renderTemplate,
+  resetWrittenFiles,
+  getWrittenFiles,
   safeResolve,
   validatePackModel,
   writeFile,

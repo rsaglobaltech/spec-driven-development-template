@@ -209,6 +209,69 @@ function validateProject(args) {
   };
 }
 
+// ── Tool: plan ────────────────────────────────────────────────────────────────────
+
+/**
+ * Run `create-spec-driven-app plan --format json` and return the parsed structure.
+ * Lets AI agents discover requirements that still need a test, code, or status
+ * update — without parsing the human-friendly text output.
+ *
+ * @param {{ projectDir: string, cliPath?: string }} args
+ * @returns parsed JSON plan
+ */
+function plan(args) {
+  const dir = ensureProjectDir(args.projectDir);
+  const cliCmd = (args.cliPath || "npx create-spec-driven-app").trim().split(/\s+/);
+  const result = spawnSync(
+    cliCmd[0],
+    [...cliCmd.slice(1), "plan", "--project-dir", dir, "--format", "json"],
+    {
+      encoding: "utf8",
+      timeout: 30_000,
+      shell: process.platform === "win32",
+    }
+  );
+  if (result.status !== 0) {
+    throw new Error(
+      `plan failed (${result.status}): ${result.stderr || result.stdout || "unknown error"}`
+    );
+  }
+  try {
+    return JSON.parse(result.stdout || "{}");
+  } catch (err) {
+    throw new Error(`plan returned non-JSON output: ${err.message}\nstdout: ${result.stdout}`);
+  }
+}
+
+// ── Tool: mark_requirement_done ───────────────────────────────────────────────────
+
+/**
+ * Run `create-spec-driven-app done <REQ-id>` to set Status="Implemented"
+ * (or another terminal state) on the matching traceability row.
+ *
+ * @param {{ projectDir, requirement, status?, check? }} args
+ * @returns {{ exitCode, raw }}
+ */
+function markRequirementDone(args) {
+  const dir = ensureProjectDir(args.projectDir);
+  if (!args.requirement) throw new Error("Missing argument: requirement (e.g. REQ-007)");
+  const cliCmd = (args.cliPath || "npx create-spec-driven-app").trim().split(/\s+/);
+  const argv = [...cliCmd.slice(1), "done", args.requirement, "--project-dir", dir];
+  if (args.status) argv.push("--status", args.status);
+  if (args.check) argv.push("--check");
+  const result = spawnSync(cliCmd[0], argv, {
+    encoding: "utf8",
+    timeout: 60_000,
+    shell: process.platform === "win32",
+  });
+  const raw = (result.stdout || "") + (result.stderr ? `\n${result.stderr}` : "");
+  return {
+    exitCode: typeof result.status === "number" ? result.status : 1,
+    success: result.status === 0,
+    raw: raw.trim(),
+  };
+}
+
 // ── Tool registry ────────────────────────────────────────────────────────────────
 
 const TOOLS = {
@@ -289,6 +352,42 @@ const TOOLS = {
       required: ["projectDir"],
     },
   },
+  plan: {
+    description:
+      "List every requirement and its work bucket (NEEDS_FEATURE, NEEDS_TEST, NEEDS_IMPLEMENTATION, NEEDS_STATUS_UPDATE, DONE). Use this BEFORE writing code to discover what to do next.",
+    handler: plan,
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectDir: { type: "string", description: "Absolute path to the project root." },
+        cliPath: { type: "string" },
+      },
+      required: ["projectDir"],
+    },
+  },
+  mark_requirement_done: {
+    description:
+      "Update the Status of a requirement row in traceability.md (default: Implemented). Pass check=true to run `validate` first and abort on failure.",
+    handler: markRequirementDone,
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectDir: { type: "string" },
+        requirement: { type: "string", description: "e.g. REQ-007" },
+        status: {
+          type: "string",
+          enum: ["Draft", "Approved", "Implemented", "Verified", "Released", "Deprecated"],
+          description: "Target status (default: Implemented)",
+        },
+        check: {
+          type: "boolean",
+          description: "Run validate before updating; abort if it fails.",
+        },
+        cliPath: { type: "string" },
+      },
+      required: ["projectDir", "requirement"],
+    },
+  },
 };
 
 module.exports = {
@@ -298,4 +397,6 @@ module.exports = {
   updateTraceability,
   lintPack,
   validateProject,
+  plan,
+  markRequirementDone,
 };

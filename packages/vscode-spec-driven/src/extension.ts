@@ -14,6 +14,12 @@ const fs = require("node:fs");
 const { validatePackYaml } = require("./pack-validator");
 const { findRequirementIds, findIdInTraceability, parseValidateOutput } = require("./traceability");
 const { runValidate } = require("./validate-runner");
+const {
+  analyzePackGraph,
+  referenceKindForLine,
+  findDeclarationPosition,
+  renderPackMermaid,
+} = require("./pack-graph");
 
 // ── Diagnostic collections ──────────────────────────────────────────────────────────────
 
@@ -21,6 +27,12 @@ const { runValidate } = require("./validate-runner");
 let packDiagnostics;
 /** @type {vscode.DiagnosticCollection} */
 let validateDiagnostics;
+
+// The single live "Pack Graph" webview panel, and the pack.yaml it mirrors.
+/** @type {vscode.WebviewPanel|null} */
+let packGraphPanel = null;
+/** @type {string|null} */
+let packGraphFsPath = null;
 
 // ── Activation ────────────────────────────────────────────────────────────────────────────
 
@@ -47,19 +59,34 @@ function activate(context) {
     })
   );
 
-  // Run project-level validate on save (opt-in via setting)
+  // Run project-level validate on save (opt-in via setting); refresh the
+  // Pack Graph webview when its source pack.yaml is saved or edited.
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
+      refreshPackGraphFor(doc);
       const cfg = config();
       if (!cfg.get("validateOnSave")) return;
       const root = findProjectRoot(doc.uri.fsPath);
       if (root) triggerProjectValidate(root, cfg.get("cliPath"));
-    })
+    }),
+    vscode.workspace.onDidChangeTextDocument((evt) => refreshPackGraphFor(evt.document))
   );
 
   // CodeLens: "Reveal REQ-NNN in traceability" above every requirement ID
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider({ scheme: "file" }, new RequirementCodeLensProvider())
+  );
+
+  // pack.yaml authoring: reference-field autocomplete + go-to-definition.
+  context.subscriptions.push(
+    vscode.languages.registerCompletionItemProvider(
+      { scheme: "file", language: "yaml" },
+      new PackReferenceCompletionProvider()
+    ),
+    vscode.languages.registerDefinitionProvider(
+      { scheme: "file", language: "yaml" },
+      new PackReferenceDefinitionProvider()
+    )
   );
 
   // Commands
@@ -68,7 +95,8 @@ function activate(context) {
       "spec-driven.revealInTraceability",
       cmdRevealInTraceability
     ),
-    vscode.commands.registerCommand("spec-driven.validateProject", cmdValidateProject)
+    vscode.commands.registerCommand("spec-driven.validateProject", cmdValidateProject),
+    vscode.commands.registerCommand("spec-driven.showPackGraph", cmdShowPackGraph)
   );
 
   // Lint any pack.yaml files already open when extension activates
@@ -80,6 +108,7 @@ function activate(context) {
 function deactivate() {
   packDiagnostics?.dispose();
   validateDiagnostics?.dispose();
+  packGraphPanel?.dispose();
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────────
@@ -137,6 +166,12 @@ function lintPackDocument(doc) {
 
   for (const e of errors) {
     diags.push(makeDiag(e.line, e.col, e.message, e.severity));
+  }
+
+  // Cross-reference linting: dangling REQ/CMD/AGG/EVT references that the
+  // JSON Schema cannot catch (it validates shape, not referential integrity).
+  for (const d of analyzePackGraph(doc.getText()).dangling) {
+    diags.push(makeDiag(d.line, d.col, d.message, d.severity));
   }
 
   packDiagnostics.set(doc.uri, diags);
@@ -273,6 +308,119 @@ async function cmdValidateProject() {
   }
 }
 
+// ── Pack Graph webview ────────────────────────────────────────────────────────────────
+
+/** Command: spec-driven.showPackGraph */
+function cmdShowPackGraph() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || !isPackYaml(editor.document)) {
+    vscode.window.showInformationMessage("Open a pack.yaml file, then run this command.");
+    return;
+  }
+  const doc = editor.document;
+
+  if (packGraphPanel) {
+    packGraphFsPath = doc.fileName;
+    packGraphPanel.title = `Pack Graph — ${path.basename(path.dirname(doc.fileName))}`;
+    packGraphPanel.reveal(vscode.ViewColumn.Beside);
+    postPackGraph(doc);
+    return;
+  }
+
+  packGraphPanel = vscode.window.createWebviewPanel(
+    "specDrivenPackGraph",
+    `Pack Graph — ${path.basename(path.dirname(doc.fileName))}`,
+    vscode.ViewColumn.Beside,
+    { enableScripts: true, retainContextWhenHidden: true }
+  );
+  packGraphFsPath = doc.fileName;
+  packGraphPanel.webview.html = packGraphHtml(packGraphPanel.webview);
+  packGraphPanel.onDidDispose(() => {
+    packGraphPanel = null;
+    packGraphFsPath = null;
+  });
+  // The webview tells us when its script is ready, then we send the graph.
+  packGraphPanel.webview.onDidReceiveMessage((msg) => {
+    if (msg && msg.type === "ready") postPackGraph(doc);
+  });
+}
+
+/** Re-render the webview when its source pack.yaml changes. */
+function refreshPackGraphFor(doc) {
+  if (!packGraphPanel || !packGraphFsPath) return;
+  if (doc.fileName !== packGraphFsPath) return;
+  postPackGraph(doc);
+}
+
+function postPackGraph(doc) {
+  if (!packGraphPanel) return;
+  packGraphPanel.webview.postMessage({
+    type: "update",
+    mermaid: renderPackMermaid(doc.getText()),
+  });
+}
+
+function nonce() {
+  let s = "";
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  for (let i = 0; i < 24; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+/**
+ * Static webview shell. Mermaid is loaded from jsDelivr (the webview needs
+ * network for this feature); the graph text arrives via postMessage so edits
+ * re-render without reloading the CDN script.
+ */
+function packGraphHtml(webview) {
+  const n = nonce();
+  const cdn = "https://cdn.jsdelivr.net";
+  const csp =
+    `default-src 'none'; ` +
+    `img-src ${webview.cspSource} data:; ` +
+    `style-src ${webview.cspSource} 'unsafe-inline'; ` +
+    `script-src 'nonce-${n}' ${cdn};`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="${csp}" />
+  <style>
+    body { font-family: var(--vscode-font-family); padding: 0; margin: 0; }
+    #toolbar { padding: 6px 10px; font-size: 12px; opacity: 0.7; }
+    #graph { padding: 10px; }
+    .err { color: var(--vscode-errorForeground); padding: 10px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div id="toolbar">REQ → UC → CMD/QUERY/AGG/EVT — refreshes on save</div>
+  <div id="graph">Loading…</div>
+  <script nonce="${n}" src="${cdn}/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script nonce="${n}">
+    const vscode = acquireVsCodeApi();
+    let ready = false;
+    if (window.mermaid) {
+      mermaid.initialize({ startOnLoad: false, securityLevel: "strict" });
+      ready = true;
+    }
+    const graphEl = document.getElementById("graph");
+    window.addEventListener("message", async (event) => {
+      const msg = event.data;
+      if (!msg || msg.type !== "update") return;
+      if (!ready) { graphEl.innerHTML = '<div class="err">Mermaid failed to load (no network?).</div>'; return; }
+      try {
+        const { svg } = await mermaid.render("packGraph", msg.mermaid);
+        graphEl.innerHTML = svg;
+      } catch (e) {
+        graphEl.innerHTML = '<div class="err">Could not render graph:\\n' + String(e && e.message || e) + '</div>';
+      }
+    });
+    vscode.postMessage({ type: "ready" });
+  </script>
+</body>
+</html>`;
+}
+
 // ── CodeLens provider ─────────────────────────────────────────────────────────────────
 
 class RequirementCodeLensProvider {
@@ -284,7 +432,7 @@ class RequirementCodeLensProvider {
     const cfg = config();
     if (!cfg.get("codeLens")) return [];
 
-    return findRequirementIds(document.getText()).map(({ id, line, col, endCol }) => {
+    const lenses = findRequirementIds(document.getText()).map(({ id, line, col, endCol }) => {
       const range = new vscode.Range(line, col, line, endCol);
       return new vscode.CodeLens(range, {
         title: `$(link-external) Reveal ${id} in traceability`,
@@ -292,6 +440,90 @@ class RequirementCodeLensProvider {
         tooltip: `Open docs/specs/traceability.md at ${id}`,
       });
     });
+
+    // In pack.yaml, show how many use cases / scenarios reference each
+    // requirement, right on its declaration line.
+    if (isPackYaml(document)) {
+      const { refCounts } = analyzePackGraph(document.getText());
+      const lines = document.getText().split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(/\bid:\s*["']?(REQ-\d+)\b/);
+        if (!m) continue;
+        const counts = refCounts.get(m[1]) || { useCases: 0, scenarios: 0 };
+        const idCol = lines[i].indexOf(m[1]);
+        const range = new vscode.Range(i, Math.max(0, idCol), i, idCol + m[1].length);
+        lenses.push(
+          new vscode.CodeLens(range, {
+            title:
+              `$(references) ${counts.useCases} use case(s) · ` + `${counts.scenarios} scenario(s)`,
+            command: "",
+            tooltip: `${m[1]} is referenced by ${counts.useCases} use case(s) and ${counts.scenarios} scenario(s) in this pack.`,
+          })
+        );
+      }
+    }
+
+    return lenses;
+  }
+}
+
+// ── pack.yaml reference autocomplete ──────────────────────────────────────────────────
+
+const KIND_DETAIL = {
+  requirement: "requirement",
+  command: "command",
+  query: "query",
+  aggregate: "aggregate",
+  event: "event",
+};
+
+class PackReferenceCompletionProvider {
+  /**
+   * @param {vscode.TextDocument} document
+   * @param {vscode.Position} position
+   * @returns {vscode.CompletionItem[]}
+   */
+  provideCompletionItems(document, position) {
+    if (!isPackYaml(document)) return [];
+
+    const lines = document.getText().split("\n");
+    const kind = referenceKindForLine(lines, position.line);
+    if (!kind) return [];
+
+    const { declared } = analyzePackGraph(document.getText());
+    const candidates = declared[kind];
+    if (!candidates || candidates.size === 0) return [];
+
+    return [...candidates].sort().map((value) => {
+      const item = new vscode.CompletionItem(value, vscode.CompletionItemKind.Reference);
+      item.detail = `pack.yaml ${KIND_DETAIL[kind]}`;
+      return item;
+    });
+  }
+}
+
+// ── pack.yaml go-to-definition ────────────────────────────────────────────────────────
+
+class PackReferenceDefinitionProvider {
+  /**
+   * @param {vscode.TextDocument} document
+   * @param {vscode.Position} position
+   * @returns {vscode.Location|null}
+   */
+  provideDefinition(document, position) {
+    if (!isPackYaml(document)) return null;
+
+    const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z][A-Za-z0-9_-]*/);
+    if (!wordRange) return null;
+
+    const token = document.getText(wordRange);
+    const decl = findDeclarationPosition(document.getText(), token);
+    if (!decl) return null;
+
+    // Don't jump from a declaration to itself.
+    if (decl.line === position.line) return null;
+
+    return new vscode.Location(document.uri, new vscode.Position(decl.line, decl.col));
   }
 }
 

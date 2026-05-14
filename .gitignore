@@ -11,3 +11,4 @@ packages/pack-registry/dist/
 # Stray .vsix at the extension package root (the canonical copy lives in releases/)
 packages/vscode-spec-driven/*.vsix
 _site/
+aetherdeploy-ai-integration-assessment.md
