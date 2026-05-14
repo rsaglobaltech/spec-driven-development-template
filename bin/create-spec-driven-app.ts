@@ -90,7 +90,7 @@ function usage() {
       cmd("✔", "done", "Mark a requirement as Implemented in traceability.md.") +
       section("PACK COMMANDS") +
       cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
-      cmd("🔍", "pack lint", "Lint a pack against the JSON Schema 2020-12.") +
+      cmd("🔍", "pack lint", "Lint a pack: schema, cross-refs, and scenario quality (--strict).") +
       section("SPECOPS COMMANDS") +
       cmd("➕", "specops add", "Add a pack (npm-install-style); writes .specops.lock.") +
       cmd("➖", "specops remove", "Drop a pack entry from .specops.lock.") +
