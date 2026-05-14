@@ -2,27 +2,45 @@
 "use strict";
 
 /**
- * `specops sync` — re-expands every pack recorded in `.specops.lock`.
+ * `specops sync` — re-expands every pack recorded in `.specops.lock` and
+ * reconciles the result with the project using three-way merge.
  *
  * Falls back to `specops.config.yaml` when no lockfile exists, allowing
  * fresh clones to bootstrap before the first lock is written.
  *
- * No need to re-type --pack-repo / --pack-version / --var flags: the
- * lockfile (or config) is the source of truth. Optionally bumps a single
- * pack to a new version via `--pack-version`.
+ * Conflict detection (vs. the old blind-overwrite behaviour):
+ *   For each file the pack renders, sync compares three versions —
+ *     base     = what the pack rendered last sync (.specops/baseline/<pack>)
+ *     local    = what is in the project now (possibly hand-edited by a
+ *                human or an AI agent)
+ *     incoming = what the pack renders at the target version
+ *   and classifies the file as added / unchanged / updated / kept /
+ *   merged / conflict. Local edits are preserved; genuine conflicts get
+ *   git-style merge markers (or are skipped with --abort-on-conflict).
+ *
+ * Exit code is non-zero when any file is left in a conflicted state, so
+ * CI and agent harnesses can detect that a human needs to intervene.
  */
 
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const { readLock } = require("./lock");
+const { readLock, writeLock, upsertPackEntry, newLock } = require("./lock");
 const { readConfig, configToPacks, CONFIG_FILE } = require("./config");
+const { walkFiles } = require("./diff");
+const { readBaseline, snapshotBaseline } = require("./manifest");
+const { threeWayMerge } = require("./merge");
 const { resolveProjectDir } = require("../lib/project-root");
 
 const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 
 function info(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
+}
+function warn(msg) {
+  process.stdout.write(`⚠️  [WARN] ${msg}\n`);
 }
 function error(msg) {
   process.stderr.write(`❌ [ERROR] ${msg}\n`);
@@ -31,10 +49,14 @@ function error(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app specops sync [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--dry-run]\n\n" +
+      "  create-spec-driven-app specops sync [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--dry-run] [--force] [--abort-on-conflict]\n\n" +
       "Re-expands packs recorded in .specops.lock (or specops.config.yaml if no\n" +
-      "lockfile exists). With --pack-version, bumps the matching pack(s) to a\n" +
-      "new tag/SHA and updates the lockfile.\n"
+      "lockfile exists) and three-way merges the result into the project,\n" +
+      "preserving local edits. With --pack-version, bumps the matching pack(s)\n" +
+      "to a new tag/SHA.\n\n" +
+      "  --force               Overwrite locally-edited files with the pack version.\n" +
+      "  --abort-on-conflict   Leave conflicting files untouched instead of writing markers.\n" +
+      "  --dry-run             Report what would change without writing anything.\n"
   );
 }
 
@@ -45,6 +67,8 @@ function parseArgs(argv) {
     packVersion: "",
     cacheDir: "",
     dryRun: false,
+    force: false,
+    abortOnConflict: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
@@ -68,11 +92,22 @@ function parseArgs(argv) {
       args.dryRun = true;
       continue;
     }
+    if (token === "--force") {
+      args.force = true;
+      continue;
+    }
+    if (token === "--abort-on-conflict") {
+      args.abortOnConflict = true;
+      continue;
+    }
     if (token === "--help" || token === "-h") {
       usage();
       process.exit(0);
     }
     throw new Error(`Unknown argument: ${token}`);
+  }
+  if (args.force && args.abortOnConflict) {
+    throw new Error("--force and --abort-on-conflict are mutually exclusive.");
   }
   return args;
 }
@@ -118,6 +153,148 @@ function resolvePacks(projectDir) {
   );
 }
 
+/**
+ * Classify a single file and (unless dryRun) apply the chosen action.
+ * Returns { outcome, baselineContent } where baselineContent is what should
+ * be recorded as the next merge base for this file.
+ */
+function reconcileFile(rel, incoming, projectDir, packId, args) {
+  const localPath = path.join(projectDir, rel);
+  const localExists = fs.existsSync(localPath);
+  const local = localExists ? fs.readFileSync(localPath, "utf8") : null;
+  const base = readBaseline(projectDir, packId, rel);
+
+  const write = (content) => {
+    if (args.dryRun) return;
+    fs.mkdirSync(path.dirname(localPath), { recursive: true });
+    fs.writeFileSync(localPath, content, "utf8");
+  };
+
+  if (!localExists) {
+    write(incoming);
+    return { outcome: "added", baselineContent: incoming };
+  }
+  if (local === incoming) {
+    return { outcome: "unchanged", baselineContent: incoming };
+  }
+  if (args.force) {
+    write(incoming);
+    return { outcome: "overwritten", baselineContent: incoming };
+  }
+  if (base === null) {
+    // No merge base recorded — refuse to guess. Leave local untouched.
+    return { outcome: "conflict-no-base", baselineContent: null };
+  }
+  if (local === base) {
+    write(incoming);
+    return { outcome: "updated", baselineContent: incoming };
+  }
+  if (incoming === base) {
+    // Pack unchanged for this file; local edits stand.
+    return { outcome: "kept", baselineContent: base };
+  }
+
+  // Both sides diverged from base — real three-way merge.
+  const merge = threeWayMerge(base, local, incoming);
+  if (!merge.conflict) {
+    write(merge.merged);
+    return { outcome: "merged", baselineContent: incoming };
+  }
+  if (args.abortOnConflict) {
+    return { outcome: "conflict-skipped", baselineContent: base };
+  }
+  write(merge.merged);
+  return { outcome: "conflict", baselineContent: base };
+}
+
+const CONFLICT_OUTCOMES = new Set(["conflict", "conflict-skipped", "conflict-no-base"]);
+
+function syncPack(entry, args, projectDir) {
+  const version = args.packVersion || entry.version;
+  const bumping = args.packVersion && args.packVersion !== entry.version;
+  info(`Syncing ${entry.pack_id} @ ${version}` + (bumping ? ` (was ${entry.version})` : ""));
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "specops-sync-"));
+  try {
+    // Always render into a throwaway dir (never --dry-run: we need the bytes).
+    const expandArgs = buildExpandArgs(entry, version, tmpDir, args.cacheDir, false);
+    const result = spawnSync(process.execPath, [EXPAND_SCRIPT, ...expandArgs], {
+      encoding: "utf8",
+    });
+    if (result.status !== 0) {
+      error(`expand failed for ${entry.pack_id}:\n${result.stderr || result.stdout}`);
+      return { ok: false, conflicts: 0 };
+    }
+
+    const tmpLock = readLock(tmpDir);
+    const resolvedEntry =
+      (tmpLock && tmpLock.packs.find((p) => p.pack_id === entry.pack_id)) || null;
+
+    const renderedFiles = walkFiles(tmpDir);
+    const counts = {};
+    const conflictFiles = [];
+    const baselineEntries = [];
+
+    for (const rel of renderedFiles) {
+      const incoming = fs.readFileSync(path.join(tmpDir, rel), "utf8");
+      const { outcome, baselineContent } = reconcileFile(
+        rel,
+        incoming,
+        projectDir,
+        entry.pack_id,
+        args
+      );
+      counts[outcome] = (counts[outcome] || 0) + 1;
+      if (CONFLICT_OUTCOMES.has(outcome)) conflictFiles.push({ rel, outcome });
+      if (baselineContent !== null) baselineEntries.push({ rel, content: baselineContent });
+    }
+
+    printPackSummary(entry.pack_id, version, counts, conflictFiles);
+
+    if (!args.dryRun) {
+      snapshotBaseline(
+        projectDir,
+        entry.pack_id,
+        baselineEntries,
+        { version: (resolvedEntry && resolvedEntry.version) || version },
+        { dryRun: false }
+      );
+    }
+
+    return {
+      ok: true,
+      conflicts: conflictFiles.length,
+      resolvedEntry,
+      version,
+    };
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+const OUTCOME_LABEL = {
+  added: "added",
+  unchanged: "unchanged",
+  updated: "updated",
+  overwritten: "overwritten",
+  kept: "kept (local edits preserved)",
+  merged: "merged",
+  conflict: "CONFLICT (markers written)",
+  "conflict-skipped": "CONFLICT (skipped)",
+  "conflict-no-base": "CONFLICT (no merge base)",
+};
+
+function printPackSummary(packId, version, counts, conflictFiles) {
+  const parts = Object.keys(OUTCOME_LABEL)
+    .filter((k) => counts[k])
+    .map((k) => `${counts[k]} ${OUTCOME_LABEL[k]}`);
+  process.stdout.write(`\n── ${packId} @ ${version} ──\n`);
+  process.stdout.write(`  ${parts.length ? parts.join(" · ") : "no files"}\n`);
+  for (const { rel, outcome } of conflictFiles) {
+    warn(`  ${rel} — ${OUTCOME_LABEL[outcome]}`);
+  }
+}
+
 function main() {
   try {
     const args = parseArgs(process.argv.slice(2));
@@ -125,31 +302,62 @@ function main() {
     const { packs, source } = resolvePacks(projectDir);
 
     info(`Reading pack list from ${source}`);
+    if (args.dryRun) info("Dry run — no files will be written.");
 
     let matched = 0;
+    let totalConflicts = 0;
+    let anyFailure = false;
+    const lockUpdates = [];
+
     for (const entry of packs) {
       if (args.pack && entry.pack_id !== args.pack) continue;
       matched += 1;
 
-      const version = args.packVersion || entry.version;
-      const bumping = args.packVersion && args.packVersion !== entry.version;
-      info(`Syncing ${entry.pack_id} @ ${version}` + (bumping ? ` (was ${entry.version})` : ""));
-
-      const expandArgs = buildExpandArgs(entry, version, projectDir, args.cacheDir, args.dryRun);
-      const result = spawnSync(process.execPath, [EXPAND_SCRIPT, ...expandArgs], {
-        stdio: "inherit",
-      });
-      if (result.status !== 0) {
-        error(`expand failed for ${entry.pack_id} (exit ${result.status})`);
-        process.exit(result.status || 1);
+      const res = syncPack(entry, args, projectDir);
+      if (!res.ok) {
+        anyFailure = true;
+        continue;
       }
+      totalConflicts += res.conflicts;
+      if (res.resolvedEntry) lockUpdates.push(res.resolvedEntry);
     }
 
     if (matched === 0) {
       error(`No packs matched${args.pack ? ` --pack ${args.pack}` : ""}.`);
       process.exit(1);
     }
-    info(`Sync completed for ${matched} pack(s).`);
+
+    // Persist resolved versions/commits to the project lockfile.
+    if (!args.dryRun && lockUpdates.length > 0) {
+      let lock = readLock(projectDir) || newLock();
+      for (const resolved of lockUpdates) {
+        lock = upsertPackEntry(lock, {
+          repo: resolved.repo,
+          version: resolved.version,
+          commit: resolved.commit,
+          pack_id: resolved.pack_id,
+          expanded_at: resolved.expanded_at || new Date().toISOString(),
+          vars: resolved.vars || {},
+        });
+      }
+      writeLock(projectDir, lock);
+    }
+
+    if (anyFailure) {
+      error("One or more packs failed to expand.");
+      process.exit(1);
+    }
+
+    if (totalConflicts > 0) {
+      process.stdout.write("\n");
+      error(
+        `Sync completed with ${totalConflicts} conflicting file(s). ` +
+          `Resolve them, then re-run 'specops sync'.`
+      );
+      process.exit(1);
+    }
+
+    info(`Sync completed for ${matched} pack(s) with no conflicts.`);
   } catch (err) {
     error(err.message);
     process.exit(1);
@@ -160,4 +368,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, buildExpandArgs, resolvePacks };
+module.exports = { parseArgs, buildExpandArgs, resolvePacks, reconcileFile };

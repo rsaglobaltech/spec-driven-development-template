@@ -17,6 +17,7 @@ const specopsSyncScript = path.join(distScripts, "specops", "sync.js");
 const specopsDiffScript = path.join(distScripts, "specops", "diff.js");
 const specopsAddScript = path.join(distScripts, "specops", "add.js");
 const specopsRemoveScript = path.join(distScripts, "specops", "remove.js");
+const harnessRunScript = path.join(distScripts, "harness", "run.js");
 const planScript = path.join(distScripts, "plan.js");
 const doneScript = path.join(distScripts, "done.js");
 
@@ -89,12 +90,22 @@ function usage() {
       cmd("✔", "done", "Mark a requirement as Implemented in traceability.md.") +
       section("PACK COMMANDS") +
       cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
-      cmd("🔍", "pack lint", "Lint a pack against the JSON Schema 2020-12.") +
+      cmd("🔍", "pack lint", "Lint a pack: schema, cross-refs, and scenario quality (--strict).") +
       section("SPECOPS COMMANDS") +
       cmd("➕", "specops add", "Add a pack (npm-install-style); writes .specops.lock.") +
       cmd("➖", "specops remove", "Drop a pack entry from .specops.lock.") +
-      cmd("🔁", "specops sync", "Re-expand packs from .specops.lock or specops.config.yaml.") +
+      cmd(
+        "🔁",
+        "specops sync",
+        "Re-expand packs and three-way merge them, preserving local edits."
+      ) +
       cmd("📊", "specops diff", "Preview what would change on a version bump (no writes).") +
+      section("HARNESS COMMANDS") +
+      cmd(
+        "🤖",
+        "harness run",
+        "Run the plan → agent → verify → done loop for every pending requirement."
+      ) +
       section("GLOBAL FLAGS") +
       flag("-h, --help", "Show this help.") +
       flag("-v, --version", "Show CLI version.") +
@@ -259,6 +270,18 @@ function main(): void {
       return;
     }
     error(`Unknown pack sub-command: ${subCommand || "(none)"}. Expected: init, lint`);
+    usage();
+    process.exit(2);
+  }
+
+  if (command === "harness") {
+    const subCommand = args[1];
+    if (subCommand === "run") {
+      ensureExecutable(harnessRunScript);
+      runNodeScript(harnessRunScript, args.slice(2));
+      return;
+    }
+    error(`Unknown harness sub-command: ${subCommand || "(none)"}. Expected: run`);
     usage();
     process.exit(2);
   }

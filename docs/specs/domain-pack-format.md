@@ -22,19 +22,19 @@ A pack is versioned independently of the CLI using SemVer on the
 ## 2. Top-level structure
 
 ```yaml
-schema_version: "1.1.0"   # required
-metadata: { ... }          # required
-variables: { ... }         # required
-requirements: [ ... ]      # required, min 1
-bounded_contexts: [ ... ]  # required, min 1
-use_cases: [ ... ]         # required, min 1
-commands: [ ... ]          # required, min 1
-aggregates: [ ... ]        # required, min 1
-value_objects: [ ... ]     # optional
-events: [ ... ]            # required, min 1
-outputs: { ... }           # required
-rules: { ... }             # required
-scenarios: [ ... ]         # required, min 1
+schema_version: "1.1.0" # required
+metadata: { ... } # required
+variables: { ... } # required
+requirements: [...] # required, min 1
+bounded_contexts: [...] # required, min 1
+use_cases: [...] # required, min 1
+commands: [...] # required, min 1
+aggregates: [...] # required, min 1
+value_objects: [...] # optional
+events: [...] # required, min 1
+outputs: { ... } # required
+rules: { ... } # required
+scenarios: [...] # required, min 1
 ```
 
 ---
@@ -43,12 +43,12 @@ scenarios: [ ... ]         # required, min 1
 
 ### 3.1 `schema_version`
 
-| Property | Value |
-|---|---|
-| Type | `string` |
-| Required | yes |
-| Format | SemVer (`MAJOR.MINOR.PATCH`) |
-| Current value | `"1.1.0"` |
+| Property      | Value                        |
+| ------------- | ---------------------------- |
+| Type          | `string`                     |
+| Required      | yes                          |
+| Format        | SemVer (`MAJOR.MINOR.PATCH`) |
+| Current value | `"1.1.0"`                    |
 
 ```yaml
 schema_version: "1.1.0"
@@ -61,12 +61,12 @@ increment `MINOR`. Bug fixes increment `PATCH`.
 
 ### 3.2 `metadata`
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | yes | Human-readable name of the pack. |
-| `version` | string | yes | SemVer version of this pack (independent of the schema version). |
-| `language` | string | yes | ISO 639-1 language code (e.g. `"en"`, `"es"`). |
-| `project_type` | string | yes | `"backend"` or `"frontend"`. |
+| Field          | Type   | Required | Description                                                      |
+| -------------- | ------ | -------- | ---------------------------------------------------------------- |
+| `name`         | string | yes      | Human-readable name of the pack.                                 |
+| `version`      | string | yes      | SemVer version of this pack (independent of the schema version). |
+| `language`     | string | yes      | ISO 639-1 language code (e.g. `"en"`, `"es"`).                   |
+| `project_type` | string | yes      | `"backend"` or `"frontend"`.                                     |
 
 ```yaml
 metadata:
@@ -83,9 +83,9 @@ metadata:
 Declares variables that the CLI must receive (via `--var KEY=VALUE`) before
 expanding the pack. The CLI fails early if any required variable is absent.
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `required` | string[] | yes | List of variable names. |
+| Field      | Type     | Required | Description             |
+| ---------- | -------- | -------- | ----------------------- |
+| `required` | string[] | yes      | List of variable names. |
 
 ```yaml
 variables:
@@ -101,13 +101,13 @@ variables:
 
 Captures the business requirements that the pack addresses.
 
-| Field | Type | Required | Allowed values |
-|---|---|---|---|
-| `id` | string | yes | `REQ-{NNN}` (e.g. `REQ-001`). Must be unique within the pack. |
-| `title` | string | yes | Short imperative statement of the requirement. |
-| `priority` | string | yes | `Must`, `Should`, `Could`, `Wont` |
-| `description` | string | yes | One-paragraph explanation in business language. |
-| `status` | string | yes | `Draft`, `Needs Clarification`, `Domain Reviewed`, `Architecture Reviewed`, `Ready for Dev`, `In Dev`, `In Review`, `Verified`, `Released`, `Deprecated` |
+| Field         | Type   | Required | Allowed values                                                                                                                                           |
+| ------------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`          | string | yes      | `REQ-{NNN}` (e.g. `REQ-001`). Must be unique within the pack.                                                                                            |
+| `title`       | string | yes      | Short imperative statement of the requirement.                                                                                                           |
+| `priority`    | string | yes      | `Must`, `Should`, `Could`, `Wont`                                                                                                                        |
+| `description` | string | yes      | One-paragraph explanation in business language.                                                                                                          |
+| `status`      | string | yes      | `Draft`, `Needs Clarification`, `Domain Reviewed`, `Architecture Reviewed`, `Ready for Dev`, `In Dev`, `In Review`, `Verified`, `Released`, `Deprecated` |
 
 ```yaml
 requirements:
@@ -124,13 +124,13 @@ requirements:
 
 Defines the DDD Lite bounded contexts covered by this pack.
 
-| Field | Type | Required | Allowed values |
-|---|---|---|---|
-| `id` | string | yes | `BC-{NNN}`. Unique within the pack. |
-| `name` | string | yes | Short noun phrase. |
-| `type` | string | yes | `Core`, `Supporting`, `Generic` |
-| `responsibility` | string | yes | One sentence describing the context's single responsibility. |
-| `aggregates` | string[] | yes | Names of aggregates (must match entries in `aggregates`). |
+| Field            | Type     | Required | Allowed values                                               |
+| ---------------- | -------- | -------- | ------------------------------------------------------------ |
+| `id`             | string   | yes      | `BC-{NNN}`. Unique within the pack.                          |
+| `name`           | string   | yes      | Short noun phrase.                                           |
+| `type`           | string   | yes      | `Core`, `Supporting`, `Generic`                              |
+| `responsibility` | string   | yes      | One sentence describing the context's single responsibility. |
+| `aggregates`     | string[] | yes      | Names of aggregates (must match entries in `aggregates`).    |
 
 ```yaml
 bounded_contexts:
@@ -149,17 +149,17 @@ bounded_contexts:
 
 Maps each requirement to a command, an aggregate and a set of emitted events.
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `id` | string | yes | `UC-{NNN}`. Unique. |
-| `name` | string | yes | Verb phrase (e.g. `"Register Vehicle Entry"`). |
-| `actor` | string | yes | Role interacting with the system (e.g. `Driver`, `Operator`). |
-| `requirement` | string | yes | ID of the requirement this use case implements. |
-| `command` | string | yes | Name of the command dispatched (must match `commands[].name`). |
-| `aggregate` | string | yes | Aggregate root that handles the command. |
-| `emits` | string[] | yes | Names of events emitted on success. |
-| `scenarios` | string[] | yes | IDs of Gherkin scenarios (`SCN-{NNN}`). |
-| `status` | string | yes | Same allowed values as `requirements[].status`. |
+| Field         | Type     | Required | Notes                                                          |
+| ------------- | -------- | -------- | -------------------------------------------------------------- |
+| `id`          | string   | yes      | `UC-{NNN}`. Unique.                                            |
+| `name`        | string   | yes      | Verb phrase (e.g. `"Register Vehicle Entry"`).                 |
+| `actor`       | string   | yes      | Role interacting with the system (e.g. `Driver`, `Operator`).  |
+| `requirement` | string   | yes      | ID of the requirement this use case implements.                |
+| `command`     | string   | yes      | Name of the command dispatched (must match `commands[].name`). |
+| `aggregate`   | string   | yes      | Aggregate root that handles the command.                       |
+| `emits`       | string[] | yes      | Names of events emitted on success.                            |
+| `scenarios`   | string[] | yes      | IDs of Gherkin scenarios (`SCN-{NNN}`).                        |
+| `status`      | string   | yes      | Same allowed values as `requirements[].status`.                |
 
 ```yaml
 use_cases:
@@ -182,12 +182,12 @@ use_cases:
 
 Represents the intent to change system state.
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `id` | string | yes | `CMD-{NNN}`. Unique. |
-| `name` | string | yes | `PascalCase` ending in `Command`. |
-| `use_case` | string | yes | ID of the use case that dispatches this command. |
-| `fields` | string[] | yes | Names of the command's input fields. |
+| Field      | Type     | Required | Notes                                            |
+| ---------- | -------- | -------- | ------------------------------------------------ |
+| `id`       | string   | yes      | `CMD-{NNN}`. Unique.                             |
+| `name`     | string   | yes      | `PascalCase` ending in `Command`.                |
+| `use_case` | string   | yes      | ID of the use case that dispatches this command. |
+| `fields`   | string[] | yes      | Names of the command's input fields.             |
 
 ```yaml
 commands:
@@ -206,12 +206,12 @@ commands:
 
 Domain aggregate roots with their invariants.
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `id` | string | yes | `AGG-{NNN}`. Unique. |
-| `name` | string | yes | `PascalCase`. Must appear in at least one `bounded_context.aggregates`. |
-| `context` | string | yes | Name of the bounded context that owns this aggregate. |
-| `invariants` | string[] | yes | Business rules the aggregate enforces. Min 1. |
+| Field        | Type     | Required | Notes                                                                   |
+| ------------ | -------- | -------- | ----------------------------------------------------------------------- |
+| `id`         | string   | yes      | `AGG-{NNN}`. Unique.                                                    |
+| `name`       | string   | yes      | `PascalCase`. Must appear in at least one `bounded_context.aggregates`. |
+| `context`    | string   | yes      | Name of the bounded context that owns this aggregate.                   |
+| `invariants` | string[] | yes      | Business rules the aggregate enforces. Min 1.                           |
 
 ```yaml
 aggregates:
@@ -229,12 +229,12 @@ aggregates:
 
 Immutable objects identified by their value, not by an ID.
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `id` | string | yes | `VO-{NNN}`. Unique. |
-| `name` | string | yes | `PascalCase`. |
-| `fields` | string[] | yes | Constituent fields. |
-| `invariants` | string[] | yes | Validation rules. |
+| Field        | Type     | Required | Notes               |
+| ------------ | -------- | -------- | ------------------- |
+| `id`         | string   | yes      | `VO-{NNN}`. Unique. |
+| `name`       | string   | yes      | `PascalCase`.       |
+| `fields`     | string[] | yes      | Constituent fields. |
+| `invariants` | string[] | yes      | Validation rules.   |
 
 ```yaml
 value_objects:
@@ -253,14 +253,14 @@ value_objects:
 
 Domain or integration events emitted by aggregates.
 
-| Field | Type | Required | Allowed values |
-|---|---|---|---|
-| `id` | string | yes | `EVT-{NNN}`. Unique. |
-| `name` | string | yes | `PascalCase`. Past tense (e.g. `VehicleEntered`). |
-| `type` | string | yes | `domain` or `integration` |
-| `producer` | string | yes | Aggregate name that emits the event. |
-| `consumers` | string[] | yes | Context or service names that subscribe. |
-| `payload` | string[] | yes | Field names included in the event. Always include `occurred_at`. |
+| Field       | Type     | Required | Allowed values                                                   |
+| ----------- | -------- | -------- | ---------------------------------------------------------------- |
+| `id`        | string   | yes      | `EVT-{NNN}`. Unique.                                             |
+| `name`      | string   | yes      | `PascalCase`. Past tense (e.g. `VehicleEntered`).                |
+| `type`      | string   | yes      | `domain` or `integration`                                        |
+| `producer`  | string   | yes      | Aggregate name that emits the event.                             |
+| `consumers` | string[] | yes      | Context or service names that subscribe.                         |
+| `payload`   | string[] | yes      | Field names included in the event. Always include `occurred_at`. |
 
 ```yaml
 events:
@@ -283,9 +283,9 @@ events:
 
 Declares static files to generate during `expand`.
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `files` | object[] | yes | Min 1. Each entry has `target` (output path) and `template` (template path relative to the pack root). |
+| Field   | Type     | Required | Notes                                                                                                  |
+| ------- | -------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `files` | object[] | yes      | Min 1. Each entry has `target` (output path) and `template` (template path relative to the pack root). |
 
 ```yaml
 outputs:
@@ -302,11 +302,11 @@ outputs:
 
 Instructs the CLI on how to update cross-cutting artefacts.
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `traceability.target` | string | yes | Path to the traceability matrix relative to the project root. |
-| `traceability.include_existing_rows` | boolean | yes | Whether to preserve rows already in the matrix. |
-| `traceability.default_status` | string | yes | Status assigned to new rows (e.g. `"Draft"`). |
+| Field                                | Type    | Required | Notes                                                         |
+| ------------------------------------ | ------- | -------- | ------------------------------------------------------------- |
+| `traceability.target`                | string  | yes      | Path to the traceability matrix relative to the project root. |
+| `traceability.include_existing_rows` | boolean | yes      | Whether to preserve rows already in the matrix.               |
+| `traceability.default_status`        | string  | yes      | Status assigned to new rows (e.g. `"Draft"`).                 |
 
 ```yaml
 rules:
@@ -322,22 +322,22 @@ rules:
 
 Links each business requirement to an executable Gherkin scenario.
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `id` | string | yes | `SCN-{NNN}`. Unique. Must appear in at least one `use_cases[].scenarios`. |
-| `requirement_id` | string | yes | ID of the requirement being verified. |
-| `use_case` | string | yes | ID of the use case. |
-| `seed` | boolean | yes | If `true`, the CLI writes an example Gherkin file at `target`. |
-| `target` | string | yes | Output path for the `.feature` file (relative to project root). |
-| `template` | string | yes | Template path relative to the pack root. |
-| `feature` | string | yes | Name of the Gherkin Feature block. |
-| `scenario` | string | yes | Name of the primary Gherkin Scenario. |
-| `command` | string | yes | Command name exercised in the scenario. |
-| `aggregate` | string | yes | Aggregate under test. |
-| `events` | string[] | yes | Events asserted in the Then clause. |
-| `technical_artifacts` | string[] | yes | Artefacts (service, handler, etc.) to be built to satisfy the scenario. |
-| `test_artifact` | string | yes | Name of the step-definition file. |
-| `status` | string | yes | Same allowed values as `requirements[].status`. |
+| Field                 | Type     | Required | Notes                                                                     |
+| --------------------- | -------- | -------- | ------------------------------------------------------------------------- |
+| `id`                  | string   | yes      | `SCN-{NNN}`. Unique. Must appear in at least one `use_cases[].scenarios`. |
+| `requirement_id`      | string   | yes      | ID of the requirement being verified.                                     |
+| `use_case`            | string   | yes      | ID of the use case.                                                       |
+| `seed`                | boolean  | yes      | If `true`, the CLI writes an example Gherkin file at `target`.            |
+| `target`              | string   | yes      | Output path for the `.feature` file (relative to project root).           |
+| `template`            | string   | yes      | Template path relative to the pack root.                                  |
+| `feature`             | string   | yes      | Name of the Gherkin Feature block.                                        |
+| `scenario`            | string   | yes      | Name of the primary Gherkin Scenario.                                     |
+| `command`             | string   | yes      | Command name exercised in the scenario.                                   |
+| `aggregate`           | string   | yes      | Aggregate under test.                                                     |
+| `events`              | string[] | yes      | Events asserted in the Then clause.                                       |
+| `technical_artifacts` | string[] | yes      | Artefacts (service, handler, etc.) to be built to satisfy the scenario.   |
+| `test_artifact`       | string   | yes      | Name of the step-definition file.                                         |
+| `status`              | string   | yes      | Same allowed values as `requirements[].status`.                           |
 
 ```yaml
 scenarios:
@@ -364,13 +364,13 @@ scenarios:
 
 ## 4. Versioning policy
 
-| Change | Version bump |
-|---|---|
-| Remove or rename a required field | `MAJOR` |
-| Add a new required field | `MAJOR` |
-| Add an optional field | `MINOR` |
-| Change an allowed value list in a non-breaking way | `MINOR` |
-| Correct documentation only | `PATCH` |
+| Change                                             | Version bump |
+| -------------------------------------------------- | ------------ |
+| Remove or rename a required field                  | `MAJOR`      |
+| Add a new required field                           | `MAJOR`      |
+| Add an optional field                              | `MINOR`      |
+| Change an allowed value list in a non-breaking way | `MINOR`      |
+| Correct documentation only                         | `PATCH`      |
 
 ---
 
@@ -387,6 +387,30 @@ scenarios:
 9. Every `event.producer` must match a declared `aggregate.name`.
 10. Event payloads must include `occurred_at`.
 11. `scenarios[].status` must be one of the ten allowed status values.
+
+---
+
+## 5a. Scenario-quality rules (`pack lint`)
+
+A pack's scenarios are the reward signal for `harness run` — weak Gherkin
+lets the harness wave through weak code. `pack lint` therefore inspects
+each scenario's actual content, whether it is a `template:` `.feature.tpl`
+file or inline `given`/`when`/`then` fields:
+
+- **Broken template link** → error. The `.feature.tpl` does not exist.
+- **Scenario Outline with no `Examples:`** → error. It would never run.
+- **No `When` step** → the scenario exercises no action.
+- **No `Then` step** → the scenario asserts nothing.
+- **Fewer than 3 steps** → too thin to be a real scenario.
+- **Generic title** (`test`, `Scenario 1`, fewer than 3 words) → name the
+  behaviour under test.
+- **Vague step language** (`works`, `correctly`, `properly`, `as
+expected`, `etc`, `TODO`, `...`) → a non-falsifiable assertion.
+- **Name drift** → the `pack.yaml` `scenario:` does not match the
+  template's `Scenario:` title.
+
+By default these are **warnings**. `pack lint --strict` promotes them to
+**errors** — use it in CI and before a pack feeds `harness run`.
 
 ---
 

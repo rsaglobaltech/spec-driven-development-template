@@ -8,6 +8,8 @@
  *   create-spec-driven-app pack lint --pack-root <path> --pack <domain/type>
  */
 
+const fs = require("node:fs");
+const path = require("node:path");
 const { loadPack, asArray } = require("./domain-pack/common");
 
 function logInfo(msg) {
@@ -23,21 +25,26 @@ function logError(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app pack lint --pack-root <path> --pack <domain/type>\n\n" +
+      "  create-spec-driven-app pack lint --pack-root <path> --pack <domain/type> [--strict]\n\n" +
       "Options:\n" +
       "  --pack-root   Root directory containing domain packs (required)\n" +
-      "  --pack        Pack identifier, e.g. parking-management/backend (required)\n"
+      "  --pack        Pack identifier, e.g. parking-management/backend (required)\n" +
+      "  --strict      Promote scenario-quality warnings to errors. Use in CI and\n" +
+      "                before a pack feeds `harness run` — a weak scenario is a\n" +
+      "                weak reward signal.\n"
   );
 }
 
 function parseArgs(argv) {
-  const opts = { packRoot: null, packId: null };
+  const opts: any = { packRoot: null, packId: null, strict: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--pack-root" && argv[i + 1]) {
       opts.packRoot = argv[++i];
     } else if (a === "--pack" && argv[i + 1]) {
       opts.packId = argv[++i];
+    } else if (a === "--strict") {
+      opts.strict = true;
     } else if (a === "--help" || a === "-h") {
       usage();
       process.exit(0);
@@ -185,11 +192,172 @@ function lintVariables(pack, errors, _warnings) {
   }
 }
 
+// ── Scenario-quality lint rules ───────────────────────────────────────────────
+//
+// A pack's scenarios are the reward signal for `harness run`: weak Gherkin
+// lets the harness wave through weak code. These rules flag vague or thin
+// scenarios so the signal stays honest. They feed `scenarioIssues`, which
+// `--strict` promotes from warnings to errors.
+
+// Words that signal a non-falsifiable step — an assertion that cannot fail.
+const VAGUE_STEP_RE =
+  /\b(works?|correctly|properly|as expected|should be fine|should work|somehow|something|some stuff|etc\.?|tbd|todo)\b|\.\.\./i;
+
+const STEP_RE = /^\s*(Given|When|Then|And|But)\b\s*(.*)$/i;
+
+/**
+ * Parse one Gherkin feature file into a flat list of scenarios. Intentionally
+ * light — enough to judge structure and step language, not a full parser.
+ */
+function parseFeature(content) {
+  const scenarios = [];
+  let current = null;
+  for (const raw of content.split("\n")) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const scenarioMatch = line.match(/^(Scenario Outline|Scenario):\s*(.*)$/i);
+    if (scenarioMatch) {
+      current = {
+        outline: /outline/i.test(scenarioMatch[1]),
+        title: scenarioMatch[2].trim(),
+        steps: [],
+        hasExamples: false,
+      };
+      scenarios.push(current);
+      continue;
+    }
+    if (!current) continue;
+
+    if (/^Examples:/i.test(line)) {
+      current.hasExamples = true;
+      continue;
+    }
+    const stepMatch = line.match(STEP_RE);
+    if (stepMatch) {
+      // `And`/`But` inherit the previous keyword's role.
+      let keyword = stepMatch[1].toLowerCase();
+      if ((keyword === "and" || keyword === "but") && current.steps.length > 0) {
+        keyword = current.steps[current.steps.length - 1].keyword;
+      }
+      current.steps.push({ keyword, text: stepMatch[2].trim() });
+    }
+  }
+  return scenarios;
+}
+
+function isGenericTitle(title) {
+  if (!title) return true;
+  if (/^(test|scenario|example|untitled)\b/i.test(title)) return true;
+  return title.split(/\s+/).filter(Boolean).length < 3;
+}
+
+/** Apply the quality checks to one parsed scenario (template- or inline-sourced). */
+function checkGherkin(where, gherkin, errors, scenarioIssues) {
+  const kinds = new Set(gherkin.steps.map((s) => s.keyword));
+
+  if (isGenericTitle(gherkin.title)) {
+    scenarioIssues.push(`${where}: scenario title is generic — name the behaviour under test.`);
+  }
+  if (gherkin.steps.length < 3) {
+    scenarioIssues.push(
+      `${where}: only ${gherkin.steps.length} step(s) — a real scenario needs Given/When/Then.`
+    );
+  }
+  if (!kinds.has("when")) {
+    scenarioIssues.push(`${where}: no When step — the scenario exercises no action.`);
+  }
+  if (!kinds.has("then")) {
+    scenarioIssues.push(`${where}: no Then step — the scenario asserts nothing.`);
+  }
+  if (gherkin.outline && !gherkin.hasExamples) {
+    // A Scenario Outline with no Examples never runs — hard error.
+    errors.push(`${where}: Scenario Outline has no Examples table.`);
+  }
+  for (const step of gherkin.steps) {
+    if (VAGUE_STEP_RE.test(step.text)) {
+      scenarioIssues.push(
+        `${where}: vague step "${step.keyword} ${step.text}" — make it concrete and falsifiable.`
+      );
+    }
+  }
+}
+
+/** Build a synthetic gherkin object from inline given/when/then fields. */
+function inlineGherkin(scn) {
+  const steps = [];
+  for (const keyword of ["given", "when", "then"]) {
+    for (const text of asArray(scn[keyword])) {
+      if (typeof text === "string" && text.trim()) steps.push({ keyword, text: text.trim() });
+    }
+  }
+  return { title: scn.title || scn.scenario || "", steps, outline: false, hasExamples: true };
+}
+
+function lintScenarioQuality(pack, packRoot, errors, scenarioIssues) {
+  for (const scn of asArray(pack.scenarios)) {
+    const label = scn.id || scn.title || scn.scenario || "(unnamed scenario)";
+
+    // Format 1 — inline given/when/then fields on the scenario entry.
+    if (!scn.template && (scn.given || scn.when || scn.then)) {
+      checkGherkin(
+        `${label} → "${scn.title || "(no title)"}"`,
+        inlineGherkin(scn),
+        errors,
+        scenarioIssues
+      );
+      continue;
+    }
+
+    // Format 2 — a Gherkin template file.
+    if (!scn.template) {
+      scenarioIssues.push(
+        `Scenario ${label} declares no scenario content (template file or given/when/then).`
+      );
+      continue;
+    }
+    const templatePath = path.resolve(packRoot, scn.template);
+    if (!fs.existsSync(templatePath)) {
+      // A broken template link is unambiguously an error, never a warning.
+      errors.push(`Scenario ${label} template not found: ${scn.template}`);
+      continue;
+    }
+
+    const parsed = parseFeature(fs.readFileSync(templatePath, "utf8"));
+    if (parsed.length === 0) {
+      scenarioIssues.push(`Scenario ${label} (${scn.template}) contains no Gherkin scenario.`);
+      continue;
+    }
+
+    for (const gherkin of parsed) {
+      checkGherkin(
+        `${label} → "${gherkin.title || "(no title)"}"`,
+        gherkin,
+        errors,
+        scenarioIssues
+      );
+    }
+
+    // Drift between the pack.yaml scenario name and the template's title.
+    if (
+      scn.scenario &&
+      parsed.length === 1 &&
+      parsed[0].title &&
+      scn.scenario.trim() !== parsed[0].title.trim()
+    ) {
+      scenarioIssues.push(
+        `${label}: pack.yaml scenario "${scn.scenario}" does not match template title "${parsed[0].title}".`
+      );
+    }
+  }
+}
+
 // ── Runner ────────────────────────────────────────────────────────────────────
 
-function runLint(pack) {
+function runLint(pack, packRoot, opts: any = {}) {
   const errors = [];
   const warnings = [];
+  const scenarioIssues = [];
 
   lintTodos(pack, errors, warnings);
   lintIdUniqueness(pack, errors, warnings);
@@ -200,6 +368,14 @@ function runLint(pack) {
   lintEventAggregates(pack, errors, warnings);
   lintScenarioRefs(pack, errors, warnings);
   lintRuleContextRefs(pack, errors, warnings);
+  lintScenarioQuality(pack, packRoot, errors, scenarioIssues);
+
+  // --strict promotes scenario-quality findings to errors; otherwise warnings.
+  if (opts.strict) {
+    errors.push(...scenarioIssues);
+  } else {
+    warnings.push(...scenarioIssues);
+  }
 
   return { errors, warnings };
 }
@@ -222,8 +398,8 @@ function main() {
     process.exit(1);
   }
 
-  const { pack } = loadResult;
-  const { errors, warnings } = runLint(pack);
+  const { pack, packRoot } = loadResult;
+  const { errors, warnings } = runLint(pack, packRoot, { strict: opts.strict });
 
   for (const w of warnings) {
     logWarn(w);
@@ -244,4 +420,14 @@ function main() {
   process.exit(0);
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  parseArgs,
+  parseFeature,
+  isGenericTitle,
+  lintScenarioQuality,
+  runLint,
+};
