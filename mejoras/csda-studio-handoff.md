@@ -36,10 +36,10 @@ Stretch list explicitly NOT in v0.1.0.
 | #   | Phase                                                                                                                                                                                                               | Where it happens              | Done?   |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------- |
 | 0   | Seed brief (this repo, `mejoras/csda-studio-brief.md`)                                                                                                                                                              | `create-spec-driven-app` repo | ✅      |
-| 1   | Author the pack — `pack.yaml` + `templates/AI_RULES.md.tpl` + `templates/spec.md.tpl` + `templates/features/**/*.feature.tpl`                                                                                       | `csda-studio-specops` repo    | ⏳ NEXT |
-| 2   | `csda pack lint --pack-root . --pack frontend --strict` + `--graph` clean                                                                                                                                           | `csda-studio-specops` repo    | ⏳      |
-| 3   | Tag the pack `v0.1.0` and push                                                                                                                                                                                      | `csda-studio-specops` repo    | ⏳      |
-| 4   | `csda init` + `csda specops add` against the tagged pack                                                                                                                                                            | `csda-studio-app` repo        | ⏳      |
+| 1   | Author the pack — `pack.yaml` + `templates/AI_RULES.md.tpl` + `templates/spec.md.tpl` + `templates/features/**/*.feature.tpl`                                                                                       | `csda-studio-specops` repo    | ✅      |
+| 2   | `csda pack lint --pack-root . --pack csdastudioapp/frontend --strict` + `--graph` clean                                                                                                                             | `csda-studio-specops` repo    | ✅      |
+| 3   | Tag the pack `v0.1.0` and push                                                                                                                                                                                      | `csda-studio-specops` repo    | ✅      |
+| 4   | `csda init` + `csda specops add` against the tagged pack                                                                                                                                                            | `csda-studio-app` repo        | ⏳ NEXT |
 | 5   | **Phase 1 bootstrap** — paste `docs/bootstrap-prompt.md` (from this repo) into opencode; produce Vite/React/TS scaffold + Vitest + Playwright + Cucumber wired, hex skeleton, **REQ-015 (health)** green end-to-end | `csda-studio-app` repo        | ⏳      |
 | 6   | Commit Phase 1 result                                                                                                                                                                                               | `csda-studio-app` repo        | ⏳      |
 | 7   | Add `harness.config.yaml` with `prompt_prefix_file: ./.harness/prompt-prefix.md` (Role / Active Project Boundary / Execution Policy)                                                                                | `csda-studio-app` repo        | ⏳      |
@@ -51,7 +51,38 @@ Stretch list explicitly NOT in v0.1.0.
 
 ## Immediate next action
 
-**Phase 1 — author the pack.** The agent doing this should:
+**Phase 4 — bootstrap the implementation repo.** The agent doing this
+should, from inside an empty clone of `csda-studio-app`:
+
+1. `csda init --out .` and answer (or pass on the CLI) the project
+   variables: `PROJECT_NAME="Csda Studio"`, `PROJECT_SLUG=csda-studio`,
+   `DOMAIN="spec-driven authoring"`,
+   `STACK="Vite + React 18 + TypeScript 5 + Tailwind"`,
+   `API_STYLE="browser-only, no network"`,
+   `TESTING="Vitest + Playwright + Cucumber-JS"`.
+2. Add the tagged pack:
+   ```bash
+   csda specops add \
+     --pack-repo https://github.com/rsaglobaltech/csda-studio-specops.git \
+     --pack-version v0.1.0 \
+     --pack csdastudioapp/frontend
+   ```
+3. Verify `AI_RULES.md`, `spec.md` and `features/**` were rendered with
+   the variables substituted.
+4. Commit the rendered output as the first commit of `csda-studio-app`
+   (no implementation yet — that's Phase 5).
+5. Update this file: flip Phase 4 to ✅ and promote Phase 5 to NEXT.
+
+### Reference — how Phase 1 was done
+
+The pack is now live at
+[`csda-studio-specops`](https://github.com/rsaglobaltech/csda-studio-specops)
+tagged `v0.1.0`. The repo's `README.md` walks through the authoring
+recipe end-to-end (`csda pack init` → translate brief → templates →
+lint → tag) for anyone who wants to reproduce the work or write a new
+pack from scratch.
+
+Phase 1 used to read:
 
 1. Clone `csda-studio-specops`.
 2. Copy `mejoras/csda-studio-brief.md` from this repo into that one (as
@@ -120,3 +151,4 @@ the whole conversation history.
 | 2026-05-15 | Seed brief authored and approved (stack + scope confirmed: Vite + React 18 + TS 5 + Tailwind + Vitest + Playwright + Cucumber-JS; REQ-001…REQ-015 frozen for v0.1.0). | `mejoras/csda-studio-brief.md` |
 | 2026-05-15 | Both empty repos created on GitHub: `csda-studio-specops`, `csda-studio-app`. Phase 1 not yet started.                                                                | —                              |
 | 2026-05-15 | Handoff doc created. Next concrete action: author the pack in `csda-studio-specops` per the brief.                                                                    | this file                      |
+| 2026-05-15 | Phases 1-3 complete. Pack authored, lint --strict + --graph clean, tagged `v0.1.0` and pushed. Pack contains 15 REQs / 15 UCs / 10 CMDs / 5 QRYs / 4 AGGs / 15 EVTs / 15 SCNs. README at `csda-studio-specops` documents the authoring recipe.    | https://github.com/rsaglobaltech/csda-studio-specops tag v0.1.0 |
