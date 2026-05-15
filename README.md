@@ -26,16 +26,16 @@
 
 ## 🆚 How it compares
 
-| Capability | **this** | [spec-kit](https://github.com/github/spec-kit) | [Cursor rules](https://docs.cursor.com/context/rules-for-ai) | [Aider conventions](https://aider.chat/docs/usage/conventions.html) | README only |
-| --- | :-: | :-: | :-: | :-: | :-: |
-| Scaffolds a versioned repo structure | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Reusable domain packs (YAML + JSON Schema 2020-12) | ✅ | ⚠️ | ❌ | ❌ | ❌ |
-| DDD-lite artefacts (aggregates, events, commands) | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Traceability matrix + `validate` CI gate | ✅ | ⚠️ | ❌ | ❌ | ❌ |
-| Vendor-neutral (Claude · Cursor · Aider · Copilot) | ✅ | ✅ | ❌ | ✅ | ✅ |
-| VS Code extension + MCP server | ✅ | ❌ | n/a | ❌ | ❌ |
+| Capability                                         | **this** | [spec-kit](https://github.com/github/spec-kit) | [Cursor rules](https://docs.cursor.com/context/rules-for-ai) | [Aider conventions](https://aider.chat/docs/usage/conventions.html) | README only |
+| -------------------------------------------------- | :------: | :--------------------------------------------: | :----------------------------------------------------------: | :-----------------------------------------------------------------: | :---------: |
+| Scaffolds a versioned repo structure               |    ✅    |                       ✅                       |                              ❌                              |                                 ❌                                  |     ❌      |
+| Reusable domain packs (YAML + JSON Schema 2020-12) |    ✅    |                       ⚠️                       |                              ❌                              |                                 ❌                                  |     ❌      |
+| DDD-lite artefacts (aggregates, events, commands)  |    ✅    |                       ❌                       |                              ❌                              |                                 ❌                                  |     ❌      |
+| Traceability matrix + `validate` CI gate           |    ✅    |                       ⚠️                       |                              ❌                              |                                 ❌                                  |     ❌      |
+| Vendor-neutral (Claude · Cursor · Aider · Copilot) |    ✅    |                       ✅                       |                              ❌                              |                                 ✅                                  |     ✅      |
+| VS Code extension + MCP server                     |    ✅    |                       ❌                       |                             n/a                              |                                 ❌                                  |     ❌      |
 
-**🧭 What we add:** a **versioned, schema-validated domain pack format** plus a CI-enforced traceability matrix — giving AI agents and humans a shared, drift-proof vocabulary that survives audit trails and refactors. Everything else (`spec-kit`, Cursor, Aider, plain READMEs) optimises for *prompting*; we optimise for *specs as executable contracts*.
+**🧭 What we add:** a **versioned, schema-validated domain pack format** plus a CI-enforced traceability matrix — giving AI agents and humans a shared, drift-proof vocabulary that survives audit trails and refactors. Everything else (`spec-kit`, Cursor, Aider, plain READMEs) optimises for _prompting_; we optimise for _specs as executable contracts_.
 
 → Full matrix, honest trade-offs, and migration paths in [`docs/comparisons.md`](docs/comparisons.md).
 
@@ -43,11 +43,11 @@
 
 ```bash
 # 1. Copy the example config and edit it (PROJECT_NAME, PROJECT_SLUG, …)
-cp examples/project.config.example /tmp/acme-energy-hub.config
+cp examples/project.yaml.example /tmp/acme-energy-hub.yaml
 
 # 2. Generate the project
 npx create-spec-driven-app@latest init \
-  --config /tmp/acme-energy-hub.config \
+  --config /tmp/acme-energy-hub.yaml \
   --out /tmp
 
 # 3. Validate
@@ -58,47 +58,64 @@ npx create-spec-driven-app@latest validate /tmp/acme-energy-hub
 
 Requires **Node.js ≥ 20**.
 
+> 📘 **New here?** The **[end-to-end tutorial](docs/tutorial.md)** builds a real
+> project (Smart Parking, on the public `parking-management-specops` pack) and
+> walks **every** command — including how to add new requirements both as a
+> project consumer and as a pack author.
+
 ## 🛠️ CLI
 
-| Command | What it does |
-| --- | --- |
-| `init` | Scaffold a new spec-driven project from a config file. |
-| `validate` | Check structure, traceability and Gherkin coverage. `--strict-tdd` also fails the build when a `REQ` lacks its `.feature`, its executable test, or its row in `traceability.md`. |
-| `expand` | Apply a domain pack (local path or remote git repo) onto an existing project. |
-| `pack init` / `pack lint` | Scaffold or lint a custom domain pack. |
-| `specops sync` / `specops diff` | Sync a project to a locked pack version, or diff against it. |
+| Command                          | What it does                                                                                                                                                                     |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `init`                           | Scaffold a new spec-driven project from a config file.                                                                                                                           |
+| `validate`                       | Check structure, traceability and Gherkin coverage. `--strict-tdd` also fails the build when a `REQ` lacks its `.feature`, its executable test, or its row in `traceability.md`. |
+| `expand`                         | Apply a domain pack (local path or remote git repo) onto a project (low-level; `specops add` is the ergonomic path).                                                             |
+| `plan`                           | List requirements still needing a test, code, or status update. `--format json` for AI agents and CI.                                                                            |
+| `done`                           | Mark a requirement `Implemented` in `traceability.md`. `--check` / `--strict` validate first.                                                                                    |
+| `pack init` / `pack lint`        | Scaffold a pack, or lint it: schema, cross-refs, and scenario quality (`--strict`).                                                                                              |
+| `pack lint --graph`              | Render the pack's `REQ→UC→CMD/AGG→EVT` graph (Mermaid/DOT); doubles as a CI link-check.                                                                                          |
+| `pack infer`                     | Propose a `pack.yaml` skeleton from a `.feature` file — write the scenario first.                                                                                                |
+| `specops add` / `specops remove` | Add a pack (npm-install-style, writes `.specops.lock`) or drop one.                                                                                                              |
+| `specops sync` / `specops diff`  | Three-way-merge a project to a locked pack version, or preview the change.                                                                                                       |
+| `harness run`                    | Run the plan → agent → verify → done loop for every pending requirement, in isolated git worktrees.                                                                              |
 
-Full reference: `npx create-spec-driven-app --help` · [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
+Full reference: `npx create-spec-driven-app --help` · **[End-to-end tutorial](docs/tutorial.md)** · [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
 
 ## ⚙️ Configuration
 
-Minimum config (key=value, not shell):
+`init --config` accepts a **YAML mapping** (`.yaml` / `.yml`) or the legacy
+`KEY="value"` format (`.config`) — the parser is chosen by file extension.
 
-```ini
-PROJECT_NAME="Acme Energy Hub"
-PROJECT_SLUG="acme-energy-hub"
-PROJECT_TYPE="backend"          # backend | frontend | contracts
-DOMAIN="community energy"
-STACK="Quarkus 3.x, Java 21, PostgreSQL"
-API_STYLE="REST with DTO boundaries"
-TESTING="JUnit 5, Testcontainers, Cucumber"
+```yaml
+# project.yaml — a flat mapping, same keys either way
+PROJECT_NAME: Acme Energy Hub
+PROJECT_SLUG: acme-energy-hub
+PROJECT_TYPE: backend # backend | frontend | contracts
+DOMAIN: community energy
+STACK: Quarkus 3.x, Java 21, PostgreSQL
+API_STYLE: REST with DTO boundaries
+TESTING: JUnit 5, Testcontainers, Cucumber
 ```
 
-Optional: `LANG`, `MODULES="auth,dashboard,billing"`. See [`examples/project.config.example`](examples/project.config.example).
+Optional: `LANG`, `MODULES: "auth,dashboard,billing"`. See
+[`examples/project.yaml.example`](examples/project.yaml.example) (YAML) or
+[`examples/project.config.example`](examples/project.config.example) (legacy).
 
 ## 🧪 Domain packs
 
-A pack is a reusable YAML bundle of requirements, use cases, aggregates, events, and Gherkin templates:
+A pack is a reusable YAML bundle of requirements, use cases, aggregates, events, and Gherkin templates. Add one to a project the npm-install way — `specops add` writes a `.specops.lock` and a `.specops/` baseline so the source, version and variables are remembered:
 
 ```bash
-npx create-spec-driven-app@latest expand \
-  --pack-root ./domain-packs \
-  --pack parking-management/backend \
-  --project-dir /tmp/acme-energy-hub \
-  --var DOMAIN="community energy"
+npx create-spec-driven-app@latest specops add \
+  --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \
+  --pack-version v0.1.0 \
+  --pack backend \
+  --var PROJECT_NAME="Smart Parking" \
+  --var PROJECT_SLUG=smart-parking \
+  --var DOMAIN="parking operations"
 ```
 
-Browse the [curated pack registry](https://rsaglobaltech.github.io/spec-driven-development-template/) or build your own with `pack init`.
+Browse the [curated pack registry](https://rsaglobaltech.github.io/spec-driven-development-template/), build your own with `pack init`, visualise the cross-reference graph with `pack lint --graph`, or scaffold one from a `.feature` with `pack infer`.
 
 ### 📜 `contracts` packs
 
@@ -154,13 +171,34 @@ packs:
       PROJECT_NAME: Smart Parking
 ```
 
+## 🤖 Automate delivery with the harness
+
+A spec-driven repo is already a complete environment for an AI coding agent —
+`plan` is the task queue, the feature file + `AI_RULES.md` are the context,
+`validate --strict-tdd` is the reward signal, `done` is the state transition.
+`harness run` is the orchestration layer:
+
+```bash
+npx create-spec-driven-app harness run \
+  --agent "claude -p < {prompt_file}" \
+  --test-cmd "mvn -q test"
+```
+
+For each pending requirement, in an isolated `git worktree` on a fresh
+`harness/REQ-NNN` branch, it builds a prompt, shells out to **your** agent
+(vendor-neutral — any command with a `{prompt_file}` placeholder), gates the
+result with `validate --strict-tdd` + your tests, commits on green, retries on
+red, and emits a pass/fail report. It never merges — you review `harness/*`.
+See the [harness spec](docs/specs/harness.md).
+
 ## 🧰 Companion tools
 
-- 🧠 **MCP server** ([`@spec-driven/mcp-server`](packages/mcp-spec-driven)) — exposes `read_spec`, `list_requirements`, `validate_project` to Claude Desktop, Cursor, Aider.
-- 🧩 **VS Code extension** ([`vscode-spec-driven`](packages/vscode-spec-driven)) — pack.yaml linting, traceability navigation, validate-on-save.
+- 🧠 **MCP server** ([`mcp-spec-driven`](packages/mcp-spec-driven)) — exposes `read_spec`, `plan`, `mark_requirement_done`, `lint_pack` and more to Claude Desktop, Cursor, Aider.
+- 🧩 **VS Code extension** ([`vscode-spec-driven`](packages/vscode-spec-driven)) — pack.yaml schema linting, dangling-reference diagnostics, reference autocomplete, go-to-definition, requirement reference counts, validate-on-save, and a Mermaid **Pack Graph** webview.
 
 ## 📚 Learn more
 
+- 🚗 **[End-to-end tutorial](docs/tutorial.md)** — build Smart Parking on the real `parking-management-specops` pack; every command, plus adding new requirements.
 - 📖 **[How-to guide](docs/how-to.md)** — step-by-step recipes for every common workflow.
 - [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
 - [Case study — Smart Parking adoption](docs/case-studies/case-1.md)

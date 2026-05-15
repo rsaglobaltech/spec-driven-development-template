@@ -49,11 +49,14 @@ function error(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app specops sync [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--dry-run] [--force] [--abort-on-conflict]\n\n" +
+      "  create-spec-driven-app specops sync [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--var KEY=VALUE]... [--dry-run] [--force] [--abort-on-conflict]\n\n" +
       "Re-expands packs recorded in .specops.lock (or specops.config.yaml if no\n" +
       "lockfile exists) and three-way merges the result into the project,\n" +
       "preserving local edits. With --pack-version, bumps the matching pack(s)\n" +
       "to a new tag/SHA.\n\n" +
+      "  --var KEY=VALUE       Extra template variable (repeatable). Use it when a\n" +
+      "                        newer pack version requires a variable the lockfile\n" +
+      "                        predates; the value is persisted back to .specops.lock.\n" +
       "  --force               Overwrite locally-edited files with the pack version.\n" +
       "  --abort-on-conflict   Leave conflicting files untouched instead of writing markers.\n" +
       "  --dry-run             Report what would change without writing anything.\n"
@@ -69,6 +72,7 @@ function parseArgs(argv) {
     dryRun: false,
     force: false,
     abortOnConflict: false,
+    vars: {} as Record<string, string>,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
@@ -86,6 +90,13 @@ function parseArgs(argv) {
     }
     if (token === "--cache-dir") {
       args.cacheDir = argv[++i] || "";
+      continue;
+    }
+    if (token === "--var") {
+      const pair = argv[++i] || "";
+      const eq = pair.indexOf("=");
+      if (eq <= 0) throw new Error(`Invalid --var (expected KEY=VALUE): ${pair}`);
+      args.vars[pair.slice(0, eq)] = pair.slice(eq + 1);
       continue;
     }
     if (token === "--dry-run") {
@@ -112,7 +123,7 @@ function parseArgs(argv) {
   return args;
 }
 
-function buildExpandArgs(entry, version, projectDir, cacheDir, dryRun) {
+function buildExpandArgs(entry, version, projectDir, cacheDir, dryRun, extraVars = {}) {
   const out = [
     "--pack-repo",
     entry.repo,
@@ -126,7 +137,10 @@ function buildExpandArgs(entry, version, projectDir, cacheDir, dryRun) {
   if (cacheDir) {
     out.push("--cache-dir", cacheDir);
   }
-  for (const [key, value] of Object.entries(entry.vars || {})) {
+  // CLI --var values extend/override the lockfile's recorded vars — needed
+  // when a newer pack version requires a variable the lockfile predates.
+  const vars = { ...(entry.vars || {}), ...extraVars };
+  for (const [key, value] of Object.entries(vars)) {
     out.push("--var", `${key}=${value}`);
   }
   if (dryRun) out.push("--dry-run");
@@ -217,7 +231,7 @@ function syncPack(entry, args, projectDir) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "specops-sync-"));
   try {
     // Always render into a throwaway dir (never --dry-run: we need the bytes).
-    const expandArgs = buildExpandArgs(entry, version, tmpDir, args.cacheDir, false);
+    const expandArgs = buildExpandArgs(entry, version, tmpDir, args.cacheDir, false, args.vars);
     const result = spawnSync(process.execPath, [EXPAND_SCRIPT, ...expandArgs], {
       encoding: "utf8",
     });

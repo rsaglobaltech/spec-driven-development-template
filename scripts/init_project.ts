@@ -15,6 +15,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { parseYamlLite } = require("./domain-pack/common");
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const TEMPLATES_DIR = path.join(ROOT_DIR, "templates");
@@ -36,7 +37,8 @@ function usage() {
     "Usage:\n" +
       "  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n\n" +
       "Options:\n" +
-      "  --config <path>   Configuration file (required)\n" +
+      "  --config <path>   Configuration file (required). Accepts a YAML mapping\n" +
+      '                    (.yaml/.yml) or the legacy KEY="value" format (.config).\n' +
       "  --out <dir>       Parent directory for generated project (required)\n" +
       "  --force           Overwrite target directory if it already exists\n" +
       "  --dry-run         Print actions without writing files\n" +
@@ -119,9 +121,17 @@ function parseConfig(configPath) {
     logError(`Config file not found: ${configPath}`);
     process.exit(2);
   }
+  const content = fs.readFileSync(configPath, "utf8");
+  const ext = path.extname(configPath).toLowerCase();
+  return ext === ".yaml" || ext === ".yml"
+    ? parseConfigYaml(content)
+    : parseConfigKeyValue(content);
+}
+
+/** Legacy `KEY="value"` config format (project.config). */
+function parseConfigKeyValue(content) {
   const raw = {};
-  const lines = fs.readFileSync(configPath, "utf8").split("\n");
-  for (const line of lines) {
+  for (const line of content.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
     const eq = trimmed.indexOf("=");
@@ -133,6 +143,30 @@ function parseConfig(configPath) {
     const value = stripQuotes(stripInlineComment(trimmed.slice(eq + 1)).trim());
     if (KNOWN_KEYS.has(key)) {
       raw[key] = value;
+    } else {
+      logWarn(`Unknown config key (ignored): ${key}`);
+    }
+  }
+  return raw;
+}
+
+/** YAML config format (project.yaml) — a flat mapping of the same keys. */
+function parseConfigYaml(content) {
+  let parsed;
+  try {
+    parsed = parseYamlLite(content);
+  } catch (err) {
+    logError(`Invalid YAML config: ${err.message}`);
+    process.exit(2);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    logError("YAML config must be a flat mapping of KEY: value pairs.");
+    process.exit(2);
+  }
+  const raw = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (KNOWN_KEYS.has(key)) {
+      raw[key] = value === null || value === undefined ? "" : String(value);
     } else {
       logWarn(`Unknown config key (ignored): ${key}`);
     }

@@ -38,36 +38,58 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Apply package version from tag
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG_VERSION_RAW: ${{ github.ref_name }}
+        run: |
+          TAG_VERSION="${TAG_VERSION_RAW#v}"
+          if ! [[ "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid tag version: $TAG_VERSION_RAW" >&2
+            exit 2
+          fi
+
+          CURRENT_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$CURRENT_VERSION" == "$TAG_VERSION" ]]; then
+            echo "package.json is already at $TAG_VERSION; skipping npm version."
+            exit 0
+          fi
+
+          npm version "$TAG_VERSION" --no-git-tag-version
+
       - name: Apply package version override
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.package_version != ''
         env:
           PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: |
-          if ! [[ "$PACKAGE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+          PACKAGE_VERSION_NORMALIZED="${PACKAGE_VERSION#v}"
+          if ! [[ "$PACKAGE_VERSION_NORMALIZED" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
             echo "Invalid package_version: $PACKAGE_VERSION" >&2
             exit 2
           fi
 
           CURRENT_VERSION="$(node -p "require('./package.json').version")"
-          if [[ "$CURRENT_VERSION" == "$PACKAGE_VERSION" ]]; then
-            echo "package.json is already at $PACKAGE_VERSION; skipping npm version."
+          if [[ "$CURRENT_VERSION" == "$PACKAGE_VERSION_NORMALIZED" ]]; then
+            echo "package.json is already at $PACKAGE_VERSION_NORMALIZED; skipping npm version."
             exit 0
           fi
 
-          npm version "$PACKAGE_VERSION" --no-git-tag-version
+          npm version "$PACKAGE_VERSION_NORMALIZED" --no-git-tag-version
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://npm.pkg.github.com'
+          registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Ensure executable permissions
-        run: chmod +x bin/*.js scripts/*.sh
+        run: |
+          find bin -maxdepth 1 -type f -name "*.js" -exec chmod +x {} +
+          find scripts -maxdepth 1 -type f -name "*.cjs" -exec chmod +x {} +
 
       - name: Run test suite
         run: npm test
@@ -94,6 +116,15 @@ jobs:
             echo "dist_tag=${{ github.event.inputs.dist_tag }}" >> "$GITHUB_OUTPUT"
             echo "dry_run=${{ github.event.inputs.dry_run }}" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Configure npm auth for GitHub Packages
+        env:
+          OWNER: ${{ github.repository_owner }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OWNER_LC="$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          npm config set "//npm.pkg.github.com/:_authToken" "$NODE_AUTH_TOKEN"
+          npm config set "@${OWNER_LC}:registry" "https://npm.pkg.github.com"
 
       - name: Check package version availability
         if: steps.publish_settings.outputs.dry_run != 'true'

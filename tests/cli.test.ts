@@ -680,3 +680,158 @@ test("harness run skips an existing branch unless --force", { skip: !hasGit() },
 
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
+
+// ── pack lint --graph (visual reference graph, M-visual Phase 1) ─────────
+
+test("pack lint --graph renders the reference graph as Mermaid", () => {
+  const result = runCli([
+    "pack",
+    "lint",
+    "--pack-root",
+    "tests/fixtures/domain-packs",
+    "--pack",
+    "parking-management/backend",
+    "--graph",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^graph LR/);
+  assert.match(result.stdout, /REQ_REQ_001\["REQ-001"\]:::requirement/);
+  assert.match(result.stdout, /-->\|implements\|/);
+});
+
+test("pack lint --graph --graph-format dot renders a DOT digraph", () => {
+  const result = runCli([
+    "pack",
+    "lint",
+    "--pack-root",
+    "tests/fixtures/domain-packs",
+    "--pack",
+    "parking-management/backend",
+    "--graph",
+    "--graph-format",
+    "dot",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^digraph pack \{/);
+  assert.match(result.stdout, /rankdir=LR;/);
+});
+
+test("pack lint --graph rejects an unknown --graph-format", () => {
+  const result = runCli([
+    "pack",
+    "lint",
+    "--pack-root",
+    "tests/fixtures/domain-packs",
+    "--pack",
+    "parking-management/backend",
+    "--graph",
+    "--graph-format",
+    "svg",
+  ]);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Invalid --graph-format/);
+});
+
+// ── pack infer (.feature → pack.yaml skeleton, M-visual Phase 3) ─────────
+
+test("pack infer proposes a pack.yaml fragment from a .feature file", () => {
+  const result = runCli([
+    "pack",
+    "infer",
+    "--from",
+    "tests/fixtures/domain-packs/parking-management/backend/templates/features/capacity/capacity_threshold.feature.tpl",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /# Proposed pack\.yaml fragment inferred from/);
+  assert.match(result.stdout, /requirements:/);
+  assert.match(result.stdout, /use_cases:/);
+  assert.match(result.stdout, /commands:/);
+  assert.match(result.stdout, /events:/);
+  assert.match(result.stdout, /scenarios:/);
+  assert.match(result.stdout, /CapacityThresholdReached/);
+});
+
+test("pack infer --format json emits a structured model", () => {
+  const result = runCli([
+    "pack",
+    "infer",
+    "--from",
+    "tests/fixtures/domain-packs/parking-management/backend/templates/features/capacity/capacity_threshold.feature.tpl",
+    "--format",
+    "json",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.schema_version, 1);
+  assert.ok(Array.isArray(parsed.scenarios));
+  assert.ok(parsed.use_cases[0].name.length > 0);
+});
+
+test("pack infer requires --from", () => {
+  const result = runCli(["pack", "infer"]);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /--from .* is required/);
+});
+
+test("pack infer exits non-zero on a feature file with no scenarios", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-infer-empty-"));
+  const featurePath = path.join(tempRoot, "empty.feature");
+  fs.writeFileSync(featurePath, "Feature: Nothing here\n", "utf8");
+  const result = runCli(["pack", "infer", "--from", featurePath]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /No Gherkin scenarios/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+// ── init: YAML config format ─────────────────────────────────────────────
+
+test("init accepts a YAML config and produces a valid project", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-init-yaml-"));
+  const slug = `yaml-cfg-${Date.now()}`;
+  const configPath = path.join(tempRoot, "project.yaml");
+  const projectDir = path.join(tempRoot, slug);
+
+  const config = [
+    'PROJECT_NAME: "YAML Config"',
+    `PROJECT_SLUG: ${slug}`,
+    "PROJECT_TYPE: backend",
+    "DOMAIN: automation testing",
+    "STACK: Quarkus 3.x, Java 21, PostgreSQL",
+    "API_STYLE: REST with DTO boundaries",
+    "TESTING: JUnit 5, Testcontainers, Cucumber",
+    "LANG: en",
+    'MODULES: ""',
+  ].join("\n");
+  fs.writeFileSync(configPath, `${config}\n`, "utf8");
+
+  const initResult = runCli([
+    "init",
+    "--config",
+    configPath,
+    "--out",
+    tempRoot,
+    "--force",
+    "--no-git",
+  ]);
+  assert.equal(initResult.status, 0, initResult.stderr);
+  assert.ok(fs.existsSync(projectDir), "project directory should exist");
+
+  const validateResult = runCli(["validate", projectDir]);
+  assert.equal(validateResult.status, 0, validateResult.stderr);
+  assert.match(validateResult.stdout, /Validation passed/);
+
+  const aiRules = fs.readFileSync(path.join(projectDir, "AI_RULES.md"), "utf8");
+  assert.match(aiRules, /Stack: Quarkus 3\.x, Java 21, PostgreSQL/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("init rejects a YAML config that is a sequence, not a mapping", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-init-yaml-bad-"));
+  const configPath = path.join(tempRoot, "bad.yml");
+  fs.writeFileSync(configPath, "- one\n- two\n", "utf8");
+  const result = runCli(["init", "--config", configPath, "--out", tempRoot, "--no-git"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /flat mapping/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
