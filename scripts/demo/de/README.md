@@ -10,6 +10,33 @@ einem reviewbaren Git-Branch.
 > [`../`](..). Die Logik ist gleich, nur Sprache, Stack und Agent
 > unterscheiden sich.
 
+## Echter Spring-Boot-Stack mit Cucumber
+
+Das eingebettete `pom.xml.tpl` ist kein "JUnit-only"-Spielzeug, sondern
+ein realistisches Spring-Boot-3-Projekt:
+
+| Dependency                                            | Wofür                                    |
+| ----------------------------------------------------- | ---------------------------------------- |
+| `spring-boot-starter-web`                             | echter `@RestController` im `src/main`   |
+| `spring-boot-starter-test`                            | JUnit 5, AssertJ, MockMvc                |
+| `io.cucumber:cucumber-java`                           | Step-Definitionen                        |
+| `io.cucumber:cucumber-junit-platform-engine`          | Cucumber läuft als JUnit-Platform-Engine |
+| `org.testcontainers:testcontainers` + `junit-jupiter` | Container-Tests für DB/Queue-REQs        |
+
+Der Stub-Agent (und ebenso opencode im `--real-agent`-Modus) schreibt
+einen `SmartParkingApplication`, einen `HealthController`, einen
+`RunCucumberTest`-Suite-Runner und `HealthSteps.java`. Dazu kommt eine
+`junit-platform.properties`, die Cucumber auf die `.feature`-Datei aus dem
+Pack zeigt — `mvn test` führt das Gherkin-Szenario also **wirklich aus**.
+
+> **Why does the demo seed `pom.xml`?** CSDA ist bewusst stack-agnostisch
+> und bringt kein Build-System mit. In einem echten Projekt käme dieses
+> `pom.xml` von Spring Initializr oder einem Team-Archetype. Im Demo
+> seedet `build-video.sh` es als reines Demo-Plumbing, damit `mvn test`
+> als Harness-Gate funktioniert. Der Cucumber-Filter zeigt zunächst nur
+> auf `features/core/health.feature`; sobald weitere Anforderungen
+> implementiert sind, weitet ihr `cucumber.features` oder filtert per Tag.
+
 ## Was zeigt das Video
 
 Jedes Feature, eingebettet in den Tagesablauf:
