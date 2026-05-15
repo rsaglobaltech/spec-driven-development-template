@@ -59,11 +59,13 @@ Jedes Feature, eingebettet in den Tagesablauf:
 
 ## Verwendete CLI-Version
 
-Das Build-Skript ruft **`npx create-spec-driven-app@0.1.3`** auf — also
-genau das, was Kollegen ohne Setup auch sehen würden. Überschreibbar mit
-`CSDA_CLI_PKG`:
+Standardmäßig nutzt das Build-Skript die **lokale CLI dieses Checkouts**,
+damit dein laufender PR sichtbar ist. Für die Kollegen-Aufnahme nimm die
+gerade veröffentlichte Version:
 
 ```bash
+CSDA_CLI_PKG=create-spec-driven-app@0.1.4 bash scripts/demo/de/build-video.sh --real-agent
+# oder die jeweils neueste:
 CSDA_CLI_PKG=create-spec-driven-app@latest bash scripts/demo/de/build-video.sh --real-agent
 ```
 

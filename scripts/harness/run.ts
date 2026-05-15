@@ -217,6 +217,7 @@ function attemptRequirement(req, ctx) {
     info(`${req.requirement}: attempt ${attempt}/${settings.maxAttempts}`);
 
     const prompt = buildPrompt(req, worktreeDir, {
+      promptPrefix: settings.promptPrefix,
       hint,
       previousFailure: previousFailure || undefined,
       attempt,
@@ -227,6 +228,21 @@ function attemptRequirement(req, ctx) {
       `csda-harness-prompt-${req.requirement}-${crypto.randomBytes(4).toString("hex")}.md`
     );
     fs.writeFileSync(promptFile, prompt, "utf8");
+    // Audit copy alongside the project so reviewers can see exactly what
+    // the agent received for each attempt. Best-effort: never fail the run
+    // because of a bookkeeping write.
+    try {
+      const archiveDir = path.join(ctx.projectDir, ".specops", "harness-prompts");
+      fs.mkdirSync(archiveDir, { recursive: true });
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      fs.writeFileSync(
+        path.join(archiveDir, `${req.requirement}-${ts}-attempt-${attempt}.md`),
+        prompt,
+        "utf8"
+      );
+    } catch {
+      /* never fail the run on an audit-log write */
+    }
 
     try {
       const command = substituteAgentCommand(settings.agent, promptFile);
@@ -410,7 +426,10 @@ function main() {
     if (args.dryRun) {
       info(`Dry run — ${pending.length} requirement(s) would be processed:`);
       for (const req of pending) {
-        const prompt = buildPrompt(req, projectDir, { hint: hintByReq.get(req.requirement) });
+        const prompt = buildPrompt(req, projectDir, {
+          promptPrefix: settings.promptPrefix,
+          hint: hintByReq.get(req.requirement),
+        });
         process.stdout.write(
           `\n${"═".repeat(72)}\n${req.requirement} (${req.category}) → branch harness/${req.requirement}\n${"═".repeat(72)}\n`
         );

@@ -90,7 +90,8 @@ test("buildPrompt embeds the requirement facts and the definition of done", () =
     assert.match(prompt, /# Implement REQ-001/);
     assert.match(prompt, /Test artifact \(write this first — TDD\): test\/CapacityTest\.java/);
     assert.match(prompt, /Definition of done/);
-    assert.match(prompt, /Do not edit `docs\/specs\/traceability\.md`/);
+    assert.match(prompt, /Do not edit\*\* `docs\/specs\/traceability\.md`/);
+    assert.match(prompt, /Do not modify\*\* `spec\.md`, `AI_RULES\.md`/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -189,4 +190,110 @@ test("resolveHarnessSettings defaults maxAttempts to 3 with no file and no flag"
   const merged = resolveHarnessSettings(null, { agent: "", testCmd: "", maxAttempts: 0 });
   assert.equal(merged.maxAttempts, 3);
   assert.equal(merged.agent, "");
+  assert.equal(merged.promptPrefix, "");
+});
+
+// ── prompt_prefix / prompt_prefix_file ───────────────────────────────────────
+
+test("readHarnessConfig reads an inline prompt_prefix", () => {
+  const dir = tmpProject();
+  try {
+    fs.writeFileSync(
+      path.join(dir, "harness.config.yaml"),
+      'prompt_prefix: "Role: Lead Architect."\n',
+      "utf8"
+    );
+    const config = readHarnessConfig(dir);
+    assert.equal(config.promptPrefix, "Role: Lead Architect.");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("readHarnessConfig loads a multi-line prompt_prefix_file", () => {
+  const dir = tmpProject();
+  try {
+    fs.mkdirSync(path.join(dir, ".harness"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, ".harness", "prefix.md"),
+      "Role: Lead Architect.\nHexagonal arch is non-negotiable.\n",
+      "utf8"
+    );
+    fs.writeFileSync(
+      path.join(dir, "harness.config.yaml"),
+      "prompt_prefix_file: ./.harness/prefix.md\n",
+      "utf8"
+    );
+    const config = readHarnessConfig(dir);
+    assert.match(config.promptPrefix, /Lead Architect/);
+    assert.match(config.promptPrefix, /Hexagonal/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("readHarnessConfig errors when prompt_prefix_file is missing", () => {
+  const dir = tmpProject();
+  try {
+    fs.writeFileSync(
+      path.join(dir, "harness.config.yaml"),
+      "prompt_prefix_file: ./does-not-exist.md\n",
+      "utf8"
+    );
+    assert.throws(() => readHarnessConfig(dir), /prompt_prefix_file not found/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("readHarnessConfig prefers prompt_prefix_file over inline when both set", () => {
+  const dir = tmpProject();
+  try {
+    fs.writeFileSync(path.join(dir, "prefix.md"), "from-file", "utf8");
+    fs.writeFileSync(
+      path.join(dir, "harness.config.yaml"),
+      'prompt_prefix: "inline"\nprompt_prefix_file: ./prefix.md\n',
+      "utf8"
+    );
+    assert.equal(readHarnessConfig(dir).promptPrefix, "from-file");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("buildPrompt prepends promptPrefix with a separator", () => {
+  const dir = tmpProject();
+  try {
+    const prompt = buildPrompt(sampleReq, dir, {
+      promptPrefix: "## Role\nLead Architect.\n",
+    });
+    // Prefix appears before the requirement header, separated by ---.
+    const idxPrefix = prompt.indexOf("Lead Architect");
+    const idxSep = prompt.indexOf("\n---\n");
+    const idxReq = prompt.indexOf("# Implement REQ-001");
+    assert.ok(idxPrefix >= 0 && idxSep > idxPrefix && idxReq > idxSep);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("buildPrompt omits the separator when promptPrefix is blank or absent", () => {
+  const dir = tmpProject();
+  try {
+    const noPrefix = buildPrompt(sampleReq, dir);
+    const blank = buildPrompt(sampleReq, dir, { promptPrefix: "   \n  " });
+    assert.ok(!noPrefix.startsWith("---"));
+    assert.ok(!blank.startsWith("---"));
+    assert.equal(noPrefix, blank);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("resolveHarnessSettings exposes promptPrefix from the file config", () => {
+  const merged = resolveHarnessSettings(
+    { promptPrefix: "## Role\nLead Architect.\n" },
+    { agent: "", testCmd: "", maxAttempts: 0 }
+  );
+  assert.match(merged.promptPrefix, /Lead Architect/);
 });

@@ -89,9 +89,56 @@ harness_version: 1
 agent: "claude -p < {prompt_file}"
 test_cmd: "npm test"
 max_attempts: 3
+
+# Project-wide directives prepended to every per-REQ prompt — your Role,
+# Active Project Boundary, Execution Policy. Use prompt_prefix for a
+# one-liner; prompt_prefix_file for the realistic multi-line case
+# (parseYamlLite has no block-scalar support).
+prompt_prefix_file: ./.harness/prompt-prefix.md
 ```
 
 CLI flags always override the file.
+
+### `prompt_prefix` / `prompt_prefix_file`
+
+The harness prompt is composed top-to-bottom as:
+
+```text
+[prompt_prefix or prompt_prefix_file]
+---
+# Implement REQ-NNN
+## Requirement facts
+## Suggested approach
+## Gherkin scenario
+## Project rules (AI_RULES.md inlined verbatim)
+## Definition of done
+## Previous attempt failed   (only on retries)
+```
+
+`prompt_prefix` is the natural home for the **Role / Active Project
+Boundary / Execution Policy** directives that used to live in a
+hand-crafted "base prompt" outside the harness. By moving them into
+`harness.config.yaml`, they ride along on every REQ without duplication
+and they version with the project.
+
+When both keys are set, `prompt_prefix_file` wins.
+
+## Inspect the prompt the harness will hand the agent
+
+```bash
+csda harness prompt REQ-001
+```
+
+Friendly alias for `csda harness run --dry-run --req REQ-001`. Prints the
+exact prompt — prefix included — without invoking the agent, creating a
+worktree, or touching git. Use it to iterate on `AI_RULES.md` /
+`prompt_prefix`, or to copy-paste into a web AI when no CLI agent is
+available.
+
+Every prompt actually sent during `harness run` is also mirrored to
+`.specops/harness-prompts/REQ-NNN-<timestamp>-attempt-N.md` in the
+project for after-the-fact audit. Commit or gitignore that directory per
+your team's preference.
 
 ## The gate
 

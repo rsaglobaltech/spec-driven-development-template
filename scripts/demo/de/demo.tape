@@ -89,16 +89,17 @@ Type "clear" Enter
 Sleep 600ms
 
 # ════════════════════════════════════════════════════════════════════════════
-#  Schritt 5 — Maven-Projekt + Harness konfigurieren
+#  Schritt 5 — Maven-Projekt + Harness konfigurieren (mit prompt_prefix)
 # ════════════════════════════════════════════════════════════════════════════
-Type "# Schritt 5: pom.xml und harness.config.yaml ablegen." Enter
-Sleep 2s
-Type "demo-seed-pom" Enter
-Sleep 1.2s
-Type "demo-write-harness-config" Enter
-Sleep 1.2s
+Type "# Schritt 5: pom.xml, harness.config.yaml und einen project-weiten" Enter
+Type "# prompt_prefix mit Rolle und Architektur-Regeln ablegen." Enter
+Sleep 2.5s
+Type "demo-seed-pom && demo-write-harness-config" Enter
+Sleep 1.8s
 Type "cat harness.config.yaml" Enter
 Sleep 4.5s
+Type "cat .harness/prompt-prefix.md" Enter
+Sleep 5.5s
 Type "clear" Enter
 Sleep 600ms
 
@@ -107,17 +108,25 @@ Sleep 600ms
 # ════════════════════════════════════════════════════════════════════════════
 Type "# Schritt 6: Erstes Commit (der Harness verlangt einen sauberen Working Tree)." Enter
 Sleep 2s
-Type "git init -q && git add -A && git commit -qm 'initial: specs + pack + pom'" Enter
+Type "git init -q && git add -A && git commit -qm 'initial: specs + pack + pom + harness config'" Enter
 Sleep 2s
 Type "clear" Enter
 Sleep 600ms
 
 # ════════════════════════════════════════════════════════════════════════════
-#  Schritt 7 — Der Harness: plan → Kontext → Agent → verify → done
+#  Schritt 7a — Vorschau des Prompts (harness prompt)
 # ════════════════════════════════════════════════════════════════════════════
-Type "# Schritt 7: csda harness run — der KI-Agent implementiert REQ-000." Enter
-Sleep 2s
-Type "# Der Harness baut einen vollständigen Prompt und ruft opencode auf." Enter
+Type "# Schritt 7: Erst zeigen, was opencode bekommen wird — Prefix + Fakten + Gherkin + AI_RULES." Enter
+Sleep 2.5s
+Type "csda harness prompt REQ-000 | head -28" Enter
+Sleep 8s
+Type "clear" Enter
+Sleep 600ms
+
+# ════════════════════════════════════════════════════════════════════════════
+#  Schritt 7b — Der Harness: plan → Kontext → Agent → verify → done
+# ════════════════════════════════════════════════════════════════════════════
+Type "# Jetzt der echte Lauf — opencode schreibt Code, der Harness gated mit mvn test." Enter
 Sleep 2.2s
 Type "csda harness run --req REQ-000" Enter
 Sleep %%HARNESS_SLEEP%%
