@@ -78,8 +78,9 @@ Requires **Node.js ≥ 20**.
 | `specops add` / `specops remove` | Add a pack (npm-install-style, writes `.specops.lock`) or drop one.                                                                                                              |
 | `specops sync` / `specops diff`  | Three-way-merge a project to a locked pack version, or preview the change.                                                                                                       |
 | `harness run`                    | Run the plan → agent → verify → done loop for every pending requirement, in isolated git worktrees.                                                                              |
+| `harness prompt`                 | Print the exact prompt the harness would hand the agent for one REQ — useful for previewing what the agent sees before paying tokens.                                            |
 
-Full reference: `npx create-spec-driven-app --help` · **[End-to-end tutorial](docs/tutorial.md)** · [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
+Full reference: `npx create-spec-driven-app --help` · **[End-to-end tutorial](docs/tutorial.md)** · **[Architecture overview](docs/specs/architecture.md)** · [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
 
 ## ⚙️ Configuration
 
@@ -191,6 +192,51 @@ result with `validate --strict-tdd` + your tests, commits on green, retries on
 red, and emits a pass/fail report. It never merges — you review `harness/*`.
 See the [harness spec](docs/specs/harness.md).
 
+### 🪄 Day 1 vs day N — bootstrap once, harness from then on
+
+`harness run` implements **one REQ at a time** inside an isolated worktree.
+That is great for _iterating_, but it does not bootstrap your project.
+Phase 1 — first build manifest, BDD framework wired, hex skeleton, first
+bounded context end-to-end — is the only place where you still hand a
+freeform prompt to opencode / Claude / Cursor. The complete prompt, ready
+to paste, lives at **[`docs/bootstrap-prompt.md`](docs/bootstrap-prompt.md)**.
+
+After Phase 1 is in, the universal directives from that prompt (Role,
+Active Project Boundary, Execution Policy) move into
+`harness.config.yaml`, where they ride along on every per-REQ harness
+invocation without being retyped:
+
+```yaml
+# harness.config.yaml at the project root
+harness_version: 1
+agent: 'opencode run "$(cat {prompt_file})"'
+test_cmd: "mvn -B test"
+max_attempts: 3
+prompt_prefix_file: ./.harness/prompt-prefix.md
+```
+
+The `prompt_prefix_file` (or inline `prompt_prefix`) is prepended verbatim
+to **every** per-REQ prompt the harness assembles, then a `---` separator,
+then the auto-generated facts / Gherkin / AI_RULES / Definition of Done.
+
+### 👀 See what the agent will receive (`harness prompt`)
+
+```bash
+csda harness prompt REQ-001
+```
+
+Prints the exact prompt — prefix included — without invoking the agent,
+creating a worktree, or touching git. Use it to iterate on `AI_RULES.md`
+and `prompt_prefix`, or to copy-paste the prompt into a web AI when no
+CLI agent is available. Every prompt actually sent during `harness run`
+is also mirrored to `.specops/harness-prompts/REQ-NNN-<timestamp>-attempt-N.md`
+for after-the-fact audit. Commit or `.gitignore` that folder per your
+team's preference.
+
+For the full picture of how the pack, the implementation project, the
+bootstrap step and the harness fit together, see
+**[`docs/specs/architecture.md`](docs/specs/architecture.md)**.
+
 ## 🧰 Companion tools
 
 - 🧠 **MCP server** ([`mcp-spec-driven`](packages/mcp-spec-driven)) — exposes `read_spec`, `plan`, `mark_requirement_done`, `lint_pack` and more to Claude Desktop, Cursor, Aider.
@@ -198,6 +244,8 @@ See the [harness spec](docs/specs/harness.md).
 
 ## 📚 Learn more
 
+- 🏛️ **[Architecture overview](docs/specs/architecture.md)** — three repos, three lifecycles; how the pack, the implementation project, the bootstrap prompt and the harness fit together (with diagrams).
+- 🪄 **[Bootstrap prompt](docs/bootstrap-prompt.md)** — the only freeform-AI step, ready to paste into opencode / Claude / Cursor on day one of a project.
 - 🚗 **[End-to-end tutorial](docs/tutorial.md)** — build Smart Parking on the real `parking-management-specops` pack; every command, plus adding new requirements.
 - 📖 **[How-to guide](docs/how-to.md)** — step-by-step recipes for every common workflow.
 - [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
