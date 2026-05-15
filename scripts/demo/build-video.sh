@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 #
-# build-video.sh — render a full, 1080p, step-by-step demo video that follows
-# docs/tutorial.md, and (optionally) add an AI voice-over.
+# build-video.sh — record a focused 1080p demo of the day-to-day spec-driven
+# loop, with the harness writing real code on screen.
 #
-# What it does:
-#   1. Builds the CLI from THIS checkout and puts a `csda` wrapper on PATH.
-#   2. Builds a LOCAL, versioned git pack repo from the bundled fixture pack —
-#      tagged v0.1.0 and v0.2.0 — so `specops add` / `specops diff` /
-#      `specops sync` run for real, offline and deterministically (no network,
-#      no flaky GitHub clone mid-recording).
-#   3. Runs VHS against scripts/demo/demo.tape  ->  out/demo.mp4 + out/demo.gif
-#      at 1920x1080 with a relaxed pace.
-#   4. If OPENAI_API_KEY is set and ffmpeg is available, synthesises a
-#      voice-over from narration.json and muxes it -> out/demo-narrated.mp4
+# Two agent modes:
+#   default     : a deterministic stub agent that writes real test +
+#                 production code for REQ-000 (the scaffolded health
+#                 endpoint). Offline, reproducible, runs in CI.
+#   --real-agent: shells out to opencode for the same prompt the harness
+#                 would hand any AI agent. Authentic, non-deterministic,
+#                 needs opencode installed.
 #
 # Required:  vhs, node, git
 # Optional:  ffmpeg, jq, curl + OPENAI_API_KEY   (for the voice-over)
+#            opencode                            (only with --real-agent)
 #
 # Usage:
-#   bash scripts/demo/build-video.sh
+#   npm run demo:video
+#   bash scripts/demo/build-video.sh            # deterministic stub agent
+#   bash scripts/demo/build-video.sh --real-agent   # real opencode agent
 #   OPENAI_API_KEY=sk-... bash scripts/demo/build-video.sh
 set -euo pipefail
 
@@ -31,9 +31,22 @@ step() { printf '\n\033[1;36m▶ %s\033[0m\n' "$1"; }
 warn() { printf '\033[1;33m! %s\033[0m\n' "$1"; }
 die()  { printf '\033[1;31m✖ %s\033[0m\n' "$1" >&2; exit 1; }
 
+REAL_AGENT=0
+for arg in "$@"; do
+  case "$arg" in
+    --real-agent) REAL_AGENT=1 ;;
+    -h|--help)
+      sed -n '1,30p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *) die "Unknown flag: $arg" ;;
+  esac
+done
+
 command -v vhs  >/dev/null 2>&1 || die "vhs not found — install from https://github.com/charmbracelet/vhs"
 command -v node >/dev/null 2>&1 || die "node not found"
 command -v git  >/dev/null 2>&1 || die "git not found"
+[ "$REAL_AGENT" -eq 0 ] || command -v opencode >/dev/null 2>&1 || die "--real-agent requires opencode on PATH"
 
 # ── 1. Build the CLI, expose a `csda` wrapper pointing at this checkout ───────
 step "Building the CLI from $REPO_ROOT"
@@ -50,63 +63,56 @@ exec node "$REPO_ROOT/bin/create-spec-driven-app.js" "\$@"
 EOF
 chmod +x "$WRAPPER_DIR/csda"
 
-# Helper invoked by the tape for Step 6. The file contents have embedded
-# double quotes, which VHS `Type` cannot express — so the messy file
-# creation lives in real bash here and the tape just calls `demo-add-req`.
-cat > "$WRAPPER_DIR/demo-add-req" <<'EOF'
+# Stub agent on PATH so harness.config.yaml can reference it by absolute path.
+STUB_AGENT_SRC="$DEMO_DIR/stub-agent.sh"
+[ -x "$STUB_AGENT_SRC" ] || chmod +x "$STUB_AGENT_SRC"
+cp "$STUB_AGENT_SRC" "$WRAPPER_DIR/csda-stub-agent"
+chmod +x "$WRAPPER_DIR/csda-stub-agent"
+STUB_AGENT="$WRAPPER_DIR/csda-stub-agent"
+
+if [ "$REAL_AGENT" -eq 1 ]; then
+  AGENT_CMD='opencode run "$(cat {prompt_file})"'
+  step "Agent: opencode (real LLM)"
+else
+  AGENT_CMD="$STUB_AGENT {prompt_file}"
+  step "Agent: deterministic stub (writes real REQ-000 code)"
+fi
+
+# Helper the tape calls to drop harness.config.yaml — the agent path /
+# command lives in env and we cannot Type a YAML string with double quotes.
+cat > "$WRAPPER_DIR/demo-write-harness-config" <<EOF
 #!/usr/bin/env bash
 set -e
-printf '\n## REQ-101 — Reserve a parking spot in advance\n' >> spec.md
-mkdir -p features/reservations
-cat > features/reservations/reserve_spot.feature <<'FEOF'
-@REQ-101
-Feature: Reserve a parking spot
-  Scenario: Reserving an available spot for a future window
-    Given spot "A-12" is free between "09:00" and "11:00"
-    When an operator reserves spot "A-12" for that window
-    Then spot "A-12" is marked "Reserved" for that window
-    And a "SpotReserved" event is emitted
-FEOF
-printf '%s\n' '| REQ-101 | SCN-101 | `features/reservations/reserve_spot.feature` | UC-101 | ReserveSpotCommand | ParkingFacility | SpotReserved | ReservationService.java | ReservationServiceTest | Draft |' >> docs/specs/traceability.md
-echo "added REQ-101 → spec.md section + features/reservations/reserve_spot.feature + traceability row"
+cat > harness.config.yaml <<YAML
+harness_version: 1
+agent: '$AGENT_CMD'
+test_cmd: 'node --test test/*.test.js'
+max_attempts: 1
+YAML
+echo "wrote harness.config.yaml"
 EOF
-chmod +x "$WRAPPER_DIR/demo-add-req"
+chmod +x "$WRAPPER_DIR/demo-write-harness-config"
 
 export PATH="$WRAPPER_DIR:$PATH"
-
-# ── 2. Build a local, versioned pack repo (v0.1.0 + v0.2.0) ──────────────────
-# Mirrors what the CLI's own tests do: a real git repo behind file://, so the
-# demo's specops add/diff/sync are genuine — just offline and reproducible.
-step "Building a local versioned pack repo (v0.1.0, v0.2.0)"
-PACK_REPO_DIR="$SCRATCH/parking-management-specops"
-mkdir -p "$PACK_REPO_DIR"
-cp -R "$REPO_ROOT/tests/fixtures/domain-packs/parking-management" "$PACK_REPO_DIR/parking-management"
-
-git -C "$PACK_REPO_DIR" init -q --initial-branch=main
-git -C "$PACK_REPO_DIR" config user.email "demo@example.com"
-git -C "$PACK_REPO_DIR" config user.name  "Demo"
-git -C "$PACK_REPO_DIR" config commit.gpgsign false
-git -C "$PACK_REPO_DIR" config tag.gpgsign false
-git -C "$PACK_REPO_DIR" add -A
-git -C "$PACK_REPO_DIR" commit -q -m "pack v0.1.0"
-git -C "$PACK_REPO_DIR" tag v0.1.0
-
-# A small, guaranteed-visible delta for v0.2.0 so `specops diff` shows a change.
-CAP_TPL="$PACK_REPO_DIR/parking-management/backend/templates/features/capacity/capacity_threshold.feature.tpl"
-printf '\n  # v0.2.0: operators may also receive an SMS alert.\n' >> "$CAP_TPL"
-git -C "$PACK_REPO_DIR" commit -q -am "pack v0.2.0 — capacity alert note"
-git -C "$PACK_REPO_DIR" tag v0.2.0
-
-# Environment the tape reads.
-export CSDA_PACK_REPO="file://$PACK_REPO_DIR"
+export CSDA_PACK_REPO="https://github.com/rsaglobaltech/parking-management-specops.git"
 export CSDA_PACK_V1="v0.1.0"
-export CSDA_PACK_V2="v0.2.0"
-export CSDA_PACK_ID="parking-management/backend"
-export CSDA_DEMO_PACK_ROOT="$REPO_ROOT/tests/fixtures/domain-packs"
+export CSDA_PACK_ID="backend"
 export CSDA_CACHE_DIR="$SCRATCH/cache"
 
-# ── 3. Render the demo with VHS ──────────────────────────────────────────────
-step "Recording the 1080p demo with VHS (this follows docs/tutorial.md)"
+# ── 2. Warm the pack cache so the recording does not wait on git clone ───────
+step "Warming the pack cache (one-time clone of the real demo pack)"
+WARM=$(mktemp -d)
+( cd "$WARM" && \
+  printf 'PROJECT_NAME="W"\nPROJECT_SLUG="w"\nPROJECT_TYPE="backend"\nDOMAIN="d"\nSTACK="s"\nAPI_STYLE="a"\nTESTING="t"\n' > w.config && \
+  csda init --config ./w.config --out . --no-git >/dev/null 2>&1 && \
+  cd w && \
+  csda specops add --pack-repo "$CSDA_PACK_REPO" --pack-version "$CSDA_PACK_V1" --pack "$CSDA_PACK_ID" \
+    --cache-dir "$CSDA_CACHE_DIR" --var PROJECT_NAME=W --var PROJECT_SLUG=w --var DOMAIN=d >/dev/null )
+rm -rf "$WARM"
+printf '  cache: %s\n' "$CSDA_CACHE_DIR"
+
+# ── 3. Record the demo with VHS ──────────────────────────────────────────────
+step "Recording the 1080p demo with VHS"
 ( cd "$REPO_ROOT" && vhs "$DEMO_DIR/demo.tape" )
 [ -f "$OUT_DIR/demo.mp4" ] || die "VHS did not produce out/demo.mp4"
 printf '  silent demo : %s\n' "$OUT_DIR/demo.mp4"
@@ -114,25 +120,20 @@ printf '  shareable   : %s\n' "$OUT_DIR/demo.gif"
 
 # ── 4. Optional AI voice-over ────────────────────────────────────────────────
 if [ -z "${OPENAI_API_KEY:-}" ]; then
-  warn "OPENAI_API_KEY not set — skipping voice-over. The silent 1080p demo is ready."
-  warn "Set OPENAI_API_KEY and re-run to add narration, or feed out/demo.mp4 +"
-  warn "scripts/demo/narration.json to any TTS tool yourself."
+  warn "OPENAI_API_KEY not set — skipping voice-over. Silent 1080p demo is ready."
   exit 0
 fi
 if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
-  warn "ffmpeg / jq / curl missing — skipping voice-over. The silent 1080p demo is ready."
+  warn "ffmpeg / jq / curl missing — skipping voice-over."
   exit 0
 fi
 
 step "Synthesising voice-over from narration.json (OpenAI TTS)"
 VOICE="$(jq -r '.voice // "alloy"' "$DEMO_DIR/narration.json")"
-AUDIO_DIR="$SCRATCH/audio"
-mkdir -p "$AUDIO_DIR"
+AUDIO_DIR="$SCRATCH/audio"; mkdir -p "$AUDIO_DIR"
 SEGMENTS=$(jq -r '.segments | length' "$DEMO_DIR/narration.json")
 
-CONCAT_LIST="$AUDIO_DIR/concat.txt"
-: > "$CONCAT_LIST"
-# Silence between segments, so the narration tracks the on-screen steps.
+CONCAT_LIST="$AUDIO_DIR/concat.txt"; : > "$CONCAT_LIST"
 ffmpeg -y -f lavfi -i anullsrc=r=24000:cl=mono -t 2.5 "$AUDIO_DIR/gap.mp3" >/dev/null 2>&1
 
 for i in $(seq 0 $((SEGMENTS - 1))); do
@@ -157,6 +158,5 @@ ffmpeg -y -f concat -safe 0 -i "$CONCAT_LIST" -c copy "$AUDIO_DIR/voice.mp3" >/d
 ffmpeg -y -i "$OUT_DIR/demo.mp4" -i "$AUDIO_DIR/voice.mp3" \
   -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k \
   "$OUT_DIR/demo-narrated.mp4" >/dev/null 2>&1
-
 printf '  narrated    : %s\n' "$OUT_DIR/demo-narrated.mp4"
 step "Done."
