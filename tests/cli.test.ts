@@ -846,23 +846,19 @@ test("init rejects a YAML config that is a sequence, not a mapping", () => {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
 
-test(
-  "harness prompt REQ-NNN prints the prompt without touching git",
-  { skip: !hasGit() },
-  () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-prompt-cli-"));
-    const projectDir = makeHarnessProject(tempRoot);
-    const result = runCli(["harness", "prompt", "REQ-001", "--project-dir", projectDir]);
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /# Implement REQ-001/);
-    // No branch was created.
-    const branches = spawnSync("git", ["-C", projectDir, "branch", "--list", "harness/*"], {
-      encoding: "utf8",
-    });
-    assert.equal(branches.stdout.trim(), "");
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-);
+test("harness prompt REQ-NNN prints the prompt without touching git", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-prompt-cli-"));
+  const projectDir = makeHarnessProject(tempRoot);
+  const result = runCli(["harness", "prompt", "REQ-001", "--project-dir", projectDir]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /# Implement REQ-001/);
+  // No branch was created.
+  const branches = spawnSync("git", ["-C", projectDir, "branch", "--list", "harness/*"], {
+    encoding: "utf8",
+  });
+  assert.equal(branches.stdout.trim(), "");
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
 
 test("harness prompt rejects a malformed REQ id", () => {
   const result = runCli(["harness", "prompt", "001"]);
@@ -870,24 +866,20 @@ test("harness prompt rejects a malformed REQ id", () => {
   assert.match(result.stderr, /REQ-id/);
 });
 
-test(
-  "harness prompt prepends prompt_prefix from harness.config.yaml",
-  { skip: !hasGit() },
-  () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-prefix-"));
-    const projectDir = makeHarnessProject(tempRoot);
-    fs.writeFileSync(
-      path.join(projectDir, "harness.config.yaml"),
-      "prompt_prefix: 'Role: Lead Architect. Hexagonal arch is non-negotiable.'\n",
-      "utf8"
-    );
-    const result = runCli(["harness", "prompt", "REQ-001", "--project-dir", projectDir]);
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /Lead Architect/);
-    // The prefix appears before the per-requirement header.
-    const idxPrefix = result.stdout.indexOf("Lead Architect");
-    const idxHeader = result.stdout.indexOf("# Implement REQ-001");
-    assert.ok(idxPrefix > 0 && idxHeader > idxPrefix);
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-);
+test("harness prompt prepends prompt_prefix from harness.config.yaml", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-prefix-"));
+  const projectDir = makeHarnessProject(tempRoot);
+  fs.writeFileSync(
+    path.join(projectDir, "harness.config.yaml"),
+    "prompt_prefix: 'Role: Lead Architect. Hexagonal arch is non-negotiable.'\n",
+    "utf8"
+  );
+  const result = runCli(["harness", "prompt", "REQ-001", "--project-dir", projectDir]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Lead Architect/);
+  // The prefix appears before the per-requirement header.
+  const idxPrefix = result.stdout.indexOf("Lead Architect");
+  const idxHeader = result.stdout.indexOf("# Implement REQ-001");
+  assert.ok(idxPrefix > 0 && idxHeader > idxPrefix);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
