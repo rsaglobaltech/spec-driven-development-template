@@ -782,3 +782,56 @@ test("pack infer exits non-zero on a feature file with no scenarios", () => {
   assert.match(result.stderr, /No Gherkin scenarios/);
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
+
+// ── init: YAML config format ─────────────────────────────────────────────
+
+test("init accepts a YAML config and produces a valid project", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-init-yaml-"));
+  const slug = `yaml-cfg-${Date.now()}`;
+  const configPath = path.join(tempRoot, "project.yaml");
+  const projectDir = path.join(tempRoot, slug);
+
+  const config = [
+    'PROJECT_NAME: "YAML Config"',
+    `PROJECT_SLUG: ${slug}`,
+    "PROJECT_TYPE: backend",
+    "DOMAIN: automation testing",
+    "STACK: Quarkus 3.x, Java 21, PostgreSQL",
+    "API_STYLE: REST with DTO boundaries",
+    "TESTING: JUnit 5, Testcontainers, Cucumber",
+    "LANG: en",
+    'MODULES: ""',
+  ].join("\n");
+  fs.writeFileSync(configPath, `${config}\n`, "utf8");
+
+  const initResult = runCli([
+    "init",
+    "--config",
+    configPath,
+    "--out",
+    tempRoot,
+    "--force",
+    "--no-git",
+  ]);
+  assert.equal(initResult.status, 0, initResult.stderr);
+  assert.ok(fs.existsSync(projectDir), "project directory should exist");
+
+  const validateResult = runCli(["validate", projectDir]);
+  assert.equal(validateResult.status, 0, validateResult.stderr);
+  assert.match(validateResult.stdout, /Validation passed/);
+
+  const aiRules = fs.readFileSync(path.join(projectDir, "AI_RULES.md"), "utf8");
+  assert.match(aiRules, /Stack: Quarkus 3\.x, Java 21, PostgreSQL/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("init rejects a YAML config that is a sequence, not a mapping", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-init-yaml-bad-"));
+  const configPath = path.join(tempRoot, "bad.yml");
+  fs.writeFileSync(configPath, "- one\n- two\n", "utf8");
+  const result = runCli(["init", "--config", configPath, "--out", tempRoot, "--no-git"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /flat mapping/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});

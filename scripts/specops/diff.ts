@@ -36,9 +36,12 @@ function error(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--format text|json] [--plan]\n\n" +
+      "  create-spec-driven-app specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--var KEY=VALUE]... [--format text|json] [--plan]\n\n" +
       "Reports files that would be added or modified if `specops sync` ran at\n" +
       "the chosen version. Writes nothing to the project directory.\n\n" +
+      "  --var KEY=VALUE   Extra template variable (repeatable). Use it when a\n" +
+      "                    newer pack version requires a variable the lockfile\n" +
+      "                    predates.\n" +
       "With --format json (or its alias --plan), emits a machine-readable\n" +
       "structure suitable for AI agents and editor integrations.\n"
   );
@@ -51,6 +54,7 @@ function parseArgs(argv) {
     packVersion: "",
     cacheDir: "",
     format: "text",
+    vars: {} as Record<string, string>,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
@@ -68,6 +72,13 @@ function parseArgs(argv) {
     }
     if (token === "--cache-dir") {
       args.cacheDir = argv[++i] || "";
+      continue;
+    }
+    if (token === "--var") {
+      const pair = argv[++i] || "";
+      const eq = pair.indexOf("=");
+      if (eq <= 0) throw new Error(`Invalid --var (expected KEY=VALUE): ${pair}`);
+      args.vars[pair.slice(0, eq)] = pair.slice(eq + 1);
       continue;
     }
     if (token === "--format") {
@@ -143,7 +154,7 @@ function diffDirs(baselineDir, candidateDir) {
   return { added, modified, unchanged };
 }
 
-function buildExpandArgs(entry, version, tmpDir, cacheDir) {
+function buildExpandArgs(entry, version, tmpDir, cacheDir, extraVars = {}) {
   const out = [
     "--pack-repo",
     entry.repo,
@@ -155,7 +166,10 @@ function buildExpandArgs(entry, version, tmpDir, cacheDir) {
     tmpDir,
   ];
   if (cacheDir) out.push("--cache-dir", cacheDir);
-  for (const [key, value] of Object.entries(entry.vars || {})) {
+  // CLI --var values extend/override the lockfile's recorded vars — needed
+  // when a newer pack version requires a variable the lockfile predates.
+  const vars = { ...(entry.vars || {}), ...extraVars };
+  for (const [key, value] of Object.entries(vars)) {
     out.push("--var", `${key}=${value}`);
   }
   return out;
@@ -204,7 +218,7 @@ function main() {
       const version = args.packVersion || entry.version;
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "specops-diff-"));
       try {
-        const expandArgs = buildExpandArgs(entry, version, tmpDir, args.cacheDir);
+        const expandArgs = buildExpandArgs(entry, version, tmpDir, args.cacheDir, args.vars);
         const result = spawnSync(process.execPath, [EXPAND_SCRIPT, ...expandArgs], {
           encoding: "utf8",
         });
