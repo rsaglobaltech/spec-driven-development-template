@@ -179,11 +179,17 @@ function runPlan(projectDir) {
   return parsed;
 }
 
+// Generous maxBuffer for captured subprocess output — Maven/Gradle first runs
+// can easily produce >1 MB of dependency-download log, and `spawnSync`'s
+// default 1 MB ceiling otherwise kills the gate with ENOBUFS.
+const SUBPROCESS_MAX_BUFFER = 64 * 1024 * 1024;
+
 /** Run the gate (validate --strict-tdd, then the optional test command). */
 function runGate(worktreeDir, testCmd, timeoutMs) {
   const validate = spawnSync(process.execPath, [VALIDATE_SCRIPT, worktreeDir, "--strict-tdd"], {
     encoding: "utf8",
     timeout: timeoutMs,
+    maxBuffer: SUBPROCESS_MAX_BUFFER,
   });
   if (validate.status !== 0) {
     return { ok: false, stage: "validate --strict-tdd", output: validate.stdout + validate.stderr };
@@ -194,6 +200,7 @@ function runGate(worktreeDir, testCmd, timeoutMs) {
       cwd: worktreeDir,
       encoding: "utf8",
       timeout: timeoutMs,
+      maxBuffer: SUBPROCESS_MAX_BUFFER,
     });
     if (test.status !== 0) {
       return { ok: false, stage: "test command", output: test.stdout + test.stderr };
@@ -228,6 +235,7 @@ function attemptRequirement(req, ctx) {
         cwd: worktreeDir,
         encoding: "utf8",
         timeout: timeoutMs,
+        maxBuffer: SUBPROCESS_MAX_BUFFER,
         stdio: ["ignore", "pipe", "pipe"],
       });
       if (agent.error && agent.error.code === "ETIMEDOUT") {
