@@ -50,6 +50,7 @@
     "pack:dry-run": "npm pack --dry-run",
     "pack": "npm pack",
     "demo:video": "bash scripts/demo/build-video.sh",
+    "demo:video:de": "bash scripts/demo/de/build-video.sh --real-agent",
     "smoke:help": "node bin/create-spec-driven-app.js --help",
     "smoke:init": "node bin/create-spec-driven-app.js init --config examples/project.config.example --out /private/tmp --dry-run --no-git --force",
     "smoke:validate": "node bin/create-spec-driven-app.js validate /private/tmp/acme-energy-hub",
