@@ -43,21 +43,29 @@ command -v git  >/dev/null 2>&1 || die "git not found"
 command -v mvn  >/dev/null 2>&1 || die "mvn not found — install Maven"
 [ "$REAL_AGENT" -eq 0 ] || command -v opencode >/dev/null 2>&1 || die "--real-agent requires opencode on PATH"
 
-# Use the PUBLISHED CLI version — that's what colleagues will install.
-CLI_PKG="${CSDA_CLI_PKG:-create-spec-driven-app@0.1.3}"
-step "CLI: npx $CLI_PKG"
-
+# Default to the LOCAL CLI from this checkout (so PR work is visible).
+# Override with CSDA_CLI_PKG to record against a published version, e.g.
+#   CSDA_CLI_PKG=create-spec-driven-app@0.1.4 bash scripts/demo/de/build-video.sh ...
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
 
 WRAPPER_DIR="$SCRATCH/bin"
 mkdir -p "$WRAPPER_DIR"
 
-# `csda` resolves to the published 0.1.3 (cached by npm after the first call).
-cat > "$WRAPPER_DIR/csda" <<EOF
+if [ -n "${CSDA_CLI_PKG:-}" ]; then
+  step "CLI: npx $CSDA_CLI_PKG"
+  cat > "$WRAPPER_DIR/csda" <<EOF
 #!/usr/bin/env bash
-exec npx --yes $CLI_PKG "\$@"
+exec npx --yes $CSDA_CLI_PKG "\$@"
 EOF
+else
+  step "CLI: local build from $REPO_ROOT"
+  ( cd "$REPO_ROOT" && npm run build >/dev/null )
+  cat > "$WRAPPER_DIR/csda" <<EOF
+#!/usr/bin/env bash
+exec node "$REPO_ROOT/bin/create-spec-driven-app.js" "\$@"
+EOF
+fi
 chmod +x "$WRAPPER_DIR/csda"
 
 # Stub agent on PATH (deterministic fallback when --real-agent is off).
@@ -73,27 +81,45 @@ else
   step "Agent: deterministic Java stub"
 fi
 
-# Helper: seeds the minimal Maven pom into the project (the tape cannot
-# safely Type XML with double quotes / angle brackets).
+# Helper: seeds the minimal Maven pom + the Maven-friendly .gitignore line
+# so the harness branch does not accidentally commit target/ artifacts.
 cat > "$WRAPPER_DIR/demo-seed-pom" <<EOF
 #!/usr/bin/env bash
 set -e
 cp "$DEMO_DIR/pom.xml.tpl" pom.xml
-echo "pom.xml geschrieben"
+if ! grep -qx 'target/' .gitignore 2>/dev/null; then
+  printf '\ntarget/\n' >> .gitignore
+fi
+echo "pom.xml geschrieben (+ target/ in .gitignore)"
 EOF
 chmod +x "$WRAPPER_DIR/demo-seed-pom"
 
-# Helper: writes harness.config.yaml using the chosen agent.
+# Helper: writes harness.config.yaml + .harness/prompt-prefix.md so the
+# colleague demo shows the prompt_prefix feature in action.
 cat > "$WRAPPER_DIR/demo-write-harness-config" <<EOF
 #!/usr/bin/env bash
 set -e
+mkdir -p .harness
+cat > .harness/prompt-prefix.md <<'PREFIX'
+# Role
+You are the Lead Technical Architect and Senior Backend Engineer.
+
+# Active Project Boundary
+- Current directory is the only scope. Do NOT scan siblings.
+
+# Execution Policy
+- Start coding. No planning-only output.
+- Hexagonal architecture is non-negotiable (see AI_RULES.md).
+- Never modify AI_RULES.md, spec.md, or features/**/*.feature.
+PREFIX
 cat > harness.config.yaml <<YAML
 harness_version: 1
 agent: '$AGENT_CMD'
 test_cmd: 'mvn -q -B test'
 max_attempts: 1
+prompt_prefix_file: ./.harness/prompt-prefix.md
 YAML
-echo "harness.config.yaml geschrieben"
+echo "harness.config.yaml + .harness/prompt-prefix.md geschrieben"
 EOF
 chmod +x "$WRAPPER_DIR/demo-write-harness-config"
 

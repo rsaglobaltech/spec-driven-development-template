@@ -662,6 +662,45 @@ That is the full pack-author loop: **draft scenario → `pack infer` → merge
 
 ---
 
+## 11½. Bootstrap before the harness (the only freeform-AI step)
+
+> 📍 **Run from:** inside your project — `smart-parking/`.
+
+### Concept
+
+The harness implements **one REQ at a time** inside an isolated worktree.
+That is great for _iterating_, but it does not bootstrap your project:
+it assumes the build system is already there, the BDD framework is wired,
+and at least one bounded context runs end-to-end. Phase 1 — that first
+scaffolding — is the only step where you hand a freeform AI prompt to
+opencode/Claude/Cursor.
+
+The complete prompt, ready to paste, lives at
+[`docs/bootstrap-prompt.md`](./bootstrap-prompt.md). It tells the agent:
+
+- it is your **Lead Architect**;
+- the current directory is the only scope;
+- `spec.md`, `AI_RULES.md`, `features/**/*.feature` are **read-only**;
+- to make `csda validate . --strict-tdd` + the project test command pass
+  with the first bounded context end-to-end — then **stop**.
+
+```bash
+# 1. Open opencode/Claude/Cursor inside smart-parking/
+# 2. Paste docs/bootstrap-prompt.md verbatim, then "go".
+# 3. When the agent is done, prove it:
+csda validate . --strict-tdd
+mvn -B test          # or your stack's test command
+csda plan            # remaining REQs show as pending
+git commit -am "phase 1: bootstrap"
+```
+
+From this point on the harness takes over — you never paste a prompt
+again. The universal directives from `bootstrap-prompt.md` (Role, Active
+Project Boundary, Execution Policy) move into `harness.config.yaml` so
+they ride along on every REQ.
+
+---
+
 ## 12. Step 11 — Automate delivery with the harness (`harness run`)
 
 > 📍 **Run from:** inside your project — `smart-parking/`.
@@ -685,7 +724,7 @@ It is **vendor-neutral**: the agent is _any shell command_ that contains
 the `{prompt_file}` placeholder. The harness never merges a branch — you
 review and merge `harness/*` yourself.
 
-### 12.1 Configure it — using **opencode** as the agent
+### 12.1 Configure it — using **opencode** as the agent, with a project-wide prompt prefix
 
 If you drive your editor with [opencode](https://opencode.ai), point the
 harness at it. The harness writes each prompt to a temp file and substitutes
@@ -698,11 +737,36 @@ harness_version: 1
 agent: 'opencode run "$(cat {prompt_file})"'
 test_cmd: "mvn -q test"
 max_attempts: 3
+
+# Project-wide directives prepended to every per-REQ prompt: Role,
+# Active Project Boundary, Execution Policy. Use prompt_prefix for a
+# one-liner; prompt_prefix_file for the realistic multi-line case.
+prompt_prefix_file: ./.harness/prompt-prefix.md
 ```
 
-With a config file you do not have to retype those flags. (Any other agent
+```markdown
+<!-- .harness/prompt-prefix.md -->
+
+# Role
+
+You are the Lead Technical Architect and Senior Backend Engineer.
+
+# Active Project Boundary
+
+- Current directory is the only scope. Do NOT scan siblings.
+
+# Execution Policy
+
+- Start coding. No planning-only output.
+- Hexagonal architecture is non-negotiable (see AI_RULES.md).
+- Never modify AI_RULES.md, spec.md, or features/\*_/_.feature.
+```
+
+With a config file you do not have to retype anything. (Any other agent
 works the same way — e.g. `claude -p < {prompt_file}` or
-`aider --yes --message-file {prompt_file}`.)
+`aider --yes --message-file {prompt_file}`.) The `prompt_prefix` /
+`prompt_prefix_file` rides along on **every** per-REQ prompt, so your
+universal directives are not duplicated and not forgotten.
 
 ### 12.2 Dry-run first
 
@@ -743,6 +807,51 @@ great for trying one first), `--max-attempts <n>`, `--base-branch <ref>`,
 The command exits non-zero if any requirement did not pass, so CI can gate
 on it. Each result is a branch you can check out, inspect, and merge — or
 throw away.
+
+### 12.4 Inspect what the agent will receive (`harness prompt`)
+
+```bash
+csda harness prompt REQ-001
+```
+
+Prints the exact prompt the harness _would_ hand the agent for one REQ —
+prefix included — without invoking the agent, creating worktrees, or
+touching git. Use it to:
+
+- iterate on `AI_RULES.md` and `prompt_prefix` and see the effect immediately;
+- copy-paste the prompt into a web AI when no CLI agent is available;
+- review what the team's bootstrap directives currently say.
+
+Every prompt the harness actually sends during `harness run` is also
+mirrored to `.specops/harness-prompts/REQ-NNN-<timestamp>-attempt-N.md`
+for after-the-fact review. Commit or gitignore that folder per your
+team's preference.
+
+---
+
+## 12½. Multi-stack: one pack, many implementations
+
+The pack/implementation split lets you ship the **same domain spec** in
+multiple stacks without duplicating requirements or scenarios. Each
+implementation is its own repo:
+
+```text
+parking-management-specops@v0.1.0      ◄── one spec, stack-agnostic
+        ├──► smart-parking-spring/      (STACK=Spring Boot, JUnit+Cucumber)
+        ├──► smart-parking-quarkus/     (STACK=Quarkus,     JUnit+Cucumber)
+        └──► smart-parking-micronaut/   (STACK=Micronaut,   JUnit+Cucumber)
+```
+
+Each project runs its own `csda init` with a different `STACK` in the
+config, its own `csda specops add` against the **same** pack repo +
+version + domain `--var`s, its own bootstrap-prompt run, and its own
+harness loop. `spec.md`, `features/**` and `traceability.md` are
+**identical** across stacks (rendered from the same pack); `AI_RULES.md`
+differs because its `{{STACK}}` substitution does.
+
+Useful for migration POCs, framework comparisons, educational material
+("same problem, three stacks"). The architecture explicitly supports it —
+see [`docs/specs/architecture.md`](./specs/architecture.md) §5.
 
 ---
 

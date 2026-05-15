@@ -108,6 +108,7 @@ function usage() {
         "harness run",
         "Run the plan → agent → verify → done loop for every pending requirement."
       ) +
+      cmd("📝", "harness prompt", "Print the prompt the harness would hand an agent for one REQ.") +
       section("GLOBAL FLAGS") +
       flag("-h, --help", "Show this help.") +
       flag("-v, --version", "Show CLI version.") +
@@ -288,7 +289,21 @@ function main(): void {
       runNodeScript(harnessRunScript, args.slice(2));
       return;
     }
-    error(`Unknown harness sub-command: ${subCommand || "(none)"}. Expected: run`);
+    if (subCommand === "prompt") {
+      // `csda harness prompt <REQ-id> [--project-dir <path>]` — friendly alias
+      // for `harness run --dry-run --req <REQ>`. Prints the prompt the agent
+      // would receive, no git, no agent, no gate.
+      const reqId = args[2];
+      if (!reqId || !/^REQ-\d+$/.test(reqId)) {
+        error("`harness prompt` expects a REQ-id, e.g. `csda harness prompt REQ-001`.");
+        usage();
+        process.exit(2);
+      }
+      ensureExecutable(harnessRunScript);
+      runNodeScript(harnessRunScript, ["--dry-run", "--req", reqId, ...args.slice(3)]);
+      return;
+    }
+    error(`Unknown harness sub-command: ${subCommand || "(none)"}. Expected: run, prompt`);
     usage();
     process.exit(2);
   }
