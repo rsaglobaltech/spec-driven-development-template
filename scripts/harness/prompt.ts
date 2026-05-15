@@ -30,6 +30,9 @@ function section(title, body) {
  * @param {object} req      One entry from `plan --format json` requirements[].
  * @param {string} projectDir  Worktree root the agent will edit.
  * @param {object} [opts]
+ * @param {string} [opts.promptPrefix]    Project-wide directives prepended verbatim
+ *                                        (Role, Active Project Boundary, Execution
+ *                                        Policy). Lives in harness.config.yaml.
  * @param {string} [opts.hint]            One-line guidance from `plan`.
  * @param {string} [opts.previousFailure] Gate output from the prior attempt.
  * @param {number} [opts.attempt]         1-based attempt counter.
@@ -37,6 +40,11 @@ function section(title, body) {
  */
 function buildPrompt(req, projectDir, opts: any = {}) {
   const parts = [];
+
+  if (opts.promptPrefix && String(opts.promptPrefix).trim()) {
+    parts.push(String(opts.promptPrefix).trimEnd());
+    parts.push("---");
+  }
 
   parts.push(
     `# Implement ${req.requirement}\n\n` +
@@ -91,9 +99,9 @@ function buildPrompt(req, projectDir, opts: any = {}) {
       "Definition of done",
       "1. Write the test artifact first; it must fail for the right reason.\n" +
         "2. Write the production artifact until the test passes.\n" +
-        "3. Do not edit `docs/specs/traceability.md` — the harness closes the loop.\n" +
-        "4. The harness will run `validate --strict-tdd` and the project test command. " +
-        "Both must pass."
+        "3. **Do not modify** `spec.md`, `AI_RULES.md`, or any `features/**/*.feature` — they are the project's source of truth.\n" +
+        "4. **Do not edit** `docs/specs/traceability.md` — the harness closes the loop with `csda done`.\n" +
+        "5. The harness will run `validate --strict-tdd` and the project test command. Both must pass."
     )
   );
 
