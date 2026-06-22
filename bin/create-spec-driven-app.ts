@@ -243,7 +243,7 @@ function main(): void {
       usage();
       process.exit(2);
     }
-    const allowed = new Set(["--strict-tdd", "--fix"]);
+    const allowed = new Set(["--strict-tdd", "--fix", "--json"]);
     const unknownFlags = validateArgs.filter((a) => a.startsWith("-") && !allowed.has(a));
     if (unknownFlags.length > 0) {
       error(`Unknown flag(s) for validate: ${unknownFlags.join(", ")}`);
@@ -273,6 +273,15 @@ function main(): void {
   if (command === "expand") {
     ensureExecutable(expandScript);
     const passThrough = args.slice(1);
+    // `expand` is the low-level primitive. Steer direct users to the ergonomic
+    // path that records a lockfile; the underlying behaviour is unchanged.
+    // (specops add/sync call the expand script directly, so they never see this.)
+    if (!passThrough.includes("-h") && !passThrough.includes("--help")) {
+      error(
+        "Note: `expand` is low-level. Prefer `csda specops add` — it writes " +
+          ".specops.lock so the source, version and vars are remembered."
+      );
+    }
     runNodeScript(expandScript, passThrough);
     return;
   }

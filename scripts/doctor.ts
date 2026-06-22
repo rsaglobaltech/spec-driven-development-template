@@ -29,20 +29,34 @@ const c = {
 };
 
 let failures = 0;
+let jsonMode = false;
+const results: any[] = [];
 
 function pass(label) {
-  process.stdout.write(`  ${c.green}✔${c.reset}  ${label}\n`);
+  results.push({ status: "pass", label });
+  if (!jsonMode) process.stdout.write(`  ${c.green}✔${c.reset}  ${label}\n`);
 }
 function warn(label, hint) {
-  process.stdout.write(
-    `  ${c.yellow}⚠${c.reset}  ${label}${hint ? ` ${c.dim}— ${hint}${c.reset}` : ""}\n`
-  );
+  results.push({ status: "warn", label, hint: hint || null });
+  if (!jsonMode)
+    process.stdout.write(
+      `  ${c.yellow}⚠${c.reset}  ${label}${hint ? ` ${c.dim}— ${hint}${c.reset}` : ""}\n`
+    );
 }
 function failCheck(label, hint) {
   failures++;
-  process.stdout.write(
-    `  ${c.red}✖${c.reset}  ${label}${hint ? ` ${c.dim}— ${hint}${c.reset}` : ""}\n`
-  );
+  results.push({ status: "fail", label, hint: hint || null });
+  if (!jsonMode)
+    process.stdout.write(
+      `  ${c.red}✖${c.reset}  ${label}${hint ? ` ${c.dim}— ${hint}${c.reset}` : ""}\n`
+    );
+}
+
+function section(title, sub?) {
+  if (!jsonMode)
+    process.stdout.write(
+      `\n  ${c.bold}${title}${c.reset}${sub ? `  ${c.dim}${sub}${c.reset}` : ""}\n`
+    );
 }
 
 function usage() {
@@ -54,11 +68,15 @@ function usage() {
 }
 
 function parseArgs(argv) {
-  const opts: any = { projectDir: null };
+  const opts: any = { projectDir: null, json: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
-    else if (a === "--help" || a === "-h") {
+    else if (a === "--json" || a === "--format=json") opts.json = true;
+    else if (a === "--format" && argv[i + 1] === "json") {
+      i++;
+      opts.json = true;
+    } else if (a === "--help" || a === "-h") {
       usage();
       process.exit(0);
     } else if (a.startsWith("-")) {
@@ -70,7 +88,7 @@ function parseArgs(argv) {
 }
 
 function checkEnvironment() {
-  process.stdout.write(`\n  ${c.bold}Environment${c.reset}\n`);
+  section("Environment");
 
   const major = Number(process.versions.node.split(".")[0]);
   if (major >= 20) pass(`Node.js ${process.versions.node} (≥ 20)`);
@@ -82,7 +100,7 @@ function checkEnvironment() {
 }
 
 function checkProject(projectDir) {
-  process.stdout.write(`\n  ${c.bold}Project${c.reset}  ${c.dim}${projectDir}${c.reset}\n`);
+  section("Project", projectDir);
 
   const tracePath = path.join(projectDir, "docs/specs/traceability.md");
   if (!fs.existsSync(tracePath)) {
@@ -116,17 +134,36 @@ function checkProject(projectDir) {
 
 function main() {
   const opts = parseArgs(process.argv.slice(2));
+  jsonMode = opts.json;
 
-  process.stdout.write(`\n  ${c.bold}${c.cyan}🩺 csda doctor${c.reset}\n`);
+  if (!jsonMode) process.stdout.write(`\n  ${c.bold}${c.cyan}🩺 csda doctor${c.reset}\n`);
   checkEnvironment();
 
   const root = opts.projectDir ? path.resolve(opts.projectDir) : findProjectRoot(process.cwd());
-  if (root && fs.existsSync(root)) {
+  const projectDetected = !!(root && fs.existsSync(root));
+  if (projectDetected) {
     checkProject(root);
-  } else {
+  } else if (!jsonMode) {
     process.stdout.write(
       `\n  ${c.dim}No spec-driven project detected here — skipping project checks.${c.reset}\n`
     );
+  }
+
+  if (jsonMode) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          schema_version: 1,
+          ok: failures === 0,
+          failures,
+          project_dir: projectDetected ? path.resolve(root) : null,
+          checks: results,
+        },
+        null,
+        2
+      ) + "\n"
+    );
+    process.exit(failures > 0 ? 1 : 0);
   }
 
   if (failures > 0) {

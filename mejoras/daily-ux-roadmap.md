@@ -14,7 +14,7 @@
 
 ## Progress — 2026-06-22
 
-> **Phases 0, 1 and 2 are complete (12/17 items).** Shipped on branch
+> **Phases 0–3 are complete (14/17 items).** Shipped on branch
 > `feature/daily-ux-roadmap` (not yet merged to `main`):
 >
 > - `d791e20` feat(req) — `csda req`
@@ -22,16 +22,18 @@
 > - `950c88f` build(ts) — strict mode
 > - `f25fbab` feat(ux) — Phase 0 (0.2–0.5)
 > - `6656448` feat(ux) — Phase 1 (1.1–1.3)
-> - _(this change)_ feat(ux) — Phase 2 (2.1–2.4)
+> - `08651c1` feat(ux) — Phase 2 (2.1–2.4)
+> - _(this change)_ feat(ux) — Phase 3 (3.1–3.2)
 >
 > **Shipped commands/flags:** `csda req` (add/link/done/list + TUI), `csda fix`,
 > `validate --fix`, actionable `validate` errors, `csda status` (+`--json`),
 > interactive `csda init` (+`--minimal`, `--out` defaults to cwd), next-step
 > hints, [`docs/quickstart.md`](../docs/quickstart.md), `csda config init`,
-> `csda doctor`, `csda completion bash|zsh`, and `csda` promoted across the docs.
+> `csda doctor`, `csda completion bash|zsh`, `csda` promoted across the docs,
+> `expand`→`specops add` steer, and `--json` on plan/status/validate/doctor.
 >
-> **Next up:** Phase 3 (coherence) — unify `expand`/`specops add`, global `--json`.
-> Then Phase 4 (surfaces: LSP → IntelliJ).
+> **Next up:** Phase 4 (surfaces) — Language Server (LSP) → IntelliJ plugin →
+> optional `csda studio`.
 >
 > Legend below: ✅ done · ⬜ not started.
 
@@ -203,6 +205,11 @@ reading the README.
 **Exit gate P3:** one documented way to apply a pack; uniform `--json` across
 read commands.
 
+> ✅ **Phase 3 complete** — `csda expand` now prints a steer to `csda specops add`
+> (behaviour unchanged; specops add/sync call the script directly so they're
+> unaffected), and `--json` is available on `plan`, `status`, `validate`, and
+> `doctor` with a stable `schema_version`.
+
 ---
 
 ## Phase 4 — Surfaces: editor & GUI (P1/P2)
@@ -259,8 +266,9 @@ surface; no standalone desktop/web product owns the source of truth.
 4. ✅ **1.2 `csda status`** — daily entry command (pairs with 0.4 QUICKSTART).
 5. ✅ **1.1 interactive `init`** — biggest day-1 win for scaffolders.
 6. ✅ **0.4 / 0.5 / 1.3** — onboarding + minimal scaffold + next-step hints.
-7. ✅ Phase 2 (discoverability) — `csda` in docs, `config init`, `doctor`, completion. ⬜ Phase 3 next.
-8. ⬜ **Phase 4 (LSP → IntelliJ)** only after Phase 0–1 — visual layer over a stable CLI.
+7. ✅ Phase 2 (discoverability) — `csda` in docs, `config init`, `doctor`, completion.
+8. ✅ Phase 3 (coherence) — `expand`→`specops add` steer, `--json` on plan/status/validate/doctor.
+9. ⬜ **Phase 4 (LSP → IntelliJ)** only after Phase 0–1 — visual layer over a stable CLI.
 
 ## Tracking
 
@@ -278,8 +286,8 @@ surface; no standalone desktop/web product owns the source of truth.
 | 2.2 | `csda config init`              |   2   |    P1    |   ✅    |
 | 2.3 | `csda doctor`                   |   2   |    P1    |   ✅    |
 | 2.4 | Shell completion                |   2   |    P1    |   ✅    |
-| 3.1 | Unify `expand`/`add`            |   3   |    P2    |   ⬜    |
-| 3.2 | Global `--json`                 |   3   |    P2    |   ⬜    |
+| 3.1 | Unify `expand`/`add`            |   3   |    P2    |   ✅    |
+| 3.2 | Global `--json`                 |   3   |    P2    |   ✅    |
 | 4.1 | Language Server (LSP)           |   4   |    P1    |   ⬜    |
 | 4.2 | IntelliJ plugin (LSP client)    |   4   |    P1    |   ⬜    |
 | 4.3 | `csda studio` (local viz)       |   4   |    P2    |   ⬜    |

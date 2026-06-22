@@ -47,6 +47,45 @@ function runValidate(projectDir, extraArgs: string[] = []) {
   });
 }
 
+// ── --json output ────────────────────────────────────────────────────────────
+
+test("validate --json emits ok:true on a clean project", () => {
+  const root = mktemp();
+  try {
+    buildProject(root);
+    const result = runValidate(root, ["--json"]);
+    assert.equal(result.status, 0, result.stderr);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.trace_mode, "rich");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("validate --json --strict-tdd emits ok:false with structured errors", () => {
+  const root = mktemp();
+  try {
+    const richHeader =
+      "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
+    const separator = "|---|---|---|---|---|---|---|---|---|---|";
+    const row =
+      "| REQ-001 | SCN-001 | features/sample.feature | UC-001 | Cmd | Agg | Evt | Art.java | TBD | In Dev |";
+    buildProject(root, {
+      traceabilityContent: `# Traceability\n\n${richHeader}\n${separator}\n${row}\n`,
+    });
+    const result = runValidate(root, ["--strict-tdd", "--json"]);
+    assert.equal(result.status, 1);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.ok, false);
+    assert.ok(Array.isArray(parsed.errors) && parsed.errors.length > 0);
+    assert.match(parsed.errors[0].problem, /TDD-1/);
+    assert.ok("fix" in parsed.errors[0]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 // ── standard validate still passes on a clean project ────────────────────────
 
 test("validate passes on a well-formed project without --strict-tdd", () => {

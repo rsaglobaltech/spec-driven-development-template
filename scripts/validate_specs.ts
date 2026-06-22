@@ -12,8 +12,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+let jsonMode = false;
+
 function logInfo(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
+}
+
+function emitJson(ok, extra: any = {}) {
+  process.stdout.write(JSON.stringify({ schema_version: 1, ok, ...extra }, null, 2) + "\n");
 }
 
 /**
@@ -55,6 +61,14 @@ function usage() {
 }
 
 function fail(problem, opts: any = {}) {
+  if (jsonMode) {
+    emitJson(false, {
+      errors: [
+        { problem, file: opts.file || null, line: opts.line || null, fix: opts.fix || null },
+      ],
+    });
+    process.exit(opts.exitCode || 1);
+  }
   reportFailure(problem, opts);
   process.exit(opts.exitCode || 1);
 }
@@ -147,6 +161,7 @@ function parseMatrixRows(content, traceMode) {
 function main() {
   const argv = process.argv.slice(2);
   const strictTdd = argv.includes("--strict-tdd");
+  jsonMode = argv.includes("--json");
   const positional = argv.filter((a) => !a.startsWith("-"));
 
   const targetDir = positional[0];
@@ -207,6 +222,18 @@ function main() {
     }
   }
   if (offenders.length > 0) {
+    if (jsonMode) {
+      emitJson(false, {
+        errors: [
+          {
+            problem: "Unresolved placeholders detected",
+            files: offenders.map((f) => path.relative(targetDir, f).split(path.sep).join("/")),
+            fix: "replace every {{PLACEHOLDER}} with a real value (re-run init/expand with all --var set).",
+          },
+        ],
+      });
+      process.exit(1);
+    }
     logError("Unresolved placeholders detected");
     for (const f of offenders) {
       const lines = fs.readFileSync(f, "utf8").split("\n");
@@ -326,6 +353,17 @@ function main() {
   }
 
   if (strictTddViolations.length > 0) {
+    if (jsonMode) {
+      emitJson(false, {
+        errors: strictTddViolations.map((v) => ({
+          problem: v.msg,
+          file: v.file,
+          line: v.line || null,
+          fix: v.fix,
+        })),
+      });
+      process.exit(1);
+    }
     logError("--strict-tdd violations detected:");
     for (const v of strictTddViolations) {
       process.stderr.write(`  ${v.msg}\n`);
@@ -373,6 +411,10 @@ function main() {
   }
 
   // Success summary
+  if (jsonMode) {
+    emitJson(true, { features: featureCount, trace_mode: traceMode, strict_tdd: strictTdd });
+    process.exit(0);
+  }
   logInfo("✅ Validation passed");
   logInfo(`- Features detected: ${featureCount}`);
   logInfo("- Base SDD structure: complete");
