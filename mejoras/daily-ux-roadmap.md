@@ -24,7 +24,7 @@
 > - `6656448` feat(ux) — Phase 1 (1.1–1.3)
 > - `08651c1` feat(ux) — Phase 2 (2.1–2.4)
 > - `d9715b6` feat(ux) — Phase 3 (3.1–3.2)
-> - _(this change)_ feat(ux) — Phase 4 (4.1 LSP, 4.3 studio, 4.2 scaffold)
+> - `0dff23d` feat(ux) — Phase 4 (4.1 LSP, 4.3 studio, 4.2 scaffold)
 >
 > **Shipped commands/flags:** `csda req` (add/link/done/list + TUI), `csda fix`,
 > `validate --fix`, actionable `validate` errors, `csda status` (+`--json`),
@@ -35,9 +35,10 @@
 > `csda studio`, and the [`lsp-spec-driven`](../packages/lsp-spec-driven) server.
 >
 > **Remaining:** 4.2 IntelliJ plugin needs a JDK/Gradle build pipeline (scaffold
-> in [`packages/intellij-spec-driven`](../packages/intellij-spec-driven)).
+> in [`packages/intellij-spec-driven`](../packages/intellij-spec-driven)) — the
+> only open item; everything else is shipped and verified green.
 >
-> Legend below: ✅ done · ⬜ not started.
+> Legend below: ✅ done · 🚧 partial/scaffold · ⬜ not started.
 
 ---
 
