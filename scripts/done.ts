@@ -178,6 +178,7 @@ function main() {
   process.stdout.write(
     `${c.green}✔${c.reset}  ${c.bold}${opts.reqId}${c.reset} → ${c.bold}${opts.status}${c.reset} ${c.dim}(${updated} row${updated > 1 ? "s" : ""} updated)${c.reset}\n`
   );
+  if (process.stdout.isTTY) process.stdout.write(`   ${c.dim}▶ next: csda status${c.reset}\n`);
   process.exit(0);
 }
 

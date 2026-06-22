@@ -13,6 +13,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as readline from "node:readline/promises";
 import { spawnSync } from "node:child_process";
 import { parseYamlLite } from "./domain-pack/common";
 
@@ -48,7 +49,7 @@ function usage() {
 }
 
 function parseArgs(argv) {
-  const opts = {
+  const opts: any = {
     config: null,
     out: null,
     force: false,
@@ -84,6 +85,61 @@ function parseArgs(argv) {
     }
   }
   return opts;
+}
+
+// ── Interactive wizard ────────────────────────────────────────────────────────
+
+function slugify(s) {
+  return String(s)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Prompt for the minimum config interactively when `--config` is omitted on a
+ * TTY. Returns a raw config map (same shape parseConfig produces); validateConfig
+ * fills the rest of the defaults.
+ */
+async function runWizard() {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask = async (label, def) => {
+    const suffix = def ? ` (${def})` : "";
+    const answer = (await rl.question(`  ${label}${suffix}: `)).trim();
+    return answer || def || "";
+  };
+  try {
+    process.stdout.write(`\n  🧭 New spec-driven project — answer a few questions.\n\n`);
+    const name = await ask("Project name", "My App");
+    const slug = await ask("Project slug", slugify(name));
+    let type = await ask("Project type [backend/frontend]", "backend");
+    if (!["backend", "frontend"].includes(type)) type = "backend";
+    const domain = await ask("Domain", "general");
+    const stack = await ask("Stack", "Node.js, TypeScript");
+    const apiStyle = await ask("API style", "REST with DTO boundaries");
+    const testing = await ask("Testing", "Vitest, Cucumber");
+    const modules = await ask("Optional modules (comma-separated, blank for none)", "");
+    const runtime = (await ask("Include runtime (docker/.env)? [y/N]", "n")).toLowerCase();
+    rl.close();
+    return {
+      cfg: {
+        PROJECT_NAME: name,
+        PROJECT_SLUG: slug,
+        PROJECT_TYPE: type,
+        DOMAIN: domain,
+        STACK: stack,
+        API_STYLE: apiStyle,
+        TESTING: testing,
+        MODULES: modules,
+      },
+      minimal: runtime !== "y" && runtime !== "yes",
+    };
+  } catch (err: any) {
+    rl.close();
+    logError(`Wizard aborted: ${err.message}`);
+    process.exit(1);
+  }
 }
 
 // ── Config file parsing ───────────────────────────────────────────────────────
@@ -401,7 +457,7 @@ function ensureTraceabilityCoverage(projectDir) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-function main() {
+async function main() {
   // When called via dispatcher, argv[2] is the "init" command and possibly
   // "--engine=node" — skip everything up to actual flags.
   let rawArgs = process.argv.slice(2);
@@ -410,18 +466,24 @@ function main() {
 
   const opts = parseArgs(rawArgs);
 
-  if (!opts.config) {
-    logError("--config is required");
-    usage();
-    process.exit(2);
-  }
-  if (!opts.out) {
-    logError("--out is required");
+  let rawCfg;
+  if (opts.config) {
+    rawCfg = parseConfig(opts.config);
+  } else if (process.stdin.isTTY && process.stdout.isTTY) {
+    // No --config on a TTY → interactive wizard (1.1). CI/non-TTY still requires --config.
+    const wiz = await runWizard();
+    rawCfg = wiz.cfg;
+    if (wiz.minimal) opts.minimal = true;
+  } else {
+    logError("--config is required (or run interactively in a terminal).");
     usage();
     process.exit(2);
   }
 
-  const cfg: any = validateConfig(parseConfig(opts.config));
+  // --out defaults to the current directory when omitted.
+  if (!opts.out) opts.out = process.cwd();
+
+  const cfg: any = validateConfig(rawCfg);
   if (opts.minimal) {
     cfg.DOCKER_SUPPORT = "false";
     cfg.DEVCONTAINER_SUPPORT = "false";
@@ -502,7 +564,12 @@ function main() {
   logInfo(`- Dry-run: ${opts.dryRun}`);
   logInfo(`- Git: ${opts.noGit ? "skipped" : "initialized"}`);
   logInfo("✅ Generation completed");
+  if (process.stdout.isTTY && !opts.dryRun) {
+    process.stdout.write(`\n  ▶ next: cd ${cfg.PROJECT_SLUG} && csda status\n`);
+  }
   process.exit(0);
 }
 
-main();
+if (require.main === module) main();
+
+export { slugify, parseArgs };

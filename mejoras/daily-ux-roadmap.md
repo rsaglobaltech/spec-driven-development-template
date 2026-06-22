@@ -127,6 +127,10 @@ mark a REQ done — without editing markdown by hand or reading the full tutoria
 **Exit gate P1:** new user scaffolds, validates, and sees what to do next without
 reading the README.
 
+> ✅ **Phase 1 complete** — interactive `csda init` (TTY wizard, `--out` defaults
+> to cwd), `csda status` (dashboard + single next command, `--format json`), and
+> next-step hints on `init` / `validate` / `done` (TTY-gated).
+
 ---
 
 ## Phase 2 — Discoverability (P1)
@@ -237,9 +241,9 @@ surface; no standalone desktop/web product owns the source of truth.
 | 0.3 | `csda fix` / `validate --fix`   |   0   |    P0    |   ✅    |
 | 0.4 | One-page QUICKSTART             |   0   |    P0    |   ✅    |
 | 0.5 | `csda init --minimal`           |   0   |    P0    |   ✅    |
-| 1.1 | Interactive `init`              |   1   |    P0    |   ⬜    |
-| 1.2 | `csda status`                   |   1   |    P0    |   ⬜    |
-| 1.3 | Next-step hints                 |   1   |    P0    |   ⬜    |
+| 1.1 | Interactive `init`              |   1   |    P0    |   ✅    |
+| 1.2 | `csda status`                   |   1   |    P0    |   ✅    |
+| 1.3 | Next-step hints                 |   1   |    P0    |   ✅    |
 | 2.1 | Promote `csda` in docs          |   2   |    P1    |   ⬜    |
 | 2.2 | `csda config init`              |   2   |    P1    |   ⬜    |
 | 2.3 | `csda doctor`                   |   2   |    P1    |   ⬜    |

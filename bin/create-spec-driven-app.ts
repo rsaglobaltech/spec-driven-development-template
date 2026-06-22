@@ -23,6 +23,7 @@ const planScript = path.join(distScripts, "plan.js");
 const doneScript = path.join(distScripts, "done.js");
 const reqScript = path.join(distScripts, "req.js");
 const fixScript = path.join(distScripts, "fix.js");
+const statusScript = path.join(distScripts, "status.js");
 
 // ── Pretty output helpers ─────────────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ function usage() {
       cmd("⚡", "init", "Scaffold a new spec-driven project from a config file.") +
       cmd("✅", "validate", "Check structure, traceability, Gherkin (+ --strict-tdd gate).") +
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
+      cmd("📊", "status", "Project state at a glance + the single next command to run.") +
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
       cmd("📝", "req", "Add / link / list requirements without editing the matrix by hand.") +
       cmd("🛠", "fix", "Auto-repair mechanical traceability violations (also `validate --fix`).") +
@@ -289,6 +291,12 @@ function main(): void {
   if (command === "fix") {
     ensureExecutable(fixScript);
     runNodeScript(fixScript, args.slice(1));
+    return;
+  }
+
+  if (command === "status") {
+    ensureExecutable(statusScript);
+    runNodeScript(statusScript, args.slice(1));
     return;
   }
 

@@ -71,7 +71,8 @@ Requires **Node.js ≥ 20**.
 
 | Command                          | What it does                                                                                                                                                                     |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `init`                           | Scaffold a new spec-driven project from a config file. `--minimal` scaffolds specs only (no `.env.*` / docker / devcontainer); the runtime contract becomes opt-in.              |
+| `init`                           | Scaffold a new spec-driven project. Run with no `--config` in a terminal for an interactive wizard (`--out` defaults to cwd). `--minimal` scaffolds specs only (no `.env.*` / docker / devcontainer); the runtime contract becomes opt-in. |
+| `status`                         | Project state at a glance — requirement totals by state, orphan features, pack versions, and the single next command to run. `--format json` for agents/CI.                       |
 | `validate`                       | Check structure, traceability and Gherkin coverage. `--strict-tdd` also fails the build when a `REQ` lacks its `.feature`, its executable test, or its row in `traceability.md`. Every failure prints a `file:line` and a concrete fix command. `--fix` auto-repairs mechanical issues first. |
 | `fix`                            | Auto-repair mechanical traceability violations (orphan `.feature` files, REQs in `spec.md` with no row). Previews and confirms; `--yes` for CI. Same engine as `validate --fix`. |
 | `expand`                         | Apply a domain pack (local path or remote git repo) onto a project (low-level; `specops add` is the ergonomic path).                                                             |

@@ -378,6 +378,7 @@ function main() {
   logInfo("- Base SDD structure: complete");
   logInfo(`- Traceability mode: ${traceMode}`);
   if (strictTdd) logInfo("- Strict TDD gate: passed");
+  if (process.stdout.isTTY) process.stdout.write("\n  ▶ next: csda status\n");
   process.exit(0);
 }
 
