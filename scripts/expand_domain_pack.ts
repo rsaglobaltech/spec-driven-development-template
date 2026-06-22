@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-const fs = require("node:fs");
-const path = require("node:path");
-const {
+import * as fs from "node:fs";
+import * as path from "node:path";
+import {
   asArray,
   buildTraceabilityMarkdown,
   entityLabel,
@@ -22,14 +22,15 @@ const {
   safeResolve,
   validatePackModel,
   writeFile,
-} = require("./domain-pack/common");
-const { resolveRemotePack } = require("./domain-pack/remote");
-const { readLock, writeLock, upsertPackEntry, newLock } = require("./specops/lock");
-const { snapshotBaseline } = require("./specops/manifest");
+} from "./domain-pack/common";
+import { resolveRemotePack } from "./domain-pack/remote";
+import { readLock, writeLock, upsertPackEntry, newLock } from "./specops/lock";
+import { snapshotBaseline } from "./specops/manifest";
 
 const PACKAGE_VERSION = (() => {
   try {
-    return require(path.resolve(__dirname, "..", "..", "package.json")).version || "0.0.0";
+    const pkgPath = path.resolve(__dirname, "..", "..", "package.json");
+    return JSON.parse(fs.readFileSync(pkgPath, "utf8")).version || "0.0.0";
   } catch {
     return "0.0.0";
   }

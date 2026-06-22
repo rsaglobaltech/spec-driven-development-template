@@ -1,9 +1,7 @@
-"use strict";
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-
-const { parseArgs, buildPackGraph, renderMermaid, renderDot } = require("../../scripts/lint_pack");
+import { parseArgs, buildPackGraph, renderMermaid, renderDot } from "../../scripts/lint_pack";
 
 // A small, well-formed pack: one full REQ→UC→CMD/AGG/EVT spine.
 const goodPack = {

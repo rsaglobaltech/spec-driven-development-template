@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * pack init — interactively scaffold a valid pack.yaml skeleton.
@@ -8,9 +7,9 @@
  *   create-spec-driven-app pack init --out <directory> [--name <name>] [--type backend|frontend] [--dry-run]
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const readline = require("node:readline");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as readline from "node:readline";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";

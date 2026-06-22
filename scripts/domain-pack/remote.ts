@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Resolves a remote pack repository to a local on-disk path.
  *
@@ -16,11 +14,11 @@
  * Throws on any failure with a contextual message.
  */
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const crypto = require("node:crypto");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 
 const DEFAULT_CACHE_DIR = path.join(os.homedir(), ".cache", "csda", "packs");
 const GIT_TIMEOUT_MS = 60_000;
@@ -94,10 +92,4 @@ function resolveRemotePack(options) {
   return { packRoot: targetDir, commit, version: opts.version, cached: false };
 }
 
-module.exports = {
-  resolveRemotePack,
-  repoHash,
-  safeVersionDir,
-  gitAvailable,
-  DEFAULT_CACHE_DIR,
-};
+export { resolveRemotePack, repoHash, safeVersionDir, gitAvailable, DEFAULT_CACHE_DIR };

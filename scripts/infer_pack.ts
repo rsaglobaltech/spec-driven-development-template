@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * `pack infer` — invert the authoring flow.
@@ -19,7 +18,7 @@
  *   create-spec-driven-app pack infer --from <feature-file> [--format yaml|json]
  */
 
-const fs = require("node:fs");
+import * as fs from "node:fs";
 
 function logError(msg) {
   process.stderr.write(`❌ [ERROR] ${msg}\n`);
@@ -341,7 +340,7 @@ if (require.main === module) {
   main();
 }
 
-module.exports = {
+export {
   parseArgs,
   parseFeatureFile,
   toPascalCase,

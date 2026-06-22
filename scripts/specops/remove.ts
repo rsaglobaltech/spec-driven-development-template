@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * `specops remove <pack-id>` — drop a pack entry from `.specops.lock`.
@@ -11,8 +10,8 @@
  *   csda specops remove parking-management/backend
  */
 
-const { resolveProjectDir } = require("../lib/project-root");
-const { readLock, writeLock, LOCK_FILENAME } = require("./lock");
+import { resolveProjectDir } from "../lib/project-root";
+import { readLock, writeLock, LOCK_FILENAME } from "./lock";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -115,4 +114,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { parseArgs };
+export { parseArgs };

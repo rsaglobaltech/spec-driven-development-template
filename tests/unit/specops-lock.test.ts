@@ -1,19 +1,17 @@
-"use strict";
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-
-const {
+import {
   LOCK_FILENAME,
   SPECOPS_SCHEMA_VERSION,
   readLock,
   writeLock,
   upsertPackEntry,
   newLock,
-} = require("../../scripts/specops/lock");
+} from "../../scripts/specops/lock";
 
 function tmpProject() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "specops-lock-"));

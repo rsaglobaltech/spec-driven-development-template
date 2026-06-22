@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * Pack-registry static site generator.
@@ -12,10 +11,10 @@
  *   --out   ./packages/pack-registry/dist
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { scanPacks } = require("./scan");
-const { renderIndex } = require("./render");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { scanPacks } from "./scan";
+import { renderIndex } from "./render";
 
 const REPO_ROOT = path.resolve(__dirname, "../../../..");
 const DEFAULT_PACKS = path.join(REPO_ROOT, "packs");
@@ -79,4 +78,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { parseArgs, main };
+export { parseArgs, main };

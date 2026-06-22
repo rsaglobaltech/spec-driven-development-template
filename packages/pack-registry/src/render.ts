@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Pure module — renders pack metadata to HTML strings.
  * No fs or DOM dependency.
@@ -423,4 +421,4 @@ ${cards}
 </html>`;
 }
 
-module.exports = { renderIndex, renderCard, escape };
+export { renderIndex, renderCard, escape };

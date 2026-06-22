@@ -1,14 +1,12 @@
-"use strict";
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-
-const { parseArgs, substituteAgentCommand } = require("../../scripts/harness/run");
-const { buildPrompt } = require("../../scripts/harness/prompt");
-const { readHarnessConfig, resolveHarnessSettings } = require("../../scripts/harness/config");
+import { parseArgs, substituteAgentCommand } from "../../scripts/harness/run";
+import { buildPrompt } from "../../scripts/harness/prompt";
+import { readHarnessConfig, resolveHarnessSettings } from "../../scripts/harness/config";
 
 // ── parseArgs ────────────────────────────────────────────────────────────────
 

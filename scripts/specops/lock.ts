@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * `.specops.lock` — records which remote pack(s) were expanded into a project.
  *
@@ -21,8 +19,8 @@
  * Pure module: no logging, no process.exit. Throws on invalid input.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 const LOCK_FILENAME = ".specops.lock";
 const SPECOPS_SCHEMA_VERSION = 1;
@@ -90,11 +88,4 @@ function newLock(csdaVersion?) {
   };
 }
 
-module.exports = {
-  LOCK_FILENAME,
-  SPECOPS_SCHEMA_VERSION,
-  readLock,
-  writeLock,
-  upsertPackEntry,
-  newLock,
-};
+export { LOCK_FILENAME, SPECOPS_SCHEMA_VERSION, readLock, writeLock, upsertPackEntry, newLock };

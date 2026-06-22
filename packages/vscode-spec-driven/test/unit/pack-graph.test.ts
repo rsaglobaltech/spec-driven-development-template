@@ -1,9 +1,7 @@
-"use strict";
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-
-const {
+import {
   collectDeclared,
   findReferencePosition,
   analyzePackGraph,
@@ -11,7 +9,7 @@ const {
   findDeclarationPosition,
   buildPackGraphModel,
   renderPackMermaid,
-} = require("../../src/pack-graph");
+} from "../../src/pack-graph";
 
 const GOOD_PACK = `
 requirements:

@@ -1,23 +1,21 @@
-"use strict";
-
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { spawnSync } = require("node:child_process");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 const REPO_ROOT = path.resolve(__dirname, "../../../../..");
 const CLI = path.join(REPO_ROOT, "bin/create-spec-driven-app.js");
 const CONFIG = path.join(REPO_ROOT, "examples/project.config.example");
 
-const {
+import {
   TOOLS,
   readSpec,
   listRequirements,
   updateTraceability,
   validateProject,
-} = require("../../src/tools");
+} from "../../src/tools";
 
 function generateProject() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-test-"));

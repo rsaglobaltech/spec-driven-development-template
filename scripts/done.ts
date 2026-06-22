@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * `done <REQ-id>` — update the Status of a requirement row in
@@ -13,10 +12,10 @@
  *   csda done REQ-007 --check
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
-const { resolveProjectDir } = require("./lib/project-root");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
+import { resolveProjectDir } from "./lib/project-root";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -184,4 +183,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { parseArgs, setRequirementStatus, ALLOWED_STATUSES };
+export { parseArgs, setRequirementStatus, ALLOWED_STATUSES };

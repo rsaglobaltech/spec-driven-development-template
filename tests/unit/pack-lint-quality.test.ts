@@ -1,17 +1,15 @@
-"use strict";
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-
-const {
+import {
   parseFeature,
   isGenericTitle,
   lintScenarioQuality,
   runLint,
-} = require("../../scripts/lint_pack");
+} from "../../scripts/lint_pack";
 
 // ── parseFeature ─────────────────────────────────────────────────────────────
 

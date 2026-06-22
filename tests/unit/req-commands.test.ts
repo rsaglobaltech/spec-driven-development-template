@@ -1,22 +1,20 @@
-"use strict";
-
 /**
  * Unit tests for the pure helpers behind the `req` command:
  * nextReqId, nextScenarioId, buildRow, appendRequirement, updateRequirementFields.
  * End-to-end CLI behaviour is covered in tests/cli.test.ts.
  */
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
 
-const {
+import {
   nextReqId,
   nextScenarioId,
   buildRow,
   appendRequirement,
   updateRequirementFields,
-} = require("../../scripts/req");
-const { parseTraceability } = require("../../scripts/plan");
+} from "../../scripts/req";
+import { parseTraceability } from "../../scripts/plan";
 
 const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
@@ -53,10 +51,7 @@ test("nextScenarioId tracks the SCN sequence independently", () => {
 
 test("buildRow fills missing cells with '-' and defaults status to Draft", () => {
   const row = buildRow({ requirement: "REQ-002", scenarioId: "SCN-002", useCase: "Pay session" });
-  assert.equal(
-    row,
-    "| REQ-002 | SCN-002 | - | Pay session | - | - | - | - | - | Draft |"
-  );
+  assert.equal(row, "| REQ-002 | SCN-002 | - | Pay session | - | - | - | - | - | Draft |");
 });
 
 test("buildRow honours an explicit status", () => {

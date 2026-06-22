@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Pure module — no vscode dependency.
  * Utilities for locating and navigating requirement IDs inside spec-driven
@@ -83,4 +81,4 @@ function parseValidateOutput(stdout, stderr) {
   return diagnostics;
 }
 
-module.exports = { findRequirementIds, findIdInTraceability, parseValidateOutput };
+export { findRequirementIds, findIdInTraceability, parseValidateOutput };

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * `req` — manage requirement rows in docs/specs/traceability.md without ever
@@ -16,11 +15,12 @@
  * covered end-to-end in tests/cli.test.ts.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
-const { resolveProjectDir } = require("./lib/project-root");
-const { parseTraceability } = require("./plan");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as readline from "node:readline/promises";
+import { spawnSync } from "node:child_process";
+import { resolveProjectDir } from "./lib/project-root";
+import { parseTraceability } from "./plan";
 
 const DONE_SCRIPT = path.join(__dirname, "done.js");
 
@@ -210,10 +210,14 @@ function cmdList(tracePath) {
   const rows = parseTraceability(readMatrix(tracePath));
   const reqs = rows.filter((r) => /^REQ-\d+/.test(r.requirement || ""));
   if (reqs.length === 0) {
-    process.stdout.write(`\n  ${c.dim}No requirements yet. Add one: csda req add "…"${c.reset}\n\n`);
+    process.stdout.write(
+      `\n  ${c.dim}No requirements yet. Add one: csda req add "…"${c.reset}\n\n`
+    );
     return 0;
   }
-  process.stdout.write(`\n  ${c.bold}📝 Requirements${c.reset} ${c.dim}(${reqs.length})${c.reset}\n\n`);
+  process.stdout.write(
+    `\n  ${c.bold}📝 Requirements${c.reset} ${c.dim}(${reqs.length})${c.reset}\n\n`
+  );
   for (const r of reqs) {
     const meaningful = (v) => v && v !== "-" && v.toUpperCase() !== "TBD";
     process.stdout.write(
@@ -226,7 +230,9 @@ function cmdList(tracePath) {
     if (meaningful(r.technicalArtifact))
       process.stdout.write(`      ${c.dim}code:    ${r.technicalArtifact}${c.reset}\n`);
   }
-  process.stdout.write(`\n  ${c.dim}Next: csda req link <REQ> --test … · csda req done <REQ>${c.reset}\n\n`);
+  process.stdout.write(
+    `\n  ${c.dim}Next: csda req link <REQ> --test … · csda req done <REQ>${c.reset}\n\n`
+  );
   return 0;
 }
 
@@ -256,7 +262,10 @@ function collectFieldFlags(argv) {
 
 function cmdAdd(tracePath, argv) {
   const { fields, status, rest } = collectFieldFlags(argv);
-  const title = rest.filter((a) => !a.startsWith("-")).join(" ").trim();
+  const title = rest
+    .filter((a) => !a.startsWith("-"))
+    .join(" ")
+    .trim();
   // The title lands in the Use Case cell when --uc is not given, so the row is
   // human-readable; the structured UC id can be linked later.
   if (!title && !fields.useCase) {
@@ -281,7 +290,9 @@ function cmdLink(tracePath, argv) {
   const { fields, rest } = collectFieldFlags(argv);
   const reqId = rest.find((a) => /^REQ-\d+$/.test(a));
   if (!reqId) {
-    process.stderr.write(`${c.red}✖${c.reset}  Expected a REQ-id: csda req link REQ-007 --test …\n`);
+    process.stderr.write(
+      `${c.red}✖${c.reset}  Expected a REQ-id: csda req link REQ-007 --test …\n`
+    );
     return 2;
   }
   if (Object.keys(fields).length === 0) {
@@ -320,11 +331,16 @@ function cmdDone(projectDir, argv) {
 // ── Interactive picker ────────────────────────────────────────────────────────────
 
 async function interactive(tracePath, projectDir) {
-  const readline = require("node:readline/promises");
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
     cmdList(tracePath);
-    const action = (await rl.question(`  Action [${c.bold}a${c.reset}dd / ${c.bold}l${c.reset}ink / ${c.bold}d${c.reset}one / ${c.bold}q${c.reset}uit]: `)).trim().toLowerCase();
+    const action = (
+      await rl.question(
+        `  Action [${c.bold}a${c.reset}dd / ${c.bold}l${c.reset}ink / ${c.bold}d${c.reset}one / ${c.bold}q${c.reset}uit]: `
+      )
+    )
+      .trim()
+      .toLowerCase();
     if (action === "a" || action === "add") {
       const title = (await rl.question("  Title: ")).trim();
       rl.close();
@@ -413,11 +429,4 @@ async function main() {
 
 if (require.main === module) main();
 
-module.exports = {
-  nextReqId,
-  nextScenarioId,
-  buildRow,
-  appendRequirement,
-  updateRequirementFields,
-  COL,
-};
+export { nextReqId, nextScenarioId, buildRow, appendRequirement, updateRequirementFields, COL };

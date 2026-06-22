@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * pack lint — semantic validation of a pack.yaml beyond JSON Schema.
@@ -8,9 +7,9 @@
  *   create-spec-driven-app pack lint --pack-root <path> --pack <domain/type>
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { loadPack, asArray } = require("./domain-pack/common");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { loadPack, asArray } from "./domain-pack/common";
 
 function logInfo(msg) {
   process.stdout.write(`ℹ️  [INFO] ${msg}\n`);
@@ -650,7 +649,7 @@ if (require.main === module) {
   main();
 }
 
-module.exports = {
+export {
   parseArgs,
   parseFeature,
   isGenericTitle,

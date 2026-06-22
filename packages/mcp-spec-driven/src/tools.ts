@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Pure module — no MCP transport dependency.
  * Implements the business logic of every MCP tool exposed by the server.
@@ -7,9 +5,9 @@
  * a plain JS object (the result), making them trivially unit-testable.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────────
 
@@ -390,7 +388,7 @@ const TOOLS = {
   },
 };
 
-module.exports = {
+export {
   TOOLS,
   readSpec,
   listRequirements,

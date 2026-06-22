@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Pure module — no vscode dependency.
  *
@@ -13,7 +11,7 @@
  * extension can underline the exact offending value.
  */
 
-const yaml = require("js-yaml");
+import * as yaml from "js-yaml";
 
 function asArray(v) {
   if (Array.isArray(v)) return v;
@@ -392,7 +390,7 @@ function renderPackMermaid(content) {
   return lines.join("\n");
 }
 
-module.exports = {
+export {
   collectDeclared,
   findReferencePosition,
   findDanglingReferences,

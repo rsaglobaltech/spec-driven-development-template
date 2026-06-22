@@ -1,12 +1,10 @@
-"use strict";
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-
-const { parseArgs, diffDirs, walkFiles, buildExpandArgs } = require("../../scripts/specops/diff");
+import { parseArgs, diffDirs, walkFiles, buildExpandArgs } from "../../scripts/specops/diff";
 
 function mkdir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "specops-diff-unit-"));

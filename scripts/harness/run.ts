@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * `csda harness run` — the spec-driven delivery loop for AI coding agents.
@@ -23,15 +22,15 @@
  * harness never merges a branch — a human reviews and merges.
  */
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const crypto = require("node:crypto");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 
-const { resolveProjectDir } = require("../lib/project-root");
-const { buildPrompt } = require("./prompt");
-const { readHarnessConfig, resolveHarnessSettings } = require("./config");
+import { resolveProjectDir } from "../lib/project-root";
+import { buildPrompt } from "./prompt";
+import { readHarnessConfig, resolveHarnessSettings } from "./config";
 
 const PLAN_SCRIPT = path.join(__dirname, "..", "plan.js");
 const DONE_SCRIPT = path.join(__dirname, "..", "done.js");
@@ -254,7 +253,7 @@ function attemptRequirement(req, ctx) {
         maxBuffer: SUBPROCESS_MAX_BUFFER,
         stdio: ["ignore", "pipe", "pipe"],
       });
-      if (agent.error && agent.error.code === "ETIMEDOUT") {
+      if (agent.error && (agent.error as any).code === "ETIMEDOUT") {
         previousFailure = `Agent timed out after ${ctx.timeoutSeconds}s.`;
         warn(`${req.requirement}: agent timed out`);
         continue;
@@ -476,4 +475,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, substituteAgentCommand, printReport };
+export { parseArgs, substituteAgentCommand, printReport };

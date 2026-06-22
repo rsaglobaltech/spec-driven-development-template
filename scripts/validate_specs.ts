@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * Node.js port of validate_specs.sh — same checks, same exit codes.
@@ -7,8 +6,8 @@
  *   node scripts/validate_specs.js <project_dir> [--strict-tdd]
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 function logInfo(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);

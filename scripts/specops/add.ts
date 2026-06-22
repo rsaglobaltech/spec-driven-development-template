@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * `specops add` — thin npm-install-style wrapper around `expand`.
@@ -17,10 +16,10 @@
  *   3. Pre-flight checks the arguments the user *almost certainly* needs.
  */
 
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
-const { resolveProjectDir } = require("../lib/project-root");
+import { resolveProjectDir } from "../lib/project-root";
 
 const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 
@@ -150,4 +149,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { parseArgs };
+export { parseArgs };

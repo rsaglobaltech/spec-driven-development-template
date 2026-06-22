@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Three-way merge primitive for `specops sync`.
  *
@@ -15,10 +13,10 @@
  * Pure-ish: writes only to a throwaway temp dir, never to the project.
  */
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
 const DEFAULT_LABELS = {
   local: "local (your edits)",
@@ -75,4 +73,4 @@ function threeWayMerge(base, local, incoming, labels = {}) {
   }
 }
 
-module.exports = { threeWayMerge, DEFAULT_LABELS };
+export { threeWayMerge, DEFAULT_LABELS };

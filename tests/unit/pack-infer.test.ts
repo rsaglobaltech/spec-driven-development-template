@@ -1,9 +1,7 @@
-"use strict";
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-
-const {
+import {
   parseArgs,
   parseFeatureFile,
   toPascalCase,
@@ -11,7 +9,7 @@ const {
   extractEventNames,
   inferModel,
   renderYamlFragment,
-} = require("../../scripts/infer_pack");
+} from "../../scripts/infer_pack";
 
 const FEATURE = `@REQ-001
 Feature: Parking Capacity

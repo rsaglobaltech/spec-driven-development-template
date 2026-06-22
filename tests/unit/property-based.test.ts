@@ -1,16 +1,14 @@
-"use strict";
-
 /**
  * Property-based tests for core rendering and parsing logic.
  * Uses fast-check to stress-test the template renderer and config parser
  * with arbitrary inputs, uncovering edge cases that example-based tests miss.
  */
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fc = require("fast-check");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fc from "fast-check";
 
-const { renderTemplate } = require("../../scripts/domain-pack/common");
+import { renderTemplate } from "../../scripts/domain-pack/common";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -114,7 +112,7 @@ test("renderTemplate: multiple occurrences of the same placeholder are all repla
 
 // ── normalizeVars properties ──────────────────────────────────────────────────
 
-const { normalizeVars } = require("../../scripts/domain-pack/common");
+import { normalizeVars } from "../../scripts/domain-pack/common";
 
 test("normalizeVars: result includes all provided vars", () => {
   fc.assert(
@@ -151,7 +149,7 @@ test("normalizeVars: extra vars beyond required are preserved", () => {
 
 // ── asArray properties ────────────────────────────────────────────────────────
 
-const { asArray } = require("../../scripts/domain-pack/common");
+import { asArray } from "../../scripts/domain-pack/common";
 
 test("asArray: wrapping a non-empty, non-null scalar always returns an array of length 1", () => {
   fc.assert(

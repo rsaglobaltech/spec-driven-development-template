@@ -1,23 +1,21 @@
-"use strict";
-
 /**
  * Integration test for `scripts/domain-pack/remote.js`.
  * Uses a local git repository as the "remote" — no network access required.
  */
 
-const { test, before } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import { test, before } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
-const {
+import {
   resolveRemotePack,
   repoHash,
   safeVersionDir,
   gitAvailable,
-} = require("../../scripts/domain-pack/remote");
+} from "../../scripts/domain-pack/remote";
 
 const HAS_GIT = gitAvailable();
 const skipReason = HAS_GIT ? undefined : "git is not available on PATH";

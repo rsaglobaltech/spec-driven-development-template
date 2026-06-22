@@ -1,13 +1,13 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
-const PKG = require(path.join(ROOT_DIR, "package.json"));
+const PKG = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf8"));
 
 function runCli(args, options = {}) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {

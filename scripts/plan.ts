@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * `plan` — list requirements that still need work, derived from
@@ -16,9 +15,9 @@
  * structure for AI agents, editors and CI dashboards.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { resolveProjectDir } = require("./lib/project-root");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { resolveProjectDir } from "./lib/project-root";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -358,4 +357,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { parseArgs, parseTraceability, classify, hintFor, detectOrphans };
+export { parseArgs, parseTraceability, classify, hintFor, detectOrphans };

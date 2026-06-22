@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Unit tests for the `plan` and `done` commands.
  *
@@ -8,14 +6,14 @@
  * covered in tests/cli.test.ts.
  */
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
-const { parseTraceability, classify, hintFor, detectOrphans } = require("../../scripts/plan");
-const { setRequirementStatus, ALLOWED_STATUSES } = require("../../scripts/done");
+import { parseTraceability, classify, hintFor, detectOrphans } from "../../scripts/plan";
+import { setRequirementStatus, ALLOWED_STATUSES } from "../../scripts/done";
 
 const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";

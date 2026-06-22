@@ -1,11 +1,10 @@
-"use strict";
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const path = require("node:path");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as path from "node:path";
 
-const os = require("node:os");
+import * as os from "node:os";
 
-const {
+import {
   renderTemplate,
   normalizeVars,
   asArray,
@@ -17,7 +16,7 @@ const {
   parseTraceabilityRows,
   buildTraceabilityMarkdown,
   hasStructuredDomainModel,
-} = require("../../scripts/domain-pack/common");
+} from "../../scripts/domain-pack/common";
 
 const FIXTURE_ROOT = path.resolve(__dirname, "../../../tests/fixtures/domain-packs");
 const FIXTURE_ID = "parking-management/backend";

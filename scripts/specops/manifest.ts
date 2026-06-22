@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * `.specops/` baseline manifest — the missing "common ancestor" that lets
  * `specops sync` do conflict detection instead of blindly overwriting.
@@ -20,9 +18,9 @@
  * Pure module: no logging, no process.exit. Throws on invalid input.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const crypto = require("node:crypto");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as crypto from "node:crypto";
 
 const SPECOPS_DIR = ".specops";
 const BASELINE_DIRNAME = "baseline";
@@ -113,7 +111,7 @@ function snapshotBaseline(projectDir, packId, entries, meta: any = {}, options: 
   return { written: true, count: Object.keys(hashes).length };
 }
 
-module.exports = {
+export {
   SPECOPS_DIR,
   BASELINE_DIRNAME,
   MANIFEST_FILENAME,

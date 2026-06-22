@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * MCP server for create-spec-driven-app projects.
@@ -12,12 +11,19 @@
  * required by Claude Desktop, Cursor, Aider, and other MCP-aware clients.
  */
 
-const { TOOLS } = require("./tools");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { TOOLS } from "./tools";
 
 const PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = {
   name: "mcp-spec-driven",
-  version: require("../../../../packages/mcp-spec-driven/package.json").version,
+  version: JSON.parse(
+    fs.readFileSync(
+      path.resolve(__dirname, "../../../../packages/mcp-spec-driven/package.json"),
+      "utf8"
+    )
+  ).version,
 };
 
 // ── JSON-RPC framing over stdio ──────────────────────────────────────────────────
@@ -188,4 +194,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { handleMessage, readMessage, writeMessage };
+export { handleMessage, readMessage, writeMessage };

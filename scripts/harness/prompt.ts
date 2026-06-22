@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Builds the structured prompt handed to a coding agent for one requirement.
  *
@@ -11,8 +9,8 @@
  * Pure module: string in, string out. No filesystem, no logging.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 function readIfExists(filePath) {
   try {
@@ -121,4 +119,4 @@ function buildPrompt(req, projectDir, opts: any = {}) {
   return parts.join("\n");
 }
 
-module.exports = { buildPrompt };
+export { buildPrompt };

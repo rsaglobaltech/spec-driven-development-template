@@ -1,12 +1,10 @@
-"use strict";
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-
-const { readConfig, configToPacks, CONFIG_FILE } = require("../../scripts/specops/config");
+import { readConfig, configToPacks, CONFIG_FILE } from "../../scripts/specops/config";
 
 function mktemp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "specops-config-"));

@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Tiny shared helper used by every command that operates on a project
  * directory (plan, done, specops sync/diff/add/remove).
@@ -12,8 +10,8 @@
  * The user can always override with `--project-dir <path>`.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 const SENTINELS = ["spec.md", ".specops.lock", "specops.config.yaml"];
 
@@ -59,7 +57,7 @@ function findProjectRoot(start) {
  * Pass `requireSentinel: true` to throw when no sentinel is found AND the
  * user did not pass --project-dir.
  */
-function resolveProjectDir(explicit, opts) {
+function resolveProjectDir(explicit?, opts?) {
   const passed = explicit && explicit !== "." ? explicit : null;
   if (passed) return canonical(path.resolve(passed));
 
@@ -76,4 +74,4 @@ function resolveProjectDir(explicit, opts) {
   return canonical(path.resolve(process.cwd()));
 }
 
-module.exports = { resolveProjectDir, findProjectRoot, isSpecDrivenDir, SENTINELS };
+export { resolveProjectDir, findProjectRoot, isSpecDrivenDir, SENTINELS };

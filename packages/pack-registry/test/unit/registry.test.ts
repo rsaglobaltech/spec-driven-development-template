@@ -1,11 +1,9 @@
-"use strict";
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as path from "node:path";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const path = require("node:path");
-
-const { scanPacks } = require("../../src/scan");
-const { renderIndex, renderCard, escape } = require("../../src/render");
+import { scanPacks } from "../../src/scan";
+import { renderIndex, renderCard, escape } from "../../src/render";
 
 const REPO_ROOT = path.resolve(__dirname, "../../../../..");
 const PACKS_DIR = path.join(REPO_ROOT, "packs");

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * `specops sync` — re-expands every pack recorded in `.specops.lock` and
@@ -22,17 +21,17 @@
  * CI and agent harnesses can detect that a human needs to intervene.
  */
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
-const { readLock, writeLock, upsertPackEntry, newLock } = require("./lock");
-const { readConfig, configToPacks, CONFIG_FILE } = require("./config");
-const { walkFiles } = require("./diff");
-const { readBaseline, snapshotBaseline } = require("./manifest");
-const { threeWayMerge } = require("./merge");
-const { resolveProjectDir } = require("../lib/project-root");
+import { readLock, writeLock, upsertPackEntry, newLock } from "./lock";
+import { readConfig, configToPacks, CONFIG_FILE } from "./config";
+import { walkFiles } from "./diff";
+import { readBaseline, snapshotBaseline } from "./manifest";
+import { threeWayMerge } from "./merge";
+import { resolveProjectDir } from "../lib/project-root";
 
 const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 
@@ -382,4 +381,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, buildExpandArgs, resolvePacks, reconcileFile };
+export { parseArgs, buildExpandArgs, resolvePacks, reconcileFile };

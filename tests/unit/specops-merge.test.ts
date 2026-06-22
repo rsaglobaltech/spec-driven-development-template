@@ -1,9 +1,7 @@
-"use strict";
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-
-const { threeWayMerge } = require("../../scripts/specops/merge");
+import { threeWayMerge } from "../../scripts/specops/merge";
 
 test("threeWayMerge returns the incoming change when local is untouched", () => {
   const base = "line1\nline2\nline3\n";

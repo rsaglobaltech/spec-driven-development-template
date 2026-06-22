@@ -1,12 +1,10 @@
-"use strict";
-
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const path = require("node:path");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as path from "node:path";
 
 // Resolve relative to the monorepo root so tests run from either location
 const REPO_ROOT = path.resolve(__dirname, "../../../../..");
-const { validatePackYaml, findApproximateLine } = require("../../src/pack-validator");
+import { validatePackYaml, findApproximateLine } from "../../src/pack-validator";
 const SCHEMA_PATH = path.join(REPO_ROOT, "schemas/pack.schema.json");
 
 // ── findApproximateLine ───────────────────────────────────────────────────────────────

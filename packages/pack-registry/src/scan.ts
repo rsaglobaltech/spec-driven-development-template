@@ -1,18 +1,16 @@
-"use strict";
-
 /**
  * Pure module — no fs side effects on the output side.
  * Scans a packs/ root and returns metadata for each pack found.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
 const REPO_ROOT = path.resolve(__dirname, "../../../..");
 const CLI = path.join(REPO_ROOT, "bin/create-spec-driven-app.js");
 
-const { loadPack } = require("../../../scripts/domain-pack/common");
+import { loadPack } from "../../../scripts/domain-pack/common";
 
 /**
  * @typedef {{ id: string, name: string, domain: string, description: string,
@@ -119,4 +117,4 @@ function runLint(packsRoot, id) {
   return { status, messages: [...errors, ...warnings] };
 }
 
-module.exports = { scanPacks, buildMetadata };
+export { scanPacks, buildMetadata };

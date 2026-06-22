@@ -1,22 +1,20 @@
-"use strict";
-
 /**
  * Unit tests for the shared `resolveProjectDir` helper used by plan,
  * done, specops sync/diff/add/remove.
  */
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
-const {
+import {
   resolveProjectDir,
   findProjectRoot,
   isSpecDrivenDir,
   SENTINELS,
-} = require("../../scripts/lib/project-root");
+} from "../../scripts/lib/project-root";
 
 function mkdir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "project-root-"));

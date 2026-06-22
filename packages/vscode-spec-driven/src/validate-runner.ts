@@ -1,11 +1,9 @@
-"use strict";
-
 /**
  * Pure module — no vscode dependency.
  * Spawns `create-spec-driven-app validate <projectDir>` and returns raw output.
  */
 
-const { spawnSync } = require("node:child_process");
+import { spawnSync } from "node:child_process";
 
 /**
  * Run the CLI validate command synchronously.
@@ -32,4 +30,4 @@ function runValidate(projectDir, cliPath = "npx create-spec-driven-app") {
   };
 }
 
-module.exports = { runValidate };
+export { runValidate };

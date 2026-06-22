@@ -1,16 +1,15 @@
-"use strict";
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const Ajv = require("ajv/dist/2020");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import Ajv from "ajv/dist/2020";
 
 const ROOT = path.resolve(__dirname, "../../..");
 const schemaPath = path.join(ROOT, "schemas", "pack.schema.json");
 const FIXTURE_ROOT = path.join(ROOT, "tests/fixtures/domain-packs");
 const FIXTURE_ID = "parking-management/backend";
 
-const { loadPack } = require("../../scripts/domain-pack/common");
+import { loadPack } from "../../scripts/domain-pack/common";
 
 const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
 const ajv = new Ajv({ strict: false, allErrors: true });

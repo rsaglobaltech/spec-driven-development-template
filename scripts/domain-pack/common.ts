@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 function stripInlineComment(line) {
   let inSingle = false;
@@ -185,7 +185,7 @@ function parseTokens(tokens) {
   return root;
 }
 
-function parseYamlLite(content) {
+function parseYamlLite(content): any {
   const lines = content.replace(/\r\n/g, "\n").split("\n");
   const tokens = [];
 
@@ -356,7 +356,7 @@ function parseArgs(argv) {
   return args;
 }
 
-function loadPack(packRoot, packId) {
+function loadPack(packRoot, packId): any {
   if (!packRoot) fail("Missing --pack-root <path>.");
   if (!packId) fail("Missing --pack <domain/type>.");
 
@@ -814,7 +814,7 @@ function buildTraceabilityMarkdown(rows, mode = "legacy") {
   return `${header.concat(body).join("\n")}\n`;
 }
 
-module.exports = {
+export {
   ALLOWED_STATUSES,
   asArray,
   buildTraceabilityMarkdown,

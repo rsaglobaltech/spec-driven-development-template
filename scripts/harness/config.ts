@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Reader for `harness.config.yaml` — optional per-project defaults for
  * `csda harness run`, so the test command and agent invocation do not have
@@ -26,9 +24,9 @@
  * process.exit. Throws on malformed YAML or a missing prefix file.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { parseYamlLite } = require("../domain-pack/common");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { parseYamlLite } from "../domain-pack/common";
 
 const HARNESS_CONFIG_FILE = "harness.config.yaml";
 
@@ -36,7 +34,7 @@ function readHarnessConfig(projectDir) {
   const filePath = path.join(projectDir, HARNESS_CONFIG_FILE);
   if (!fs.existsSync(filePath)) return null;
 
-  const parsed = parseYamlLite(fs.readFileSync(filePath, "utf8"));
+  const parsed: any = parseYamlLite(fs.readFileSync(filePath, "utf8"));
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error(`Invalid ${HARNESS_CONFIG_FILE}: root must be a mapping`);
   }
@@ -82,4 +80,4 @@ function resolveHarnessSettings(fileConfig, cliArgs) {
   };
 }
 
-module.exports = { HARNESS_CONFIG_FILE, readHarnessConfig, resolveHarnessSettings };
+export { HARNESS_CONFIG_FILE, readHarnessConfig, resolveHarnessSettings };

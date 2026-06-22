@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * `specops diff` — shows what would change in the project if each pack
@@ -14,14 +13,14 @@
  *   3. Emit a per-pack summary listing added (+) and modified (~) files
  */
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const crypto = require("node:crypto");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 
-const { readLock } = require("./lock");
-const { resolveProjectDir } = require("../lib/project-root");
+import { readLock } from "./lock";
+import { resolveProjectDir } from "../lib/project-root";
 
 const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 const LOCK_FILENAME = ".specops.lock";
@@ -273,4 +272,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, diffDirs, walkFiles, buildExpandArgs };
+export { parseArgs, diffDirs, walkFiles, buildExpandArgs };

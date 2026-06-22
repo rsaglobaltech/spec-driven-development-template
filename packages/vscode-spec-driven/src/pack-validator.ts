@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Pure module — no vscode dependency.
  * Validates pack.yaml content against the JSON Schema (draft 2020-12).
@@ -7,9 +5,9 @@
  * vscode.Diagnostic instances.
  */
 
-const yaml = require("js-yaml");
-const path = require("node:path");
-const fs = require("node:fs");
+import * as yaml from "js-yaml";
+import * as path from "node:path";
+import * as fs from "node:fs";
 
 // Resolve the bundled schema relative to this file.
 // In the monorepo the schema lives two directories up; in a packaged .vsix it
@@ -169,4 +167,4 @@ function findApproximateLine(lines, instancePath, _schemaPath?) {
   return 0;
 }
 
-module.exports = { validatePackYaml, findApproximateLine };
+export { validatePackYaml, findApproximateLine };

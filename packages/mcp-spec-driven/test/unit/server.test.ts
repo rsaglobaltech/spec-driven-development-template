@@ -1,15 +1,13 @@
-"use strict";
-
 /**
  * Unit tests for the MCP JSON-RPC framing and dispatch.
  * These tests exercise readMessage / handleMessage in isolation by capturing
  * stdout writes via process.stdout monkey-patching.
  */
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
 
-const { handleMessage, readMessage } = require("../../src/server");
+import { handleMessage, readMessage } from "../../src/server";
 
 function captureStdout(fn) {
   const chunks = [];

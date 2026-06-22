@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * VS Code extension entry point.
  * This file is the ONLY one that imports the `vscode` module.
@@ -7,19 +5,21 @@
  * validate-runner) that can be unit-tested without a VS Code runtime.
  */
 
+// `vscode` is injected by the extension host at runtime and is not resolvable
+// in the root tsc build, so it intentionally stays a runtime require.
 const vscode = require("vscode");
-const path = require("node:path");
-const fs = require("node:fs");
+import * as path from "node:path";
+import * as fs from "node:fs";
 
-const { validatePackYaml } = require("./pack-validator");
-const { findRequirementIds, findIdInTraceability, parseValidateOutput } = require("./traceability");
-const { runValidate } = require("./validate-runner");
-const {
+import { validatePackYaml } from "./pack-validator";
+import { findRequirementIds, findIdInTraceability, parseValidateOutput } from "./traceability";
+import { runValidate } from "./validate-runner";
+import {
   analyzePackGraph,
   referenceKindForLine,
   findDeclarationPosition,
   renderPackMermaid,
-} = require("./pack-graph");
+} from "./pack-graph";
 
 // ── Diagnostic collections ──────────────────────────────────────────────────────────────
 
@@ -527,4 +527,4 @@ class PackReferenceDefinitionProvider {
   }
 }
 
-module.exports = { activate, deactivate };
+export { activate, deactivate };

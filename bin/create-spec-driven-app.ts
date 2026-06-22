@@ -6,7 +6,7 @@ import { spawnSync } from "child_process";
 
 const rootDir = path.resolve(__dirname, "..", "..");
 const distScripts = path.join(__dirname, "..", "scripts");
-const packageJson = require(path.join(rootDir, "package.json"));
+const packageJson = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf8"));
 const VERSION: string = packageJson.version || "0.0.0";
 const initNodeScript = path.join(distScripts, "init_project.js");
 const validateScript = path.join(distScripts, "validate_specs.js");
