@@ -24,6 +24,9 @@ const doneScript = path.join(distScripts, "done.js");
 const reqScript = path.join(distScripts, "req.js");
 const fixScript = path.join(distScripts, "fix.js");
 const statusScript = path.join(distScripts, "status.js");
+const configInitScript = path.join(distScripts, "config_init.js");
+const doctorScript = path.join(distScripts, "doctor.js");
+const completionScript = path.join(distScripts, "completion.js");
 
 // ── Pretty output helpers ─────────────────────────────────────────────────────────
 
@@ -115,6 +118,10 @@ function usage() {
         "Run the plan → agent → verify → done loop for every pending requirement."
       ) +
       cmd("📝", "harness prompt", "Print the prompt the harness would hand an agent for one REQ.") +
+      section("SETUP COMMANDS") +
+      cmd("⚙️", "config init", "Write a commented project.yaml starter in the current dir.") +
+      cmd("🩺", "doctor", "Check Node, git, and project health; pass/fail lines.") +
+      cmd("⌨️", "completion", "Print a shell completion script (bash | zsh).") +
       section("GLOBAL FLAGS") +
       flag("-h, --help", "Show this help.") +
       flag("-v, --version", "Show CLI version.") +
@@ -297,6 +304,30 @@ function main(): void {
   if (command === "status") {
     ensureExecutable(statusScript);
     runNodeScript(statusScript, args.slice(1));
+    return;
+  }
+
+  if (command === "config") {
+    const subCommand = args[1];
+    if (subCommand === "init") {
+      ensureExecutable(configInitScript);
+      runNodeScript(configInitScript, args.slice(2));
+      return;
+    }
+    error(`Unknown config sub-command: ${subCommand || "(none)"}. Expected: init`);
+    usage();
+    process.exit(2);
+  }
+
+  if (command === "doctor") {
+    ensureExecutable(doctorScript);
+    runNodeScript(doctorScript, args.slice(1));
+    return;
+  }
+
+  if (command === "completion") {
+    ensureExecutable(completionScript);
+    runNodeScript(completionScript, args.slice(1));
     return;
   }
 

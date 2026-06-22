@@ -86,8 +86,15 @@ Requires **Node.js ≥ 20**.
 | `specops sync` / `specops diff`  | Three-way-merge a project to a locked pack version, or preview the change.                                                                                                       |
 | `harness run`                    | Run the plan → agent → verify → done loop for every pending requirement, in isolated git worktrees.                                                                              |
 | `harness prompt`                 | Print the exact prompt the harness would hand the agent for one REQ — useful for previewing what the agent sees before paying tokens.                                            |
+| `config init`                    | Write a commented `project.yaml` starter in the current directory to feed `init`.                                                                                                |
+| `doctor`                         | One-shot health check — Node ≥ 20, `git`, and project health (traceability parses, no orphan features, lock). Pass/fail lines; non-zero exit on failure (CI preflight).          |
+| `completion`                     | Print a shell completion script: `csda completion zsh` / `csda completion bash`, then source it.                                                                                 |
 
-Full reference: `npx create-spec-driven-app --help` · **[End-to-end tutorial](docs/tutorial.md)** · **[Architecture overview](docs/specs/architecture.md)** · [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
+> 💡 **Tip:** install once (`npm i -g create-spec-driven-app`) and every command
+> below works as `csda <command>` — that's the form used throughout the docs.
+> The `npx create-spec-driven-app@latest …` form in the Quickstart needs no install.
+
+Full reference: `csda --help` · **[End-to-end tutorial](docs/tutorial.md)** · **[Architecture overview](docs/specs/architecture.md)** · [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
 
 ## ⚙️ Configuration
 
@@ -114,7 +121,7 @@ Optional: `LANG`, `MODULES: "auth,dashboard,billing"`. See
 A pack is a reusable YAML bundle of requirements, use cases, aggregates, events, and Gherkin templates. Add one to a project the npm-install way — `specops add` writes a `.specops.lock` and a `.specops/` baseline so the source, version and variables are remembered:
 
 ```bash
-npx create-spec-driven-app@latest specops add \
+csda specops add \
   --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \
   --pack-version v0.1.0 \
   --pack backend \
@@ -135,15 +142,15 @@ For API-first work, set `project_type: contracts` in the pack. You get `api_cont
 
 ```bash
 # Preview what changes when bumping to v0.2.0 (no writes)
-npx create-spec-driven-app specops diff \
+csda specops diff \
   --project-dir ./smart-parking \
   --pack-version v0.2.0
 
 # Re-expand everything in .specops.lock (no need to retype --var)
-npx create-spec-driven-app specops sync --project-dir ./smart-parking
+csda specops sync --project-dir ./smart-parking
 
 # Bump a single pack and rewrite the lockfile
-npx create-spec-driven-app specops sync \
+csda specops sync \
   --project-dir ./smart-parking \
   --pack parking-management/backend \
   --pack-version v0.2.0
@@ -187,7 +194,7 @@ A spec-driven repo is already a complete environment for an AI coding agent —
 `harness run` is the orchestration layer:
 
 ```bash
-npx create-spec-driven-app harness run \
+csda harness run \
   --agent "claude -p < {prompt_file}" \
   --test-cmd "mvn -q test"
 ```

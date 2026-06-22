@@ -14,7 +14,7 @@
 
 ## Progress — 2026-06-22
 
-> **Phases 0 and 1 are complete (8/17 items).** Shipped on branch
+> **Phases 0, 1 and 2 are complete (12/17 items).** Shipped on branch
 > `feature/daily-ux-roadmap` (not yet merged to `main`):
 >
 > - `d791e20` feat(req) — `csda req`
@@ -22,14 +22,16 @@
 > - `950c88f` build(ts) — strict mode
 > - `f25fbab` feat(ux) — Phase 0 (0.2–0.5)
 > - `6656448` feat(ux) — Phase 1 (1.1–1.3)
+> - _(this change)_ feat(ux) — Phase 2 (2.1–2.4)
 >
 > **Shipped commands/flags:** `csda req` (add/link/done/list + TUI), `csda fix`,
 > `validate --fix`, actionable `validate` errors, `csda status` (+`--json`),
 > interactive `csda init` (+`--minimal`, `--out` defaults to cwd), next-step
-> hints, and [`docs/quickstart.md`](../docs/quickstart.md).
+> hints, [`docs/quickstart.md`](../docs/quickstart.md), `csda config init`,
+> `csda doctor`, `csda completion bash|zsh`, and `csda` promoted across the docs.
 >
-> **Next up:** Phase 2 (discoverability) — promote `csda` in docs,
-> `csda config init`, `csda doctor`, shell completion.
+> **Next up:** Phase 3 (coherence) — unify `expand`/`specops add`, global `--json`.
+> Then Phase 4 (surfaces: LSP → IntelliJ).
 >
 > Legend below: ✅ done · ⬜ not started.
 
@@ -181,6 +183,10 @@ reading the README.
 
 **Exit gate P2:** `csda <tab>` completes; `csda doctor` green on a healthy repo.
 
+> ✅ **Phase 2 complete** — `csda` promoted across README/how-to (install-once tip;
+> Quickstart keeps the canonical `npx`), `csda config init`, `csda doctor`
+> (env + project health, CI-friendly exit code), and `csda completion bash|zsh`.
+
 ---
 
 ## Phase 3 — Coherence (P2)
@@ -253,7 +259,7 @@ surface; no standalone desktop/web product owns the source of truth.
 4. ✅ **1.2 `csda status`** — daily entry command (pairs with 0.4 QUICKSTART).
 5. ✅ **1.1 interactive `init`** — biggest day-1 win for scaffolders.
 6. ✅ **0.4 / 0.5 / 1.3** — onboarding + minimal scaffold + next-step hints.
-7. ⬜ Phase 2 / 3 as capacity allows.
+7. ✅ Phase 2 (discoverability) — `csda` in docs, `config init`, `doctor`, completion. ⬜ Phase 3 next.
 8. ⬜ **Phase 4 (LSP → IntelliJ)** only after Phase 0–1 — visual layer over a stable CLI.
 
 ## Tracking
@@ -268,10 +274,10 @@ surface; no standalone desktop/web product owns the source of truth.
 | 1.1 | Interactive `init`              |   1   |    P0    |   ✅    |
 | 1.2 | `csda status`                   |   1   |    P0    |   ✅    |
 | 1.3 | Next-step hints                 |   1   |    P0    |   ✅    |
-| 2.1 | Promote `csda` in docs          |   2   |    P1    |   ⬜    |
-| 2.2 | `csda config init`              |   2   |    P1    |   ⬜    |
-| 2.3 | `csda doctor`                   |   2   |    P1    |   ⬜    |
-| 2.4 | Shell completion                |   2   |    P1    |   ⬜    |
+| 2.1 | Promote `csda` in docs          |   2   |    P1    |   ✅    |
+| 2.2 | `csda config init`              |   2   |    P1    |   ✅    |
+| 2.3 | `csda doctor`                   |   2   |    P1    |   ✅    |
+| 2.4 | Shell completion                |   2   |    P1    |   ✅    |
 | 3.1 | Unify `expand`/`add`            |   3   |    P2    |   ⬜    |
 | 3.2 | Global `--json`                 |   3   |    P2    |   ⬜    |
 | 4.1 | Language Server (LSP)           |   4   |    P1    |   ⬜    |

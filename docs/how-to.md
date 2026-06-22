@@ -3,7 +3,7 @@
 Step-by-step recipes for the most common workflows with `create-spec-driven-app`.
 Each recipe is **self-contained** — copy/paste should work end-to-end.
 
-> Prerequisites: **Node.js ≥ 20**, `git`, a shell. All recipes use `csda` (a short alias the package installs for `create-spec-driven-app`) and pin to a published version for reproducible CI.
+> Prerequisites: **Node.js ≥ 20**, `git`, a shell. All recipes use `csda` (a short alias the package installs for `create-spec-driven-app`). Install once with `npm i -g create-spec-driven-app`, or replace `csda` with `npx create-spec-driven-app@latest` to run without installing.
 
 > **Auto-detect project root**: every command that operates on a project (`plan`, `done`, `validate`, `specops *`) accepts `--project-dir <path>` but **also walks up from your current directory** looking for `spec.md`, `.specops.lock`, or `specops.config.yaml`. Run any of them from inside your project tree without flags.
 
@@ -40,7 +40,7 @@ cp examples/project.config.example /tmp/acme-energy-hub.config
 #   PROJECT_NAME, PROJECT_SLUG, PROJECT_TYPE, DOMAIN, STACK, API_STYLE, TESTING
 
 # 3. Scaffold
-npx create-spec-driven-app@latest init \
+csda init \
   --config /tmp/acme-energy-hub.config \
   --out /tmp
 
@@ -89,7 +89,7 @@ EOF
 #    | REQ-007 | SCN-007 | features/billing/discounts.feature | UC-007 | ApplyDiscountCommand | CartAggregate | DiscountApplied | DiscountService.java | DiscountServiceTest | Draft |
 
 # 3. Validate
-npx create-spec-driven-app@latest validate .
+csda validate .
 ```
 
 If the new `.feature` is not in `traceability.md`, the validator exits with a non-zero status and tells you the missing file.
@@ -103,7 +103,7 @@ If the new `.feature` is not in `traceability.md`, the validator exits with a no
 Local:
 
 ```bash
-npx create-spec-driven-app@latest validate .
+csda validate .
 ```
 
 GitHub Actions:
@@ -143,7 +143,7 @@ Exit codes: `0` ok · `1` unhandled · `2` usage · `3` missing prerequisite · 
 **Goal:** fail PRs when a `REQ` exists in `spec.md` but has no scenario, no implementing test, or no row in `traceability.md`.
 
 ```bash
-npx create-spec-driven-app@latest validate . --strict-tdd
+csda validate . --strict-tdd
 ```
 
 `--strict-tdd` is in addition to the normal checks. It is intended for "no contract without a test" gates — particularly useful in `contracts` packs (see §8). Wire it into CI exactly like `validate`, just append the flag.
@@ -158,7 +158,7 @@ npx create-spec-driven-app@latest validate . --strict-tdd
 
 ```bash
 # 1. Scaffold a pack
-npx create-spec-driven-app@latest pack init \
+csda pack init \
   --out ./domain-packs \
   --name "Billing Backend" \
   --type backend
@@ -171,7 +171,7 @@ npx create-spec-driven-app@latest pack init \
 #              scenarios, outputs.files, rules
 
 # 3. Lint
-npx create-spec-driven-app@latest pack lint \
+csda pack lint \
   --pack-root ./domain-packs \
   --pack billing/backend
 ```
@@ -335,7 +335,7 @@ packs:
 Then on a fresh clone:
 
 ```bash
-npx create-spec-driven-app@latest specops sync --project-dir .
+csda specops sync --project-dir .
 ```
 
 When `.specops.lock` is absent, `sync` reads `specops.config.yaml`, expands every listed pack, and writes the lockfile. When the lockfile exists, the lockfile wins — `specops.config.yaml` is the **intent**, the lockfile is the **resolved state** (think `package.json` vs `package-lock.json`).
@@ -348,7 +348,7 @@ When `.specops.lock` is absent, `sync` reads `specops.config.yaml`, expands ever
 
 ```bash
 # 1. Preview the change (no writes)
-npx create-spec-driven-app@latest specops diff \
+csda specops diff \
   --project-dir ./smart-parking \
   --pack parking-management/backend \
   --pack-version v0.2.0
@@ -361,13 +361,13 @@ npx create-spec-driven-app@latest specops diff \
 #   1 added · 2 modified · 9 unchanged
 
 # 2. Apply once you're satisfied
-npx create-spec-driven-app@latest specops sync \
+csda specops sync \
   --project-dir ./smart-parking \
   --pack parking-management/backend \
   --pack-version v0.2.0
 
 # 3. Re-validate
-npx create-spec-driven-app@latest validate ./smart-parking --strict-tdd
+csda validate ./smart-parking --strict-tdd
 
 # 4. Commit the updated .specops.lock and the regenerated spec files
 git add .specops.lock docs/specs features
@@ -617,8 +617,8 @@ Every command above also works **without** flags from inside the project tree (p
 | `validate --strict-tdd` fails on a half-baked REQ | A `REQ-NNN` exists in `spec.md` without a `.feature` or executable test. | Either add the test, or mark the row in `traceability.md` as `Deferred`. |
 | `expand` leaves `{{VARS}}` in generated files | A required `--var` was not provided. | Re-run with the missing variable. Check `pack.yaml > variables.required`. |
 | `specops sync` rewrites your edits to a generated file | Generated files are meant to be regenerable. | Customise the **pack template**, not the generated output. |
-| `pack lint` rejects a pack that worked before | A new schema version added required fields. | Run `npx create-spec-driven-app@latest pack lint …` against the latest CLI to see the actual error. |
-| `npx create-spec-driven-app …` hangs the first time | npm is resolving the package. | Subsequent runs are cached; pin the version (e.g. `@0.1.0-beta.3`) in CI. |
+| `pack lint` rejects a pack that worked before | A new schema version added required fields. | Run `csda pack lint …` against the latest CLI to see the actual error. |
+| `csda …` hangs the first time | npm is resolving the package. | Subsequent runs are cached; pin the version (e.g. `@0.1.0-beta.3`) in CI. |
 | `specops sync` complains "no lockfile and no `specops.config.yaml`" | Neither source of truth is present. | Run `expand` once, **or** create `specops.config.yaml` (see §9). |
 
-Still stuck? Open an issue with the output of `npx create-spec-driven-app@latest validate --help` plus the failing command. The [Comparisons doc](comparisons.md) lists migration paths from `spec-kit`, Cursor rules, Aider conventions, and plain READMEs if the answer is "this tool isn't the right fit".
+Still stuck? Open an issue with the output of `csda validate --help` plus the failing command. The [Comparisons doc](comparisons.md) lists migration paths from `spec-kit`, Cursor rules, Aider conventions, and plain READMEs if the answer is "this tool isn't the right fit".
