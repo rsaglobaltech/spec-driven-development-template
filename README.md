@@ -71,6 +71,7 @@ Requires **Node.js ≥ 20**.
 | `validate`                       | Check structure, traceability and Gherkin coverage. `--strict-tdd` also fails the build when a `REQ` lacks its `.feature`, its executable test, or its row in `traceability.md`. |
 | `expand`                         | Apply a domain pack (local path or remote git repo) onto a project (low-level; `specops add` is the ergonomic path).                                                             |
 | `plan`                           | List requirements still needing a test, code, or status update. `--format json` for AI agents and CI.                                                                            |
+| `req`                            | Add / link / list requirements without hand-editing the matrix. `csda req` (no args) opens an interactive picker; `req add "<title>"` auto-assigns `REQ-NNN`; `req link REQ-007 --test … --feature …` fills columns. |
 | `done`                           | Mark a requirement `Implemented` in `traceability.md`. `--check` / `--strict` validate first.                                                                                    |
 | `pack init` / `pack lint`        | Scaffold a pack, or lint it: schema, cross-refs, and scenario quality (`--strict`).                                                                                              |
 | `pack lint --graph`              | Render the pack's `REQ→UC→CMD/AGG→EVT` graph (Mermaid/DOT); doubles as a CI link-check.                                                                                          |

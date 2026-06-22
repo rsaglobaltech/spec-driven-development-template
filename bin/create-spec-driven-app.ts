@@ -21,6 +21,7 @@ const specopsRemoveScript = path.join(distScripts, "specops", "remove.js");
 const harnessRunScript = path.join(distScripts, "harness", "run.js");
 const planScript = path.join(distScripts, "plan.js");
 const doneScript = path.join(distScripts, "done.js");
+const reqScript = path.join(distScripts, "req.js");
 
 // ── Pretty output helpers ─────────────────────────────────────────────────────────
 
@@ -88,6 +89,7 @@ function usage() {
       cmd("✅", "validate", "Check structure, traceability, Gherkin (+ --strict-tdd gate).") +
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
+      cmd("📝", "req", "Add / link / list requirements without editing the matrix by hand.") +
       cmd("✔", "done", "Mark a requirement as Implemented in traceability.md.") +
       section("PACK COMMANDS") +
       cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
@@ -257,6 +259,12 @@ function main(): void {
   if (command === "done") {
     ensureExecutable(doneScript);
     runNodeScript(doneScript, args.slice(1));
+    return;
+  }
+
+  if (command === "req") {
+    ensureExecutable(reqScript);
+    runNodeScript(reqScript, args.slice(1));
     return;
   }
 
