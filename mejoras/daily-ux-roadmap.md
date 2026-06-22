@@ -12,6 +12,29 @@
 
 ---
 
+## Progress — 2026-06-22
+
+> **Phases 0 and 1 are complete (8/17 items).** Shipped on branch
+> `feature/daily-ux-roadmap` (not yet merged to `main`):
+>
+> - `d791e20` feat(req) — `csda req`
+> - `561d956` refactor(ts) — import/export migration
+> - `950c88f` build(ts) — strict mode
+> - `f25fbab` feat(ux) — Phase 0 (0.2–0.5)
+> - `6656448` feat(ux) — Phase 1 (1.1–1.3)
+>
+> **Shipped commands/flags:** `csda req` (add/link/done/list + TUI), `csda fix`,
+> `validate --fix`, actionable `validate` errors, `csda status` (+`--json`),
+> interactive `csda init` (+`--minimal`, `--out` defaults to cwd), next-step
+> hints, and [`docs/quickstart.md`](../docs/quickstart.md).
+>
+> **Next up:** Phase 2 (discoverability) — promote `csda` in docs,
+> `csda config init`, `csda doctor`, shell completion.
+>
+> Legend below: ✅ done · ⬜ not started.
+
+---
+
 ## Diagnosis — where the friction is
 
 | Area              | Today                                                                              | Pain                                          |
@@ -222,15 +245,16 @@ surface; no standalone desktop/web product owns the source of truth.
 ## Suggested order
 
 > Phase 0 first — it removes the actual "cumbersome" complaint.
+> Steps 1–6 (✅) are shipped; remaining work starts at step 7 (Phase 2).
 
-1. **0.1 `csda req`** — kills hand-editing the matrix. Highest impact on complaints.
-2. **0.2 actionable errors** — turns scoldings into next steps.
-3. **0.3 `csda fix`** — autofix the mechanical failures.
-4. **1.2 `csda status`** — daily entry command (pairs with 0.4 QUICKSTART).
-5. **1.1 interactive `init`** — biggest day-1 win for scaffolders.
-6. **0.4 / 0.5 / 1.3** — onboarding + minimal scaffold + next-step hints.
-7. Phase 2 / 3 as capacity allows.
-8. **Phase 4 (LSP → IntelliJ)** only after Phase 0–1 — visual layer over a stable CLI.
+1. ✅ **0.1 `csda req`** — kills hand-editing the matrix. Highest impact on complaints.
+2. ✅ **0.2 actionable errors** — turns scoldings into next steps.
+3. ✅ **0.3 `csda fix`** — autofix the mechanical failures.
+4. ✅ **1.2 `csda status`** — daily entry command (pairs with 0.4 QUICKSTART).
+5. ✅ **1.1 interactive `init`** — biggest day-1 win for scaffolders.
+6. ✅ **0.4 / 0.5 / 1.3** — onboarding + minimal scaffold + next-step hints.
+7. ⬜ Phase 2 / 3 as capacity allows.
+8. ⬜ **Phase 4 (LSP → IntelliJ)** only after Phase 0–1 — visual layer over a stable CLI.
 
 ## Tracking
 
