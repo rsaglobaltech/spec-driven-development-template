@@ -14,7 +14,7 @@
 
 ## Progress — 2026-06-22
 
-> **Phases 0–3 are complete (14/17 items).** Shipped on branch
+> **Phases 0–3 complete + Phase 4 mostly shipped (16/17; 4.2 scaffolded).** Shipped on branch
 > `feature/daily-ux-roadmap` (not yet merged to `main`):
 >
 > - `d791e20` feat(req) — `csda req`
@@ -23,17 +23,19 @@
 > - `f25fbab` feat(ux) — Phase 0 (0.2–0.5)
 > - `6656448` feat(ux) — Phase 1 (1.1–1.3)
 > - `08651c1` feat(ux) — Phase 2 (2.1–2.4)
-> - _(this change)_ feat(ux) — Phase 3 (3.1–3.2)
+> - `d9715b6` feat(ux) — Phase 3 (3.1–3.2)
+> - _(this change)_ feat(ux) — Phase 4 (4.1 LSP, 4.3 studio, 4.2 scaffold)
 >
 > **Shipped commands/flags:** `csda req` (add/link/done/list + TUI), `csda fix`,
 > `validate --fix`, actionable `validate` errors, `csda status` (+`--json`),
 > interactive `csda init` (+`--minimal`, `--out` defaults to cwd), next-step
 > hints, [`docs/quickstart.md`](../docs/quickstart.md), `csda config init`,
 > `csda doctor`, `csda completion bash|zsh`, `csda` promoted across the docs,
-> `expand`→`specops add` steer, and `--json` on plan/status/validate/doctor.
+> `expand`→`specops add` steer, `--json` on plan/status/validate/doctor,
+> `csda studio`, and the [`lsp-spec-driven`](../packages/lsp-spec-driven) server.
 >
-> **Next up:** Phase 4 (surfaces) — Language Server (LSP) → IntelliJ plugin →
-> optional `csda studio`.
+> **Remaining:** 4.2 IntelliJ plugin needs a JDK/Gradle build pipeline (scaffold
+> in [`packages/intellij-spec-driven`](../packages/intellij-spec-driven)).
 >
 > Legend below: ✅ done · ⬜ not started.
 
@@ -253,6 +255,19 @@ read commands.
 **Exit gate P4:** IntelliJ + VS Code share one LSP; no logic is reimplemented per
 surface; no standalone desktop/web product owns the source of truth.
 
+> 🚧 **Phase 4 — mostly shipped (4.1 ✅, 4.3 ✅, 4.2 scaffolded).**
+> - **4.1** [`packages/lsp-spec-driven`](../packages/lsp-spec-driven) — pure
+>   diagnostics core (same rules as `validate --strict-tdd`) + a dependency-free
+>   stdio LSP server. Unit-tested (`test:lsp-unit`).
+> - **4.3** `csda studio` — local read-only server (status + Mermaid REQ graph,
+>   `/status.json`, `--json`), thin over the CLI. Unit-tested.
+> - **4.2** [`packages/intellij-spec-driven`](../packages/intellij-spec-driven) —
+>   thin LSP4IJ client + `plugin.xml` + Gradle build. **Scaffold only**: needs a
+>   JDK/Gradle pipeline (separate from this repo's Node CI), so it is not compiled
+>   here. The Kotlin glue carries no spec logic — it just launches 4.1.
+>
+> Legend: ✅ done · 🚧 partial/scaffold · ⬜ not started.
+
 ---
 
 ## Suggested order
@@ -268,7 +283,7 @@ surface; no standalone desktop/web product owns the source of truth.
 6. ✅ **0.4 / 0.5 / 1.3** — onboarding + minimal scaffold + next-step hints.
 7. ✅ Phase 2 (discoverability) — `csda` in docs, `config init`, `doctor`, completion.
 8. ✅ Phase 3 (coherence) — `expand`→`specops add` steer, `--json` on plan/status/validate/doctor.
-9. ⬜ **Phase 4 (LSP → IntelliJ)** only after Phase 0–1 — visual layer over a stable CLI.
+9. 🚧 **Phase 4** — LSP (✅) + `csda studio` (✅) shipped; IntelliJ plugin scaffolded (needs JDK/Gradle build).
 
 ## Tracking
 
@@ -288,6 +303,6 @@ surface; no standalone desktop/web product owns the source of truth.
 | 2.4 | Shell completion                |   2   |    P1    |   ✅    |
 | 3.1 | Unify `expand`/`add`            |   3   |    P2    |   ✅    |
 | 3.2 | Global `--json`                 |   3   |    P2    |   ✅    |
-| 4.1 | Language Server (LSP)           |   4   |    P1    |   ⬜    |
-| 4.2 | IntelliJ plugin (LSP client)    |   4   |    P1    |   ⬜    |
-| 4.3 | `csda studio` (local viz)       |   4   |    P2    |   ⬜    |
+| 4.1 | Language Server (LSP)           |   4   |    P1    |   ✅    |
+| 4.2 | IntelliJ plugin (LSP client)    |   4   |    P1    |   🚧    |
+| 4.3 | `csda studio` (local viz)       |   4   |    P2    |   ✅    |

@@ -89,6 +89,7 @@ Requires **Node.js ≥ 20**.
 | `config init`                    | Write a commented `project.yaml` starter in the current directory to feed `init`.                                                                                                |
 | `doctor`                         | One-shot health check — Node ≥ 20, `git`, and project health (traceability parses, no orphan features, lock). Pass/fail lines; non-zero exit on failure (CI preflight).          |
 | `completion`                     | Print a shell completion script: `csda completion zsh` / `csda completion bash`, then source it.                                                                                 |
+| `studio`                         | Serve a local, read-only view (status + Mermaid REQ graph) on `localhost`. `--port`, `--json`. Thin over the CLI; never writes.                                                   |
 
 > 💡 **Tip:** install once (`npm i -g create-spec-driven-app`) and every command
 > below works as `csda <command>` — that's the form used throughout the docs.
@@ -255,6 +256,8 @@ bootstrap step and the harness fit together, see
 
 - 🧠 **MCP server** ([`mcp-spec-driven`](packages/mcp-spec-driven)) — exposes `read_spec`, `plan`, `mark_requirement_done`, `lint_pack` and more to Claude Desktop, Cursor, Aider.
 - 🧩 **VS Code extension** ([`vscode-spec-driven`](packages/vscode-spec-driven)) — pack.yaml schema linting, dangling-reference diagnostics, reference autocomplete, go-to-definition, requirement reference counts, validate-on-save, and a Mermaid **Pack Graph** webview.
+- 🛰️ **Language Server** ([`lsp-spec-driven`](packages/lsp-spec-driven)) — dependency-free LSP that publishes `traceability.md` diagnostics (the `validate --strict-tdd` rules) to any editor. One core, every IDE.
+- 🧠 **IntelliJ plugin** ([`intellij-spec-driven`](packages/intellij-spec-driven)) — thin LSP4IJ client over the Language Server (scaffold; needs a JDK/Gradle build).
 
 ## 📚 Learn more
 

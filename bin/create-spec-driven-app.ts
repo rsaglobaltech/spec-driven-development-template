@@ -27,6 +27,7 @@ const statusScript = path.join(distScripts, "status.js");
 const configInitScript = path.join(distScripts, "config_init.js");
 const doctorScript = path.join(distScripts, "doctor.js");
 const completionScript = path.join(distScripts, "completion.js");
+const studioScript = path.join(distScripts, "studio.js");
 
 // ── Pretty output helpers ─────────────────────────────────────────────────────────
 
@@ -122,6 +123,7 @@ function usage() {
       cmd("⚙️", "config init", "Write a commented project.yaml starter in the current dir.") +
       cmd("🩺", "doctor", "Check Node, git, and project health; pass/fail lines.") +
       cmd("⌨️", "completion", "Print a shell completion script (bash | zsh).") +
+      cmd("🎨", "studio", "Serve a local read-only view (status + REQ graph) on localhost.") +
       section("GLOBAL FLAGS") +
       flag("-h, --help", "Show this help.") +
       flag("-v, --version", "Show CLI version.") +
@@ -337,6 +339,12 @@ function main(): void {
   if (command === "completion") {
     ensureExecutable(completionScript);
     runNodeScript(completionScript, args.slice(1));
+    return;
+  }
+
+  if (command === "studio") {
+    ensureExecutable(studioScript);
+    runNodeScript(studioScript, args.slice(1));
     return;
   }
 
