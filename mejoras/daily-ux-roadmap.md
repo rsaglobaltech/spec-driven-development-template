@@ -90,6 +90,10 @@
 **Exit gate P0:** a dev can join a repo, see state, fix a `validate` failure, and
 mark a REQ done — without editing markdown by hand or reading the full tutorial.
 
+> ✅ **Phase 0 complete** — `csda req`, actionable `validate` errors, `csda fix` /
+> `validate --fix`, [`docs/quickstart.md`](../docs/quickstart.md), and
+> `csda init --minimal` are all shipped.
+
 ---
 
 ## Phase 1 — Day-1 friction (P0)
@@ -229,10 +233,10 @@ surface; no standalone desktop/web product owns the source of truth.
 | ID  | Item                            | Phase | Priority | Status |
 | --- | ------------------------------- | :---: | :------: | :----: |
 | 0.1 | `csda req` (add/link/done/list) |   0   |    P0    |   ✅    |
-| 0.2 | Actionable error messages       |   0   |    P0    |   ⬜    |
-| 0.3 | `csda fix` / `validate --fix`   |   0   |    P0    |   ⬜    |
-| 0.4 | One-page QUICKSTART             |   0   |    P0    |   ⬜    |
-| 0.5 | `csda init --minimal`           |   0   |    P0    |   ⬜    |
+| 0.2 | Actionable error messages       |   0   |    P0    |   ✅    |
+| 0.3 | `csda fix` / `validate --fix`   |   0   |    P0    |   ✅    |
+| 0.4 | One-page QUICKSTART             |   0   |    P0    |   ✅    |
+| 0.5 | `csda init --minimal`           |   0   |    P0    |   ✅    |
 | 1.1 | Interactive `init`              |   1   |    P0    |   ⬜    |
 | 1.2 | `csda status`                   |   1   |    P0    |   ⬜    |
 | 1.3 | Next-step hints                 |   1   |    P0    |   ⬜    |

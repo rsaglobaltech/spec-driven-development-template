@@ -58,6 +58,10 @@ npx create-spec-driven-app@latest validate /tmp/acme-energy-hub
 
 Requires **Node.js ≥ 20**.
 
+> ⚡ **Joining an existing spec-driven repo?** The one-page
+> **[Quickstart](docs/quickstart.md)** gets you productive in 5 minutes
+> (`plan` → work → `req link` → `done` → `validate`).
+>
 > 📘 **New here?** The **[end-to-end tutorial](docs/tutorial.md)** builds a real
 > project (Smart Parking, on the public `parking-management-specops` pack) and
 > walks **every** command — including how to add new requirements both as a
@@ -67,8 +71,9 @@ Requires **Node.js ≥ 20**.
 
 | Command                          | What it does                                                                                                                                                                     |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `init`                           | Scaffold a new spec-driven project from a config file.                                                                                                                           |
-| `validate`                       | Check structure, traceability and Gherkin coverage. `--strict-tdd` also fails the build when a `REQ` lacks its `.feature`, its executable test, or its row in `traceability.md`. |
+| `init`                           | Scaffold a new spec-driven project from a config file. `--minimal` scaffolds specs only (no `.env.*` / docker / devcontainer); the runtime contract becomes opt-in.              |
+| `validate`                       | Check structure, traceability and Gherkin coverage. `--strict-tdd` also fails the build when a `REQ` lacks its `.feature`, its executable test, or its row in `traceability.md`. Every failure prints a `file:line` and a concrete fix command. `--fix` auto-repairs mechanical issues first. |
+| `fix`                            | Auto-repair mechanical traceability violations (orphan `.feature` files, REQs in `spec.md` with no row). Previews and confirms; `--yes` for CI. Same engine as `validate --fix`. |
 | `expand`                         | Apply a domain pack (local path or remote git repo) onto a project (low-level; `specops add` is the ergonomic path).                                                             |
 | `plan`                           | List requirements still needing a test, code, or status update. `--format json` for AI agents and CI.                                                                            |
 | `req`                            | Add / link / list requirements without hand-editing the matrix. `csda req` (no args) opens an interactive picker; `req add "<title>"` auto-assigns `REQ-NNN`; `req link REQ-007 --test … --feature …` fills columns. |

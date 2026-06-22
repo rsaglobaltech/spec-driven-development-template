@@ -41,12 +41,21 @@ function usage() {
       "  --out <dir>       Parent directory for generated project (required)\n" +
       "  --force           Overwrite target directory if it already exists\n" +
       "  --dry-run         Print actions without writing files\n" +
-      "  --no-git          Skip git initialization\n"
+      "  --no-git          Skip git initialization\n" +
+      "  --minimal         Scaffold specs only — no .env.* / docker / devcontainer\n" +
+      "  --with-runtime    Keep the runtime contract (default; opposite of --minimal)\n"
   );
 }
 
 function parseArgs(argv) {
-  const opts = { config: null, out: null, force: false, dryRun: false, noGit: false };
+  const opts = {
+    config: null,
+    out: null,
+    force: false,
+    dryRun: false,
+    noGit: false,
+    minimal: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--config" && argv[i + 1]) {
@@ -59,6 +68,10 @@ function parseArgs(argv) {
       opts.dryRun = true;
     } else if (a === "--no-git") {
       opts.noGit = true;
+    } else if (a === "--minimal") {
+      opts.minimal = true;
+    } else if (a === "--with-runtime") {
+      opts.minimal = false;
     } else if (a === "--help" || a === "-h") {
       usage();
       process.exit(0);
@@ -317,6 +330,29 @@ function applyRuntimeSupportFlags(projectDir, cfg, dryRun) {
   }
 }
 
+/**
+ * `--minimal`: strip the whole runtime contract so a fresh project is just
+ * specs + features + traceability. Removes every `.env*` file, docker-compose,
+ * .dockerignore and .devcontainer. Idempotent.
+ */
+function applyMinimal(projectDir, dryRun) {
+  if (dryRun) {
+    logInfo(
+      "[dry-run] minimal: remove .env.* / docker-compose.yml / .dockerignore / .devcontainer"
+    );
+    return;
+  }
+  for (const f of fs.readdirSync(projectDir)) {
+    if (/^\.env(\..+)?$/.test(f)) fs.rmSync(path.join(projectDir, f));
+  }
+  for (const f of ["docker-compose.yml", ".dockerignore"]) {
+    const p = path.join(projectDir, f);
+    if (fs.existsSync(p)) fs.rmSync(p);
+  }
+  const dc = path.join(projectDir, ".devcontainer");
+  if (fs.existsSync(dc)) fs.rmSync(dc, { recursive: true, force: true });
+}
+
 // ── Traceability coverage ─────────────────────────────────────────────────────
 
 function featureTitleFromPath(rel) {
@@ -385,7 +421,11 @@ function main() {
     process.exit(2);
   }
 
-  const cfg = validateConfig(parseConfig(opts.config));
+  const cfg: any = validateConfig(parseConfig(opts.config));
+  if (opts.minimal) {
+    cfg.DOCKER_SUPPORT = "false";
+    cfg.DEVCONTAINER_SUPPORT = "false";
+  }
   const projectDir = path.join(path.resolve(opts.out), cfg.PROJECT_SLUG);
 
   if (fs.existsSync(projectDir) && !opts.force) {
@@ -403,6 +443,7 @@ function main() {
   logInfo("🧩 Rendering base template");
   renderTree(path.join(TEMPLATES_DIR, "base"), projectDir, cfg, opts.dryRun);
   applyRuntimeSupportFlags(projectDir, cfg, opts.dryRun);
+  if (opts.minimal) applyMinimal(projectDir, opts.dryRun);
 
   logInfo(`🛠️ Applying project type template: ${cfg.PROJECT_TYPE}`);
   renderFile(
@@ -455,6 +496,9 @@ function main() {
   logInfo(`- Type: ${cfg.PROJECT_TYPE}`);
   logInfo(`- Domain: ${cfg.DOMAIN}`);
   logInfo(`- Output: ${projectDir}`);
+  logInfo(
+    `- Runtime: ${opts.minimal ? "minimal (specs only)" : "full (.env/docker/devcontainer)"}`
+  );
   logInfo(`- Dry-run: ${opts.dryRun}`);
   logInfo(`- Git: ${opts.noGit ? "skipped" : "initialized"}`);
   logInfo("✅ Generation completed");

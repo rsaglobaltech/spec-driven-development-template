@@ -22,6 +22,7 @@ const harnessRunScript = path.join(distScripts, "harness", "run.js");
 const planScript = path.join(distScripts, "plan.js");
 const doneScript = path.join(distScripts, "done.js");
 const reqScript = path.join(distScripts, "req.js");
+const fixScript = path.join(distScripts, "fix.js");
 
 // ── Pretty output helpers ─────────────────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ function usage() {
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
       cmd("📝", "req", "Add / link / list requirements without editing the matrix by hand.") +
+      cmd("🛠", "fix", "Auto-repair mechanical traceability violations (also `validate --fix`).") +
       cmd("✔", "done", "Mark a requirement as Implemented in traceability.md.") +
       section("PACK COMMANDS") +
       cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
@@ -232,14 +234,30 @@ function main(): void {
       usage();
       process.exit(2);
     }
-    const unknownFlags = validateArgs.filter((a) => a.startsWith("-") && a !== "--strict-tdd");
+    const allowed = new Set(["--strict-tdd", "--fix"]);
+    const unknownFlags = validateArgs.filter((a) => a.startsWith("-") && !allowed.has(a));
     if (unknownFlags.length > 0) {
       error(`Unknown flag(s) for validate: ${unknownFlags.join(", ")}`);
       usage();
       process.exit(2);
     }
 
-    runNodeScript(validateScript, validateArgs);
+    // `validate --fix` auto-repairs mechanical violations first (unattended),
+    // then runs the validation gate on the repaired tree.
+    if (validateArgs.includes("--fix")) {
+      ensureExecutable(fixScript);
+      const fixResult = spawnSync(
+        process.execPath,
+        [fixScript, "--yes", "--project-dir", positional[0]],
+        { stdio: "inherit", env: process.env }
+      );
+      if (fixResult.status !== 0 && fixResult.status !== null) process.exit(fixResult.status);
+    }
+
+    runNodeScript(
+      validateScript,
+      validateArgs.filter((a) => a !== "--fix")
+    );
     return;
   }
 
@@ -265,6 +283,12 @@ function main(): void {
   if (command === "req") {
     ensureExecutable(reqScript);
     runNodeScript(reqScript, args.slice(1));
+    return;
+  }
+
+  if (command === "fix") {
+    ensureExecutable(fixScript);
+    runNodeScript(fixScript, args.slice(1));
     return;
   }
 
