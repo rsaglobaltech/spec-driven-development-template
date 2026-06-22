@@ -37,7 +37,7 @@ function validatePackYaml(content, schemaPath) {
   let parsed;
   try {
     parsed = yaml.load(content, { json: true });
-  } catch (err) {
+  } catch (err: any) {
     return {
       parseError: {
         line: err.mark ? err.mark.line : 0,
@@ -66,7 +66,7 @@ function validatePackYaml(content, schemaPath) {
   let schema;
   try {
     schema = JSON.parse(fs.readFileSync(resolvedSchema, "utf8"));
-  } catch (err) {
+  } catch (err: any) {
     return {
       parseError: null,
       errors: [
@@ -84,7 +84,7 @@ function validatePackYaml(content, schemaPath) {
   let ajv;
   try {
     ajv = loadAjv();
-  } catch (err) {
+  } catch (err: any) {
     return {
       parseError: null,
       errors: [
@@ -101,7 +101,7 @@ function validatePackYaml(content, schemaPath) {
   let validate;
   try {
     validate = ajv.compile(schema);
-  } catch (err) {
+  } catch (err: any) {
     return {
       parseError: null,
       errors: [

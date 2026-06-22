@@ -172,7 +172,7 @@ function runPlan(projectDir) {
   let parsed;
   try {
     parsed = JSON.parse(r.stdout);
-  } catch (err) {
+  } catch (err: any) {
     throw new Error(`plan produced invalid JSON: ${err.message}`);
   }
   return parsed;
@@ -456,7 +456,7 @@ function main() {
       force: args.force,
     };
 
-    const results = [];
+    const results: any[] = [];
     for (const req of pending) {
       results.push(processRequirement(req, { ...ctx, hint: hintByReq.get(req.requirement) }));
     }
@@ -465,7 +465,7 @@ function main() {
 
     const failed = results.filter((r) => r.result !== "pass").length;
     process.exit(failed > 0 ? 1 : 0);
-  } catch (err) {
+  } catch (err: any) {
     error(err.message);
     process.exit(1);
   }

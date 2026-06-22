@@ -228,8 +228,8 @@ const STEP_RE = /^\s*(Given|When|Then|And|But)\b\s*(.*)$/i;
  * light — enough to judge structure and step language, not a full parser.
  */
 function parseFeature(content) {
-  const scenarios = [];
-  let current = null;
+  const scenarios: any[] = [];
+  let current: any = null;
   for (const raw of content.split("\n")) {
     const line = raw.trim();
     if (!line || line.startsWith("#")) continue;
@@ -303,7 +303,7 @@ function checkGherkin(where, gherkin, errors, scenarioIssues) {
 
 /** Build a synthetic gherkin object from inline given/when/then fields. */
 function inlineGherkin(scn) {
-  const steps = [];
+  const steps: any[] = [];
   for (const keyword of ["given", "when", "then"]) {
     for (const text of asArray(scn[keyword])) {
       if (typeof text === "string" && text.trim()) steps.push({ keyword, text: text.trim() });
@@ -373,9 +373,9 @@ function lintScenarioQuality(pack, packRoot, errors, scenarioIssues) {
 // ── Runner ────────────────────────────────────────────────────────────────────
 
 function runLint(pack, packRoot, opts: any = {}) {
-  const errors = [];
-  const warnings = [];
-  const scenarioIssues = [];
+  const errors: any[] = [];
+  const warnings: any[] = [];
+  const scenarioIssues: any[] = [];
 
   lintTodos(pack, errors, warnings);
   lintIdUniqueness(pack, errors, warnings);
@@ -405,9 +405,9 @@ function runLint(pack, packRoot, opts: any = {}) {
 // synthetic "missing" node so the break is visible in the diagram *and* listed.
 
 function buildPackGraph(pack) {
-  const nodes = [];
-  const edges = [];
-  const broken = [];
+  const nodes: any[] = [];
+  const edges: any[] = [];
+  const broken: any[] = [];
   const seen = new Set();
 
   function addNode(id, type, label) {
@@ -612,7 +612,7 @@ function main() {
   let loadResult;
   try {
     loadResult = loadPack(opts.packRoot, opts.packId);
-  } catch (err) {
+  } catch (err: any) {
     logError(`Failed to load pack: ${err.message}`);
     process.exit(1);
   }

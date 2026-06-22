@@ -77,8 +77,8 @@ function trimCell(v) {
 }
 
 function parseTraceability(content) {
-  const rows = [];
-  let mode = null;
+  const rows: any[] = [];
+  let mode: string | null = null;
   for (const raw of content.split("\n")) {
     const line = raw.trimEnd();
     if (!line.startsWith("|")) continue;
@@ -223,7 +223,7 @@ function hintFor(item) {
 }
 
 function walkFeatures(dir, base = dir) {
-  const out = [];
+  const out: any[] = [];
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -328,7 +328,7 @@ function main() {
   let projectDir;
   try {
     projectDir = resolveProjectDir(opts.projectDir);
-  } catch (err) {
+  } catch (err: any) {
     process.stderr.write(`${err.message}\n`);
     process.exit(2);
   }

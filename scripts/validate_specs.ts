@@ -41,7 +41,7 @@ function fail(msg, exitCode = 1) {
 }
 
 function walk(dir) {
-  const out = [];
+  const out: any[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) out.push(...walk(full));
@@ -108,7 +108,7 @@ function trimCell(s) {
  * Returns an array of cell arrays (strings already trimmed).
  */
 function parseMatrixRows(content, traceMode) {
-  const rows = [];
+  const rows: any[] = [];
   for (const rawLine of content.split("\n")) {
     const line = rawLine.trimEnd();
     if (!line.startsWith("|")) continue;
@@ -159,7 +159,7 @@ function main() {
 
   // Unresolved placeholders anywhere in the project
   const allFiles = walk(targetDir);
-  const offenders = [];
+  const offenders: any[] = [];
   for (const f of allFiles) {
     let content;
     try {
@@ -203,7 +203,7 @@ function main() {
   // Collect requirement IDs referenced in the matrix (for strict-tdd check)
   const reqsInMatrix = new Set();
 
-  const strictTddViolations = [];
+  const strictTddViolations: any[] = [];
 
   for (const { cells } of matrixRows) {
     let status;

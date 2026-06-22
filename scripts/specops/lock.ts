@@ -36,7 +36,7 @@ function readLock(projectDir) {
   let parsed;
   try {
     parsed = JSON.parse(raw);
-  } catch (err) {
+  } catch (err: any) {
     throw new Error(`Invalid ${LOCK_FILENAME}: ${err.message}`);
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -84,7 +84,7 @@ function newLock(csdaVersion?) {
   return {
     specops_version: SPECOPS_SCHEMA_VERSION,
     csda_version: csdaVersion || "0.0.0",
-    packs: [],
+    packs: [] as any[],
   };
 }
 

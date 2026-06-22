@@ -246,7 +246,7 @@ function collectFieldFlags(argv) {
   // Returns { fields, status, rest } parsed from --feature/--test/... flags.
   const fields: any = {};
   let status = null;
-  const rest = [];
+  const rest: any[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a in LINK_FIELDS && argv[i + 1] != null) {
@@ -363,7 +363,7 @@ async function interactive(tracePath, projectDir) {
     }
     rl.close();
     return 0;
-  } catch (err) {
+  } catch (err: any) {
     rl.close();
     process.stderr.write(`${c.red}✖${c.reset}  ${err.message}\n`);
     return 1;
@@ -395,7 +395,7 @@ async function main() {
   let projectDir;
   try {
     projectDir = resolveProjectDir(explicitDir);
-  } catch (err) {
+  } catch (err: any) {
     process.stderr.write(`${err.message}\n`);
     process.exit(2);
   }

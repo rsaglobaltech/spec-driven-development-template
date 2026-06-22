@@ -30,7 +30,7 @@ function scanPacks(packsRoot) {
     throw new Error(`packsRoot does not exist: ${packsRoot}`);
   }
 
-  const packs = [];
+  const packs: any[] = [];
   for (const entry of fs.readdirSync(packsRoot, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const domainDir = path.join(packsRoot, entry.name);
@@ -50,7 +50,7 @@ function buildMetadata(packsRoot, id) {
   let pack;
   try {
     pack = loadPack(packsRoot, id).pack;
-  } catch (err) {
+  } catch (err: any) {
     return {
       id,
       name: id,
@@ -104,8 +104,8 @@ function runLint(packsRoot, id) {
     }
   );
   const combined = (result.stdout || "") + "\n" + (result.stderr || "");
-  const errors = [];
-  const warnings = [];
+  const errors: any[] = [];
+  const warnings: any[] = [];
   for (const line of combined.split("\n")) {
     if (line.includes("[ERROR]")) errors.push(line.replace(/^.*\[ERROR\]\s*/, "").trim());
     else if (line.includes("[WARN]")) warnings.push(line.replace(/^.*\[WARN\]\s*/, "").trim());

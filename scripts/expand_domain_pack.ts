@@ -57,7 +57,7 @@ function renderStaticFiles(pack, packRoot, projectDir, vars, dryRun) {
 }
 
 function renderScenarios(pack, packRoot, projectDir, vars, dryRun, noExamples) {
-  const generated = [];
+  const generated: any[] = [];
 
   for (const scenario of pack.scenarios || []) {
     const isSeed = scenario.seed !== false;
@@ -277,7 +277,7 @@ function renderDomainDocs(pack, projectDir, dryRun) {
 function renderTraceability(pack, projectDir, generatedScenarios, dryRun) {
   const traceTarget = safeResolve(projectDir, pack.rules.traceability.target);
 
-  let rows = [];
+  let rows: any[] = [];
   let mode = hasStructuredDomainModel(pack) ? "rich" : "legacy";
   const includeExisting = pack.rules.traceability.include_existing_rows !== false;
   if (includeExisting && fs.existsSync(traceTarget)) {
@@ -488,7 +488,7 @@ function main() {
 
     logInfo(`Generated ${generated.length} scenario file(s).`);
     logInfo("Domain pack expansion completed.");
-  } catch (error) {
+  } catch (error: any) {
     logError(error.message);
     process.exit(1);
   }

@@ -10,7 +10,7 @@ import * as assert from "node:assert/strict";
 import { handleMessage, readMessage } from "../../src/server";
 
 function captureStdout(fn) {
-  const chunks = [];
+  const chunks: any[] = [];
   const original = process.stdout.write.bind(process.stdout);
   process.stdout.write = (chunk) => {
     chunks.push(chunk.toString());

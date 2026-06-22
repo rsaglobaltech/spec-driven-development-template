@@ -37,7 +37,7 @@ function section(title, body) {
  * @param {number} [opts.maxAttempts]
  */
 function buildPrompt(req, projectDir, opts: any = {}) {
-  const parts = [];
+  const parts: any[] = [];
 
   if (opts.promptPrefix && String(opts.promptPrefix).trim()) {
     parts.push(String(opts.promptPrefix).trimEnd());

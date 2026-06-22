@@ -33,7 +33,7 @@ let buffer = "";
 function readMessage(chunk) {
   buffer += chunk.toString("utf8");
 
-  const messages = [];
+  const messages: any[] = [];
   // Try Content-Length framing first (per LSP/MCP convention)
   while (true) {
     const headerEnd = buffer.indexOf("\r\n\r\n");
@@ -52,7 +52,7 @@ function readMessage(chunk) {
     buffer = buffer.slice(messageStart + length);
     try {
       messages.push(JSON.parse(body));
-    } catch (err) {
+    } catch (err: any) {
       writeError(null, -32700, `Parse error: ${err.message}`);
     }
   }
@@ -147,7 +147,7 @@ function handleMessage(msg) {
             ],
             isError: false,
           });
-        } catch (err) {
+        } catch (err: any) {
           writeResult(id, {
             content: [{ type: "text", text: `Error: ${err.message}` }],
             isError: true,
@@ -171,7 +171,7 @@ function handleMessage(msg) {
         }
       // else: notification — ignore unknown notifications
     }
-  } catch (err) {
+  } catch (err: any) {
     writeError(id, -32603, `Internal error: ${err.message}`);
   }
 }

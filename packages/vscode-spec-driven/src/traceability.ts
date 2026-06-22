@@ -13,7 +13,7 @@ const ID_PATTERN = /\b(REQ|UC|SCN|BC|AGG|EVT|RUL|CMD)-\d{3,}\b/g;
  * @returns {{ id: string, line: number, col: number, endCol: number }[]}
  */
 function findRequirementIds(text) {
-  const results = [];
+  const results: any[] = [];
   const lines = text.split("\n");
   for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
     const line = lines[lineIdx];
@@ -55,7 +55,7 @@ function findIdInTraceability(traceContent, id) {
  */
 function parseValidateOutput(stdout, stderr) {
   const combined = [stdout || "", stderr || ""].join("\n");
-  const diagnostics = [];
+  const diagnostics: any[] = [];
 
   for (const raw of combined.split("\n")) {
     const line = raw.trim();

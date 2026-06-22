@@ -129,7 +129,7 @@ function parseConfig(configPath) {
 
 /** Legacy `KEY="value"` config format (project.config). */
 function parseConfigKeyValue(content) {
-  const raw = {};
+  const raw: any = {};
   for (const line of content.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
@@ -154,7 +154,7 @@ function parseConfigYaml(content) {
   let parsed;
   try {
     parsed = parseYamlLite(content);
-  } catch (err) {
+  } catch (err: any) {
     logError(`Invalid YAML config: ${err.message}`);
     process.exit(2);
   }
@@ -162,7 +162,7 @@ function parseConfigYaml(content) {
     logError("YAML config must be a flat mapping of KEY: value pairs.");
     process.exit(2);
   }
-  const raw = {};
+  const raw: any = {};
   for (const [key, value] of Object.entries(parsed)) {
     if (KNOWN_KEYS.has(key)) {
       raw[key] = value === null || value === undefined ? "" : String(value);
@@ -279,7 +279,7 @@ function renderTree(srcRoot, dstRoot, vars, dryRun) {
 }
 
 function walkDir(dir) {
-  const results = [];
+  const results: any[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) results.push(...walkDir(full));
@@ -338,7 +338,7 @@ function ensureTraceabilityCoverage(projectDir) {
   const featureFiles = walkDir(featuresDir)
     .filter((f) => f.endsWith(".feature"))
     .sort();
-  const lines = [];
+  const lines: any[] = [];
   let counter = 1;
 
   for (const ff of featureFiles) {

@@ -37,7 +37,7 @@ function cli(...args) {
  * sorted lexicographically. Excludes `.git/`.
  */
 function walkFiles(dir) {
-  const results = [];
+  const results: any[] = [];
   function walk(current) {
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
       const full = path.join(current, entry.name);

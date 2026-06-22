@@ -66,11 +66,11 @@ const STEP_RE = /^(Given|When|Then|And|But)\b\s*(.*)$/i;
  * scenario with its tags and steps (And/But inherit the prior keyword).
  */
 function parseFeatureFile(content) {
-  const featureTags = [];
-  const scenarios = [];
+  const featureTags: any[] = [];
+  const scenarios: any[] = [];
   let featureName = "";
-  let pendingTags = [];
-  let current = null;
+  let pendingTags: any[] = [];
+  let current: any = null;
 
   for (const raw of content.split("\n")) {
     const line = raw.trim();
@@ -149,7 +149,7 @@ function collectRequirementIds(parsed) {
 
 /** Quoted PascalCase tokens in a Then step are very likely event names. */
 function extractEventNames(text) {
-  const out = [];
+  const out: any[] = [];
   const re = /"([A-Z][A-Za-z0-9]+)"/g;
   let m;
   while ((m = re.exec(text)) !== null) out.push(m[1]);
@@ -174,7 +174,7 @@ function inferModel(parsed, sourceFile) {
         ];
   const primaryReq = requirements[0].id;
 
-  const useCase = {
+  const useCase: any = {
     id: "UC-XXX",
     name: parsed.featureName || "TODO: name the use case",
     requirement: primaryReq,
@@ -183,9 +183,9 @@ function inferModel(parsed, sourceFile) {
     emits: [],
   };
 
-  const commands = [];
-  const events = [];
-  const scenarios = [];
+  const commands: any[] = [];
+  const events: any[] = [];
+  const scenarios: any[] = [];
   let ci = 1;
   let ei = 1;
   let si = 1;
@@ -195,14 +195,14 @@ function inferModel(parsed, sourceFile) {
 
     // A When step is an action → propose a command.
     const whenStep = scn.steps.find((s) => s.keyword === "when");
-    let commandName = null;
+    let commandName: any = null;
     if (whenStep) {
       commandName = `${toPascalCase(whenStep.text)}Command`;
       commands.push({ id: `CMD-${pad(ci++)}`, name: commandName });
     }
 
     // Then steps naming a quoted PascalCase token → propose events.
-    const eventNames = [];
+    const eventNames: any[] = [];
     for (const step of scn.steps.filter((s) => s.keyword === "then")) {
       for (const name of extractEventNames(step.text)) {
         if (!events.some((e) => e.name === name)) {
@@ -313,7 +313,7 @@ function main() {
   let content;
   try {
     content = fs.readFileSync(opts.from, "utf8");
-  } catch (err) {
+  } catch (err: any) {
     logError(`Cannot read feature file '${opts.from}': ${err.message}`);
     process.exit(1);
   }

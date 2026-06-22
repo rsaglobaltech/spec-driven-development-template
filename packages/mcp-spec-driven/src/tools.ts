@@ -37,7 +37,7 @@ function readSpec(args) {
   const specMd = fs.readFileSync(path.join(dir, "spec.md"), "utf8");
 
   const docsSpecsDir = path.join(dir, "docs", "specs");
-  const files = [];
+  const files: any[] = [];
   if (fs.existsSync(docsSpecsDir)) {
     for (const entry of fs.readdirSync(docsSpecsDir, { withFileTypes: true })) {
       if (entry.isFile() && entry.name.endsWith(".md")) {
@@ -159,8 +159,8 @@ function lintPack(args) {
   );
 
   const combined = (result.stdout || "") + "\n" + (result.stderr || "");
-  const errors = [];
-  const warnings = [];
+  const errors: any[] = [];
+  const warnings: any[] = [];
   for (const line of combined.split("\n")) {
     if (line.includes("[ERROR]")) errors.push(line.replace(/^.*\[ERROR\]\s*/, "").trim());
     else if (line.includes("[WARN]")) warnings.push(line.replace(/^.*\[WARN\]\s*/, "").trim());
@@ -191,8 +191,8 @@ function validateProject(args) {
   });
 
   const combined = (result.stdout || "") + "\n" + (result.stderr || "");
-  const errors = [];
-  const warnings = [];
+  const errors: any[] = [];
+  const warnings: any[] = [];
   for (const line of combined.split("\n")) {
     if (line.includes("[ERROR]")) errors.push(line.replace(/^.*\[ERROR\]\s*/, "").trim());
     else if (line.includes("[WARN]")) warnings.push(line.replace(/^.*\[WARN\]\s*/, "").trim());
@@ -236,7 +236,7 @@ function plan(args) {
   }
   try {
     return JSON.parse(result.stdout || "{}");
-  } catch (err) {
+  } catch (err: any) {
     throw new Error(`plan returned non-JSON output: ${err.message}\nstdout: ${result.stdout}`);
   }
 }

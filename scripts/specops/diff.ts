@@ -108,7 +108,7 @@ const IGNORE_DIRS = new Set([".git", "node_modules", "_site", ".cache", ".specop
 const IGNORE_FILES = new Set([LOCK_FILENAME]);
 
 function walkFiles(root) {
-  const out = [];
+  const out: any[] = [];
   function recurse(dir) {
     let entries;
     try {
@@ -134,9 +134,9 @@ function walkFiles(root) {
 
 function diffDirs(baselineDir, candidateDir) {
   const candidateFiles = walkFiles(candidateDir);
-  const added = [];
-  const modified = [];
-  const unchanged = [];
+  const added: any[] = [];
+  const modified: any[] = [];
+  const unchanged: any[] = [];
   for (const rel of candidateFiles) {
     const baselinePath = path.join(baselineDir, rel);
     const candidatePath = path.join(candidateDir, rel);
@@ -262,7 +262,7 @@ function main() {
     } else {
       info(`Diff completed for ${matched} pack(s).`);
     }
-  } catch (err) {
+  } catch (err: any) {
     error(err.message);
     process.exit(1);
   }

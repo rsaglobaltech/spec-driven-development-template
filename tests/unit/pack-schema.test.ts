@@ -26,7 +26,8 @@ test("parking-management fixture passes the JSON Schema", () => {
   const valid = validate(pack);
   if (!valid) {
     assert.fail(
-      "Schema errors:\n" + validate.errors.map((e) => `  ${e.instancePath} ${e.message}`).join("\n")
+      "Schema errors:\n" +
+        validate.errors!.map((e) => `  ${e.instancePath} ${e.message}`).join("\n")
     );
   }
   assert.ok(valid);
@@ -168,7 +169,8 @@ test("accepts a minimal contracts pack", () => {
   const valid = validate(pack);
   if (!valid) {
     assert.fail(
-      "Schema errors:\n" + validate.errors.map((e) => `  ${e.instancePath} ${e.message}`).join("\n")
+      "Schema errors:\n" +
+        validate.errors!.map((e) => `  ${e.instancePath} ${e.message}`).join("\n")
     );
   }
   assert.ok(valid);

@@ -53,7 +53,7 @@ function readManifest(projectDir) {
   let parsed;
   try {
     parsed = JSON.parse(fs.readFileSync(p, "utf8"));
-  } catch (err) {
+  } catch (err: any) {
     throw new Error(`Invalid ${SPECOPS_DIR}/${MANIFEST_FILENAME}: ${err.message}`);
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -95,7 +95,7 @@ function snapshotBaseline(projectDir, packId, entries, meta: any = {}, options: 
   const baseDir = baselineDir(projectDir, packId);
   fs.rmSync(baseDir, { recursive: true, force: true });
 
-  const hashes = {};
+  const hashes: any = {};
   for (const entry of entries || []) {
     if (!entry || !entry.rel) continue;
     const dest = path.join(baseDir, entry.rel);

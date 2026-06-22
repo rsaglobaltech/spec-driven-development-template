@@ -244,9 +244,9 @@ function syncPack(entry, args, projectDir) {
       (tmpLock && tmpLock.packs.find((p) => p.pack_id === entry.pack_id)) || null;
 
     const renderedFiles = walkFiles(tmpDir);
-    const counts = {};
-    const conflictFiles = [];
-    const baselineEntries = [];
+    const counts: any = {};
+    const conflictFiles: any[] = [];
+    const baselineEntries: any[] = [];
 
     for (const rel of renderedFiles) {
       const incoming = fs.readFileSync(path.join(tmpDir, rel), "utf8");
@@ -320,7 +320,7 @@ function main() {
     let matched = 0;
     let totalConflicts = 0;
     let anyFailure = false;
-    const lockUpdates = [];
+    const lockUpdates: any[] = [];
 
     for (const entry of packs) {
       if (args.pack && entry.pack_id !== args.pack) continue;
@@ -371,7 +371,7 @@ function main() {
     }
 
     info(`Sync completed for ${matched} pack(s) with no conflicts.`);
-  } catch (err) {
+  } catch (err: any) {
     error(err.message);
     process.exit(1);
   }

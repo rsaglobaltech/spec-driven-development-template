@@ -30,9 +30,9 @@ let validateDiagnostics;
 
 // The single live "Pack Graph" webview panel, and the pack.yaml it mirrors.
 /** @type {vscode.WebviewPanel|null} */
-let packGraphPanel = null;
+let packGraphPanel: any = null;
 /** @type {string|null} */
-let packGraphFsPath = null;
+let packGraphFsPath: any = null;
 
 // ── Activation ────────────────────────────────────────────────────────────────────────────
 
@@ -158,7 +158,7 @@ function lintPackDocument(doc) {
 
   const { parseError, errors } = validatePackYaml(doc.getText(), schemaPath);
 
-  const diags = [];
+  const diags: any[] = [];
 
   if (parseError) {
     diags.push(makeDiag(parseError.line, parseError.col, parseError.message, parseError.severity));
@@ -411,7 +411,7 @@ function packGraphHtml(webview) {
       try {
         const { svg } = await mermaid.render("packGraph", msg.mermaid);
         graphEl.innerHTML = svg;
-      } catch (e) {
+      } catch (e: any) {
         graphEl.innerHTML = '<div class="err">Could not render graph:\\n' + String(e && e.message || e) + '</div>';
       }
     });

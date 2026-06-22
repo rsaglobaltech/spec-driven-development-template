@@ -88,7 +88,7 @@ test("classify → NEEDS_FEATURE when the .feature file is missing", () => {
         ),
       ].join("\n")
     )[0];
-    const result = classify(row, dir);
+    const result = classify(row, dir)!;
     assert.equal(result.category, "NEEDS_FEATURE");
     assert.equal(result.feature_exists, false);
   } finally {
@@ -118,7 +118,7 @@ test("classify → NEEDS_EVERYTHING when feature exists but no test/code declare
         ),
       ].join("\n")
     )[0];
-    const result = classify(row, dir);
+    const result = classify(row, dir)!;
     assert.equal(result.category, "NEEDS_EVERYTHING");
     assert.equal(result.feature_exists, true);
   } finally {
@@ -149,7 +149,7 @@ test("classify → NEEDS_TEST when feature exists and the declared test file is 
         ),
       ].join("\n")
     )[0];
-    const result = classify(row, dir);
+    const result = classify(row, dir)!;
     assert.equal(result.category, "NEEDS_TEST");
     assert.equal(result.technical_exists, true);
     assert.equal(result.test_exists, false);
@@ -181,7 +181,7 @@ test("classify → NEEDS_IMPLEMENTATION when test exists and code is missing", (
         ),
       ].join("\n")
     )[0];
-    const result = classify(row, dir);
+    const result = classify(row, dir)!;
     assert.equal(result.category, "NEEDS_IMPLEMENTATION");
     assert.equal(result.test_exists, true);
     assert.equal(result.technical_exists, false);
@@ -214,7 +214,7 @@ test("classify → NEEDS_STATUS_UPDATE when all artifacts present and status is 
         ),
       ].join("\n")
     )[0];
-    const result = classify(row, dir);
+    const result = classify(row, dir)!;
     assert.equal(result.category, "NEEDS_STATUS_UPDATE");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -245,7 +245,7 @@ test("classify → DONE when all artifacts exist and status is Implemented", () 
         ),
       ].join("\n")
     )[0];
-    const result = classify(row, dir);
+    const result = classify(row, dir)!;
     assert.equal(result.category, "DONE");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

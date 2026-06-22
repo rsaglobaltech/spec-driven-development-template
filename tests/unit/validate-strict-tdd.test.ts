@@ -41,7 +41,7 @@ function buildProject(root, overrides: any = {}) {
   );
 }
 
-function runValidate(projectDir, extraArgs = []) {
+function runValidate(projectDir, extraArgs: string[] = []) {
   return spawnSync(process.execPath, [VALIDATE_SCRIPT, projectDir, ...extraArgs], {
     encoding: "utf8",
   });

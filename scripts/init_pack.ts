@@ -49,7 +49,7 @@ function usage() {
 }
 
 function parseArgs(argv) {
-  const opts = { out: null, name: null, type: "backend", dryRun: false };
+  const opts: any = { out: null, name: null, type: "backend", dryRun: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--out" && argv[i + 1]) {
@@ -247,7 +247,7 @@ async function main() {
     process.exit(2);
   }
 
-  let name = opts.name;
+  let name: any = opts.name;
   if (!name) {
     if (!process.stdin.isTTY) {
       logError("--name is required when stdin is not a TTY.");

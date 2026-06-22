@@ -143,7 +143,7 @@ function main() {
   let projectDir;
   try {
     projectDir = resolveProjectDir(opts.projectDir);
-  } catch (err) {
+  } catch (err: any) {
     process.stderr.write(`${err.message}\n`);
     process.exit(2);
   }

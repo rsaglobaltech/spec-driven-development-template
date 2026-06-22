@@ -94,7 +94,7 @@ function parseTokens(tokens) {
   }
 
   function parseObject(indent) {
-    const obj = {};
+    const obj: any = {};
 
     while (index < tokens.length) {
       const token = tokens[index];
@@ -123,7 +123,7 @@ function parseTokens(tokens) {
   }
 
   function parseList(indent) {
-    const arr = [];
+    const arr: any[] = [];
 
     while (index < tokens.length) {
       const token = tokens[index];
@@ -147,7 +147,7 @@ function parseTokens(tokens) {
         continue;
       }
 
-      const obj = {};
+      const obj: any = {};
       if (inlinePair.value === "") {
         if (index < tokens.length && tokens[index].indent > indent) {
           obj[inlinePair.key] = parseNode(tokens[index].indent);
@@ -187,7 +187,7 @@ function parseTokens(tokens) {
 
 function parseYamlLite(content): any {
   const lines = content.replace(/\r\n/g, "\n").split("\n");
-  const tokens = [];
+  const tokens: any[] = [];
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
@@ -671,7 +671,7 @@ function readTemplate(packRoot, templatePath) {
 
 // Records every file written in the current process so `expand` can snapshot
 // a baseline after rendering. Reset per expansion via resetWrittenFiles().
-const _writtenFiles = [];
+const _writtenFiles: any[] = [];
 
 function writeFile(targetFile, content, dryRun) {
   if (dryRun) {
@@ -707,7 +707,7 @@ function safeResolve(projectDir, relativePath) {
 }
 
 function parseTraceabilityRows(existingContent) {
-  const rows = [];
+  const rows: any[] = [];
   const seen = new Set();
   let mode = "legacy";
 

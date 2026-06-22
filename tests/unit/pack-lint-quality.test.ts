@@ -92,8 +92,8 @@ test("lintScenarioQuality passes a well-formed scenario clean", () => {
         },
       ],
     };
-    const errors = [];
-    const issues = [];
+    const errors: any[] = [];
+    const issues: any[] = [];
     lintScenarioQuality(pack, root, errors, issues);
     assert.deepEqual(errors, []);
     assert.deepEqual(issues, []);
@@ -111,8 +111,8 @@ test("lintScenarioQuality flags a vague, thin, assertion-less scenario", () => {
       "Feature: F\n  Scenario: test\n    Given stuff\n    When it works\n"
     );
     const pack = { scenarios: [{ id: "SCN-009", template: "templates/weak.feature.tpl" }] };
-    const errors = [];
-    const issues = [];
+    const errors: any[] = [];
+    const issues: any[] = [];
     lintScenarioQuality(pack, root, errors, issues);
     assert.deepEqual(errors, []);
     const joined = issues.join("\n");
@@ -139,8 +139,8 @@ test("lintScenarioQuality errors on a missing template and an Examples-less Outl
         { id: "SCN-B", template: "templates/outline.feature.tpl" },
       ],
     };
-    const errors = [];
-    const issues = [];
+    const errors: any[] = [];
+    const issues: any[] = [];
     lintScenarioQuality(pack, root, errors, issues);
     assert.match(errors.join("\n"), /SCN-A template not found/);
     assert.match(errors.join("\n"), /Scenario Outline has no Examples table/);
@@ -167,8 +167,8 @@ test("lintScenarioQuality flags drift between pack.yaml name and template title"
         },
       ],
     };
-    const errors = [];
-    const issues = [];
+    const errors: any[] = [];
+    const issues: any[] = [];
     lintScenarioQuality(pack, root, errors, issues);
     assert.match(issues.join("\n"), /does not match template title/);
   } finally {
@@ -177,15 +177,15 @@ test("lintScenarioQuality flags drift between pack.yaml name and template title"
 });
 
 test("lintScenarioQuality reports a scenario entry with no content", () => {
-  const errors = [];
-  const issues = [];
+  const errors: any[] = [];
+  const issues: any[] = [];
   lintScenarioQuality({ scenarios: [{ id: "SCN-X" }] }, "/nonexistent", errors, issues);
   assert.match(issues.join("\n"), /SCN-X declares no scenario content/);
 });
 
 test("lintScenarioQuality lints inline given/when/then scenarios", () => {
-  const errors = [];
-  const issues = [];
+  const errors: any[] = [];
+  const issues: any[] = [];
   const pack = {
     scenarios: [
       {

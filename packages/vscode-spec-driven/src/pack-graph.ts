@@ -97,7 +97,7 @@ function findReferencePosition(lines, value) {
  * @returns {{ line: number, col: number, message: string, severity: "error" }[]}
  */
 function findDanglingReferences(pack, declared, lines) {
-  const diags = [];
+  const diags: any[] = [];
   const flag = (kind, ref, ucLabel) => {
     const { line, col } = findReferencePosition(lines, ref);
     diags.push({
@@ -258,8 +258,8 @@ function sanitizeNodeId(id) {
  * @returns {{ nodes: {id:string,type:string,label:string}[], edges: {from:string,to:string,kind:string}[] }}
  */
 function buildPackGraphModel(pack) {
-  const nodes = [];
-  const edges = [];
+  const nodes: any[] = [];
+  const edges: any[] = [];
   const seen = new Set();
   const addNode = (id, type, label) => {
     if (seen.has(id)) return;
