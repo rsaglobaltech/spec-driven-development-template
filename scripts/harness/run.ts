@@ -64,7 +64,13 @@ function usage() {
       "  --force                Recreate harness/REQ-NNN branches that already exist.\n" +
       "  --format <text|json>   Report format (default text).\n" +
       "  --dry-run              Build prompts and print them; never invoke the agent.\n\n" +
-      "`--agent` and `--test-cmd` may also be set in harness.config.yaml.\n"
+      "CI mode (unattended runners — a nightly job that leaves PRs to review):\n" +
+      "  --push                 Push each green harness/REQ-NNN branch to the remote.\n" +
+      "  --remote <name>        Remote to push to (default origin).\n" +
+      "  --pr-cmd <cmd>         Command run after a successful push, with {branch} and\n" +
+      '                         {req} placeholders. e.g. --pr-cmd "gh pr create --head {branch} \\\n' +
+      "                         --title '{req} via harness' --fill\"\n\n" +
+      "`--agent`, `--test-cmd`, `push`, `remote` and `pr_cmd` may also be set in harness.config.yaml.\n"
   );
 }
 
@@ -81,6 +87,9 @@ function parseArgs(argv) {
     force: false,
     format: "text",
     dryRun: false,
+    push: false,
+    remote: "",
+    prCmd: "",
   };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
@@ -106,6 +115,12 @@ function parseArgs(argv) {
       const n = Number(argv[++i]);
       if (!Number.isInteger(n) || n < 1) throw new Error("--timeout must be a positive integer");
       args.timeout = n;
+    } else if (token === "--push") {
+      args.push = true;
+    } else if (token === "--remote") {
+      args.remote = argv[++i] || "";
+    } else if (token === "--pr-cmd") {
+      args.prCmd = argv[++i] || "";
     } else if (token === "--keep-worktrees") {
       args.keepWorktrees = true;
     } else if (token === "--force") {
@@ -343,12 +358,16 @@ function processRequirement(req, ctx) {
 
   try {
     const outcome = attemptRequirement(req, { ...ctx, worktreeDir });
-    return {
+    const result = {
       requirement: req.requirement,
       category: req.category,
       branch,
       ...outcome,
     };
+    if (outcome.result === "pass") {
+      Object.assign(result, publishBranch(projectDir, branch, req, ctx.settings));
+    }
+    return result;
   } finally {
     if (!keepWorktrees) {
       git(projectDir, ["worktree", "remove", "--force", worktreeDir]);
@@ -356,6 +375,52 @@ function processRequirement(req, ctx) {
       info(`${req.requirement}: worktree kept at ${worktreeDir}`);
     }
   }
+}
+
+/**
+ * CI mode (B7): after a green requirement, optionally push the branch and
+ * open a PR/MR via a user-configured command. Publication problems never
+ * flip a pass to a fail — the code is good; the human just has to publish
+ * manually — but they are reported.
+ */
+function publishBranch(projectDir, branch, req, settings) {
+  const published: any = {};
+  if (!settings.push) return published;
+
+  const push = git(projectDir, ["push", "--force-with-lease", "-u", settings.remote, branch]);
+  if (push.status !== 0) {
+    published.pushed = false;
+    published.publishError = `git push failed:\n${push.stderr || push.stdout}`;
+    warn(`${req.requirement}: push to ${settings.remote} failed`);
+    return published;
+  }
+  published.pushed = true;
+  info(`${req.requirement}: pushed ${branch} to ${settings.remote}`);
+
+  if (settings.prCmd) {
+    const command = settings.prCmd
+      .split("{branch}")
+      .join(branch)
+      .split("{req}")
+      .join(req.requirement);
+    const pr = spawnSync(command, {
+      shell: true,
+      cwd: projectDir,
+      encoding: "utf8",
+      maxBuffer: SUBPROCESS_MAX_BUFFER,
+    });
+    if (pr.status !== 0) {
+      published.prCreated = false;
+      published.publishError = `pr command failed:\n${pr.stderr || pr.stdout}`;
+      warn(`${req.requirement}: pr command failed`);
+    } else {
+      published.prCreated = true;
+      const firstLine = (pr.stdout || "").trim().split("\n").pop();
+      if (firstLine) published.prOutput = firstLine;
+      info(`${req.requirement}: pr command succeeded${firstLine ? ` → ${firstLine}` : ""}`);
+    }
+  }
+  return published;
 }
 
 function printReport(results, format) {
@@ -379,6 +444,14 @@ function printReport(results, format) {
     if (r.result !== "pass" && r.error) {
       const firstLine = String(r.error).split("\n")[0];
       process.stdout.write(`       ${firstLine}\n`);
+    }
+    if (r.pushed) {
+      process.stdout.write(
+        `       pushed${r.prCreated ? ` · PR created${r.prOutput ? `: ${r.prOutput}` : ""}` : ""}\n`
+      );
+    }
+    if (r.publishError) {
+      process.stdout.write(`       publish issue: ${String(r.publishError).split("\n")[0]}\n`);
     }
   }
   const pass = results.filter((r) => r.result === "pass").length;

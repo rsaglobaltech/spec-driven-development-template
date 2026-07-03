@@ -885,3 +885,44 @@ test("harness prompt prepends prompt_prefix from harness.config.yaml", { skip: !
   assert.ok(idxPrefix > 0 && idxHeader > idxPrefix);
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
+
+test("harness run --push --pr-cmd publishes green branches (CI mode)", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-ci-"));
+  const projectDir = makeHarnessProject(tempRoot);
+
+  // Local bare repo standing in for the enterprise remote.
+  const remoteDir = path.join(tempRoot, "remote.git");
+  gitInTest(["init", "--quiet", "--bare", "--initial-branch=main", remoteDir]);
+  gitInTest(["remote", "add", "origin", remoteDir], { cwd: projectDir });
+
+  const prLog = path.join(tempRoot, "pr-calls.txt");
+  const result = runCli([
+    "harness",
+    "run",
+    "--project-dir",
+    projectDir,
+    "--agent",
+    `node -e "" {prompt_file}`,
+    "--push",
+    "--pr-cmd",
+    `node -e "require('node:fs').appendFileSync(String.raw\`${prLog}\`, process.argv[1]+' '+process.argv[2]+'\\n')" {branch} {req}`,
+  ]);
+
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /pushed harness\/REQ-001 to origin/);
+  assert.match(result.stdout, /pr command succeeded/);
+
+  // The branch exists on the remote.
+  const remoteBranches = spawnSync(
+    "git",
+    ["-C", remoteDir, "branch", "--list", "harness/REQ-001"],
+    { encoding: "utf8" }
+  );
+  assert.match(remoteBranches.stdout, /harness\/REQ-001/);
+
+  // The PR command ran with both placeholders substituted.
+  const calls = fs.readFileSync(prLog, "utf8");
+  assert.match(calls, /harness\/REQ-001 REQ-001/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
