@@ -25,6 +25,12 @@ const {
 } = require("./domain-pack/common");
 const { resolveRemotePack } = require("./domain-pack/remote");
 const { readLock, writeLock, upsertPackEntry, newLock } = require("./specops/lock");
+const {
+  computePackDigest,
+  readSecurityPolicy,
+  verifyTagSignature,
+  assertDigestUnchanged,
+} = require("./specops/verify");
 const { snapshotBaseline } = require("./specops/manifest");
 
 const PACKAGE_VERSION = (() => {
@@ -410,7 +416,37 @@ function resolvePackSource(args) {
   return { packRoot: args.packRoot, remote: null };
 }
 
-function updateLockfile(projectDir, packId, remote, vars, dryRun) {
+/**
+ * Supply-chain gate (B5): digest the pack content, refuse when the lockfile
+ * pins the same version to different content, and enforce the
+ * `require_signed_packs` policy. Returns the digest for the lockfile.
+ */
+function enforcePackSecurity(projectDir, packId, packDir, source) {
+  const digest = computePackDigest(packDir);
+  if (!source.remote) return digest;
+
+  const lock = readLock(projectDir);
+  const prev =
+    lock && lock.packs.find((p) => p.repo === source.remote.repo && p.pack_id === packId);
+  assertDigestUnchanged(prev, packId, source.remote.version, digest);
+
+  const policy = readSecurityPolicy(projectDir);
+  if (policy.requireSignedPacks) {
+    const sig = verifyTagSignature(source.packRoot, source.remote.version);
+    if (!sig.verified) {
+      throw new Error(
+        `require_signed_packs is enabled but ${source.remote.repo}@${source.remote.version} ` +
+          "has no valid GPG signature (checked the tag, then the commit).\n" +
+          "Fix: have the pack maintainer publish signed tags (git tag -s) and import " +
+          "their public key, or disable require_signed_packs in specops.config.yaml."
+      );
+    }
+    logInfo(`Signature verified via git verify-${sig.method} for ${source.remote.version}.`);
+  }
+  return digest;
+}
+
+function updateLockfile(projectDir, packId, remote, vars, dryRun, digest) {
   if (!remote) return;
   const existing = readLock(projectDir) || newLock(PACKAGE_VERSION);
   existing.csda_version = PACKAGE_VERSION;
@@ -418,6 +454,7 @@ function updateLockfile(projectDir, packId, remote, vars, dryRun) {
     repo: remote.repo,
     version: remote.version,
     commit: remote.commit,
+    digest,
     pack_id: packId,
     expanded_at: new Date().toISOString(),
     vars: { ...(vars || {}) },
@@ -469,6 +506,8 @@ function main() {
 
     ensureProjectDir(args.projectDir, args.dryRun);
 
+    const digest = enforcePackSecurity(args.projectDir, args.pack, packRoot, source);
+
     logInfo(`Using pack: ${packFile}`);
     resetWrittenFiles();
     renderStaticFiles(pack, packRoot, args.projectDir, vars, args.dryRun);
@@ -482,7 +521,7 @@ function main() {
     );
     renderDomainDocs(pack, args.projectDir, args.dryRun);
     renderTraceability(pack, args.projectDir, generated, args.dryRun);
-    updateLockfile(args.projectDir, args.pack, source.remote, vars, args.dryRun);
+    updateLockfile(args.projectDir, args.pack, source.remote, vars, args.dryRun, digest);
     updateBaseline(args.projectDir, args.pack, source.remote, args.dryRun);
 
     logInfo(`Generated ${generated.length} scenario file(s).`);
