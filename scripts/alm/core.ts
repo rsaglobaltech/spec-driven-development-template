@@ -1,0 +1,178 @@
+"use strict";
+
+/**
+ * ALM (Jira / Azure Boards) synchronisation core — provider-agnostic.
+ *
+ * Enterprise requirements live in the ALM, not in markdown; without a link
+ * the traceability matrix and the board drift apart (friction F7). This
+ * module keeps them honest:
+ *
+ *   - every REQ in the traceability matrix maps to exactly one ALM issue
+ *     (mapping persisted in .specops/alm-map.json, committed);
+ *   - REQs without an issue get one created;
+ *   - a REQ reaching Implemented/Verified/Released transitions its issue
+ *     to Done;
+ *   - an issue closed while its REQ is still open is reported as DRIFT.
+ *
+ * All network access goes through an injected `client` so the logic is
+ * fully testable offline: { createIssue, getIssueStatus, closeIssue }.
+ */
+
+const fs = require("node:fs");
+const path = require("node:path");
+const { parseYamlLite } = require("../domain-pack/common");
+
+const MAP_RELPATH = path.join(".specops", "alm-map.json");
+const CONFIG_FILENAME = "alm.config.yaml";
+
+/** Matrix statuses that mean "this requirement is delivered". */
+const DONE_STATUSES = new Set(["Implemented", "Verified", "Released"]);
+
+// ── Config ────────────────────────────────────────────────────────────────────
+
+/**
+ * Read alm.config.yaml. Tokens are NEVER stored in the file — only the
+ * name of the environment variable that holds them.
+ */
+function readAlmConfig(projectDir) {
+  const cfgPath = path.join(projectDir, CONFIG_FILENAME);
+  if (!fs.existsSync(cfgPath)) {
+    throw new Error(
+      `${CONFIG_FILENAME} not found in ${projectDir}.\n` +
+        "Fix: create it with:\n" +
+        "  alm_version: 1\n" +
+        "  provider: jira            # jira | azure\n" +
+        "  base_url: https://acme.atlassian.net\n" +
+        "  project_key: HIE\n" +
+        "  token_env: JIRA_TOKEN     # env var holding the API token\n" +
+        "  user_env: JIRA_USER       # jira only: env var holding the account email"
+    );
+  }
+  const cfg = parseYamlLite(fs.readFileSync(cfgPath, "utf8")) || {};
+  for (const key of ["provider", "base_url", "project_key", "token_env"]) {
+    if (!cfg[key]) throw new Error(`${CONFIG_FILENAME}: missing required key '${key}'.`);
+  }
+  if (!["jira", "azure"].includes(cfg.provider)) {
+    throw new Error(
+      `${CONFIG_FILENAME}: provider must be 'jira' or 'azure', got '${cfg.provider}'.`
+    );
+  }
+  return cfg;
+}
+
+// ── Mapping file ──────────────────────────────────────────────────────────────
+
+function readAlmMap(projectDir) {
+  const mapPath = path.join(projectDir, MAP_RELPATH);
+  if (!fs.existsSync(mapPath)) return {};
+  return JSON.parse(fs.readFileSync(mapPath, "utf8"));
+}
+
+function writeAlmMap(projectDir, map, dryRun) {
+  const mapPath = path.join(projectDir, MAP_RELPATH);
+  if (dryRun) return mapPath;
+  fs.mkdirSync(path.dirname(mapPath), { recursive: true });
+  fs.writeFileSync(mapPath, `${JSON.stringify(map, null, 2)}\n`, "utf8");
+  return mapPath;
+}
+
+// ── Requirement extraction ────────────────────────────────────────────────────
+
+/**
+ * Read REQ ids + aggregated status from the traceability matrix, and their
+ * titles from spec.md. A REQ is "done" when every one of its rows carries a
+ * done status.
+ * @returns Array<{ id, title, status: "done"|"open" }>
+ */
+function extractRequirements(projectDir) {
+  const tracePath = path.join(projectDir, "docs", "specs", "traceability.md");
+  if (!fs.existsSync(tracePath)) {
+    throw new Error(`No traceability matrix at ${tracePath} — run adopt/init first.`);
+  }
+  const spec = fs.existsSync(path.join(projectDir, "spec.md"))
+    ? fs.readFileSync(path.join(projectDir, "spec.md"), "utf8")
+    : "";
+  const titles = {};
+  for (const m of spec.matchAll(/^##\s+(REQ-\d+)\s*[—-]\s*(.+)$/gm)) {
+    titles[m[1]] = m[2].trim();
+  }
+
+  const rowsByReq = new Map();
+  for (const line of fs.readFileSync(tracePath, "utf8").split("\n")) {
+    if (!line.trim().startsWith("|") || line.includes("---")) continue;
+    const cells = line.split("|").map((c) => c.trim());
+    const req = cells.find((c) => /^REQ-\d+$/.test(c));
+    if (!req) continue;
+    const status = cells[cells.length - 2] || "";
+    if (!rowsByReq.has(req)) rowsByReq.set(req, []);
+    rowsByReq.get(req).push(status);
+  }
+
+  return [...rowsByReq.entries()].map(([id, statuses]) => ({
+    id,
+    title: titles[id] || id,
+    status: statuses.length > 0 && statuses.every((s) => DONE_STATUSES.has(s)) ? "done" : "open",
+  }));
+}
+
+// ── Sync ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Reconcile requirements with the ALM through the injected client.
+ * @param {Array<{id,title,status}>} requirements
+ * @param {Record<string,{issue:string}>} map REQ → issue mapping (mutated)
+ * @param {{createIssue,getIssueStatus,closeIssue}} client
+ * @param {{ dryRun?: boolean }} opts
+ * @returns {Promise<Array<{req,action,issue,detail?}>>} actions taken/planned
+ */
+async function syncRequirements(requirements, map, client, opts) {
+  const dryRun = !!(opts && opts.dryRun);
+  const actions = [];
+
+  for (const req of requirements) {
+    const linked = map[req.id];
+
+    if (!linked) {
+      if (dryRun) {
+        actions.push({ req: req.id, action: "would-create", issue: null });
+        continue;
+      }
+      const issue = await client.createIssue(req.id, req.title);
+      map[req.id] = { issue: issue.key, url: issue.url || null };
+      actions.push({ req: req.id, action: "created", issue: issue.key });
+      continue;
+    }
+
+    const issueStatus = await client.getIssueStatus(linked.issue); // "open" | "done"
+    if (req.status === "done" && issueStatus !== "done") {
+      if (!dryRun) await client.closeIssue(linked.issue);
+      actions.push({
+        req: req.id,
+        action: dryRun ? "would-close" : "closed",
+        issue: linked.issue,
+      });
+    } else if (req.status !== "done" && issueStatus === "done") {
+      actions.push({
+        req: req.id,
+        action: "drift",
+        issue: linked.issue,
+        detail: `${linked.issue} is done in the ALM but ${req.id} is not Implemented in traceability.md`,
+      });
+    } else {
+      actions.push({ req: req.id, action: "in-sync", issue: linked.issue });
+    }
+  }
+
+  return actions;
+}
+
+module.exports = {
+  CONFIG_FILENAME,
+  MAP_RELPATH,
+  DONE_STATUSES,
+  readAlmConfig,
+  readAlmMap,
+  writeAlmMap,
+  extractRequirements,
+  syncRequirements,
+};

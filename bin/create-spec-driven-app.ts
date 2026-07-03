@@ -13,6 +13,7 @@ const adoptScript = path.join(distScripts, "adopt_project.js");
 const doctorScript = path.join(distScripts, "doctor.js");
 const ciInitScript = path.join(distScripts, "ci_init.js");
 const packBundleScript = path.join(distScripts, "bundle_pack.js");
+const almScript = path.join(distScripts, "alm", "cli.js");
 const validateScript = path.join(distScripts, "validate_specs.js");
 const expandScript = path.join(distScripts, "expand_domain_pack.js");
 const packInitScript = path.join(distScripts, "init_pack.js");
@@ -92,6 +93,7 @@ function usage() {
       cmd("🏗", "adopt", "Install SDD on an EXISTING repository (brownfield, non-invasive).") +
       cmd("🩺", "doctor", "Diagnose the project and environment; every finding ships a fix.") +
       cmd("🚦", "ci init", "Generate the spec gate for GitHub, GitLab, Azure, or Jenkins.") +
+      cmd("🎫", "alm sync", "Sync REQs with Jira / Azure Boards (create, close, drift).") +
       cmd("✅", "validate", "Check structure, traceability, Gherkin (+ --strict-tdd gate).") +
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
@@ -242,6 +244,12 @@ function main(): void {
   if (command === "doctor") {
     ensureExecutable(doctorScript);
     runNodeScript(doctorScript, args.slice(1));
+    return;
+  }
+
+  if (command === "alm") {
+    ensureExecutable(almScript);
+    runNodeScript(almScript, args.slice(1));
     return;
   }
 

@@ -32,7 +32,7 @@
 | B3 | Wrapper Maven/Gradle | ✅ **Hecho** (Maven) | `packages/maven-plugin` (`com.rsaglobaltech:csda-maven-plugin`): goals `csda:validate` (falla build, bind a verify), `csda:plan`, `csda:doctor`. Launcher auto npx→docker (imagen mirroreable). Verificado real: `mvn csda:validate` verde en proyecto adoptado y build FAILURE al romper el gate. Job CI con setup-java. Gradle pendiente (mismo patrón). |
 | B4 | Packs offline/privados | ✅ **Hecho** | Modo offline (`offline: true` / env `CSDA_OFFLINE=1`): sirve solo de cache, error con remedio en miss. `csda pack bundle --repo <url> --out pack.bundle`: git bundle con todos los refs/tags, usable como `--pack-repo` en air-gapped (round-trip testeado). Auth/proxy ya los maneja git (credenciales, `http_proxy`). 4 tests. |
 | B5 | Firma de packs | ✅ **Hecho** | `scripts/specops/verify.ts`: digest sha256 del árbol del pack grabado en `.specops.lock`; re-expand de misma versión con contenido distinto (tag movido / cache envenenada) → error con remedio. Política `require_signed_packs: true` en specops.config.yaml → `git verify-tag`/`verify-commit` obligatorio (GPG vía git, sin deps nuevas). 8 tests incl. e2e de cache envenenada. |
-| B6 | Sync ALM Jira/ADO | ⬜ Pendiente | |
+| B6 | Sync ALM Jira/ADO | ✅ **Hecho** | `csda alm sync\|link\|status`. Config `alm.config.yaml` (tokens solo vía env). Mapping REQ↔issue en `.specops/alm-map.json` (committeable). Sync: crea issues para REQs sin enlazar, cierra issue cuando REQ Implemented, reporta DRIFT (issue done + REQ abierto → exit 1). Clientes Jira Cloud + Azure Boards sobre fetch inyectable. 10 tests offline. |
 | B7 | Harness modo CI | ⬜ Pendiente | |
 | B8 | Monorepo | ⬜ Pendiente | |
 | C1–C5 | Fase C | ⬜ Pendiente | |
