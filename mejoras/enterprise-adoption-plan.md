@@ -35,7 +35,27 @@
 | B6 | Sync ALM Jira/ADO | ✅ **Hecho** | `csda alm sync\|link\|status`. Config `alm.config.yaml` (tokens solo vía env). Mapping REQ↔issue en `.specops/alm-map.json` (committeable). Sync: crea issues para REQs sin enlazar, cierra issue cuando REQ Implemented, reporta DRIFT (issue done + REQ abierto → exit 1). Clientes Jira Cloud + Azure Boards sobre fetch inyectable. 10 tests offline. |
 | B7 | Harness modo CI | ✅ **Hecho** | `harness run --push [--remote] --pr-cmd "<cmd {branch} {req}>"` (también en harness.config.yaml: `push/remote/pr_cmd`). Tras REQ verde: push `--force-with-lease` + comando PR (gh/glab/az). Fallo de publicación no revierte el pass — se reporta. E2E con remote bare local + captura de placeholders. |
 | B8 | Monorepo | ✅ **Hecho** | `specops.config.yaml` con `projects:` → `validate` valida cada subproyecto, `--strict-tdd` propaga, resumen consolidado por bounded context, exit 1 si alguno falla. Directorio ausente → error con fix sin abortar el resto. 5 tests. **Fase B completa.** |
-| C1–C5 | Fase C | ⬜ Pendiente | |
+| C1–C5 | Fase C | ⬜ Pendiente | Ver §0.1. |
+
+### 0.1 Pendiente — próxima sesión
+
+Orden recomendado (el piloto HIE valida todo lo construido; hacerlo primero):
+
+| # | Tarea | Detalle | Referencia |
+|---|-------|---------|------------|
+| P1 | **Piloto HIE end-to-end** — pack `healthcare-hie-specops` | Repo nuevo de pack con los 16 REQs ya mapeados (tabla §5.1: 9 implementados, 7 pendientes — Flyway, Consent, MPI `$match`, Subscription, terminología, auditoría inmutable, GDPR). `pack init` + escenarios Gherkin stack-neutral + `pack lint --strict` + tag v0.1.0. | §5.1 |
+| P2 | **Piloto HIE** — adopción brownfield real | `csda adopt` sobre `C:\projects\hie-his-platform` (dry-run ya verificado: detecta Java 21/Spring Boot/HAPI FHIR/Maven) + `specops add` del pack + retro-trazado de REQ-001..009 con `done --check` contra los 19 tests de integración existentes. | §5.2 |
+| P3 | **Piloto HIE** — gate CI + harness | `csda ci init` en el repo HIE + `harness.config.yaml` (`test_cmd: mvn -B test`, prompt-prefix con límites clínicos) + `harness run --req REQ-010` (Flyway) como primera prueba real del loop. Orden backlog: REQ-010 → 011 → 015 → 012/013/014 → 016. | §5.3–5.4 |
+| P4 | B3 variante **Gradle** | Plugin Gradle con mismo patrón que `packages/maven-plugin` (launcher npx→docker). | §3 B3 |
+| P5 | C1 **Dashboard de cobertura** | `csda report --html`: % REQ implementados, REQ sin test, drift specops, tendencia. Artefacto CI/Pages. | §3 C1 |
+| P6 | C3 **Packs de compliance** | `hipaa-audit-pack` / `gdpr-rights-pack` reutilizables — REQ-007/015/016 del piloto HIE son la semilla. Depende de P1. | §3 C3 |
+| P7 | C4 **Catálogo interno de packs** | `pack-registry` desplegable on-prem con índice de packs firmados (builder ya existe). | §3 C4 |
+| P8 | C5 **Perfiles de agente** | `agent_profile:` nombrados en harness.config.yaml mantenidos por plataforma. | §3 C5 |
+| P9 | C2 **Telemetría opt-in** | Métricas anónimas de comandos, off por defecto. Última prioridad. | §3 C2 |
+| P10 | **Publicación** | PR de `feature/enterprise-adoption` → main; release npm 0.2.0; publicar imagen ghcr (tag) y `csda-maven-plugin` a registry Maven interno/Central; anunciar niveles L1–L4 a los usuarios que dieron el feedback. | — |
+
+**Criterio de éxito global (recordatorio):** los usuarios del feedback original
+adoptan L1–L2 en menos de un día y mantienen el gate CI 4 semanas.
 
 ---
 
