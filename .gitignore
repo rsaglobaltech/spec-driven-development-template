@@ -16,3 +16,5 @@ scripts/demo/**/out/
 
 .smoke-tmp/
 packages/maven-plugin/target/
+packages/gradle-plugin/build/
+packages/gradle-plugin/.gradle/
