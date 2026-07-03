@@ -23,7 +23,7 @@
 |----|--------|--------|-------|
 | A2 | Wizard interactivo `csda init` | ✅ **Hecho** | `scripts/wizard.ts` (sin deps nuevas), `--yes`, `--out` opcional (default cwd), `project.yaml` reproducible guardado en el proyecto generado. 8 tests unitarios + 3 e2e. |
 | A6 | Errores con remedio | ✅ **Hecho** | Todo error de `validate` emite líneas `💡 [FIX]` con el arreglo concreto: plantilla a copiar, cabecera/fila lista para pegar, variables faltantes, estados permitidos, remedios por código TDD-1/2/3. 9 tests del corpus de errores. |
-| A5 | Docs por niveles L1–L4 | ⬜ Pendiente | |
+| A5 | Docs por niveles L1–L4 | ✅ **Hecho** | README: tabla de niveles L1–L4 + quickstart brownfield (`adopt`) antes que greenfield; wizard documentado. how-to.md: receta 0 "Adopt SDD on an existing repository" + guía "Where do I start?" por nivel. |
 | A1 | `csda adopt` brownfield | ✅ **Hecho** | `scripts/adopt_project.ts` + `templates/adopt/`. Detecta stack (pom.xml/gradle/package.json/go.mod), genera spec.md/AI_RULES.md/baseline.feature/traceability sin tocar código ni sobrescribir nada. Verificado dry-run contra `hie-his-platform` real: detecta "Java 21, Spring Boot, HAPI FHIR, Maven" + `mvn -B test`. `validate --strict-tdd` pasa inmediatamente tras adopt. 6 tests. |
 | A3 | `csda doctor` | ⬜ Pendiente | |
 | A4 | Paridad Windows | ✅ **Hecho** | Tests de harness con agentes cross-platform (`node -e`), fix de quoting en MCP `spawnCli` (rutas con espacios), smoke scripts sin `/private/tmp`, `windows-latest` en la matrix CI completa. Suite entera verde en Windows local. |

@@ -7,8 +7,14 @@ Each recipe is **self-contained** — copy/paste should work end-to-end.
 
 > **Auto-detect project root**: every command that operates on a project (`plan`, `done`, `validate`, `specops *`) accepts `--project-dir <path>` but **also walks up from your current directory** looking for `spec.md`, `.specops.lock`, or `specops.config.yaml`. Run any of them from inside your project tree without flags.
 
+> **Where do I start?** Pick your adoption level: **L1** specs in the repo
+> (recipes 0–3), **L2** CI gate (recipes 4–5), **L3** versioned domain packs
+> (recipes 6–10), **L4** agent-driven delivery (recipe 11 + the
+> [harness spec](specs/harness.md)). Each level stands on its own.
+
 ## Table of contents
 
+0. [Adopt SDD on an existing repository](#0-adopt-sdd-on-an-existing-repository)
 1. [Generate your first project](#1-generate-your-first-project)
 2. [Replace the scaffold with real requirements](#2-replace-the-scaffold-with-real-requirements)
 3. [Add a Gherkin scenario and keep traceability green](#3-add-a-gherkin-scenario-and-keep-traceability-green)
@@ -25,6 +31,44 @@ Each recipe is **self-contained** — copy/paste should work end-to-end.
 14. [Wire `validate` into a pre-commit hook](#14-wire-validate-into-a-pre-commit-hook)
 15. [End-to-end walkthrough with `parking-management-specops`](#15-end-to-end-walkthrough-with-parking-management-specops)
 16. [Troubleshooting](#16-troubleshooting)
+
+---
+
+## 0. Adopt SDD on an existing repository
+
+**Goal:** the brownfield path (L1) — install specs, rules and the traceability
+matrix on a codebase that already exists, without touching a line of code.
+
+```bash
+cd your-existing-repo
+
+# Detects the stack from pom.xml / build.gradle / package.json / go.mod
+npx create-spec-driven-app@latest adopt
+
+# Passes immediately — the generated baseline REQ-001 anchors the matrix
+npx create-spec-driven-app@latest validate .
+```
+
+What `adopt` writes (and only if the file does not already exist):
+
+| File | Purpose |
+| --- | --- |
+| `spec.md` | Requirement sections; seeded with REQ-001 "existing behaviour is preserved". |
+| `AI_RULES.md` | Agent/human rulebook with your detected stack and test command. |
+| `features/adoption/baseline.feature` | Baseline Gherkin scenario pinning the adoption invariant. |
+| `docs/specs/traceability.md` | Rich matrix with the baseline row. |
+| `docs/specs/adr/README.md` | ADR index for future decisions. |
+
+Override anything the detection got wrong with `--var`:
+
+```bash
+npx create-spec-driven-app@latest adopt \
+  --var DOMAIN="health information exchange" \
+  --var TEST_CMD="./mvnw -B verify"
+```
+
+Then retro-fill real requirements one at a time (recipe 2) and lock the gate
+in CI (recipes 4–5).
 
 ---
 

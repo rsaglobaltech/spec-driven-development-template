@@ -39,22 +39,43 @@
 
 → Full matrix, honest trade-offs, and migration paths in [`docs/comparisons.md`](docs/comparisons.md).
 
+## 🪜 Adopt it one level at a time
+
+You do **not** need to learn the whole tool to get value. Each level is
+useful on its own, takes under a day, and never requires understanding the
+levels above it:
+
+| Level  | You get                                                  | Commands you need              | Entry cost |
+| ------ | -------------------------------------------------------- | ------------------------------ | ---------- |
+| **L1** | Traceable specs in your repo (`spec.md`, `features/`, matrix) | `adopt` (or `init`)        | ~1 hour    |
+| **L2** | A PR gate that enforces spec/test coverage                | `validate --strict-tdd` in CI  | ~1 hour    |
+| **L3** | Versioned, reusable domain requirements                   | `specops add / sync / diff`    | ~1 day     |
+| **L4** | Agent-driven delivery, one requirement at a time          | `harness run`                  | ~1 week    |
+
 ## ⚡ Quickstart
 
+### Already have a codebase? (the common enterprise case)
+
 ```bash
-# 1. Copy the example config and edit it (PROJECT_NAME, PROJECT_SLUG, …)
-cp examples/project.yaml.example /tmp/acme-energy-hub.yaml
-
-# 2. Generate the project
-npx create-spec-driven-app@latest init \
-  --config /tmp/acme-energy-hub.yaml \
-  --out /tmp
-
-# 3. Validate
-npx create-spec-driven-app@latest validate /tmp/acme-energy-hub
+cd your-existing-repo
+npx create-spec-driven-app@latest adopt        # detects your stack from pom.xml / gradle / package.json
+npx create-spec-driven-app@latest validate .   # passes immediately
 ```
 
-> The generated directory takes its name from `PROJECT_SLUG` inside the config.
+`adopt` never overwrites existing files and never touches source code. It
+generates the SDD skeleton (spec, rules, baseline feature, traceability
+matrix) around what you already have — retro-fill real requirements at your
+own pace, then add `validate --strict-tdd` to CI (L2).
+
+### Starting from scratch
+
+```bash
+npx create-spec-driven-app@latest init         # interactive wizard, sensible defaults
+# or non-interactive: init --yes  ·  or from a config file: init --config project.yaml --out ./projects
+```
+
+The wizard saves its answers to `project.yaml` inside the generated project,
+so the run is reproducible with `init --config`.
 
 Requires **Node.js ≥ 20**.
 
@@ -67,7 +88,8 @@ Requires **Node.js ≥ 20**.
 
 | Command                          | What it does                                                                                                                                                                     |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `init`                           | Scaffold a new spec-driven project from a config file.                                                                                                                           |
+| `init`                           | Scaffold a new spec-driven project (interactive wizard when no `--config`; `--yes` for defaults).                                                                                |
+| `adopt`                          | Install SDD on an **existing** repository: detects the stack, generates the spec skeleton, never overwrites files or touches code.                                               |
 | `validate`                       | Check structure, traceability and Gherkin coverage. `--strict-tdd` also fails the build when a `REQ` lacks its `.feature`, its executable test, or its row in `traceability.md`. |
 | `expand`                         | Apply a domain pack (local path or remote git repo) onto a project (low-level; `specops add` is the ergonomic path).                                                             |
 | `plan`                           | List requirements still needing a test, code, or status update. `--format json` for AI agents and CI.                                                                            |
