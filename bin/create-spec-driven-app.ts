@@ -84,7 +84,7 @@ function usage() {
       `    ${c.cyan}create-spec-driven-app${c.reset} ${c.bold}<command>${c.reset} [options]\n` +
       `    ${c.dim}Run ‘<command> --help’ for per-command details.${c.reset}\n` +
       section("CORE COMMANDS") +
-      cmd("⚡", "init", "Scaffold a new spec-driven project from a config file.") +
+      cmd("⚡", "init", "Scaffold a new project (interactive wizard when no --config).") +
       cmd("✅", "validate", "Check structure, traceability, Gherkin (+ --strict-tdd gate).") +
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
@@ -113,9 +113,10 @@ function usage() {
       flag("-h, --help", "Show this help.") +
       flag("-v, --version", "Show CLI version.") +
       section("EXAMPLES") +
+      example(`npx create-spec-driven-app@latest init`, "Generate a new project (wizard)") +
       example(
         `npx create-spec-driven-app@latest init --config ./project.config --out ./projects`,
-        "Generate a new project"
+        "Generate a new project from a config file"
       ) +
       example(
         `npx create-spec-driven-app@latest validate ./projects/my-app --strict-tdd`,

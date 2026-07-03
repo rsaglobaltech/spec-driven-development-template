@@ -16,6 +16,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { parseYamlLite } = require("./domain-pack/common");
+const { runInitWizard, defaultAnswers, renderConfigYaml } = require("./wizard");
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const TEMPLATES_DIR = path.join(ROOT_DIR, "templates");
@@ -35,11 +36,13 @@ function logError(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app init --config <path> --out <directory> [--force] [--dry-run] [--no-git]\n\n" +
+      "  create-spec-driven-app init [--config <path>] [--out <directory>] [--yes] [--force] [--dry-run] [--no-git]\n\n" +
       "Options:\n" +
-      "  --config <path>   Configuration file (required). Accepts a YAML mapping\n" +
-      '                    (.yaml/.yml) or the legacy KEY="value" format (.config).\n' +
-      "  --out <dir>       Parent directory for generated project (required)\n" +
+      "  --config <path>   Configuration file. Accepts a YAML mapping (.yaml/.yml)\n" +
+      '                    or the legacy KEY="value" format (.config). When omitted,\n' +
+      "                    an interactive wizard asks for each value.\n" +
+      "  --out <dir>       Parent directory for generated project (default: current directory)\n" +
+      "  --yes, -y         Skip the wizard and accept every default (non-interactive)\n" +
       "  --force           Overwrite target directory if it already exists\n" +
       "  --dry-run         Print actions without writing files\n" +
       "  --no-git          Skip git initialization\n"
@@ -47,13 +50,15 @@ function usage() {
 }
 
 function parseArgs(argv) {
-  const opts = { config: null, out: null, force: false, dryRun: false, noGit: false };
+  const opts = { config: null, out: null, yes: false, force: false, dryRun: false, noGit: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--config" && argv[i + 1]) {
       opts.config = argv[++i];
     } else if (a === "--out" && argv[i + 1]) {
       opts.out = argv[++i];
+    } else if (a === "--yes" || a === "-y") {
+      opts.yes = true;
     } else if (a === "--force") {
       opts.force = true;
     } else if (a === "--dry-run") {
@@ -366,7 +371,7 @@ function ensureTraceabilityCoverage(projectDir) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-function main() {
+async function main() {
   // When called via dispatcher, argv[2] is the "init" command and possibly
   // "--engine=node" — skip everything up to actual flags.
   let rawArgs = process.argv.slice(2);
@@ -375,19 +380,29 @@ function main() {
 
   const opts = parseArgs(rawArgs);
 
-  if (!opts.config) {
-    logError("--config is required");
-    usage();
-    process.exit(2);
-  }
-  if (!opts.out) {
-    logError("--out is required");
-    usage();
+  let wizardAnswers = null;
+  let cfg;
+  if (opts.config) {
+    cfg = validateConfig(parseConfig(opts.config));
+  } else if (opts.yes) {
+    wizardAnswers = defaultAnswers();
+    cfg = validateConfig({ ...wizardAnswers });
+  } else if (process.stdin.isTTY && process.stdout.isTTY) {
+    logInfo("No --config given — starting the interactive wizard (Enter accepts the default).");
+    wizardAnswers = await runInitWizard();
+    cfg = validateConfig({ ...wizardAnswers });
+  } else {
+    logError("--config is required when not running in a terminal.");
+    logInfo("Fix: run `create-spec-driven-app init` in a terminal for the interactive wizard,");
+    logInfo("     pass --yes to scaffold with defaults, or provide --config <path>.");
     process.exit(2);
   }
 
-  const cfg = validateConfig(parseConfig(opts.config));
-  const projectDir = path.join(path.resolve(opts.out), cfg.PROJECT_SLUG);
+  if (!opts.out) {
+    logInfo(`No --out given — using the current directory: ${process.cwd()}`);
+  }
+  const outDir = opts.out ? path.resolve(opts.out) : process.cwd();
+  const projectDir = path.join(outDir, cfg.PROJECT_SLUG);
 
   if (fs.existsSync(projectDir) && !opts.force) {
     logError(`Destination already exists: ${projectDir} (use --force to overwrite)`);
@@ -437,6 +452,14 @@ function main() {
 
   if (!opts.dryRun) {
     ensureTraceabilityCoverage(projectDir);
+    if (wizardAnswers) {
+      // Persist the wizard answers so the generation is reproducible.
+      fs.writeFileSync(
+        path.join(projectDir, "project.yaml"),
+        renderConfigYaml(wizardAnswers),
+        "utf8"
+      );
+    }
   }
 
   if (!opts.noGit) {
@@ -458,8 +481,14 @@ function main() {
   logInfo(`- Output: ${projectDir}`);
   logInfo(`- Dry-run: ${opts.dryRun}`);
   logInfo(`- Git: ${opts.noGit ? "skipped" : "initialized"}`);
+  if (wizardAnswers && !opts.dryRun) {
+    logInfo("- Config: saved to project.yaml (reproduce with `init --config project.yaml`)");
+  }
   logInfo("✅ Generation completed");
   process.exit(0);
 }
 
-main();
+main().catch((err) => {
+  logError(err && err.message ? err.message : String(err));
+  process.exit(1);
+});

@@ -15,6 +15,23 @@
 
 ---
 
+## 0. Estado de implementación
+
+> Rama: `feature/enterprise-adoption`. Se actualiza en cada commit.
+
+| ID | Mejora | Estado | Notas |
+|----|--------|--------|-------|
+| A2 | Wizard interactivo `csda init` | ✅ **Hecho** | `scripts/wizard.ts` (sin deps nuevas), `--yes`, `--out` opcional (default cwd), `project.yaml` reproducible guardado en el proyecto generado. 8 tests unitarios + 3 e2e. |
+| A6 | Errores con remedio | ⬜ Pendiente | |
+| A5 | Docs por niveles L1–L4 | ⬜ Pendiente | |
+| A1 | `csda adopt` brownfield | ⬜ Pendiente | |
+| A3 | `csda doctor` | ⬜ Pendiente | |
+| A4 | Paridad Windows | 🚧 En curso | Detectado: test e2e de harness usa `touch`/`/dev/null` — falla en Windows (confirma F5). |
+| B1–B8 | Fase B | ⬜ Pendiente | |
+| C1–C5 | Fase C | ⬜ Pendiente | |
+
+---
+
 ## 1. Diagnóstico — por qué resulta "engorroso"
 
 Fricciones identificadas revisando el código, la documentación y el flujo real
