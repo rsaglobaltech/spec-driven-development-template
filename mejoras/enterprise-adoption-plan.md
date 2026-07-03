@@ -34,7 +34,7 @@
 | B5 | Firma de packs | ✅ **Hecho** | `scripts/specops/verify.ts`: digest sha256 del árbol del pack grabado en `.specops.lock`; re-expand de misma versión con contenido distinto (tag movido / cache envenenada) → error con remedio. Política `require_signed_packs: true` en specops.config.yaml → `git verify-tag`/`verify-commit` obligatorio (GPG vía git, sin deps nuevas). 8 tests incl. e2e de cache envenenada. |
 | B6 | Sync ALM Jira/ADO | ✅ **Hecho** | `csda alm sync\|link\|status`. Config `alm.config.yaml` (tokens solo vía env). Mapping REQ↔issue en `.specops/alm-map.json` (committeable). Sync: crea issues para REQs sin enlazar, cierra issue cuando REQ Implemented, reporta DRIFT (issue done + REQ abierto → exit 1). Clientes Jira Cloud + Azure Boards sobre fetch inyectable. 10 tests offline. |
 | B7 | Harness modo CI | ✅ **Hecho** | `harness run --push [--remote] --pr-cmd "<cmd {branch} {req}>"` (también en harness.config.yaml: `push/remote/pr_cmd`). Tras REQ verde: push `--force-with-lease` + comando PR (gh/glab/az). Fallo de publicación no revierte el pass — se reporta. E2E con remote bare local + captura de placeholders. |
-| B8 | Monorepo | ⬜ Pendiente | |
+| B8 | Monorepo | ✅ **Hecho** | `specops.config.yaml` con `projects:` → `validate` valida cada subproyecto, `--strict-tdd` propaga, resumen consolidado por bounded context, exit 1 si alguno falla. Directorio ausente → error con fix sin abortar el resto. 5 tests. **Fase B completa.** |
 | C1–C5 | Fase C | ⬜ Pendiente | |
 
 ---

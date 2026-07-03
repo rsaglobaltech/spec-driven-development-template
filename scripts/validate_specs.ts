@@ -9,6 +9,8 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
+const { parseYamlLite } = require("./domain-pack/common");
 
 function logInfo(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
@@ -129,6 +131,61 @@ function parseMatrixRows(content, traceMode) {
   return rows;
 }
 
+/**
+ * Monorepo mode (B8): when specops.config.yaml at the target declares a
+ * `projects:` list, validate every sub-project and aggregate the results
+ * instead of validating the root itself.
+ * @returns {null | { failures: number }} null when not a monorepo root.
+ */
+function validateMonorepo(targetDir, strictTdd) {
+  const cfgPath = path.join(targetDir, "specops.config.yaml");
+  if (!fs.existsSync(cfgPath)) return null;
+  let cfg;
+  try {
+    cfg = parseYamlLite(fs.readFileSync(cfgPath, "utf8"));
+  } catch {
+    return null; // malformed config is specops' problem, not validate's
+  }
+  const projects = cfg && Array.isArray(cfg.projects) ? cfg.projects : null;
+  if (!projects || projects.length === 0) return null;
+
+  logInfo(`🗂️ Monorepo: validating ${projects.length} project(s) from specops.config.yaml`);
+  const results = [];
+  for (const entry of projects) {
+    const rel = typeof entry === "string" ? entry : entry && entry.path;
+    if (!rel) {
+      results.push({ project: String(entry), ok: false, detail: "invalid projects entry" });
+      continue;
+    }
+    const subDir = path.join(targetDir, rel);
+    process.stdout.write(`\n── ${rel} ──\n`);
+    if (!fs.existsSync(subDir)) {
+      logError(`Project directory not found: ${rel}`);
+      logFix(`Fix the 'projects:' entry in specops.config.yaml or create ${rel}.`);
+      results.push({ project: rel, ok: false, detail: "directory not found" });
+      continue;
+    }
+    const args = [__filename, subDir];
+    if (strictTdd) args.push("--strict-tdd");
+    const r = spawnSync(process.execPath, args, { encoding: "utf8" });
+    process.stdout.write(r.stdout || "");
+    process.stderr.write(r.stderr || "");
+    results.push({ project: rel, ok: r.status === 0 });
+  }
+
+  const failures = results.filter((r) => !r.ok);
+  process.stdout.write("\n── monorepo summary ──\n");
+  for (const r of results) {
+    process.stdout.write(
+      `  ${r.ok ? "✅" : "❌"} ${r.project}${r.detail ? ` (${r.detail})` : ""}\n`
+    );
+  }
+  process.stdout.write(
+    `\n${failures.length === 0 ? "✅" : "❌"} ${results.length - failures.length}/${results.length} project(s) passed\n`
+  );
+  return { failures: failures.length };
+}
+
 function main() {
   const argv = process.argv.slice(2);
   const strictTdd = argv.includes("--strict-tdd");
@@ -144,6 +201,11 @@ function main() {
       "Check the path for typos, or scaffold a new project first:",
       "  create-spec-driven-app init",
     ]);
+  }
+
+  const monorepo = validateMonorepo(targetDir, strictTdd);
+  if (monorepo !== null) {
+    process.exit(monorepo.failures === 0 ? 0 : 1);
   }
 
   // Required directories
