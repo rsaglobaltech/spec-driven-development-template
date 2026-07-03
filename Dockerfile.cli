@@ -1,0 +1,34 @@
+# Official CLI image — run create-spec-driven-app without a local Node.js.
+#
+#   docker build -f Dockerfile.cli -t csda .
+#   docker run --rm -v "$PWD:/workspace" csda validate . --strict-tdd
+#   docker run --rm -v "$PWD:/workspace" csda doctor
+#
+# Enterprise use: mirror this image into your internal registry and CI
+# runners never need Node.js or npmjs.org access.
+
+# ── Build stage: compile TypeScript and pack the npm tarball ──────────────────
+FROM node:20-alpine AS build
+WORKDIR /src
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY tsconfig.json ./
+COPY bin ./bin
+COPY scripts ./scripts
+COPY packages ./packages
+COPY templates ./templates
+COPY examples ./examples
+COPY schemas ./schemas
+COPY tests ./tests
+COPY features ./features
+COPY README.md ./
+RUN mkdir -p /out && npm run build && npm pack --pack-destination /out
+
+# ── Runtime stage: tarball install only, no dev dependencies ──────────────────
+FROM node:20-alpine
+RUN apk add --no-cache git
+COPY --from=build /out/*.tgz /tmp/csda.tgz
+RUN npm install -g /tmp/csda.tgz && rm /tmp/csda.tgz
+WORKDIR /workspace
+ENTRYPOINT ["create-spec-driven-app"]
+CMD ["--help"]

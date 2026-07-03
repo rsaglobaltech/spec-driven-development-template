@@ -77,7 +77,12 @@ npx create-spec-driven-app@latest init         # interactive wizard, sensible de
 The wizard saves its answers to `project.yaml` inside the generated project,
 so the run is reproducible with `init --config`.
 
-Requires **Node.js ≥ 20**.
+Requires **Node.js ≥ 20** — or none at all with the official Docker image
+(mirror it into your internal registry for air-gapped runners):
+
+```bash
+docker run --rm -v "$PWD:/workspace" ghcr.io/rsaglobaltech/csda validate . --strict-tdd
+```
 
 > 📘 **New here?** The **[end-to-end tutorial](docs/tutorial.md)** builds a real
 > project (Smart Parking, on the public `parking-management-specops` pack) and
