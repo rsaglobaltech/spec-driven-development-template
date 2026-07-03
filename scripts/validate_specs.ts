@@ -36,8 +36,15 @@ function usage() {
   );
 }
 
-function fail(msg, exitCode = 1) {
+function logFix(lines) {
+  for (const line of Array.isArray(lines) ? lines : [lines]) {
+    process.stderr.write(`💡 [FIX] ${line}\n`);
+  }
+}
+
+function fail(msg, exitCode = 1, fix = null) {
   logError(msg);
+  if (fix) logFix(fix);
   process.exit(exitCode);
 }
 
@@ -133,20 +140,39 @@ function main() {
     process.exit(2);
   }
   if (!fs.existsSync(targetDir) || !fs.statSync(targetDir).isDirectory()) {
-    fail(`Directory not found: ${targetDir}`, 2);
+    fail(`Directory not found: ${targetDir}`, 2, [
+      "Check the path for typos, or scaffold a new project first:",
+      "  create-spec-driven-app init",
+    ]);
   }
 
   // Required directories
   for (const d of REQUIRED_DIRS) {
     if (!fs.existsSync(path.join(targetDir, d))) {
-      fail(`Missing required directory: ${d}`);
+      fail(`Missing required directory: ${d}`, 1, [
+        `Create it: mkdir -p ${d}`,
+        "Or scaffold the full SDD structure with `create-spec-driven-app init` / `specops add`.",
+      ]);
     }
   }
 
   // Required files
+  const FILE_FIXES = {
+    "spec.md":
+      "Author it from the shipped template (templates/base/spec.md.tpl) — one `## REQ-NNN — <title>` section per requirement.",
+    "AI_RULES.md":
+      "Author it from templates/backend/AI_RULES.md.tpl (or frontend) — it is the agent's project rulebook.",
+    "README.md": "Add a README.md describing how to build and test the project.",
+    "docs/specs/traceability.md": `Create it with the rich matrix header:\n  ${RICH_HEADER}`,
+    "docs/specs/adr/README.md":
+      "Create docs/specs/adr/README.md as the index of your Architecture Decision Records.",
+  };
   for (const f of REQUIRED_FILES) {
     if (!fs.existsSync(path.join(targetDir, f))) {
-      fail(`Missing required file: ${f}`);
+      fail(`Missing required file: ${f}`, 1, [
+        FILE_FIXES[f] || `Create ${f}.`,
+        "Generated projects include every required file — compare with `create-spec-driven-app init --yes --out <tmp>`.",
+      ]);
     }
   }
 
@@ -154,7 +180,10 @@ function main() {
   const featuresDir = path.join(targetDir, "features");
   const featureFiles = findRecursive(featuresDir, (f) => f.endsWith(".feature"));
   if (featureFiles.length < 1) {
-    fail("No .feature files were found in features/");
+    fail("No .feature files were found in features/", 1, [
+      "Write at least one Gherkin scenario, e.g. features/<area>/<name>.feature,",
+      "or pull scenarios from a domain pack: create-spec-driven-app specops add --pack-repo <url> …",
+    ]);
   }
   const featureCount = featureFiles.length;
 
@@ -174,14 +203,22 @@ function main() {
   }
   if (offenders.length > 0) {
     logError("Unresolved placeholders detected");
+    const tokens = new Set();
     for (const f of offenders) {
       const lines = fs.readFileSync(f, "utf8").split("\n");
       for (let i = 0; i < lines.length; i++) {
         if (PLACEHOLDER_RE.test(lines[i])) {
           process.stderr.write(`${f}:${i + 1}:${lines[i]}\n`);
+          for (const m of lines[i].match(/\{\{[A-Z_][A-Z0-9_]*\}\}/g) || []) tokens.add(m);
         }
       }
     }
+    const varList = [...tokens].map((t) => String(t).replace(/[{}]/g, "")).join(", ");
+    logFix([
+      `Replace the tokens with real values, or re-expand the pack passing each variable:`,
+      `  create-spec-driven-app specops sync --project-dir . (after adding the missing vars to .specops.lock)`,
+      `Missing variables: ${varList}`,
+    ]);
     process.exit(1);
   }
 
@@ -194,7 +231,10 @@ function main() {
   } else if (traceContent.includes(LEGACY_HEADER)) {
     traceMode = "legacy";
   } else {
-    fail("traceability.md is missing the expected legacy or rich matrix header");
+    fail("traceability.md is missing the expected legacy or rich matrix header", 1, [
+      "Add the rich matrix header (recommended) to docs/specs/traceability.md:",
+      `  ${RICH_HEADER}`,
+    ]);
   }
 
   // Status validation + duplicate scenario detection
@@ -228,13 +268,19 @@ function main() {
 
     if (scenarioId && scenarioId !== "-") {
       if (seenScenarios.has(scenarioId)) {
-        fail(`Duplicate Scenario ID in traceability.md: ${scenarioId}`);
+        fail(`Duplicate Scenario ID in traceability.md: ${scenarioId}`, 1, [
+          "Every Scenario ID must be unique across the matrix — renumber one of the rows",
+          `(e.g. keep ${scenarioId} on the first row and give the second a new ID).`,
+        ]);
       }
       seenScenarios.add(scenarioId);
     }
 
     if (status && !ALLOWED_STATUS.has(status)) {
-      fail(`Invalid status in traceability.md: ${status}`);
+      fail(`Invalid status in traceability.md: ${status}`, 1, [
+        `Allowed statuses: ${[...ALLOWED_STATUS].join(" · ")}`,
+        "Use `create-spec-driven-app done <REQ-id>` to flip a row to Implemented safely.",
+      ]);
     }
 
     // --strict-tdd checks per row
@@ -273,6 +319,16 @@ function main() {
     for (const v of strictTddViolations) {
       process.stderr.write(`  ${v}\n`);
     }
+    const codes = new Set(strictTddViolations.map((v) => v.slice(1, 6)));
+    const TDD_FIXES = {
+      "TDD-1":
+        "TDD-1: write the test first, then set its path in the row's 'Test artifact' column (or move the status back to Draft).",
+      "TDD-2":
+        "TDD-2: give the row a Scenario ID that matches a scenario in its feature file (e.g. SCN-001).",
+      "TDD-3":
+        "TDD-3: add a traceability row for the requirement — run `create-spec-driven-app plan` to list what each REQ still needs.",
+    };
+    logFix([...codes].sort().map((c) => TDD_FIXES[c]));
     process.exit(1);
   }
 
@@ -281,7 +337,14 @@ function main() {
   for (const ff of featureFiles.sort()) {
     const rel = path.relative(targetDir, ff).split(path.sep).join("/");
     if (!traceContent.includes(rel)) {
-      fail(`Feature file missing from traceability.md: ${rel}`);
+      const exampleRow =
+        traceMode === "rich"
+          ? `| REQ-TBD | SCN-TBD | \`${rel}\` | UC-TBD | TBD | TBD | TBD | TBD | TBD | Draft |`
+          : `| \`${rel}\` | <scenario> | TBD | Draft |`;
+      fail(`Feature file missing from traceability.md: ${rel}`, 1, [
+        "Add a row for it to docs/specs/traceability.md, e.g.:",
+        `  ${exampleRow}`,
+      ]);
     }
   }
 
@@ -292,14 +355,20 @@ function main() {
     if (
       !content.includes("| ID | Use Case | Actor | Requirement | Command/Query | Aggregate | Emits")
     ) {
-      fail("use-cases.md is missing the expected table header");
+      fail("use-cases.md is missing the expected table header", 1, [
+        "Start the use-case table with:",
+        "  | ID | Use Case | Actor | Requirement | Command/Query | Aggregate | Emits |",
+      ]);
     }
   }
   const eventsPath = path.join(targetDir, "docs/specs/events.md");
   if (fs.existsSync(eventsPath)) {
     const content = fs.readFileSync(eventsPath, "utf8");
     if (!content.includes("| ID | Event | Producer | Consumers | Payload |")) {
-      fail("events.md is missing the expected table header");
+      fail("events.md is missing the expected table header", 1, [
+        "Start the events table with:",
+        "  | ID | Event | Producer | Consumers | Payload |",
+      ]);
     }
   }
 

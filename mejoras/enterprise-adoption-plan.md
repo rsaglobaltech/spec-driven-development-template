@@ -22,7 +22,7 @@
 | ID | Mejora | Estado | Notas |
 |----|--------|--------|-------|
 | A2 | Wizard interactivo `csda init` | ✅ **Hecho** | `scripts/wizard.ts` (sin deps nuevas), `--yes`, `--out` opcional (default cwd), `project.yaml` reproducible guardado en el proyecto generado. 8 tests unitarios + 3 e2e. |
-| A6 | Errores con remedio | ⬜ Pendiente | |
+| A6 | Errores con remedio | ✅ **Hecho** | Todo error de `validate` emite líneas `💡 [FIX]` con el arreglo concreto: plantilla a copiar, cabecera/fila lista para pegar, variables faltantes, estados permitidos, remedios por código TDD-1/2/3. 9 tests del corpus de errores. |
 | A5 | Docs por niveles L1–L4 | ⬜ Pendiente | |
 | A1 | `csda adopt` brownfield | ⬜ Pendiente | |
 | A3 | `csda doctor` | ⬜ Pendiente | |
