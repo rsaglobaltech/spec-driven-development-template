@@ -74,6 +74,22 @@ jobs:
       - name: Run snapshot / determinism tests
         run: npm run test:snapshot
 
+  # ── Maven plugin (Java 11+, no Node needed at runtime) ───────────────────────
+  maven-plugin:
+    name: Maven plugin
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Build csda-maven-plugin
+        run: mvn -B -q package
+        working-directory: packages/maven-plugin
+
   # ── Package validation (Ubuntu/Node 20) ──────────────────────────────────────
   package:
     name: Package

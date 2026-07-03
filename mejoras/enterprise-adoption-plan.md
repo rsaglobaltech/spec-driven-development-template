@@ -29,7 +29,7 @@
 | A4 | Paridad Windows | ✅ **Hecho** | Tests de harness con agentes cross-platform (`node -e`), fix de quoting en MCP `spawnCli` (rutas con espacios), smoke scripts sin `/private/tmp`, `windows-latest` en la matrix CI completa. Suite entera verde en Windows local. |
 | B1 | CI multi-proveedor | ✅ **Hecho** | `csda ci init --provider github\|gitlab\|azure\|jenkins`: gate `validate --strict-tdd` + artefacto `spec-plan.json`, versión CLI pinneada. No sobrescribe (`--stdout` para pegar en config existente). 8 tests. |
 | B2 | Imagen Docker CLI | ✅ **Hecho** | `Dockerfile.cli` multi-stage (build tarball → runtime alpine+git) + workflow publish a ghcr.io en tags. Verificado local: `--version`, `init --yes`, `validate`, `doctor` sobre volumen montado — equivale a CLI local sin Node. |
-| B3 | Wrapper Maven/Gradle | ⬜ Pendiente | |
+| B3 | Wrapper Maven/Gradle | ✅ **Hecho** (Maven) | `packages/maven-plugin` (`com.rsaglobaltech:csda-maven-plugin`): goals `csda:validate` (falla build, bind a verify), `csda:plan`, `csda:doctor`. Launcher auto npx→docker (imagen mirroreable). Verificado real: `mvn csda:validate` verde en proyecto adoptado y build FAILURE al romper el gate. Job CI con setup-java. Gradle pendiente (mismo patrón). |
 | B4 | Packs offline/privados | ⬜ Pendiente | |
 | B5 | Firma de packs | ⬜ Pendiente | |
 | B6 | Sync ALM Jira/ADO | ⬜ Pendiente | |
