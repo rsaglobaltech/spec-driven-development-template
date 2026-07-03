@@ -25,6 +25,7 @@ const specopsAddScript = path.join(distScripts, "specops", "add.js");
 const specopsRemoveScript = path.join(distScripts, "specops", "remove.js");
 const harnessRunScript = path.join(distScripts, "harness", "run.js");
 const planScript = path.join(distScripts, "plan.js");
+const reportScript = path.join(distScripts, "report.js");
 const doneScript = path.join(distScripts, "done.js");
 
 // ── Pretty output helpers ─────────────────────────────────────────────────────────
@@ -97,6 +98,7 @@ function usage() {
       cmd("✅", "validate", "Check structure, traceability, Gherkin (+ --strict-tdd gate).") +
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
+      cmd("📊", "report", "Spec-coverage dashboard as self-contained HTML (CI/Pages artifact).") +
       cmd("✔", "done", "Mark a requirement as Implemented in traceability.md.") +
       section("PACK COMMANDS") +
       cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
@@ -289,6 +291,12 @@ function main(): void {
     ensureExecutable(expandScript);
     const passThrough = args.slice(1);
     runNodeScript(expandScript, passThrough);
+    return;
+  }
+
+  if (command === "report") {
+    ensureExecutable(reportScript);
+    runNodeScript(reportScript, args.slice(1));
     return;
   }
 

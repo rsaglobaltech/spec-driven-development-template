@@ -35,7 +35,8 @@
 | B6 | Sync ALM Jira/ADO | ✅ **Hecho** | `csda alm sync\|link\|status`. Config `alm.config.yaml` (tokens solo vía env). Mapping REQ↔issue en `.specops/alm-map.json` (committeable). Sync: crea issues para REQs sin enlazar, cierra issue cuando REQ Implemented, reporta DRIFT (issue done + REQ abierto → exit 1). Clientes Jira Cloud + Azure Boards sobre fetch inyectable. 10 tests offline. |
 | B7 | Harness modo CI | ✅ **Hecho** | `harness run --push [--remote] --pr-cmd "<cmd {branch} {req}>"` (también en harness.config.yaml: `push/remote/pr_cmd`). Tras REQ verde: push `--force-with-lease` + comando PR (gh/glab/az). Fallo de publicación no revierte el pass — se reporta. E2E con remote bare local + captura de placeholders. |
 | B8 | Monorepo | ✅ **Hecho** | `specops.config.yaml` con `projects:` → `validate` valida cada subproyecto, `--strict-tdd` propaga, resumen consolidado por bounded context, exit 1 si alguno falla. Directorio ausente → error con fix sin abortar el resto. 5 tests. **Fase B completa.** |
-| C1–C5 | Fase C | ⬜ Pendiente | Ver §0.1. |
+| C1 | Dashboard de cobertura | ✅ **Hecho** | `csda report` — HTML autocontenido + JSON + tendencia. Ver §0.1 P5. |
+| C2–C5 | Fase C (resto) | ⬜ Pendiente | Ver §0.1. |
 
 ### 0.1 Pendiente — próxima sesión
 
@@ -47,7 +48,7 @@ Orden recomendado (el piloto HIE valida todo lo construido; hacerlo primero):
 | P2 | **Piloto HIE** — adopción brownfield real | `csda adopt` sobre `C:\projects\hie-his-platform` (dry-run ya verificado: detecta Java 21/Spring Boot/HAPI FHIR/Maven) + `specops add` del pack + retro-trazado de REQ-001..009 con `done --check` contra los 19 tests de integración existentes. | §5.2 |
 | P3 | **Piloto HIE** — gate CI + harness | `csda ci init` en el repo HIE + `harness.config.yaml` (`test_cmd: mvn -B test`, prompt-prefix con límites clínicos) + `harness run --req REQ-010` (Flyway) como primera prueba real del loop. Orden backlog: REQ-010 → 011 → 015 → 012/013/014 → 016. | §5.3–5.4 |
 | ~~P4~~ | ~~B3 variante **Gradle**~~ | ✅ **Hecho** — `packages/gradle-plugin` (`com.rsaglobaltech.csda`): tasks `csdaValidate`/`csdaPlan`/`csdaDoctor`, `csdaValidate`→`check`, launcher compartido `CsdaLauncher`, extensión `csda { }` + overrides `-Pcsda.*`. Build+tests verdes, smoke en consumer OK, job CI Gradle. | §3 B3 |
-| P5 | C1 **Dashboard de cobertura** | `csda report --html`: % REQ implementados, REQ sin test, drift specops, tendencia. Artefacto CI/Pages. | §3 C1 |
+| ~~P5~~ | ~~C1 **Dashboard de cobertura**~~ | ✅ **Hecho** — `csda report` (`scripts/report.ts`): HTML autocontenido (CSS inline, 0 requests externos, dark-mode) con % implementado, REQ sin test, drift specops (packs + baseline ausente), features huérfanas, tendencia (sparkline SVG desde `reports/spec-coverage-history.jsonl` con `--record`). Reusa el parser de `plan`. `--format json`, `--stdout`, `--out`. 11 tests. `smoke:report`. | §3 C1 |
 | P6 | C3 **Packs de compliance** | `hipaa-audit-pack` / `gdpr-rights-pack` reutilizables — REQ-007/015/016 del piloto HIE son la semilla. Depende de P1. | §3 C3 |
 | P7 | C4 **Catálogo interno de packs** | `pack-registry` desplegable on-prem con índice de packs firmados (builder ya existe). | §3 C4 |
 | P8 | C5 **Perfiles de agente** | `agent_profile:` nombrados en harness.config.yaml mantenidos por plataforma. | §3 C5 |
