@@ -26,7 +26,7 @@
 | A5 | Docs por niveles L1–L4 | ⬜ Pendiente | |
 | A1 | `csda adopt` brownfield | ⬜ Pendiente | |
 | A3 | `csda doctor` | ⬜ Pendiente | |
-| A4 | Paridad Windows | 🚧 En curso | Detectado: test e2e de harness usa `touch`/`/dev/null` — falla en Windows (confirma F5). |
+| A4 | Paridad Windows | ✅ **Hecho** | Tests de harness con agentes cross-platform (`node -e`), fix de quoting en MCP `spawnCli` (rutas con espacios), smoke scripts sin `/private/tmp`, `windows-latest` en la matrix CI completa. Suite entera verde en Windows local. |
 | B1–B8 | Fase B | ⬜ Pendiente | |
 | C1–C5 | Fase C | ⬜ Pendiente | |
 

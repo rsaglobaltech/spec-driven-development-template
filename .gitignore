@@ -13,3 +13,5 @@ packages/vscode-spec-driven/*.vsix
 _site/
 aetherdeploy-ai-integration-assessment.md
 scripts/demo/**/out/
+
+.smoke-tmp/

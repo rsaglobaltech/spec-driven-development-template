@@ -69,7 +69,7 @@ test("expands domain pack in dry-run mode", () => {
     "--pack",
     "parking-management/backend",
     "--project-dir",
-    "/private/tmp/smart-parking",
+    path.join(os.tmpdir(), "smart-parking"),
     "--var",
     "PROJECT_NAME=Smart Parking Backend",
     "--var",
@@ -602,7 +602,7 @@ test("harness run refuses a dirty working tree", { skip: !hasGit() }, () => {
     "--project-dir",
     projectDir,
     "--agent",
-    "cat {prompt_file} > /dev/null",
+    `node -e "" {prompt_file}`,
   ]);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /not clean/);
@@ -624,7 +624,9 @@ test(
       "--project-dir",
       projectDir,
       "--agent",
-      "touch agent-ran.txt && cat {prompt_file} > /dev/null",
+      // Cross-platform agent (cmd.exe and sh): drop a file proving it ran,
+      // then read the prompt file passed as argv.
+      `node -e "require('node:fs').writeFileSync('agent-ran.txt','ok');require('node:fs').readFileSync(process.argv[1])" {prompt_file}`,
     ]);
 
     assert.equal(result.status, 0, result.stderr + result.stdout);
@@ -682,7 +684,7 @@ test("harness run skips an existing branch unless --force", { skip: !hasGit() },
     "--project-dir",
     projectDir,
     "--agent",
-    "cat {prompt_file} > /dev/null",
+    `node -e "" {prompt_file}`,
   ]);
   assert.notEqual(result.status, 0);
   assert.match(result.stdout, /REQ-001\s+skipped/);
