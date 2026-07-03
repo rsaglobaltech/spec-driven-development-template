@@ -12,6 +12,7 @@ const initNodeScript = path.join(distScripts, "init_project.js");
 const adoptScript = path.join(distScripts, "adopt_project.js");
 const doctorScript = path.join(distScripts, "doctor.js");
 const ciInitScript = path.join(distScripts, "ci_init.js");
+const packBundleScript = path.join(distScripts, "bundle_pack.js");
 const validateScript = path.join(distScripts, "validate_specs.js");
 const expandScript = path.join(distScripts, "expand_domain_pack.js");
 const packInitScript = path.join(distScripts, "init_pack.js");
@@ -99,6 +100,7 @@ function usage() {
       cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
       cmd("🔍", "pack lint", "Lint a pack: schema, cross-refs, and scenario quality (--strict).") +
       cmd("🔮", "pack infer", "Propose a pack.yaml skeleton from a .feature file.") +
+      cmd("📴", "pack bundle", "Export a pack repo as a git bundle for air-gapped use.") +
       section("SPECOPS COMMANDS") +
       cmd("➕", "specops add", "Add a pack (npm-install-style); writes .specops.lock.") +
       cmd("➖", "specops remove", "Drop a pack entry from .specops.lock.") +
@@ -311,7 +313,14 @@ function main(): void {
       runNodeScript(packInferScript, args.slice(1));
       return;
     }
-    error(`Unknown pack sub-command: ${subCommand || "(none)"}. Expected: init, lint, infer`);
+    if (subCommand === "bundle") {
+      ensureExecutable(packBundleScript);
+      runNodeScript(packBundleScript, args.slice(2));
+      return;
+    }
+    error(
+      `Unknown pack sub-command: ${subCommand || "(none)"}. Expected: init, lint, infer, bundle`
+    );
     usage();
     process.exit(2);
   }
