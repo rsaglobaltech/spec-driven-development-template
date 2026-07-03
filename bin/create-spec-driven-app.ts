@@ -9,6 +9,7 @@ const distScripts = path.join(__dirname, "..", "scripts");
 const packageJson = require(path.join(rootDir, "package.json"));
 const VERSION: string = packageJson.version || "0.0.0";
 const initNodeScript = path.join(distScripts, "init_project.js");
+const adoptScript = path.join(distScripts, "adopt_project.js");
 const validateScript = path.join(distScripts, "validate_specs.js");
 const expandScript = path.join(distScripts, "expand_domain_pack.js");
 const packInitScript = path.join(distScripts, "init_pack.js");
@@ -85,6 +86,7 @@ function usage() {
       `    ${c.dim}Run ‘<command> --help’ for per-command details.${c.reset}\n` +
       section("CORE COMMANDS") +
       cmd("⚡", "init", "Scaffold a new project (interactive wizard when no --config).") +
+      cmd("🏗", "adopt", "Install SDD on an EXISTING repository (brownfield, non-invasive).") +
       cmd("✅", "validate", "Check structure, traceability, Gherkin (+ --strict-tdd gate).") +
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
@@ -114,6 +116,10 @@ function usage() {
       flag("-v, --version", "Show CLI version.") +
       section("EXAMPLES") +
       example(`npx create-spec-driven-app@latest init`, "Generate a new project (wizard)") +
+      example(
+        `npx create-spec-driven-app@latest adopt --project-dir ./my-existing-repo`,
+        "Adopt SDD on an existing codebase"
+      ) +
       example(
         `npx create-spec-driven-app@latest init --config ./project.config --out ./projects`,
         "Generate a new project from a config file"
@@ -218,6 +224,12 @@ function main(): void {
     }
     ensureExecutable(initNodeScript);
     runNodeScript(initNodeScript, passThrough);
+    return;
+  }
+
+  if (command === "adopt") {
+    ensureExecutable(adoptScript);
+    runNodeScript(adoptScript, args.slice(1));
     return;
   }
 
