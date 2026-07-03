@@ -11,6 +11,7 @@ const VERSION: string = packageJson.version || "0.0.0";
 const initNodeScript = path.join(distScripts, "init_project.js");
 const adoptScript = path.join(distScripts, "adopt_project.js");
 const doctorScript = path.join(distScripts, "doctor.js");
+const ciInitScript = path.join(distScripts, "ci_init.js");
 const validateScript = path.join(distScripts, "validate_specs.js");
 const expandScript = path.join(distScripts, "expand_domain_pack.js");
 const packInitScript = path.join(distScripts, "init_pack.js");
@@ -89,6 +90,7 @@ function usage() {
       cmd("⚡", "init", "Scaffold a new project (interactive wizard when no --config).") +
       cmd("🏗", "adopt", "Install SDD on an EXISTING repository (brownfield, non-invasive).") +
       cmd("🩺", "doctor", "Diagnose the project and environment; every finding ships a fix.") +
+      cmd("🚦", "ci init", "Generate the spec gate for GitHub, GitLab, Azure, or Jenkins.") +
       cmd("✅", "validate", "Check structure, traceability, Gherkin (+ --strict-tdd gate).") +
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
@@ -238,6 +240,17 @@ function main(): void {
   if (command === "doctor") {
     ensureExecutable(doctorScript);
     runNodeScript(doctorScript, args.slice(1));
+    return;
+  }
+
+  if (command === "ci") {
+    const sub = args[1];
+    if (sub !== "init") {
+      error(`Unknown ci subcommand: ${sub || "(none)"} — expected 'ci init'.`);
+      process.exit(2);
+    }
+    ensureExecutable(ciInitScript);
+    runNodeScript(ciInitScript, args.slice(2));
     return;
   }
 

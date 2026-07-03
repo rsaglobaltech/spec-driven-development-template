@@ -27,7 +27,14 @@
 | A1 | `csda adopt` brownfield | ✅ **Hecho** | `scripts/adopt_project.ts` + `templates/adopt/`. Detecta stack (pom.xml/gradle/package.json/go.mod), genera spec.md/AI_RULES.md/baseline.feature/traceability sin tocar código ni sobrescribir nada. Verificado dry-run contra `hie-his-platform` real: detecta "Java 21, Spring Boot, HAPI FHIR, Maven" + `mvn -B test`. `validate --strict-tdd` pasa inmediatamente tras adopt. 6 tests. |
 | A3 | `csda doctor` | ✅ **Hecho** | `scripts/doctor.ts`: diagnóstico no fail-fast (entorno Node/git, estructura, trazabilidad bidireccional — features huérfanas Y filas colgantes, drift REQ spec↔matrix, placeholders, lockfile/baseline specops). Cada hallazgo con `💡 Fix:`. 5 tests. |
 | A4 | Paridad Windows | ✅ **Hecho** | Tests de harness con agentes cross-platform (`node -e`), fix de quoting en MCP `spawnCli` (rutas con espacios), smoke scripts sin `/private/tmp`, `windows-latest` en la matrix CI completa. Suite entera verde en Windows local. |
-| B1–B8 | Fase B | ⬜ Pendiente | |
+| B1 | CI multi-proveedor | ✅ **Hecho** | `csda ci init --provider github\|gitlab\|azure\|jenkins`: gate `validate --strict-tdd` + artefacto `spec-plan.json`, versión CLI pinneada. No sobrescribe (`--stdout` para pegar en config existente). 8 tests. |
+| B2 | Imagen Docker CLI | ⬜ Pendiente | |
+| B3 | Wrapper Maven/Gradle | ⬜ Pendiente | |
+| B4 | Packs offline/privados | ⬜ Pendiente | |
+| B5 | Firma de packs | ⬜ Pendiente | |
+| B6 | Sync ALM Jira/ADO | ⬜ Pendiente | |
+| B7 | Harness modo CI | ⬜ Pendiente | |
+| B8 | Monorepo | ⬜ Pendiente | |
 | C1–C5 | Fase C | ⬜ Pendiente | |
 
 ---
