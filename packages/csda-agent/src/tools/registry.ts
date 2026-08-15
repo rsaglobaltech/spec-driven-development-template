@@ -33,6 +33,37 @@ export interface ToolContext {
   onEnd?: (id: string, ok: boolean, preview: string) => void;
 }
 
+/**
+ * The `init` config contract, stated once.
+ *
+ * The agent needs this to hold a real conversation about a new project — but
+ * it must not recall it from training. An invented key is accepted silently by
+ * `init` and produces a project that is subtly wrong, which is exactly the
+ * failure a spec-driven tool exists to prevent.
+ */
+export const INIT_CONFIG_SCHEMA = `An init config is a flat YAML mapping. Keys are case-sensitive.
+
+Required:
+  PROJECT_NAME   Human-readable name.            e.g. "Acme Energy Hub"
+  PROJECT_SLUG   kebab-case; becomes the folder. e.g. "acme-energy-hub"
+  PROJECT_TYPE   One of: backend | frontend | contracts
+  DOMAIN         The business domain in the user's own words. e.g. "community energy"
+  STACK          Concrete technologies, comma-separated.
+                 e.g. "Quarkus 3.x, Java 21, PostgreSQL, Maven"
+  API_STYLE      e.g. "REST with DTO boundaries", "REST and GraphQL"
+  TESTING        e.g. "JUnit 5, Testcontainers, Cucumber"
+
+Optional:
+  LANG           Language for generated prose. Default: en
+  MODULES        Comma-separated seed modules. e.g. "auth,dashboard,billing"
+                 Leave empty when the user has not asked for specific modules.
+
+Then: csda_init(config=<path to that file>, out=<PARENT directory>)
+\`out\` is the parent — init creates <out>/<PROJECT_SLUG>/ inside it.
+
+Every value must come from the user. Where you propose one, say so and let
+them correct it before writing the file.`;
+
 const asTool = (
   name: string,
   description: string,
@@ -106,6 +137,13 @@ export function buildTools(ctx: ToolContext): BetaRunnableTool[] {
     });
 
   tools.push(
+    asTool(
+      "csda_config_schema",
+      "The exact contract for an `init` config file: every key, which are required, and the accepted values.\n\nWhen to use: before writing a project config or calling csda_init. Read it rather than recalling the field names — an invented key is silently ignored by init and the project comes out wrong.",
+      { type: "object", properties: {}, required: [], additionalProperties: false },
+      async () => INIT_CONFIG_SCHEMA
+    ),
+
     asTool(
       "read_file",
       "Read a file from the project.\n\nWhen to use: before editing anything, and to inspect specs, feature files, pack.yaml or the traceability matrix. Paths are relative to the project root.",
@@ -192,6 +230,7 @@ export function buildTools(ctx: ToolContext): BetaRunnableTool[] {
 /** Tool names, for the status line and for tests that assert the surface. */
 export const TOOL_NAMES = [
   ...COMMANDS.map((c) => c.tool),
+  "csda_config_schema",
   "read_file",
   "list_files",
   "write_file",

@@ -416,3 +416,64 @@ test("both engines are handed the identical tool set", () => {
     clean(root);
   }
 });
+
+// ── the config contract ───────────────────────────────────────────────────────
+
+test("the init config schema is exposed as a tool, so the agent never recalls it", async () => {
+  // An invented key is accepted silently by init and yields a subtly wrong
+  // project — the exact failure a spec-driven tool exists to prevent.
+  const root = tmp();
+  try {
+    const tools = buildTools({
+      exec: { cliPath: path.join(root, "noop.js"), cwd: root },
+      scope: scopeIn(root),
+    });
+    const schemaTool = tools.find((t) => t.name === "csda_config_schema")!;
+    const out = String(await schemaTool.run({} as any));
+    for (const key of [
+      "PROJECT_NAME",
+      "PROJECT_SLUG",
+      "PROJECT_TYPE",
+      "DOMAIN",
+      "STACK",
+      "API_STYLE",
+      "TESTING",
+      "MODULES",
+    ]) {
+      assert.match(out, new RegExp(key), `${key} missing from the contract`);
+    }
+    assert.match(out, /backend \| frontend \| contracts/);
+    // `out` being the parent directory is the detail most easily got wrong.
+    assert.match(out, /out.*parent/i);
+  } finally {
+    clean(root);
+  }
+});
+
+test("reading the config schema needs no confirmation", async () => {
+  const root = tmp();
+  try {
+    let asked = 0;
+    const tools = buildTools({
+      exec: { cliPath: path.join(root, "noop.js"), cwd: root },
+      scope: scopeIn(root),
+      confirm: async () => {
+        asked += 1;
+        return true;
+      },
+    });
+    await tools.find((t) => t.name === "csda_config_schema")!.run({} as any);
+    assert.equal(asked, 0);
+  } finally {
+    clean(root);
+  }
+});
+
+test("the system prompt forbids inventing requirements", async () => {
+  const { SYSTEM_PROMPT } = await import("../engine/system-prompt.js");
+  // This rule is load-bearing and easy to lose in a prompt edit: a fabricated
+  // requirement is authoritative to everything downstream.
+  assert.match(SYSTEM_PROMPT, /not yours to invent/i);
+  assert.match(SYSTEM_PROMPT, /Propose, do not interrogate/i);
+  assert.match(SYSTEM_PROMPT, /csda_config_schema/);
+});
