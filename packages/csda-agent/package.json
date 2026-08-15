@@ -1,0 +1,27 @@
+{
+  "name": "@rsaglobaltech/csda-agent",
+  "version": "0.1.0",
+  "description": "Agentic CLI restricted to create-spec-driven-app: the tool set is the boundary.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "csda-agent": "dist/bin.js" },
+  "files": ["dist/"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prebuild": "npm run clean",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test \"dist/test/*.test.js\""
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0",
+    "ink": "^7.1.1",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^6.0.3"
+  }
+}
