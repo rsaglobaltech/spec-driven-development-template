@@ -303,9 +303,38 @@ function main() {
     }
   }
 
+  // Active changes, when the project has any.
+  //
+  // Retro-compatibility contract: a project generated before the change
+  // lifecycle has no docs/specs/changes/ directory, and this block is a no-op.
+  // It never reports the absence of changes as a problem.
+  let changeCount = 0;
+  const changesDir = path.join(targetDir, "docs/specs/changes");
+  if (fs.existsSync(changesDir)) {
+    const { listChangeIds } = require("./change/common");
+    const { validateChange } = require("./change/cli");
+    const { formatDiagnostic } = require("./lib/diagnostics");
+
+    const ids = listChangeIds(targetDir);
+    changeCount = ids.length;
+    const problems = [];
+    for (const id of ids) {
+      const result = validateChange(targetDir, id, { strict: false });
+      for (const d of result.diagnostics) {
+        if (d.severity === "error") problems.push(formatDiagnostic(d));
+      }
+    }
+    if (problems.length > 0) {
+      logError("Active changes have invalid delta specs:");
+      for (const line of problems) process.stderr.write(`  ${line}\n`);
+      process.exit(1);
+    }
+  }
+
   // Success summary
   logInfo("✅ Validation passed");
   logInfo(`- Features detected: ${featureCount}`);
+  if (changeCount > 0) logInfo(`- Active changes: ${changeCount} (deltas valid)`);
   logInfo("- Base SDD structure: complete");
   logInfo(`- Traceability mode: ${traceMode}`);
   if (strictTdd) logInfo("- Strict TDD gate: passed");

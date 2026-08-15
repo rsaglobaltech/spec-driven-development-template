@@ -21,6 +21,7 @@ const specopsRemoveScript = path.join(distScripts, "specops", "remove.js");
 const harnessRunScript = path.join(distScripts, "harness", "run.js");
 const planScript = path.join(distScripts, "plan.js");
 const doneScript = path.join(distScripts, "done.js");
+const changeScript = path.join(distScripts, "change", "cli.js");
 
 // ── Pretty output helpers ─────────────────────────────────────────────────────────
 
@@ -89,6 +90,11 @@ function usage() {
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
       cmd("✔", "done", "Mark a requirement as Implemented in traceability.md.") +
+      cmd(
+        "🔄",
+        "change",
+        "Propose, review and archive a change (new · list · show · status · validate · archive)."
+      ) +
       section("PACK COMMANDS") +
       cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
       cmd("🔍", "pack lint", "Lint a pack: schema, cross-refs, and scenario quality (--strict).") +
@@ -257,6 +263,12 @@ function main(): void {
   if (command === "done") {
     ensureExecutable(doneScript);
     runNodeScript(doneScript, args.slice(1));
+    return;
+  }
+
+  if (command === "change") {
+    ensureExecutable(changeScript);
+    runNodeScript(changeScript, args.slice(1));
     return;
   }
 

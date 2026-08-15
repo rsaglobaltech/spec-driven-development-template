@@ -22,6 +22,10 @@ for the policy on when and how to write an ADR.
 | [0012](0012-plan-done-implementation-loop.md)  | `plan` + `done` implementation loop                     | Accepted               | 2026-05-13 |
 | [0013](0013-harness-run-loop.md)               | `harness run` — spec-driven delivery loop for AI agents | Accepted               | 2026-05-14 |
 | [0014](0014-pack-infer-heuristic.md)           | `pack infer` — heuristic .feature → pack.yaml inference | Accepted               | 2026-05-14 |
+| [0015](0015-change-lifecycle.md)               | Change lifecycle — propose → review → archive           | Accepted               | 2026-08-15 |
+| [0016](0016-delta-spec-format.md)              | Delta spec format — ADDED / MODIFIED / REMOVED          | Accepted               | 2026-08-15 |
+| [0017](0017-agent-json-contract.md)            | The agent JSON contract                                 | Accepted               | 2026-08-15 |
+| [0018](0018-artifact-schemas.md)               | Artifact schemas — a dependency graph, not a phase gate | Accepted               | 2026-08-15 |
 
 ## Template
 
