@@ -21,6 +21,7 @@ import { emptyUsage, nextPermissionMode } from "../engine/types.js";
 import { applyEvent, type Entry } from "./format.js";
 import { StatusLine } from "./StatusLine.js";
 import { ToolCard } from "./ToolCard.js";
+import { PermissionPrompt, type PendingPermission } from "./PermissionPrompt.js";
 
 /** ~30 fps. Fast enough to read as streaming, slow enough not to flicker. */
 const FLUSH_MS = 33;
@@ -41,6 +42,9 @@ export function App({ engine, cwd, initialPrompt }: AppProps) {
   const [thinking, setThinking] = useState(false);
   const [usage, setUsage] = useState<UsageSnapshot>(emptyUsage());
   const [mode, setMode] = useState<PermissionMode>(engine.permissionMode());
+  const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
+  const [denyDraft, setDenyDraft] = useState("");
+  const [explaining, setExplaining] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const pending = useRef<Entry[] | null>(null);
@@ -87,6 +91,19 @@ export function App({ engine, cwd, initialPrompt }: AppProps) {
           if (event.type === "thinking_start") setThinking(true);
           if (event.type === "text_delta" || event.type === "text_complete") setThinking(false);
           if (event.type === "turn_end") setUsage(event.usage);
+          if (event.type === "permission_request") {
+            // The engine is blocked on this answer, so the prompt goes up at
+            // once rather than waiting for the next flush tick.
+            flushNow();
+            setPendingPermission({
+              id: event.id,
+              tool: event.tool,
+              detail: event.detail,
+              reason: event.reason,
+              suggestedRule: event.suggestedRule,
+            });
+            continue;
+          }
 
           const next = applyEvent(current, event);
           if (next !== current) {
@@ -130,7 +147,52 @@ export function App({ engine, cwd, initialPrompt }: AppProps) {
 
   useEffect(() => () => flushNow(), [flushNow]);
 
+  const answerPermission = useCallback(
+    (answer: Parameters<NonNullable<AgentEngine["resolvePermission"]>>[1]) => {
+      if (!pendingPermission) return;
+      engine.resolvePermission?.(pendingPermission.id, answer);
+      setPendingPermission(null);
+      setDenyDraft("");
+      setExplaining(false);
+    },
+    [engine, pendingPermission]
+  );
+
   useInput((input, key) => {
+    // The permission prompt is modal: while it is up it owns the keyboard, so
+    // a keystroke meant for the prompt cannot leak into the composer.
+    if (pendingPermission) {
+      if (explaining) {
+        if (key.return) {
+          answerPermission({ decision: "deny", message: denyDraft.trim() || "Denied by the user." });
+          return;
+        }
+        if (key.escape) {
+          setExplaining(false);
+          setDenyDraft("");
+          return;
+        }
+        if (key.backspace || key.delete) {
+          setDenyDraft((d) => d.slice(0, -1));
+          return;
+        }
+        if (input && !key.ctrl && !key.meta) setDenyDraft((d) => d + input);
+        return;
+      }
+
+      const choice = input.toLowerCase();
+      if (choice === "y") answerPermission({ decision: "allow" });
+      else if (choice === "a") answerPermission({ decision: "allowAlways" });
+      else if (choice === "n") answerPermission({ decision: "deny" });
+      else if (choice === "e") setExplaining(true);
+      else if (key.escape) {
+        // Escaping a prompt denies it — the engine must never be left blocked.
+        answerPermission({ decision: "deny", message: "Interrupted by the user." });
+        if (abortRef.current) abortRef.current.abort();
+      }
+      return;
+    }
+
     if (key.escape) {
       // Abort the request, not just the rendering.
       if (abortRef.current) abortRef.current.abort();
@@ -170,17 +232,25 @@ export function App({ engine, cwd, initialPrompt }: AppProps) {
         <TranscriptEntry key={i} entry={entry} width={width} />
       ))}
 
-      {thinking ? (
+      {thinking && !pendingPermission ? (
         <Box marginTop={1}>
           <Text dimColor>· thinking…</Text>
         </Box>
       ) : null}
 
-      <Box marginTop={1}>
-        <Text color="cyan">{busy ? "· " : "› "}</Text>
-        <Text>{draft}</Text>
-        {busy ? <Text dimColor>(esc to interrupt)</Text> : <Text dimColor>▏</Text>}
-      </Box>
+      {pendingPermission ? (
+        <PermissionPrompt
+          pending={pendingPermission}
+          denyDraft={denyDraft}
+          explaining={explaining}
+        />
+      ) : (
+        <Box marginTop={1}>
+          <Text color="cyan">{busy ? "· " : "› "}</Text>
+          <Text>{draft}</Text>
+          {busy ? <Text dimColor>(esc to interrupt)</Text> : <Text dimColor>▏</Text>}
+        </Box>
+      )}
 
       <StatusLine usage={usage} mode={mode} cwd={cwd} engine={engine.name} />
     </Box>

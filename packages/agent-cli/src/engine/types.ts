@@ -39,6 +39,18 @@ export const emptyUsage = (): UsageSnapshot => ({
   lastTurnMs: null,
 });
 
+/**
+ * The answer to a permission prompt.
+ *
+ * `allowAlways` is separate from `allow` because persisting a rule is a
+ * different decision from letting one call through, and conflating them is how
+ * a permission system quietly stops being one.
+ */
+export type PermissionAnswer =
+  | { decision: "allow" }
+  | { decision: "allowAlways" }
+  | { decision: "deny"; message?: string };
+
 export interface TurnInput {
   /** What the user typed. */
   prompt: string;
@@ -59,8 +71,17 @@ export type AgentEvent =
   | { type: "tool_start"; id: string; name: string; input: unknown }
   /** A tool finished. `preview` is already truncated for display. */
   | { type: "tool_end"; id: string; ok: boolean; preview: string }
-  /** The engine is waiting on a permission decision. */
-  | { type: "permission_request"; id: string; tool: string; detail: string }
+  /** The engine is waiting on a permission decision. Answer with `resolvePermission`. */
+  | {
+      type: "permission_request";
+      id: string;
+      tool: string;
+      detail: string;
+      /** Why the engine is asking, in one sentence. */
+      reason: string;
+      /** The rule that would be persisted by "always allow". */
+      suggestedRule: string;
+    }
   /** Context was compacted; `before` is the token count that was squeezed. */
   | { type: "compacted"; before: number | null }
   /** The turn ended. */
@@ -84,6 +105,14 @@ export interface AgentEngine {
   /** Current permission mode, and how to change it. */
   permissionMode(): PermissionMode;
   setPermissionMode(mode: PermissionMode): Promise<void> | void;
+  /**
+   * Answer a `permission_request`. Present on engines that can ask.
+   *
+   * The turn is blocked until this is called — the SDK is awaiting the
+   * decision — so a UI that shows the prompt must always reach an answer,
+   * including on interrupt.
+   */
+  resolvePermission?(id: string, answer: PermissionAnswer): void;
   /** Release anything the engine is holding. */
   dispose?(): Promise<void> | void;
 }

@@ -29,6 +29,21 @@ export async function runPrint(engine: AgentEngine, prompt: string): Promise<num
         case "tool_end":
           if (!event.ok) process.stderr.write(`✖ tool failed: ${event.preview}\n`);
           break;
+        case "permission_request":
+          // Nobody can answer in non-interactive mode, and a turn blocked on a
+          // prompt nobody will see is a hang. Deny explicitly and say which
+          // rule would have let it through, so the fix is a config change
+          // rather than a guess.
+          failed = true;
+          process.stderr.write(
+            `✖ ${event.tool} needs permission and this is non-interactive: ${event.reason}\n` +
+              `  allow it with a rule: ${event.suggestedRule}\n`
+          );
+          engine.resolvePermission?.(event.id, {
+            decision: "deny",
+            message: `Denied: non-interactive mode cannot prompt. Add a permission rule for ${event.suggestedRule}.`,
+          });
+          break;
         case "compacted":
           process.stderr.write("· context compacted\n");
           break;

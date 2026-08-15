@@ -17,11 +17,16 @@ import { SdkAgentEngine } from "./engine/sdk-engine.js";
 import { ScriptedAgentEngine } from "./engine/scripted-engine.js";
 import type { AgentEngine } from "./engine/types.js";
 import { runPrint } from "./print.js";
+import { loadSettings, persistAllowRule } from "./config/settings.js";
+import { mergeRulesets } from "./config/permissions.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json");
 
-function buildEngine(options: ReturnType<typeof parseArgs>): AgentEngine {
+function buildEngine(
+  options: ReturnType<typeof parseArgs>,
+  settings: ReturnType<typeof loadSettings>["settings"]
+): AgentEngine {
   if (options.engine === "scripted") {
     // A visible, deterministic engine for smoke-testing the surface without
     // spending tokens. Not a mock hidden behind a flag nobody knows about —
@@ -49,9 +54,15 @@ function buildEngine(options: ReturnType<typeof parseArgs>): AgentEngine {
   }
 
   return new SdkAgentEngine({
-    model: options.model ?? undefined,
+    // CLI flags outrank the settings files; the files outrank nothing else.
+    model: options.model ?? settings.model ?? undefined,
     cwd: options.cwd,
     permissionMode: options.permissionMode,
+    ruleset: mergeRulesets(settings.permissions),
+    onPersistRule: (rule) => {
+      const { file } = persistAllowRule(options.cwd, rule);
+      process.stderr.write(`· rule saved to ${file}: ${rule}\n`);
+    },
     allowedTools: options.allowedTools ?? undefined,
     disallowedTools: options.disallowedTools ?? undefined,
     additionalDirectories: options.addDirs.length > 0 ? options.addDirs : undefined,
@@ -83,7 +94,18 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  const engine = buildEngine(options);
+  const { settings, errors } = loadSettings({ cwd: options.cwd });
+  // A malformed settings file must be loud: running with different permissions
+  // than the file says is the worst outcome available here.
+  for (const error of errors) process.stderr.write(`⚠  ${error}\n`);
+
+  // A permission mode written in a settings file applies unless the user typed
+  // one on the command line.
+  if (!process.argv.includes("--permission-mode") && settings.permissionMode) {
+    options.permissionMode = settings.permissionMode;
+  }
+
+  const engine = buildEngine(options, settings);
   const interactive = !options.print && Boolean(process.stdout.isTTY);
 
   if (!interactive) {
