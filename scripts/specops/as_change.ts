@@ -125,15 +125,26 @@ function stepsForScenario(packDir, scenario) {
 
 // ── Rendering the delta ───────────────────────────────────────────────────────
 
-function traceComment(scenario) {
-  if (!scenario) return null;
+/**
+ * `origin` records where a requirement came from.
+ *
+ * Provenance goes in the trace comment rather than in a new matrix column on
+ * purpose: `parseTraceabilityRows` keys off a 10-cell row, and an eleventh
+ * column would break every existing consumer of the matrix for a field only
+ * tooling reads. The trace comment is already the extension point, and it
+ * survives `archive` because the renderer writes the whole trace back out.
+ */
+function traceComment(scenario, origin?) {
   const parts = [];
-  if (scenario.use_case) parts.push(`uc=${scenario.use_case}`);
-  if (scenario.command) parts.push(`cmd=${scenario.command}`);
-  if (scenario.aggregate) parts.push(`agg=${scenario.aggregate}`);
-  const events = asArray(scenario.events);
-  if (events.length > 0) parts.push(`evt=${events[0]}`);
-  if (scenario.target) parts.push(`feature=${scenario.target}`);
+  if (scenario) {
+    if (scenario.use_case) parts.push(`uc=${scenario.use_case}`);
+    if (scenario.command) parts.push(`cmd=${scenario.command}`);
+    if (scenario.aggregate) parts.push(`agg=${scenario.aggregate}`);
+    const events = asArray(scenario.events);
+    if (events.length > 0) parts.push(`evt=${events[0]}`);
+    if (scenario.target) parts.push(`feature=${scenario.target}`);
+  }
+  if (origin) parts.push(`origin=${origin}`);
   return parts.length > 0 ? `<!-- csda:trace ${parts.join(" ")} -->` : null;
 }
 
@@ -175,7 +186,7 @@ function renderRequirementBlock(req, scenarios, packDir, opts?) {
     out.push("");
   }
 
-  const trace = traceComment((scenarios || [])[0]);
+  const trace = traceComment((scenarios || [])[0], o.origin);
   if (trace) {
     out.push(trace);
     out.push("");
@@ -191,7 +202,8 @@ function renderRequirementBlock(req, scenarios, packDir, opts?) {
  * @returns { capability, markdown, summary: {added[], modified[], removed[]} }
  *          `markdown` is null when nothing behavioural changed.
  */
-function deriveDelta(oldPackRoot, newPackRoot, packId) {
+function deriveDelta(oldPackRoot, newPackRoot, packId, opts?) {
+  const options = opts || {};
   const oldPack = oldPackRoot ? loadPackModel(oldPackRoot, packId) : null;
   const newPack = loadPackModel(newPackRoot, packId);
 
@@ -231,11 +243,16 @@ function deriveDelta(oldPackRoot, newPackRoot, packId) {
     lines.push("## Purpose", "", String(purpose), "");
   }
 
-  const section = (heading, entries, opts?) => {
+  const section = (heading, entries, blockOpts?) => {
     if (entries.length === 0) return;
     lines.push(`## ${heading}`, "");
     for (const entry of entries) {
-      lines.push(renderRequirementBlock(entry.req, entry.scenarios, newPack.packDir, opts));
+      lines.push(
+        renderRequirementBlock(entry.req, entry.scenarios, newPack.packDir, {
+          ...(blockOpts || {}),
+          origin: options.origin,
+        })
+      );
       lines.push("");
     }
   };

@@ -480,7 +480,15 @@ archive). Es la materialización de §2.5.5.
 | **OS-1B-01** | **`specops diff --as-change`** — compara los requisitos del pack entre la versión bloqueada y la nueva, y **materializa un cambio propuesto** en `docs/specs/changes/upgrade-<pack>-<version>/` con `proposal.md` + delta specs (ADDED/MODIFIED/REMOVED) derivadas | `scripts/specops/diff.ts`, `scripts/change/from-pack.ts` | Bump `v0.1.0 → v0.2.0` del pack de parking produce un cambio revisable donde se lee *"ADDED REQ-014 dynamic pricing"*, no *"~ traceability.md"* | 2.5 |
 | **OS-1B-02** | **`specops contribute --change <id>`** — empaqueta un cambio local que toca requisitos de origen pack como delta spec en el formato del pack, y prepara la rama/PR contra el repo del pack | `scripts/specops/contribute.ts` | Genera rama + delta + `proposal.md` en un clon del pack; `--dry-run` imprime el árbol. Cierra el bucle S2 | 2 |
 | **OS-1B-03** | **`validate --against-lock`** (pendiente en el roadmap de SpecOps desde M3) — falla en CI si el proyecto ha divergido de la versión bloqueada, **reportando requisitos divergentes**, no ficheros | `scripts/validate_specs.ts`, reutiliza `diff.ts` | Exit 1 con `{code: pack_drift, target: REQ-007, fix: "csda specops diff --as-change …"}` | 1 |
-| **OS-1B-04** | **Procedencia**: cada requisito archivado registra su origen (`origin: pack:<repo>/<pack_id>@<version>` o `local`) en la matriz de trazabilidad | `scripts/change/archive.ts`, plantilla de `traceability.md` | Nueva columna `Origen`; `sync` la respeta; `doctor` detecta requisitos de pack editados localmente sin cambio asociado (S6) | 1 |
+| **OS-1B-04** | **Procedencia**: cada requisito archivado registra su origen (`origin=pack:<pack_id>@<version>`) | `scripts/specops/as_change.ts`, `scripts/change/archive.ts` | La procedencia sobrevive al archivado; `doctor` podrá detectar requisitos de pack editados localmente sin cambio asociado (S6) | 1 |
+
+> **Desviación asumida en OS-1B-04.** El plan pedía una columna `Origen` en la
+> matriz. Se descartó: `parseTraceabilityRows` identifica una fila por tener
+> exactamente 10 celdas, así que una columna 11 rompería a todos los
+> consumidores actuales de la matriz por un campo que solo lee el tooling.
+> La procedencia va en el comentario `csda:trace`, que ya es el punto de
+> extensión y sobrevive al `archive` porque el renderer reescribe el trace
+> completo.
 | **OS-1B-05** | **Packs que distribuyen cambios**: un pack puede traer `changes/`; `specops sync` los deposita como cambios *propuestos*, nunca aplicados. El `changes/archive/` del pack se convierte en su changelog semántico (S5) | `scripts/specops/sync.ts`, `schemas/pack.schema.json` | Un pack con `changes/` no rompe proyectos con CLI antiguo (campo opcional en el schema) | 0.5 |
 
 **Gate de salida F1B:** grabar el bucle completo bidireccional — el pack
@@ -689,11 +697,11 @@ F1 — Ciclo de cambio (18 PD)   ← máxima prioridad
 [ ] OS-1-09  skip_specs / retire_capabilities
 
 F1B — SpecOps × cambios (7 PD)   ← el mayor diferenciador
-[ ] OS-1B-01  specops diff --as-change   (revisar intención, no ficheros)
-[ ] OS-1B-02  specops contribute         (cierra el bucle hacia el pack)
-[ ] OS-1B-03  validate --against-lock    (gate de drift, pendiente desde M3)
-[ ] OS-1B-04  procedencia origin: pack/local en la matriz
-[ ] OS-1B-05  packs que distribuyen cambios (changelog semántico del pack)
+[x] OS-1B-01  specops diff --as-change   (revisar intención, no ficheros)
+[x] OS-1B-02  specops contribute         (cierra el bucle hacia el pack)
+[x] OS-1B-03  validate --against-lock    (gate de drift, pendiente desde M3)
+[x] OS-1B-04  procedencia origin= en csda:trace (ver desviación en F1B)
+[x] OS-1B-05  packs que distribuyen cambios (changelog semántico del pack)
 
 F2 — Agente (10 PD)
 [ ] OS-2-01  envoltorio de diagnóstico

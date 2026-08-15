@@ -223,6 +223,30 @@ function reconcileFile(rel, incoming, projectDir, packId, args) {
 
 const CONFLICT_OUTCOMES = new Set(["conflict", "conflict-skipped", "conflict-no-base"]);
 
+/**
+ * Where the pack's own source tree lives, for reading anything `expand` does
+ * not render — currently the `changes/` a pack may ship.
+ *
+ * Remote packs come from the resolver's cache (already populated by the expand
+ * that just ran, so this costs nothing); local packs are read in place.
+ * Returns null when neither applies, and the caller simply skips the step.
+ */
+function resolvePackRootForChanges(entry, version, args) {
+  if (entry.pack_root) return entry.pack_root;
+  if (!entry.repo) return null;
+  try {
+    const { resolveRemotePack } = require("../domain-pack/remote");
+    const resolved = resolveRemotePack({
+      repo: entry.repo,
+      version,
+      cacheDir: args.cacheDir || undefined,
+    });
+    return resolved.packRoot;
+  } catch {
+    return null;
+  }
+}
+
 function syncPack(entry, args, projectDir) {
   const version = args.packVersion || entry.version;
   const bumping = args.packVersion && args.packVersion !== entry.version;
@@ -264,6 +288,27 @@ function syncPack(entry, args, projectDir) {
     }
 
     printPackSummary(entry.pack_id, version, counts, conflictFiles);
+
+    // A pack may ship `changes/`. They land as proposed changes — never
+    // applied — so the consuming team reviews them like any other change.
+    // Additive: a change id already present locally is skipped, not replaced.
+    try {
+      const { depositPackChanges } = require("./pack_changes");
+      const resolved = resolvePackRootForChanges(entry, version, args);
+      if (resolved) {
+        const { deposited, skipped } = depositPackChanges(projectDir, resolved, entry.pack_id, {
+          dryRun: args.dryRun,
+        });
+        for (const id of deposited) {
+          info(`  proposed change from pack: ${id}${args.dryRun ? " (dry-run)" : ""}`);
+        }
+        for (const id of skipped) {
+          warn(`  pack change '${id}' skipped — a local change with that id already exists`);
+        }
+      }
+    } catch (err) {
+      warn(`  could not read changes shipped by ${entry.pack_id}: ${err.message}`);
+    }
 
     if (!args.dryRun) {
       snapshotBaseline(

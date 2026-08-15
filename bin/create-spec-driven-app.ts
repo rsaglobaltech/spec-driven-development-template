@@ -18,6 +18,7 @@ const specopsSyncScript = path.join(distScripts, "specops", "sync.js");
 const specopsDiffScript = path.join(distScripts, "specops", "diff.js");
 const specopsAddScript = path.join(distScripts, "specops", "add.js");
 const specopsRemoveScript = path.join(distScripts, "specops", "remove.js");
+const specopsContributeScript = path.join(distScripts, "specops", "contribute.js");
 const harnessRunScript = path.join(distScripts, "harness", "run.js");
 const planScript = path.join(distScripts, "plan.js");
 const doneScript = path.join(distScripts, "done.js");
@@ -86,7 +87,11 @@ function usage() {
       `    ${c.dim}Run ‘<command> --help’ for per-command details.${c.reset}\n` +
       section("CORE COMMANDS") +
       cmd("⚡", "init", "Scaffold a new spec-driven project from a config file.") +
-      cmd("✅", "validate", "Check structure, traceability, Gherkin (+ --strict-tdd gate).") +
+      cmd(
+        "✅",
+        "validate",
+        "Check structure, traceability, Gherkin (+ --strict-tdd / --against-lock gates)."
+      ) +
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
       cmd("✔", "done", "Mark a requirement as Implemented in traceability.md.") +
@@ -107,7 +112,16 @@ function usage() {
         "specops sync",
         "Re-expand packs and three-way merge them, preserving local edits."
       ) +
-      cmd("📊", "specops diff", "Preview what would change on a version bump (no writes).") +
+      cmd(
+        "📊",
+        "specops diff",
+        "Preview a version bump; --as-change derives a reviewable change."
+      ) +
+      cmd(
+        "📤",
+        "specops contribute",
+        "Send a local change back upstream to the pack (never pushes)."
+      ) +
       section("HARNESS COMMANDS") +
       cmd(
         "🤖",
@@ -236,7 +250,8 @@ function main(): void {
       usage();
       process.exit(2);
     }
-    const unknownFlags = validateArgs.filter((a) => a.startsWith("-") && a !== "--strict-tdd");
+    const VALIDATE_FLAGS = new Set(["--strict-tdd", "--against-lock"]);
+    const unknownFlags = validateArgs.filter((a) => a.startsWith("-") && !VALIDATE_FLAGS.has(a));
     if (unknownFlags.length > 0) {
       error(`Unknown flag(s) for validate: ${unknownFlags.join(", ")}`);
       usage();
@@ -342,8 +357,13 @@ function main(): void {
       runNodeScript(specopsRemoveScript, args.slice(2));
       return;
     }
+    if (subCommand === "contribute") {
+      ensureExecutable(specopsContributeScript);
+      runNodeScript(specopsContributeScript, args.slice(2));
+      return;
+    }
     error(
-      `Unknown specops sub-command: ${subCommand || "(none)"}. Expected: add, remove, sync, diff`
+      `Unknown specops sub-command: ${subCommand || "(none)"}. Expected: add, remove, sync, diff, contribute`
     );
     usage();
     process.exit(2);

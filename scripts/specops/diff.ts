@@ -245,7 +245,11 @@ function runAsChange(args, projectDir, lock) {
             cacheDir: args.cacheDir || undefined,
           });
 
-    const derived = deriveDelta(current.packRoot, target.packRoot, entry.pack_id);
+    const derived = deriveDelta(current.packRoot, target.packRoot, entry.pack_id, {
+      // Provenance rides with the requirement so `archive` can carry it into
+      // the capability spec, and a later reader can tell pack-owned from local.
+      origin: `pack:${entry.pack_id}@${targetVersion}`,
+    });
 
     if (!derived.markdown) {
       results.push({

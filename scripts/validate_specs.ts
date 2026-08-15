@@ -20,7 +20,7 @@ function logError(msg) {
 function usage() {
   process.stdout.write(
     "🔎 Usage:\n" +
-      "  validate_specs.js <project_dir> [--strict-tdd]\n\n" +
+      "  validate_specs.js <project_dir> [--strict-tdd] [--against-lock]\n\n" +
       "Checks:\n" +
       "- minimum SDD structure\n" +
       "- required files\n" +
@@ -29,6 +29,9 @@ function usage() {
       "- feature coverage in traceability.md\n" +
       "- allowed status values in traceability.md\n" +
       "- expected DDD Lite document headers when present\n\n" +
+      "--against-lock additionally enforces:\n" +
+      "- Every requirement the locked packs declare is present in the matrix\n" +
+      "- Its scenario and feature file still match what the pack declares\n\n" +
       "--strict-tdd additionally enforces:\n" +
       "- No 'Test Artifact = TBD' when Status is In Dev or later\n" +
       "- Every requirement has at least one traceability row\n" +
@@ -125,6 +128,7 @@ function parseMatrixRows(content, traceMode) {
 function main() {
   const argv = process.argv.slice(2);
   const strictTdd = argv.includes("--strict-tdd");
+  const againstLock = argv.includes("--against-lock");
   const positional = argv.filter((a) => !a.startsWith("-"));
 
   const targetDir = positional[0];
@@ -331,10 +335,40 @@ function main() {
     }
   }
 
+  // Drift against the locked pack versions, on request.
+  //
+  // Requirement-level, not file-level: a pack whose templates were reformatted
+  // reports nothing; a pack requirement the project never took in fails.
+  let lockChecked = 0;
+  if (againstLock) {
+    const { checkAgainstLock } = require("./specops/against_lock");
+    const { formatDiagnostic } = require("./lib/diagnostics");
+
+    const result = checkAgainstLock(targetDir, {});
+    lockChecked = result.checked;
+    const errors = result.diagnostics.filter((d) => d.severity === "error");
+    const rest = result.diagnostics.filter((d) => d.severity !== "error");
+
+    for (const d of rest) process.stdout.write(`  ${formatDiagnostic(d)}\n`);
+
+    if (errors.length > 0) {
+      logError("--against-lock violations detected:");
+      for (const d of errors) process.stderr.write(`  ${formatDiagnostic(d)}\n`);
+      process.exit(1);
+    }
+  }
+
   // Success summary
   logInfo("✅ Validation passed");
   logInfo(`- Features detected: ${featureCount}`);
   if (changeCount > 0) logInfo(`- Active changes: ${changeCount} (deltas valid)`);
+  if (againstLock) {
+    logInfo(
+      lockChecked > 0
+        ? `- Lock drift gate: passed (${lockChecked} pack(s) checked)`
+        : "- Lock drift gate: no locked packs to check"
+    );
+  }
   logInfo("- Base SDD structure: complete");
   logInfo(`- Traceability mode: ${traceMode}`);
   if (strictTdd) logInfo("- Strict TDD gate: passed");
