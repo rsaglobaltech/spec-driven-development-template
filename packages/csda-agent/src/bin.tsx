@@ -23,6 +23,9 @@ import { runPrint } from "./print.js";
 import { resolveCliPath } from "./tools/exec.js";
 import { DEFAULT_WRITABLE, type FileScope } from "./tools/files.js";
 import { TOOL_NAMES } from "./tools/registry.js";
+import { COMMANDS } from "./tools/manifest.js";
+import { probeProject } from "./tools/project.js";
+import type { WelcomeInfo } from "./tui/Welcome.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json");
@@ -157,8 +160,22 @@ async function main(): Promise<number> {
     return runPrint(engine, options.prompt);
   }
 
+  const provider = options.engine === "scripted" ? null : selectProvider(options.provider, options.model);
+  const info: WelcomeInfo = {
+    provider: provider?.id ?? "scripted",
+    model: provider?.model ?? "scripted",
+    toolCount: TOOL_NAMES.length,
+    commandCount: COMMANDS.length,
+    project: probeProject(options.cwd),
+  };
+
   const app = render(
-    <App engine={engine} cwd={options.cwd} initialPrompt={options.prompt ?? undefined} />
+    <App
+      engine={engine}
+      cwd={options.cwd}
+      info={info}
+      initialPrompt={options.prompt ?? undefined}
+    />
   );
   await app.waitUntilExit();
   await engine.dispose?.();

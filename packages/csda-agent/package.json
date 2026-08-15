@@ -29,6 +29,7 @@
   "devDependencies": {
     "@types/node": "^25.7.0",
     "@types/react": "^19.0.0",
+    "ink-testing-library": "^4.0.0",
     "typescript": "^6.0.3"
   }
 }

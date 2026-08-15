@@ -22,6 +22,9 @@ import { applyEvent, type Entry } from "./format.js";
 import { StatusLine } from "./StatusLine.js";
 import { ToolCard } from "./ToolCard.js";
 import { PermissionPrompt, type PendingPermission } from "./PermissionPrompt.js";
+import { Welcome, type WelcomeInfo } from "./Welcome.js";
+import { COMMANDS } from "../tools/manifest.js";
+import { TOOL_NAMES } from "../tools/registry.js";
 
 /** ~30 fps. Fast enough to read as streaming, slow enough not to flicker. */
 const FLUSH_MS = 33;
@@ -29,10 +32,50 @@ const FLUSH_MS = 33;
 export interface AppProps {
   engine: AgentEngine;
   cwd: string;
+  info: WelcomeInfo;
   initialPrompt?: string;
 }
 
-export function App({ engine, cwd, initialPrompt }: AppProps) {
+/**
+ * Commands answered by the CLI itself, never sent to the model.
+ *
+ * Asking a model to describe its own tool set costs a round trip and can be
+ * wrong; reading it out of the manifest cannot.
+ */
+function localCommand(input: string, info: WelcomeInfo): string | null {
+  const command = input.trim().toLowerCase();
+  if (command === "/tools") {
+    const lines = COMMANDS.map((c) => `  ${c.tool.padEnd(24)} csda ${c.argv.join(" ")}`);
+    const files = TOOL_NAMES.filter((n) => !n.startsWith("csda_")).map((n) => `  ${n}`);
+    return [
+      `${TOOL_NAMES.length} tools. There is no shell.`,
+      "",
+      "csda commands:",
+      ...lines,
+      "",
+      "files (project only, writes limited to the spec surface):",
+      ...files,
+    ].join("\n");
+  }
+  if (command === "/help") {
+    return [
+      "keys",
+      "  enter        send",
+      "  esc          interrupt the turn in flight",
+      "  shift+tab    cycle permission mode: ask → auto-edit → plan",
+      "  ctrl+c       interrupt, or exit when idle",
+      "",
+      "commands",
+      "  /tools       list everything I can do",
+      "  /clear       start a fresh conversation",
+      "  /help        this",
+    ].join("\n");
+  }
+  if (command === "/clear") return "__CLEAR__";
+  return null;
+}
+
+export function App({ engine, cwd, info, initialPrompt }: AppProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
 
@@ -78,6 +121,23 @@ export function App({ engine, cwd, initialPrompt }: AppProps) {
     async (prompt: string) => {
       const text = prompt.trim();
       if (text === "" || busy) return;
+
+      // Local commands are answered here; the model never sees them.
+      const local = localCommand(text, info);
+      if (local !== null) {
+        if (local === "__CLEAR__") {
+          setEntries([]);
+          pending.current = null;
+          (engine as any).clear?.();
+          return;
+        }
+        setEntries((current) => [
+          ...current,
+          { kind: "user", text },
+          { kind: "notice", text: local },
+        ]);
+        return;
+      }
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -133,7 +193,7 @@ export function App({ engine, cwd, initialPrompt }: AppProps) {
         abortRef.current = null;
       }
     },
-    [busy, engine, entries, flushNow, schedule]
+    [busy, engine, entries, flushNow, info, schedule]
   );
 
   // A prompt passed on the command line runs once, then the REPL takes over.
@@ -228,6 +288,7 @@ export function App({ engine, cwd, initialPrompt }: AppProps) {
 
   return (
     <Box flexDirection="column">
+      {entries.length === 0 ? <Welcome info={info} /> : null}
       {entries.map((entry, i) => (
         <TranscriptEntry key={i} entry={entry} width={width} />
       ))}
