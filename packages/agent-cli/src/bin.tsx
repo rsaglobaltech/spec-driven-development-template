@@ -8,7 +8,6 @@
  * into a log file.
  */
 
-import React from "react";
 import { render } from "ink";
 import { createRequire } from "node:module";
 

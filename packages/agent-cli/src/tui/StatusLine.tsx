@@ -6,7 +6,6 @@
  * much without changing anything the user can see.
  */
 
-import React from "react";
 import { Box, Text } from "ink";
 import type { PermissionMode, UsageSnapshot } from "../engine/types.js";
 import { cacheHitRate, formatCost, formatDuration, formatTokens } from "./format.js";

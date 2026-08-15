@@ -6,7 +6,6 @@
  * it hid rather than hiding it silently.
  */
 
-import React from "react";
 import { Box, Text } from "ink";
 import { clipLines, type Entry } from "./format.js";
 

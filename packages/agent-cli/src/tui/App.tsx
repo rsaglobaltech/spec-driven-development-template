@@ -14,7 +14,7 @@
  *     burning tokens after the user gave up is worse than one without Esc.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import type { AgentEngine, PermissionMode, UsageSnapshot } from "../engine/types.js";
 import { emptyUsage, nextPermissionMode } from "../engine/types.js";
