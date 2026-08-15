@@ -22,6 +22,8 @@ const { spawnSync } = require("node:child_process");
 
 const { readLock } = require("./lock");
 const { resolveProjectDir } = require("../lib/project-root");
+const { resolveRemotePack } = require("../domain-pack/remote");
+const { deriveDelta, materialiseChange } = require("./as_change");
 
 const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 const LOCK_FILENAME = ".specops.lock";
@@ -39,6 +41,10 @@ function usage() {
       "  create-spec-driven-app specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--var KEY=VALUE]... [--format text|json] [--plan]\n\n" +
       "Reports files that would be added or modified if `specops sync` ran at\n" +
       "the chosen version. Writes nothing to the project directory.\n\n" +
+      "  --as-change       Derive the bump as a reviewable change: compares the\n" +
+      "                    packs' requirement models and writes a change folder\n" +
+      "                    with a proposal and delta specs. Add --dry-run to see\n" +
+      "                    the summary without writing it.\n" +
       "  --var KEY=VALUE   Extra template variable (repeatable). Use it when a\n" +
       "                    newer pack version requires a variable the lockfile\n" +
       "                    predates.\n" +
@@ -54,6 +60,8 @@ function parseArgs(argv) {
     packVersion: "",
     cacheDir: "",
     format: "text",
+    asChange: false,
+    dryRun: false,
     vars: {} as Record<string, string>,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -87,6 +95,14 @@ function parseArgs(argv) {
     }
     if (token === "--plan") {
       args.format = "json";
+      continue;
+    }
+    if (token === "--as-change") {
+      args.asChange = true;
+      continue;
+    }
+    if (token === "--dry-run") {
+      args.dryRun = true;
       continue;
     }
     if (token === "--help" || token === "-h") {
@@ -192,6 +208,109 @@ function printChanges(entry, version, changes) {
   );
 }
 
+/**
+ * `--as-change`: resolve the pack at both versions, compare their requirement
+ * models, and write the difference as a change folder.
+ *
+ * Both sides come from `pack.yaml`, never from a rendered tree — a pack that
+ * only reformats templates yields no deltas, which is the property that makes
+ * this more useful than the file diff rather than noisier than it.
+ */
+function runAsChange(args, projectDir, lock) {
+  const results = [];
+  let matched = 0;
+
+  for (const entry of lock.packs) {
+    if (args.pack && entry.pack_id !== args.pack) continue;
+    matched += 1;
+
+    const targetVersion = args.packVersion || entry.version;
+    if (!entry.repo) {
+      throw new Error(
+        `Pack "${entry.pack_id}" has no repo in .specops.lock; --as-change needs a versioned pack repository.`
+      );
+    }
+
+    const current = resolveRemotePack({
+      repo: entry.repo,
+      version: entry.version,
+      cacheDir: args.cacheDir || undefined,
+    });
+    const target =
+      targetVersion === entry.version
+        ? current
+        : resolveRemotePack({
+            repo: entry.repo,
+            version: targetVersion,
+            cacheDir: args.cacheDir || undefined,
+          });
+
+    const derived = deriveDelta(current.packRoot, target.packRoot, entry.pack_id);
+
+    if (!derived.markdown) {
+      results.push({
+        pack_id: entry.pack_id,
+        current_version: entry.version,
+        target_version: targetVersion,
+        change: null,
+        summary: derived.summary,
+        message: "No requirement changed; nothing to review.",
+      });
+      continue;
+    }
+
+    const written = materialiseChange(projectDir, entry, targetVersion, derived, {
+      dryRun: args.dryRun,
+    });
+    results.push({
+      pack_id: entry.pack_id,
+      current_version: entry.version,
+      target_version: targetVersion,
+      change: written.changeId,
+      files: written.files,
+      summary: derived.summary,
+      dryRun: args.dryRun === true,
+    });
+  }
+
+  if (matched === 0) {
+    throw new Error(`No packs matched${args.pack ? ` --pack ${args.pack}` : ""}.`);
+  }
+
+  if (args.format === "json") {
+    process.stdout.write(
+      JSON.stringify({ project_dir: projectDir, changes: results }, null, 2) + "\n"
+    );
+    return;
+  }
+
+  for (const r of results) {
+    const header = `── ${r.pack_id} @ ${r.target_version}${
+      r.target_version !== r.current_version ? ` (current: ${r.current_version})` : ""
+    } ──`;
+    process.stdout.write(`\n${header}\n`);
+    if (!r.change) {
+      process.stdout.write(`  ${r.message}\n`);
+      continue;
+    }
+    for (const id of r.summary.added) process.stdout.write(`  + ${id}\n`);
+    for (const id of r.summary.modified) process.stdout.write(`  ~ ${id}\n`);
+    for (const id of r.summary.removed) process.stdout.write(`  - ${id}\n`);
+    process.stdout.write(
+      `\n  ${r.summary.added.length} added · ${r.summary.modified.length} modified · ` +
+        `${r.summary.removed.length} removed\n`
+    );
+    if (r.dryRun) {
+      process.stdout.write(`\n  Would create change '${r.change}' (dry run — nothing written).\n`);
+    } else {
+      process.stdout.write(`\n  Change '${r.change}' created:\n`);
+      for (const f of r.files) process.stdout.write(`    + ${f}\n`);
+      process.stdout.write(`\n  Review it, then: csda change validate ${r.change}\n`);
+    }
+  }
+  process.stdout.write("\n");
+}
+
 function main() {
   try {
     const args = parseArgs(process.argv.slice(2));
@@ -204,6 +323,11 @@ function main() {
     if (!Array.isArray(lock.packs) || lock.packs.length === 0) {
       error(".specops.lock has no pack entries.");
       process.exit(1);
+    }
+
+    if (args.asChange) {
+      runAsChange(args, projectDir, lock);
+      return;
     }
 
     const jsonOut = {
@@ -273,4 +397,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, diffDirs, walkFiles, buildExpandArgs };
+module.exports = { parseArgs, diffDirs, walkFiles, buildExpandArgs, runAsChange };
