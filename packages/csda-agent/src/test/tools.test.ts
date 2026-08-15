@@ -18,6 +18,7 @@ import {
   type FileScope,
 } from "../tools/files.js";
 import { formatResult, runCsda } from "../tools/exec.js";
+import { selectProvider } from "../engine/provider.js";
 
 function scopeIn(root: string): FileScope {
   return { root, additionalRoots: [], writable: DEFAULT_WRITABLE };
@@ -348,6 +349,69 @@ test("a refused path comes back as text the model can act on, not a crash", asyn
     const out = await read.run({ path: "../../../etc/passwd" } as any);
     assert.match(String(out), /^Refused:/);
     assert.match(String(out), /outside the project/);
+  } finally {
+    clean(root);
+  }
+});
+
+// ── provider selection ────────────────────────────────────────────────────────
+
+test("anthropic is chosen when its key is present", () => {
+  const choice = selectProvider(null, null, { ANTHROPIC_API_KEY: "x" } as any);
+  assert.equal(choice.id, "anthropic");
+  assert.equal(choice.model, "claude-opus-5");
+});
+
+test("openai is chosen when only its key is present", () => {
+  const choice = selectProvider(null, null, { OPENAI_API_KEY: "x" } as any);
+  assert.equal(choice.id, "openai");
+  assert.equal(choice.model, "gpt-5");
+});
+
+test("an explicit model overrides the provider default", () => {
+  const choice = selectProvider(null, "gpt-4.1", { OPENAI_API_KEY: "x" } as any);
+  assert.equal(choice.model, "gpt-4.1");
+});
+
+test("--provider never silently falls back to the other vendor", () => {
+  // A run that quietly used a different model than the one asked for is worse
+  // than a run that refused.
+  assert.throws(
+    () => selectProvider("openai", null, { ANTHROPIC_API_KEY: "x" } as any),
+    /OPENAI_API_KEY is not set/
+  );
+});
+
+test("no credentials at all is a clear error naming both variables", () => {
+  assert.throws(
+    () => selectProvider(null, null, {} as any),
+    (err: Error) => {
+      assert.match(err.message, /ANTHROPIC_API_KEY/);
+      assert.match(err.message, /OPENAI_API_KEY/);
+      return true;
+    }
+  );
+});
+
+test("both engines are handed the identical tool set", () => {
+  // The boundary is the tool surface, not the vendor: a tool that existed on
+  // one provider and not the other would make the guarantee provider-specific.
+  const root = tmp();
+  try {
+    const built = buildTools({
+      exec: { cliPath: path.join(root, "noop.js"), cwd: root },
+      scope: scopeIn(root),
+    });
+    assert.deepEqual(
+      built.map((t) => t.name).sort(),
+      [...TOOL_NAMES].sort()
+    );
+    // Every tool carries a JSON Schema, which is what lets one definition
+    // serve both vendors' envelopes.
+    for (const tool of built) {
+      assert.equal((tool as any).input_schema.type, "object");
+      assert.ok((tool as any).description.length > 20);
+    }
   } finally {
     clean(root);
   }

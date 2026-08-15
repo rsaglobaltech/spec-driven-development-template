@@ -19,6 +19,7 @@ export interface CliOptions {
   continueSession: boolean;
   engine: "toolrunner" | "scripted";
   cliPath: string | null;
+  provider: "anthropic" | "openai" | null;
   listTools: boolean;
   help: boolean;
   version: boolean;
@@ -54,6 +55,7 @@ const defaults = (cwd: string): CliOptions => ({
   continueSession: false,
   engine: "toolrunner",
   cliPath: null,
+  provider: null,
   listTools: false,
   help: false,
   version: false,
@@ -116,6 +118,14 @@ export function parseArgs(argv: string[], cwd = process.cwd()): CliOptions {
           throw new CliError(`--max-turns expects a positive integer, got "${raw}".`);
         }
         opts.maxTurns = parsed;
+        break;
+      }
+      case "--provider": {
+        const provider = need("--provider", argv[++i]);
+        if (provider !== "anthropic" && provider !== "openai") {
+          throw new CliError(`Unknown provider: ${provider}.`, "Expected: anthropic | openai.");
+        }
+        opts.provider = provider;
         break;
       }
       case "--cli-path":
@@ -183,6 +193,8 @@ export function helpText(): string {
         --max-turns <n>         Stop after n agent turns — a CI safety net.
         --resume <session-id>   Resume a previous session.
         --continue              Continue the most recent session.
+        --provider <p>          anthropic | openai. Auto-detected from
+                                ANTHROPIC_API_KEY / OPENAI_API_KEY.
         --cli-path <path>       Path to create-spec-driven-app.js (auto-detected).
         --list-tools            Print the agent's entire tool set and exit.
         --engine <e>            toolrunner | scripted (default: toolrunner).

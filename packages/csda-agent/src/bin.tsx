@@ -15,6 +15,8 @@ import * as path from "node:path";
 import { App } from "./tui/App.js";
 import { CliError, helpText, parseArgs } from "./cli.js";
 import { ToolRunnerAgentEngine } from "./engine/toolrunner-engine.js";
+import { OpenAIAgentEngine } from "./engine/openai-engine.js";
+import { selectProvider } from "./engine/provider.js";
 import { ScriptedAgentEngine } from "./engine/scripted-engine.js";
 import type { AgentEngine } from "./engine/types.js";
 import { runPrint } from "./print.js";
@@ -75,14 +77,24 @@ function buildEngine(options: ReturnType<typeof parseArgs>): AgentEngine {
     writable: DEFAULT_WRITABLE,
   };
 
+  const provider = selectProvider(options.provider, options.model);
+  const exec = { cliPath: resolveCliPath(options.cliPath, repoRoot), cwd: scope.root };
+
+  if (provider.id === "openai") {
+    return new OpenAIAgentEngine({
+      model: provider.model,
+      permissionMode: options.permissionMode,
+      scope,
+      exec,
+      maxIterations: options.maxTurns ?? undefined,
+    });
+  }
+
   return new ToolRunnerAgentEngine({
-    model: options.model ?? undefined,
+    model: provider.model,
     permissionMode: options.permissionMode,
     scope,
-    exec: {
-      cliPath: resolveCliPath(options.cliPath, repoRoot),
-      cwd: scope.root,
-    },
+    exec,
     maxIterations: options.maxTurns ?? undefined,
   });
 }
@@ -115,7 +127,15 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  const engine = buildEngine(options);
+  let engine: AgentEngine;
+  try {
+    engine = buildEngine(options);
+  } catch (err) {
+    // A missing key is a configuration problem with an obvious fix, not a
+    // stack trace.
+    process.stderr.write(`✖  ${err instanceof Error ? err.message : String(err)}\n`);
+    return 2;
+  }
 
   if (options.engine !== "scripted") {
     const cliPath = resolveCliPath(options.cliPath, findRepoRoot(options.cwd));

@@ -4,9 +4,15 @@
   "description": "Agentic CLI restricted to create-spec-driven-app: the tool set is the boundary.",
   "license": "MIT",
   "type": "module",
-  "bin": { "csda-agent": "dist/bin.js" },
-  "files": ["dist/"],
-  "engines": { "node": ">=20" },
+  "bin": {
+    "csda-agent": "dist/bin.js"
+  },
+  "files": [
+    "dist/"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
@@ -17,6 +23,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.0",
     "ink": "^7.1.1",
+    "openai": "^7.4.0",
     "react": "^19.0.0"
   },
   "devDependencies": {
