@@ -18,6 +18,17 @@ jobs:
           node-version: '20'
       - name: Validate specs (strict TDD)
         run: npx create-spec-driven-app@{{CSDA_VERSION}} validate . --strict-tdd
+      # Supply-chain gate: fails when the rendered pack content no longer
+      # matches the digest pinned in .specops.lock — a moved tag, a rewritten
+      # history, or a hand-edited generated file. Skipped when the project
+      # installs no packs.
+      - name: Check pack drift
+        run: |
+          if [ -f .specops.lock ]; then
+            npx create-spec-driven-app@{{CSDA_VERSION}} validate . --against-lock
+          else
+            echo "No .specops.lock — no packs installed, nothing to check."
+          fi
       - name: Export pending-work plan
         if: always()
         run: npx create-spec-driven-app@{{CSDA_VERSION}} plan --project-dir . --format json > spec-plan.json

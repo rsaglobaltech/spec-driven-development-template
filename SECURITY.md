@@ -37,6 +37,9 @@ Pre-1.0, only the latest minor gets fixes. Backports to an older minor are not
 promised; the upgrade path is forward. Once 1.0 ships, this table is replaced by
 the support policy in `docs/release-process.md`.
 
+The guarantees themselves — pinning, digests, signing, air-gapped installs and
+the SBOM — are documented in [docs/supply-chain.md](docs/supply-chain.md).
+
 ## What is in scope
 
 This is a CLI and a set of build-tool plugins. They read your repository, write

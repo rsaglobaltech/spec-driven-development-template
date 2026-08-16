@@ -19,6 +19,16 @@ steps:
   - script: npx create-spec-driven-app@{{CSDA_VERSION}} validate . --strict-tdd
     displayName: Validate specs (strict TDD)
 
+  # Supply-chain gate: fails when rendered pack content no longer matches the
+  # digest pinned in .specops.lock. Skipped when no packs are installed.
+  - script: |
+      if [ -f .specops.lock ]; then
+        npx create-spec-driven-app@{{CSDA_VERSION}} validate . --against-lock
+      else
+        echo "No .specops.lock — no packs installed, nothing to check."
+      fi
+    displayName: Check pack drift
+
   - script: npx create-spec-driven-app@{{CSDA_VERSION}} plan --project-dir . --format json > $(Build.ArtifactStagingDirectory)/spec-plan.json
     condition: always()
     displayName: Export pending-work plan

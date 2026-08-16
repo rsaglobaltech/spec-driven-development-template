@@ -67,7 +67,9 @@
     "verify": "npm run typecheck && npm run lint && npm test && npm run pack:dry-run && npm run selfcheck",
     "selfcheck": "node bin/create-spec-driven-app.js validate .",
     "docs:agent-contract": "node dist/scripts/gen_agent_contract.js",
-    "docs:agent-contract:check": "node dist/scripts/gen_agent_contract.js --check"
+    "docs:agent-contract:check": "node dist/scripts/gen_agent_contract.js --check",
+    "sbom": "npm sbom --sbom-format cyclonedx > sbom.cyclonedx.json",
+    "licenses": "npm run sbom && node dist/scripts/license_check.js --sbom sbom.cyclonedx.json"
   },
   "publishConfig": {
     "access": "public",

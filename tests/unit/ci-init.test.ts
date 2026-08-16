@@ -44,6 +44,9 @@ for (const { provider, dest, marker } of CASES) {
       assert.ok(content.includes(marker), `missing marker '${marker}'`);
       assert.match(content, /validate \. --strict-tdd/);
       assert.match(content, /plan --project-dir \. --format json/);
+      // The pack-drift gate, guarded so a project without packs is unaffected.
+      assert.match(content, /validate \. --against-lock/);
+      assert.match(content, /\.specops\.lock/);
       // Version is pinned, not 'latest', for reproducible CI.
       assert.ok(content.includes(`create-spec-driven-app@${PKG.version}`));
       // No unresolved template tokens.

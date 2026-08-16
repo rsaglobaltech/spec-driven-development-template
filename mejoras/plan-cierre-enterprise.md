@@ -645,12 +645,35 @@ y el goal `csda:validate` de Maven sobre un proyecto Java real.
 |---|---|---|
 | C9-01 | `[x]` | `SECURITY.md` + política de divulgación de vulnerabilidades — con *private vulnerability reporting* **activado** en el repo, para que el documento apunte a un canal que existe. Alcance explícito: packs maliciosos, traversal al renderizar, inyección de comandos, artefactos publicados y secretos de CI |
 | C9-02 | `[x]` | `CODEOWNERS` + `MAINTAINERS.md` + protección de `main` — ver §12.6 |
-| C9-03 | `[ ]` | Integridad y firma de packs (B5, llega en C0-05): documentar la política y activarla por defecto en CI |
-| C9-04 | `[ ]` | Modo offline / air-gap (B4, llega en C0-05): runbook operativo para redes cerradas |
+| C9-03 | `[x]` | Integridad y firma de packs (B5) documentadas en `docs/supply-chain.md`, y **la deriva de packs entra por defecto en el gate generado**: `ci init` emite `validate --against-lock` en los cuatro proveedores, condicionado a que exista `.specops.lock`. La **firma sigue opt-in a propósito** — ver §12.4 |
+| C9-04 | `[x]` | Modo offline / air-gap (B4): runbook en `docs/supply-chain.md`. Las dos vías, `CSDA_OFFLINE=1` contra caché y `pack bundle` para redes que nunca vieron el pack. Ninguna estaba documentada; `CSDA_OFFLINE` no aparecía en ningún doc |
 | C9-05 | `[ ]` | Telemetría opt-in con consentimiento explícito (R1 de `risk-mitigation-plan.md`, nunca implementada) |
-| C9-06 | `[ ]` | Matriz de licencias de dependencias + SBOM |
+| C9-06 | `[x]` | SBOM CycloneDX vía `npm sbom` (sin dependencia nueva) + `scripts/license_check.ts` como puerta de licencias, en el workflow de seguridad y como `npm run licenses`. Árbol actual: **377 componentes, todos permisivos, cero copyleft**. El gate se probó fallando, no solo pasando |
 | C9-07 | `[ ]` | Política de soporte y versionado: LTS, y ventana de compatibilidad del `schemaVersion` de los packs |
 | C9-08 | `[ ]` | Validar la guía de adopción L1–L4 (A5, llega en C0-05) con un equipo real |
+
+---
+
+## 12.4 Por qué la firma de packs sigue siendo opt-in (C9-03)
+
+El plan decía «activarla por defecto en CI». Al implementarlo resultó ser la
+decisión equivocada, así que se hizo la mitad que sí procede y se documentó por
+qué la otra no.
+
+**Lo que sí pasa a estar activo por defecto:** la deriva de packs.
+`csda ci init` emite ahora `validate --against-lock` en GitHub, GitLab, Azure y
+Jenkins, protegido con `if [ -f .specops.lock ]` para que un proyecto sin packs
+no vea ningún cambio. Esto no rompe a nadie: si tienes lockfile, la
+comprobación es exactamente lo que querías.
+
+**Lo que no:** `require_signed_packs: true` por defecto rompería a todo
+proyecto que instale un pack cuyos tags no estén firmados — **incluidos los
+diez packs curados de este mismo repositorio**. Un default que falla con un uso
+correcto enseña a la gente a desactivar la comprobación, y eso es peor que no
+tenerla. Se activa cuando tu organización firma sus propios packs, que es
+cuando el chequeo empieza a distinguir algo.
+
+Si algún día se firman los packs curados, la decisión se puede revisar.
 
 ---
 
