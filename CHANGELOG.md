@@ -5,6 +5,45 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
+## [Unreleased]
+
+### ⚠️ Breaking
+
+- **`plan --json` and `report --json` now use camelCase inside `requirements`.**
+  `0.2.0` announced the camelCase rename as a breaking change and applied it to
+  the top-level keys only. The nested `requirements` array — the one array an
+  agent actually iterates — kept `scenario_id`, `feature_file`,
+  `technical_artifact`, `test_artifact`, `feature_exists`, `technical_exists`
+  and `test_exists`. They are now `scenarioId`, `featureFile`,
+  `technicalArtifact`, `testArtifact`, `featureExists`, `technicalExists` and
+  `testExists`.
+
+  Half-applied was the worst of the three options: the contract document said
+  camelCase, the output disagreed, and nothing failed. The row objects keep
+  snake_case internally — that is the matrix's own column vocabulary — so the
+  rename happens at the emit boundary only.
+
+  `summary` and `byCategory` are still keyed by the category enum
+  (`NEEDS_IMPLEMENTATION` and friends). Those are values, not field names.
+
+### Added
+
+- **`--json` on `report`, `fix` and `req list`.** Twelve commands now honour
+  the agent contract, which is the figure `docs/agents.md` had been claiming.
+  `report --json` is shorthand for `--format json --stdout`; `fix --json`
+  requires `--yes` or `--dry-run`, because prompting an agent that never writes
+  to stdin is a hang rather than a question.
+- **`tests/unit/json-contract.test.ts`** — runs all twelve against a real
+  scaffolded project and asserts one parseable document on stdout, a `status`
+  array, and no snake_case field names at any depth.
+
+### Fixed
+
+- **`req list --json` printed the human table and ignored the flag.** Worse
+  than rejecting it: the caller believes it received a document. Empty matrix
+  cells (`-`, `TBD`) now emit as `null` rather than as strings an agent would
+  mistake for paths.
+
 ## [0.2.1] — 2026-08-16
 
 ### Fixed
@@ -42,7 +81,9 @@ and brownfield onboarding have all landed since.
   If you parse `plan --format json`, update those key names. The flag itself
   still works; `--json` is now accepted everywhere as the shorter spelling.
 
-- **`csda --help` shows eight commands, not twenty-one.** The full surface is
+- **`csda --help` shows nine commands, not twenty-four.** (This entry said
+  "eight, not twenty-one" until the numbers were counted in August 2026.) The
+  full surface is
   behind `--help --all`, or set it as the default with
   `csda config set profile full`.
 

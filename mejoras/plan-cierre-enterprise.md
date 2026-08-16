@@ -633,7 +633,55 @@ y el goal `csda:validate` de Maven sobre un proyecto Java real.
 | C8-02 | `[ ]` | Piloto HIE (`mejoras/hie-pilot-runbook.md`; los repos viven en `~/sandbox/projects/`, fuera de este árbol) |
 | C8-03 | `[ ]` | Case studies 2 y 3. Solo existe `docs/case-studies/case-1.md` |
 | C8-04 | `[ ]` | Vídeo demo de 90 s (P1-12, pendiente desde la fase 1) + vídeo del bucle bidireccional F1B — *ese vídeo no lo puede grabar ningún competidor* |
-| C8-05 | `[ ]` | Medir las métricas §9 del plan OpenSpec: TTFV < 5 min (hoy 25), comandos visibles ≤ 8 (hoy 25), `--json` en 12 comandos (hoy 1), ≥ 8 slash commands (hoy 0), README < 150 líneas (hoy 264) |
+| C8-05 | `[x]` | Métricas §9 medidas contra el disco, no estimadas. **3 de 5 cumplidas, 1 fallada, 1 no medible por máquina.** Medir destapó dos defectos reales — ver §11.1 |
+
+### 11.1 Las métricas §9, medidas (C8-05)
+
+Medidas el 2026-08-16 ejecutando el CLI contra un proyecto recién generado.
+
+| Métrica | Objetivo | Medido | |
+|---|---|---|---|
+| README | < 150 líneas | **138** | ✅ |
+| Herramientas de agente cubiertas | 8 | **8** (claude, cursor, copilot, windsurf, aider, gemini, cline, codex) | ✅ |
+| Comandos con `--json` | 12 | **12** tras esta fase; eran 9 | ✅ |
+| Comandos visibles en `--help` | ≤ 8 | **9** | ❌ |
+| Slash commands | ≥ 8 | **6** | ❌ |
+| TTFV | < 5 min | 0,33 s de máquina | — |
+
+**TTFV no lo puede medir una máquina.** `init` + `validate` + `status` tardan
+0,33 s en total; los cinco minutos son el tiempo de una persona leyendo y
+decidiendo. Necesita gente, igual que C9-08.
+
+**Los 9 comandos visibles** son `init`, `adopt`, `onboard`, `status`, `plan`,
+`req`, `change`, `validate`, `done`. Bajar a 8 significa esconder uno de esos
+nueve, y ninguno sobra. Además el CHANGELOG de 0.2.0 afirma «eight commands»:
+o se quita uno o se corrige la frase, pero hoy el documento miente.
+
+**Los 6 slash commands** (`explore`, `propose`, `apply`, `verify`, `archive`,
+`onboard`) son exactamente los que C3-06 especificó. La meta de 8 nunca se
+diseñó; llegar a ella pide dos comandos nuevos con motivo propio, no dos
+inventados para cuadrar una cifra.
+
+#### Lo que apareció al medir
+
+Medir no fue un trámite: destapó dos defectos que ningún test veía.
+
+1. **`req list --json` imprimía la tabla humana e ignoraba la bandera.** Peor
+   que rechazarla: quien llama cree que recibió un documento. `report`, `fix` y
+   `specops diff` sí la rechazaban con `Unknown flag`.
+2. **`plan --json` y `report --json` incumplían el contrato camelCase** dentro
+   de `requirements`, justo el array que un agente recorre. El 0.2.0 anunció la
+   normalización como *breaking* y la aplicó solo a las claves de primer nivel.
+   Medio aplicado era el peor de los tres estados posibles: el documento decía
+   camelCase, la salida decía otra cosa, y nada fallaba.
+
+Ambos corregidos, con `tests/unit/json-contract.test.ts` como guardián: ejecuta
+los doce comandos contra un proyecto real y exige un documento parseable, un
+array `status`, y cero claves snake_case a cualquier profundidad.
+
+**Pendientes:** `pack lint` y `specops diff` siguen sin `--json`. Son cirugía
+mayor —imprimen hallazgos y diffs, no un modelo— y hacerlos a medias habría
+sido peor que dejarlos anotados.
 
 ---
 

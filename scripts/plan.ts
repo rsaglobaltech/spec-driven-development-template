@@ -198,7 +198,7 @@ function emitJson(items, projectDir, orphans) {
           category: it.category,
           hint: hintFor(it),
         })),
-        requirements: items,
+        requirements: items.map(toCamelRequirement),
         orphanFeatures: orphans,
         status: [],
       },
@@ -206,6 +206,39 @@ function emitJson(items, projectDir, orphans) {
       2
     ) + "\n"
   );
+}
+
+/**
+ * Rows keep snake_case internally — that is the matrix column vocabulary, and
+ * every consumer inside the CLI reads it. The *contract* is camelCase
+ * (ADR-0017 §4), so the rename happens here, at the emit boundary, rather than
+ * rippling through the parser and every test that constructs a row.
+ *
+ * 0.2.0 announced this rename as breaking and applied it only to the top-level
+ * keys; the nested requirements kept snake_case, which made the contract
+ * document false for the one array an agent actually iterates.
+ */
+function toCamelRequirement(item) {
+  const {
+    scenario_id,
+    feature_file,
+    technical_artifact,
+    test_artifact,
+    feature_exists,
+    technical_exists,
+    test_exists,
+    ...rest
+  } = item;
+  return {
+    ...rest,
+    scenarioId: scenario_id,
+    featureFile: feature_file,
+    technicalArtifact: technical_artifact,
+    testArtifact: test_artifact,
+    featureExists: feature_exists,
+    technicalExists: technical_exists,
+    testExists: test_exists,
+  };
 }
 
 function hintFor(item) {

@@ -21,6 +21,8 @@ import * as readline from "node:readline/promises";
 import { spawnSync } from "node:child_process";
 const { resolveProjectDir } = require("./lib/project-root");
 const { parseTraceability } = require("./plan");
+const { agentIo, wantsJson } = require("./lib/agent");
+const { error } = require("./lib/diagnostics");
 
 const DONE_SCRIPT = path.join(__dirname, "done.js");
 
@@ -206,9 +208,36 @@ function readMatrix(tracePath) {
   return fs.readFileSync(tracePath, "utf8");
 }
 
-function cmdList(tracePath) {
+/**
+ * A matrix cell that carries information, or `null`. The placeholders `-` and
+ * `TBD` mean "not filled in yet" — emitting them as strings would make an
+ * agent treat an empty cell as a path.
+ */
+function meaningfulCell(value) {
+  if (!value || value === "-" || String(value).toUpperCase() === "TBD") return null;
+  return value;
+}
+
+function cmdList(tracePath, io?) {
   const rows = parseTraceability(readMatrix(tracePath));
   const reqs = rows.filter((r) => /^REQ-\d+/.test(r.requirement || ""));
+
+  // `req list --json` used to print the human table and ignore the flag, which
+  // is worse than rejecting it: an agent asks for a document and gets prose.
+  if (io && io.json) {
+    io.emit({
+      requirements: reqs.map((r) => ({
+        id: r.requirement || null,
+        scenarioId: r.scenarioId || null,
+        status: r.status || "Draft",
+        featureFile: meaningfulCell(r.featureFile),
+        testArtifact: meaningfulCell(r.testArtifact),
+        technicalArtifact: meaningfulCell(r.technicalArtifact),
+      })),
+    });
+    return 0;
+  }
+
   if (reqs.length === 0) {
     process.stdout.write(
       `\n  ${c.dim}No requirements yet. Add one: csda req add "…"${c.reset}\n\n`
@@ -219,7 +248,7 @@ function cmdList(tracePath) {
     `\n  ${c.bold}📝 Requirements${c.reset} ${c.dim}(${reqs.length})${c.reset}\n\n`
   );
   for (const r of reqs) {
-    const meaningful = (v) => v && v !== "-" && v.toUpperCase() !== "TBD";
+    const meaningful = (v) => meaningfulCell(v) !== null;
     process.stdout.write(
       `    ${c.cyan}${(r.requirement || "").padEnd(9)}${c.reset} ${c.dim}${r.scenarioId || ""}${c.reset}  ${statusColor(r.status)}${r.status || "Draft"}${c.reset}\n`
     );
@@ -391,26 +420,38 @@ async function main() {
   const noPrompt = argv.includes("--yes");
   if (noPrompt) argv.splice(argv.indexOf("--yes"), 1);
 
+  const io = agentIo(wantsJson(argv));
+  // Strip the flag before sub-command dispatch, which treats a leading dash as
+  // an unknown argument.
+  for (const flag of ["--json"]) {
+    const i = argv.indexOf(flag);
+    if (i !== -1) argv.splice(i, 1);
+  }
+
   const explicitDir = extractProjectDir(argv);
   let projectDir;
   try {
     projectDir = resolveProjectDir(explicitDir);
   } catch (err: any) {
-    process.stderr.write(`${err.message}\n`);
-    process.exit(2);
+    io.usage({ requirements: [] }, [
+      error("no_project", err.message, {
+        fix: "Run from inside a spec-driven project, or pass --project-dir <path>.",
+      }),
+    ]);
+    return;
   }
   const tracePath = path.join(projectDir, "docs/specs/traceability.md");
 
   const sub = argv[0];
   let code;
   if (!sub) {
-    if (process.stdin.isTTY && process.stdout.isTTY && !noPrompt) {
+    if (process.stdin.isTTY && process.stdout.isTTY && !noPrompt && !io.json) {
       code = await interactive(tracePath, projectDir);
     } else {
-      code = cmdList(tracePath);
+      code = cmdList(tracePath, io);
     }
   } else if (sub === "list") {
-    code = cmdList(tracePath);
+    code = cmdList(tracePath, io);
   } else if (sub === "add") {
     code = cmdAdd(tracePath, argv.slice(1));
   } else if (sub === "link") {

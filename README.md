@@ -78,9 +78,10 @@ domain model. Install it, pin it, upgrade it deliberately — and review the
 upgrade as intent with `specops diff --as-change`, not as a file diff.
 → [Domain packs](docs/domain-packs.md)
 
-**An agent surface that is a contract.** Every command speaks JSON with stable
-diagnostic codes and a `fix` on each. `csda agents init` wires the loop into
-eight agent tools from one definition.
+**An agent surface that is a contract.** Twelve commands speak JSON with stable
+diagnostic codes and a `fix` on each — every command of the daily loop, and a
+test asserts it. `csda agents init` wires the loop into eight agent tools from
+one definition.
 → [Agents](docs/agents.md) · [The agent contract](docs/specs/agent-contract.md)
 
 **Unattended delivery.** `csda harness run` drives plan → agent → verify → done

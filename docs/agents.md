@@ -1,7 +1,12 @@
 # Agents
 
-Every command speaks JSON, and the loop can be driven entirely from Claude
-Code, Cursor, Copilot, Windsurf, Aider, Gemini, Cline or Codex.
+Twelve commands speak JSON — `status`, `plan`, `validate`, `report`, `doctor`,
+`fix`, `req list`, `change`, `schema which`, `onboard`, `update` and `done` —
+and the loop can be driven entirely from Claude Code, Cursor, Copilot,
+Windsurf, Aider, Gemini, Cline or Codex.
+
+`pack lint` and `specops diff` do not yet, and will say so rather than printing
+prose at a caller that asked for a document.
 
 ---
 

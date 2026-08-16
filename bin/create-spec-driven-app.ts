@@ -123,7 +123,7 @@ function usageCore() {
       cmd("✅", "validate", "The gate: structure, traceability, Gherkin, TDD.") +
       cmd("✔", "done", "Mark a requirement Implemented.") +
       section("MORE") +
-      `    ${c.dim}Thirteen more commands cover packs, automation, agents and reporting.${c.reset}\n` +
+      `    ${c.dim}Fifteen more commands cover packs, automation, agents and reporting.${c.reset}\n` +
       `    ${c.green}csda --help --all${c.reset}${c.dim}                    show every command${c.reset}\n` +
       `    ${c.green}csda config set profile full${c.reset}${c.dim}         make that the default${c.reset}\n` +
       section("EXAMPLES") +
