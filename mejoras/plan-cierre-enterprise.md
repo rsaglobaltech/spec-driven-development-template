@@ -555,7 +555,7 @@ corren en CI; Dependabot cubre npm, actions, Maven y Gradle.
 |---|---|---|
 | C7-01 | `[x]` | `CHANGELOG.md` **escrito** en la fase 5, con el cambio incompatible de camelCase registrado mientras estaba fresco. Falta changesets |
 | C7-02 | `[x]` | Preparar la release **0.2.0**: tres meses de features sin publicar — ciclo `change`, `specops contribute`, `diff --as-change`, F1B, más todo lo que entra en C0-05 |
-| C7-03 | `[~]` | **Bloqueado por credencial.** La cadena entera está verificada —dry-run verde, suite completa, tarball firmado con provenance— pero el `PUT` al registry devuelve `404`, que es como npm dice «este token no puede publicar aquí». El secreto `NPM_TOKEN` es del 2026-05-13. Requiere un Automation token nuevo con permiso de publicación |
+| C7-03 | `[~]` | **`0.2.0-beta.1` publicada** bajo dist-tag `beta`, con provenance, y verificada instalándola desde npm. `latest` sigue en `0.1.4` a propósito. Falta promover a `latest` cuando la beta se haya usado de verdad |
 | C7-04 | `[ ]` | Docker: primer push a ghcr.io con `Dockerfile.cli` + `publish-docker.yml` (llegan en C0-05). Documentar el uso en pipelines de cliente |
 | C7-05 | `[ ]` | Maven: publicar `packages/maven-plugin`. Requiere groupId, firma GPG y cuenta OSSRH — o Nexus/Artifactory interno |
 | C7-06 | `[ ]` | Gradle: publicar `packages/gradle-plugin` en el Gradle Plugin Portal o repo interno |
@@ -585,12 +585,17 @@ source maps sin fuentes. 326 → 187 ficheros, 461 → 277 kB. Iba así desde 0.
 sin el prefijo `git+` en la URL del repositorio, y el LSP apuntando a
 `spec-driven-template` — un repositorio que no existe.
 
-**El único bloqueo es la credencial.** El publish real falló con
+**Publicado el 2026-08-16:** `create-spec-driven-app@0.2.0-beta.1`, dist-tag
+`beta`, con provenance firmado. Instalada desde npm en un proyecto limpio y
+ejercitada: `validate`, `status --json`, `change new`, `change instructions`,
+`agents init`, `onboard` y `schema which` funcionan. **`latest` sigue en
+`0.1.4`** — promoverla es una decisión aparte, y conviene que alguien use la
+beta antes.
+
+El primer intento falló con
 `404 Not Found - PUT`, que en npm significa que el token no tiene permiso sobre
-el paquete. Nada se publicó: `latest` sigue en `0.1.4` y no hay `0.2.0-beta.1`
-parcial. Para desbloquear: crear un **Automation token** en npmjs.com con acceso
-de publicación a `create-spec-driven-app` y reemplazar el secreto `NPM_TOKEN`
-del repositorio.
+el paquete —no que el paquete no exista—. Nada quedó a medias. Resuelto rotando
+`NPM_TOKEN`.
 
 **Gate de salida:** desde una máquina limpia funcionan
 `npx create-spec-driven-app@latest --help`,
@@ -685,6 +690,27 @@ cerrado la fase 8 de facto sin decidirlo.
 Las citas que quedaban en ADR-0014 y ADR-0019 se anotaron en vez de borrarse:
 un ADR es registro permanente, y una cita que el lector no puede seguir es peor
 que ninguna.
+
+---
+
+## 12.8 Decisión pendiente — destinos de distribución bloqueados por credenciales
+
+*Abierta desde el 2026-08-16. No la decido yo: cada uno necesita una cuenta o
+un secreto que solo tú puedes crear.*
+
+Para cada uno puedo dejar el workflow y el paso a paso listos, de modo que solo
+haya que añadir el secreto y lanzarlo. Ninguno está empezado.
+
+| ID | Destino | Qué hace falta |
+|---|---|---|
+| C7-05 | Maven Central | Cuenta OSSRH (o Nexus interno), `groupId` verificado y clave GPG para firmar. No existe workflow todavía |
+| C7-06 | Gradle Plugin Portal | Key y secret del Portal, o un repositorio interno. Tampoco existe workflow |
+| C7-07 | VS Code Marketplace | Cuenta de *publisher* en Azure DevOps y un PAT. El `.vsix` ya se construye; falta el `vsce publish` |
+| C7-08 | npm scope `@spec-driven` | El scope **no existe** en npm. Hay que crearlo (gratis para paquetes públicos) antes de poder publicar `mcp-server` y `lsp-server` |
+| C7-09 | `packs.spec-driven.dev` | El dominio, y la variable de repositorio `SITE_CNAME`. `gh-pages` ya publica correctamente sin él |
+
+> **Nota sobre C7-08:** los dos paquetes ya empaquetan bien —se arregló en
+> C6-03— así que el único bloqueo es que el scope no existe.
 
 ---
 
