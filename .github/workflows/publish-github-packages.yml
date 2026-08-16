@@ -92,7 +92,11 @@ jobs:
           find scripts -maxdepth 1 -type f -name "*.cjs" -exec chmod +x {} +
 
       - name: Run test suite
-        run: npm test
+        # The full suite, not the 37 E2E cases. A release that ships without
+        # the unit, BDD and package suites having run is a release nobody
+        # checked — and a tag push does not trigger ci.yml, which filters on
+        # branches.
+        run: npm run test:all
 
       - name: Validate npm package contents
         run: npm run pack:dry-run

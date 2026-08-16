@@ -91,9 +91,9 @@ configuración o de sincronía tras la migración a TypeScript.
 
 | # | Hallazgo | Ficheros |
 |---|---|---|
-| 1 | `mutation:pilot` está muerto: apunta a `.js` que ya no existen. CI no lo detecta porque no lo ejecuta | `stryker.config.mjs:3,9` |
-| 2 | `js-yaml` se usa pero **no está declarado**; resuelve por hoist transitivo de eslint | `packages/vscode-spec-driven/src/{pack-validator,pack-graph}.ts`, `package.json` |
-| 3 | Los **cuatro** `packages/*/package.json` apuntan `bin`/`main`/`files` a `src/*.js`, que nunca existe — la salida va al `dist/` de raíz. Publicarlos hoy enviaría paquetes vacíos. `pack-registry` además lista un `templates/` inexistente. El LSP recuperado en C0-11 hereda el mismo defecto | `packages/*/package.json` |
+| 1 | ~~`mutation:pilot` está muerto~~ — **resuelto en C6-01**: apunta a `dist/`, corre semanalmente, baseline 51,32 % | `stryker.config.mjs` |
+| 2 | ~~`js-yaml` no declarado~~ — **resuelto en C6-02**, y fijado a `^4.3.1` porque el rango anterior era vulnerable | `package.json` |
+| 3 | ~~Los cuatro `packages/*/package.json` apuntan a `src/*.js`~~ — **resuelto en C6-03**. Antes: apuntaban a `src/*.js`, que nunca existe — la salida va al `dist/` de raíz. Publicarlos hoy enviaría paquetes vacíos. `pack-registry` además lista un `templates/` inexistente. El LSP recuperado en C0-11 hereda el mismo defecto | `packages/*/package.json` |
 | 4 | Afirma que shellcheck corre en CI; no existe tal step | `CONTRIBUTING.md:119` |
 | 5 | Los workflows de publish disparan con tags `v*`, pero los tags existentes son `0.1.4` y `0.1.0-beta.1` (sin `v`) → **nunca han disparado** | `.github/workflows/publish-*.yml` |
 | 6 | Los workflows de publish gatean con `npm test` (37 tests E2E), no con `test:all` | idem |
@@ -502,17 +502,46 @@ por debajo de 300 líneas.
 
 | ID | | Tarea |
 |---|---|---|
-| C6-01 | `[ ]` | Arreglar `stryker.config.mjs:3,9` para apuntar a `dist/`, o retirar el pilot. Si se conserva, añadirlo a CI (semanal); si no, dejar de anunciarlo |
-| C6-02 | `[ ]` | Declarar `js-yaml` en `package.json`. Hoy resuelve por accidente vía eslint: una actualización de eslint rompe CI con un `MODULE_NOT_FOUND` incomprensible |
-| C6-03 | `[ ]` | Corregir `bin`/`main`/`files` de los **cuatro** `packages/*/package.json` (incluido `lsp-spec-driven`); borrar el `templates/` inexistente de `pack-registry`. **Bloquea C7-07 y C7-08** |
-| C6-04 | `[ ]` | Windows en CI: subir de `test:unit` a E2E + BDD, o documentar la limitación y corregir `traceability.md` en consecuencia |
-| C6-05 | `[ ]` | Añadir el step de shellcheck que `CONTRIBUTING.md` ya promete (ver C1-09) |
-| C6-06 | `[ ]` | Los workflows de publish gatean con `test:all`, no con `npm test` |
-| C6-07 | `[ ]` | Normalizar la convención de tags a `vX.Y.Z`. Los workflows disparan con `v*` y los tags existentes no lo llevan: la ruta de publicación por tag nunca se ha ejecutado |
-| C6-08 | `[ ]` | Dependabot + CodeQL + `npm audit` en CI. Requisito habitual de adopción corporativa |
+| C6-01 | `[x]` | Arreglar `stryker.config.mjs:3,9` para apuntar a `dist/`, o retirar el pilot. Si se conserva, añadirlo a CI (semanal); si no, dejar de anunciarlo |
+| C6-02 | `[x]` | Declarar `js-yaml` en `package.json`. Hoy resuelve por accidente vía eslint: una actualización de eslint rompe CI con un `MODULE_NOT_FOUND` incomprensible |
+| C6-03 | `[x]` | Corregir `bin`/`main`/`files` de los **cuatro** `packages/*/package.json` (incluido `lsp-spec-driven`); borrar el `templates/` inexistente de `pack-registry`. **Bloquea C7-07 y C7-08** |
+| C6-04 | `[x]` | Windows en CI: subir de `test:unit` a E2E + BDD, o documentar la limitación y corregir `traceability.md` en consecuencia |
+| C6-05 | `[x]` | Añadir el step de shellcheck que `CONTRIBUTING.md` ya promete (ver C1-09) |
+| C6-06 | `[x]` | Los workflows de publish gatean con `test:all`, no con `npm test` |
+| C6-07 | `[x]` | Normalizar la convención de tags a `vX.Y.Z`. Los workflows disparan con `v*` y los tags existentes no lo llevan: la ruta de publicación por tag nunca se ha ejecutado |
+| C6-08 | `[x]` | Dependabot + CodeQL + `npm audit` en CI. Requisito habitual de adopción corporativa |
 
-**Gate de salida:** un push del tag `v0.2.0-rc.1` dispara la cadena completa y llega
-hasta publish en dry-run sin fallar.
+### 9.1 Lo que salió al hacerla
+
+- **`pack-registry` no es un paquete.** Importa `scripts/domain-pack/common` del
+  CLI, así que no puede publicarse por separado — pero se declaraba con `bin`,
+  `main` y `files` como si sí. Marcado `private: true` y descrito por lo que es:
+  herramienta interna de build del sitio del registry.
+- **Los otros tres sí lo son, y ahora empaquetan de verdad.** Cada uno compila
+  su `src/` en su propio `dist/` con un `tsconfig.build.json`, y `prepack` lo
+  ejecuta. Verificado con `npm pack --dry-run`: antes los tarballs iban sin un
+  solo `.js`.
+- **El MCP server anunciaba `0.0.0` por el cable.** Su `require` del
+  `package.json` usaba una ruta relativa que solo resolvía en el layout de la
+  raíz. Ahora sube buscándolo, funciona en ambos, y hay test.
+- **Stryker resucitado, con dato real: 51,32 %** (5 minutos, `common.js` +
+  `delta.js`). Corre semanalmente, no por PR, y `break: 0` sigue puesto — fallar
+  un build por un número que aún no es estable sería ruido, y este repo ya ha
+  quitado bastantes checks que gritaban en falso. Sin fichero de resultados
+  commiteado: el anterior se borró justo por quedarse rancio.
+- **`npm audit` encontró 3 vulnerabilidades altas**, incluida una en `js-yaml`
+  —la dependencia que acababa de declarar en este mismo commit—. `^4.1.0` habría
+  dejado que una instalación limpia aterrizara en el rango vulnerable
+  (4.0.0–4.3.0); fijado a `^4.3.1`. Quedan 2 moderadas en `qs` vía
+  `@vscode/vsce`, por debajo del umbral.
+- **Publicar sin changelog ya no es posible.** `0.1.4` estuvo tres meses sin
+  publicar y sin notas; el workflow ahora falla si `CHANGELOG.md` no menciona la
+  versión.
+
+**Gate de salida:** ✅ **pasado el 2026-08-16.** `npm pack --dry-run` produce
+tarballs con JS real en los tres paquetes publicables; los workflows de publish
+gatean con `test:all`; shellcheck, `npm audit --audit-level=high` y CodeQL
+corren en CI; Dependabot cubre npm, actions, Maven y Gradle.
 
 ---
 

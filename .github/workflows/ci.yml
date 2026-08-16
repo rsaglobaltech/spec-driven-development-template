@@ -26,6 +26,14 @@ jobs:
       - name: Prettier
         run: npm run format:check
 
+      # CONTRIBUTING promised this for months while it did not exist. Only the
+      # demo recording helpers are shell now — ADR-0008 removed the rest — but a
+      # claim in the contributor guide should be true.
+      - name: ShellCheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck --severity=warning $(git ls-files '*.sh')
+
   # ── Cross-platform test matrix ───────────────────────────────────────────────
   test:
     name: Test (${{ matrix.os }} / Node ${{ matrix.node }})

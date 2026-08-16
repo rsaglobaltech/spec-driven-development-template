@@ -84,3 +84,13 @@ test("missingVariables names what still has to be supplied", () => {
   assert.deepEqual(missingVariables(dir, offenders), ["DOMAIN", "PROJECT_NAME"]);
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test("generated report output is not scanned", () => {
+  // The Stryker HTML report embeds mutated source, template tokens included.
+  const dir = withTree({
+    "reports/mutation/mutation.html": "<pre>{{PROJECT_NAME}}</pre>\n",
+    "spec.md": "# Clean\n",
+  });
+  assert.deepEqual(findUnresolvedPlaceholders(dir), []);
+  fs.rmSync(dir, { recursive: true, force: true });
+});

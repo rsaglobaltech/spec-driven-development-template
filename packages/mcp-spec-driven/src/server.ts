@@ -15,9 +15,44 @@
 const { TOOLS } = require("./tools");
 
 const PROTOCOL_VERSION = "2024-11-05";
+
+/**
+ * This file is compiled into two layouts: the repository's root `dist/` for the
+ * test suite, and the package's own `dist/` for publishing. A fixed relative
+ * path to package.json resolves in one and not the other, so walk up for it.
+ */
+function packageVersion() {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  let dir = __dirname;
+  for (let i = 0; i < 6; i++) {
+    const candidate = path.join(dir, "package.json");
+    if (fs.existsSync(candidate)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(candidate, "utf8"));
+        if (pkg.name === "@spec-driven/mcp-server") return pkg.version;
+        // Reached the repository root instead: the manifest is beside it, not
+        // above the compiled file, because the root build flattens into dist/.
+        if (pkg.name === "create-spec-driven-app") {
+          const sibling = path.join(dir, "packages", "mcp-spec-driven", "package.json");
+          if (fs.existsSync(sibling)) {
+            return JSON.parse(fs.readFileSync(sibling, "utf8")).version;
+          }
+        }
+      } catch {
+        // Keep walking — a malformed manifest above us is not ours.
+      }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return "0.0.0";
+}
+
 const SERVER_INFO = {
   name: "mcp-spec-driven",
-  version: require("../../../../packages/mcp-spec-driven/package.json").version,
+  version: packageVersion(),
 };
 
 // ── JSON-RPC framing over stdio ──────────────────────────────────────────────────

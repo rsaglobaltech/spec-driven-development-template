@@ -5,10 +5,10 @@
   "license": "MIT",
   "type": "commonjs",
   "bin": {
-    "mcp-spec-driven": "src/server.js"
+    "mcp-spec-driven": "dist/server.js"
   },
   "files": [
-    "src/",
+    "dist/",
     "README.md"
   ],
   "engines": {
@@ -19,12 +19,22 @@
     "url": "https://github.com/rsaglobaltech/spec-driven-development-template.git",
     "directory": "packages/mcp-spec-driven"
   },
-  "keywords": ["mcp", "model-context-protocol", "spec-driven", "claude", "cursor", "aider"],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "spec-driven",
+    "claude",
+    "cursor",
+    "aider"
+  ],
   "scripts": {
     "test": "node --test test/unit/*.test.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0"
-  }
+    "js-yaml": "^4.3.1"
+  },
+  "main": "dist/server.js"
 }

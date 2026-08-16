@@ -30,7 +30,7 @@
     "workspaceContains:**/pack.yaml",
     "workspaceContains:spec.md"
   ],
-  "main": "./src/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
@@ -98,7 +98,7 @@
     }
   },
   "dependencies": {
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.3.1",
     "ajv": "^8.17.1"
   },
   "devDependencies": {
@@ -107,6 +107,12 @@
   },
   "scripts": {
     "package": "npx @vscode/vsce package --no-dependencies",
-    "test:unit": "node --test test/unit/*.test.js"
-  }
+    "test:unit": "node --test test/unit/*.test.js",
+    "build": "tsc -p tsconfig.build.json",
+    "vscode:prepublish": "npm run build"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ]
 }

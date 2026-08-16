@@ -91,7 +91,11 @@ jobs:
           find scripts -maxdepth 1 -type f -name "*.cjs" -exec chmod +x {} +
 
       - name: Run test suite
-        run: npm test
+        # The full suite, not the 37 E2E cases. A release that ships without
+        # the unit, BDD and package suites having run is a release nobody
+        # checked — and a tag push does not trigger ci.yml, which filters on
+        # branches.
+        run: npm run test:all
 
       - name: Validate npm package contents
         run: npm run pack:dry-run
@@ -112,6 +116,18 @@ jobs:
             echo "dist_tag=${{ github.event.inputs.dist_tag }}" >> "$GITHUB_OUTPUT"
             echo "dry_run=${{ github.event.inputs.dry_run }}" >> "$GITHUB_OUTPUT"
           fi
+
+      # 0.1.4 sat unreleased for three months with no notes. A version nobody
+      # wrote down is a version nobody can audit.
+      - name: Check the changelog mentions this version
+        run: |
+          VERSION="${{ steps.package_metadata.outputs.version }}"
+          if ! grep -qF "$VERSION" CHANGELOG.md; then
+            echo "CHANGELOG.md has no entry for $VERSION." >&2
+            echo "Add one before releasing — see docs/release-process.md." >&2
+            exit 1
+          fi
+          echo "CHANGELOG.md mentions $VERSION."
 
       - name: Check package version availability
         if: steps.publish_settings.outputs.dry_run != 'true'

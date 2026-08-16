@@ -8,6 +8,8 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const { handleMessage, readMessage } = require("../../src/server");
 
@@ -144,4 +146,23 @@ test("handleMessage notifications/initialized produces no output", () => {
     handleMessage({ jsonrpc: "2.0", method: "notifications/initialized" })
   );
   assert.equal(output, "");
+});
+
+test("the server reports its real version, in either build layout", () => {
+  // This file compiles into two places: the repository's root dist/ for tests
+  // and the package's own dist/ for publishing. A fixed relative path to
+  // package.json resolved in one and not the other, and the server silently
+  // announced 0.0.0 over the wire.
+  const pkg = JSON.parse(
+    fs.readFileSync(
+      path.join(__dirname, "../../../../../packages/mcp-spec-driven/package.json"),
+      "utf8"
+    )
+  );
+  const output = captureStdout(() =>
+    handleMessage({ jsonrpc: "2.0", id: 99, method: "initialize", params: {} })
+  );
+  const response = parseFramed(output);
+  assert.equal(response.result.serverInfo.version, pkg.version);
+  assert.notEqual(response.result.serverInfo.version, "0.0.0");
 });

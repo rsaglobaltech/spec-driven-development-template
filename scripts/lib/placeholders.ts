@@ -37,6 +37,9 @@ const SKIP_DIRS = new Set([
   "out",
   "target",
   "coverage",
+  // Generated reports — mutation HTML embeds mutated source, template tokens
+  // and all.
+  "reports",
   "vendor",
   ".git",
   ".next",
