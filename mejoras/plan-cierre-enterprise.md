@@ -643,14 +643,35 @@ y el goal `csda:validate` de Maven sobre un proyecto Java real.
 
 | ID | | Tarea |
 |---|---|---|
-| C9-01 | `[ ]` | `SECURITY.md` + política de divulgación de vulnerabilidades |
-| C9-02 | `[ ]` | `CODEOWNERS` + `MAINTAINERS.md` |
+| C9-01 | `[x]` | `SECURITY.md` + política de divulgación de vulnerabilidades — con *private vulnerability reporting* **activado** en el repo, para que el documento apunte a un canal que existe. Alcance explícito: packs maliciosos, traversal al renderizar, inyección de comandos, artefactos publicados y secretos de CI |
+| C9-02 | `[x]` | `CODEOWNERS` + `MAINTAINERS.md` + protección de `main` — ver §12.6 |
 | C9-03 | `[ ]` | Integridad y firma de packs (B5, llega en C0-05): documentar la política y activarla por defecto en CI |
 | C9-04 | `[ ]` | Modo offline / air-gap (B4, llega en C0-05): runbook operativo para redes cerradas |
 | C9-05 | `[ ]` | Telemetría opt-in con consentimiento explícito (R1 de `risk-mitigation-plan.md`, nunca implementada) |
 | C9-06 | `[ ]` | Matriz de licencias de dependencias + SBOM |
 | C9-07 | `[ ]` | Política de soporte y versionado: LTS, y ventana de compatibilidad del `schemaVersion` de los packs |
 | C9-08 | `[ ]` | Validar la guía de adopción L1–L4 (A5, llega en C0-05) con un equipo real |
+
+---
+
+## 12.6 Gobierno de `main` (C9-02)
+
+*Decidido el 2026-08-16, al pasar a trabajar con ramas cortas.*
+
+A partir de aquí cada unidad de trabajo va en su rama con PR. `main` está
+protegida: no se puede empujar directo, no se puede forzar, no se puede borrar,
+y los checks de CI son obligatorios.
+
+**Las revisiones aprobatorias están deliberadamente desactivadas.** Con un solo
+mantenedor, exigir una aprobación significa que nadie puede mergear nada —
+GitHub no deja aprobar tu propio PR. La puerta que de verdad protege `main` aquí
+es la suite, y esa sí es obligatoria. Cuando entre un segundo mantenedor se
+activan las revisiones y se borra este párrafo; está anotado igual en
+`MAINTAINERS.md` y en `CONTRIBUTING.md` para que la excepción no se lea como
+descuido.
+
+Lo que se exige está en la tabla de *Required checks* de `CONTRIBUTING.md`, que
+es la lista real y no una copia que se desincroniza.
 
 ---
 
