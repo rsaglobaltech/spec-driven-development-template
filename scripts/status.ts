@@ -154,9 +154,10 @@ function emitJson(projectDir, summary, lock) {
         total: counts.total,
         pending,
         counts,
-        orphan_features: orphans,
+        orphanFeatures: orphans,
         packs: lock && lock.packs ? lock.packs : [],
-        next_command: nextCommandPlain(summary),
+        nextCommand: nextCommandPlain(summary),
+        status: [],
       },
       null,
       2

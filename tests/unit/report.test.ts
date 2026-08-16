@@ -70,7 +70,7 @@ test("buildReport computes implemented percentage from DONE requirements", () =>
   assert.equal(r.total, 2);
   assert.equal(r.implemented, 1);
   assert.equal(r.pending, 1);
-  assert.equal(r.implemented_pct, 50);
+  assert.equal(r.implementedPct, 50);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -91,7 +91,7 @@ test("buildReport lists REQs whose test artifact is missing", () => {
     }
   );
   const r = buildReport(dir);
-  assert.deepEqual(r.needs_test, ["REQ-002"]);
+  assert.deepEqual(r.needsTest, ["REQ-002"]);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -108,7 +108,7 @@ test("buildReport reports orphan feature files on disk", () => {
     }
   );
   const r = buildReport(dir);
-  assert.deepEqual(r.orphan_features, ["features/core/orphan.feature"]);
+  assert.deepEqual(r.orphanFeatures, ["features/core/orphan.feature"]);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -116,7 +116,7 @@ test("buildReport handles an empty matrix without dividing by zero", () => {
   const dir = mkProject([]);
   const r = buildReport(dir);
   assert.equal(r.total, 0);
-  assert.equal(r.implemented_pct, 0);
+  assert.equal(r.implementedPct, 0);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -131,7 +131,7 @@ test("readSpecops flags a missing baseline as drift when packs are present", () 
   const s = readSpecops(dir);
   assert.equal(s.used, true);
   assert.equal(s.packs[0].pack, "healthcare-hie/backend");
-  assert.equal(s.baseline_present, false);
+  assert.equal(s.baselinePresent, false);
   assert.match(s.drift[0], /baseline/);
   fs.rmSync(dir, { recursive: true, force: true });
 });
@@ -144,7 +144,7 @@ test("readSpecops reports no drift when baseline exists", () => {
   );
   fs.mkdirSync(path.join(dir, ".specops", "baseline"), { recursive: true });
   const s = readSpecops(dir);
-  assert.equal(s.baseline_present, true);
+  assert.equal(s.baselinePresent, true);
   assert.deepEqual(s.drift, []);
   fs.rmSync(dir, { recursive: true, force: true });
 });
@@ -165,11 +165,11 @@ test("renderHtml is self-contained — no external requests", () => {
     total: 1,
     implemented: 1,
     pending: 0,
-    implemented_pct: 100,
-    by_category: { DONE: 1 },
-    needs_test: [],
-    orphan_features: [],
-    specops: { used: false, packs: [], baseline_present: true, drift: [] },
+    implementedPct: 100,
+    byCategory: { DONE: 1 },
+    needsTest: [],
+    orphanFeatures: [],
+    specops: { used: false, packs: [], baselinePresent: true, drift: [] },
     requirements: [
       {
         requirement: "REQ-001",
@@ -197,11 +197,11 @@ test("renderHtml escapes requirement values", () => {
     total: 1,
     implemented: 0,
     pending: 1,
-    implemented_pct: 0,
-    by_category: {},
-    needs_test: ["REQ-001"],
-    orphan_features: [],
-    specops: { used: false, packs: [], baseline_present: true, drift: [] },
+    implementedPct: 0,
+    byCategory: {},
+    needsTest: ["REQ-001"],
+    orphanFeatures: [],
+    specops: { used: false, packs: [], baselinePresent: true, drift: [] },
     requirements: [
       {
         requirement: "<script>x</script>",
@@ -219,20 +219,16 @@ test("renderHtml escapes requirement values", () => {
 });
 
 test("renderJson round-trips the report structure", () => {
-  const report = { total: 3, implemented_pct: 66.7 };
+  const report = { total: 3, implementedPct: 66.7 };
   const parsed = JSON.parse(renderJson(report));
   assert.equal(parsed.total, 3);
-  assert.equal(parsed.implemented_pct, 66.7);
+  assert.equal(parsed.implementedPct, 66.7);
 });
 
 test("sparkline draws a polyline only with 2+ history points", () => {
   assert.equal(sparkline([]), "");
-  assert.equal(sparkline([{ implemented_pct: 50 }]), "");
-  const svg = sparkline([
-    { implemented_pct: 0 },
-    { implemented_pct: 50 },
-    { implemented_pct: 100 },
-  ]);
+  assert.equal(sparkline([{ implementedPct: 50 }]), "");
+  const svg = sparkline([{ implementedPct: 0 }, { implementedPct: 50 }, { implementedPct: 100 }]);
   assert.match(svg, /<svg/);
   assert.match(svg, /<polyline/);
 });

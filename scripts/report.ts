@@ -61,10 +61,10 @@ function buildReport(projectDir) {
     total,
     implemented,
     pending: total - implemented,
-    implemented_pct: implementedPct,
-    by_category: byCategory,
-    needs_test: needsTest,
-    orphan_features: orphans,
+    implementedPct: implementedPct,
+    byCategory: byCategory,
+    needsTest: needsTest,
+    orphanFeatures: orphans,
     specops: readSpecops(projectDir),
     requirements: items,
   };
@@ -73,7 +73,7 @@ function buildReport(projectDir) {
 function readSpecops(projectDir) {
   const lockPath = path.join(projectDir, ".specops.lock");
   if (!fs.existsSync(lockPath)) {
-    return { used: false, packs: [], baseline_present: true, drift: [] };
+    return { used: false, packs: [], baselinePresent: true, drift: [] };
   }
   const drift = [];
   let packs = [];
@@ -94,7 +94,7 @@ function readSpecops(projectDir) {
       pack: p.pack || p.name || "(unknown)",
       version: p.version || p.ref || "",
     })),
-    baseline_present: baselinePresent,
+    baselinePresent: baselinePresent,
     drift,
   };
 }
@@ -110,7 +110,7 @@ function readHistory(projectDir) {
     if (!t) continue;
     try {
       const e = JSON.parse(t);
-      if (typeof e.implemented_pct === "number") out.push(e);
+      if (typeof e.implementedPct === "number") out.push(e);
     } catch {
       /* skip malformed history line */
     }
@@ -125,7 +125,7 @@ function appendHistory(projectDir, report, now) {
     ts: now.toISOString(),
     total: report.total,
     implemented: report.implemented,
-    implemented_pct: report.implemented_pct,
+    implementedPct: report.implementedPct,
   };
   fs.appendFileSync(file, JSON.stringify(entry) + "\n");
 }
@@ -150,7 +150,7 @@ const CATEGORY_LABELS = {
 };
 
 function sparkline(history) {
-  const pts = history.map((h) => h.implemented_pct);
+  const pts = history.map((h) => h.implementedPct);
   if (pts.length < 2) return "";
   const w = 240;
   const h = 40;
@@ -180,7 +180,7 @@ function tile(value, label, tone = "") {
 function renderHtml(report, opts) {
   const generatedAt = (opts && opts.generatedAt) || new Date();
   const history = (opts && opts.history) || [];
-  const pct = report.implemented_pct;
+  const pct = report.implementedPct;
   const projectName = path.basename(report.projectDir);
 
   const rows = report.requirements
@@ -212,8 +212,8 @@ function renderHtml(report, opts) {
         : `<p class="ok-line">✓ No specops drift detected.</p>`)
     : "";
 
-  const orphanBlock = report.orphan_features.length
-    ? `<h2>Orphan feature files</h2><ul class="drift">${report.orphan_features
+  const orphanBlock = report.orphanFeatures.length
+    ? `<h2>Orphan feature files</h2><ul class="drift">${report.orphanFeatures
         .map((f) => `<li><code>${esc(f)}</code></li>`)
         .join("")}</ul>`
     : "";
@@ -288,8 +288,8 @@ function renderHtml(report, opts) {
     ${tile(pct + "%", "Implemented", pctTone)}
     ${tile(report.implemented, "Done")}
     ${tile(report.pending, "Pending")}
-    ${tile(report.needs_test.length, "Missing a test", report.needs_test.length ? "warn" : "good")}
-    ${tile(report.orphan_features.length, "Orphan features", report.orphan_features.length ? "bad" : "good")}
+    ${tile(report.needsTest.length, "Missing a test", report.needsTest.length ? "warn" : "good")}
+    ${tile(report.orphanFeatures.length, "Orphan features", report.orphanFeatures.length ? "bad" : "good")}
   </div>
   <div class="bar"><span style="width:${pct}%"></span></div>
   ${trendBlock}
@@ -401,7 +401,7 @@ function main() {
     fs.writeFileSync(outPath, output);
     process.stdout.write(
       `📊 Wrote ${path.relative(projectDir, outPath) || outPath} — ` +
-        `${report.implemented_pct}% implemented (${report.implemented}/${report.total}).\n`
+        `${report.implementedPct}% implemented (${report.implemented}/${report.total}).\n`
     );
   }
   process.exit(0);

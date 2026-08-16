@@ -71,6 +71,9 @@ jobs:
       - name: Run LSP server unit tests
         run: npm run test:lsp-unit
 
+      - name: Check the agent contract document is not stale
+        run: npm run docs:agent-contract:check
+
       # The tool has to pass its own gate. spec.md's success criteria claim it
       # does; before this step, nothing checked.
       - name: Validate this repository against its own spec gate

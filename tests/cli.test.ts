@@ -463,7 +463,7 @@ test("plan --format json returns a stable, parseable structure", () => {
   assert.equal(parsed.schemaVersion, 1);
   assert.ok(parsed.projectDir);
   assert.ok(Array.isArray(parsed.requirements));
-  assert.ok(Array.isArray(parsed.orphan_features));
+  assert.ok(Array.isArray(parsed.orphanFeatures));
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
 

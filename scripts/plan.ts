@@ -193,13 +193,14 @@ function emitJson(items, projectDir, orphans) {
         total: items.length,
         pending: items.length - (summary.DONE || 0),
         summary,
-        next_steps: next.map((it) => ({
+        nextSteps: next.map((it) => ({
           requirement: it.requirement,
           category: it.category,
           hint: hintFor(it),
         })),
         requirements: items,
-        orphan_features: orphans,
+        orphanFeatures: orphans,
+        status: [],
       },
       null,
       2
