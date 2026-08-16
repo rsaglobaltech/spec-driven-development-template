@@ -154,5 +154,6 @@ Releases are automated via GitHub Actions (`publish-npm.yml`). To cut a release:
 3. Open a PR targeting `main` with the version bump.
 4. After merge, tag `vX.Y.Z` on `main` — the publish workflow fires automatically.
 
-**Pre-release versions** (`0.x.x-beta.N`) may be published from the `develop` branch
-using the `publish-github-packages.yml` workflow.
+**Pre-release versions** (`0.x.x-beta.N`) are published from a feature branch by
+running the `publish-github-packages.yml` workflow manually (`workflow_dispatch`)
+with `dist_tag: beta`.

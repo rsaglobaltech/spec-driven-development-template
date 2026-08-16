@@ -202,9 +202,11 @@ function renderHtml(report, opts) {
     .join("\n");
 
   const specopsBlock = report.specops.used
-    ? `<h2>Domain packs</h2><p>${report.specops.packs
-        .map((p) => `<code>${esc(p.pack)}</code> ${esc(p.version)}`)
-        .join(", ") || "—"}</p>` +
+    ? `<h2>Domain packs</h2><p>${
+        report.specops.packs
+          .map((p) => `<code>${esc(p.pack)}</code> ${esc(p.version)}`)
+          .join(", ") || "—"
+      }</p>` +
       (report.specops.drift.length
         ? `<ul class="drift">${report.specops.drift.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>`
         : `<p class="ok-line">✓ No specops drift detected.</p>`)
@@ -385,14 +387,13 @@ function main() {
 
   const history = readHistory(projectDir);
   const output =
-    opts.format === "json"
-      ? renderJson(report)
-      : renderHtml(report, { generatedAt: now, history });
+    opts.format === "json" ? renderJson(report) : renderHtml(report, { generatedAt: now, history });
 
   if (opts.stdout) {
     process.stdout.write(output);
   } else {
-    const defaultOut = opts.format === "json" ? "reports/spec-coverage.json" : "reports/spec-coverage.html";
+    const defaultOut =
+      opts.format === "json" ? "reports/spec-coverage.json" : "reports/spec-coverage.html";
     const outPath = path.isAbsolute(opts.out || defaultOut)
       ? opts.out || defaultOut
       : path.join(projectDir, opts.out || defaultOut);

@@ -14,7 +14,13 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { buildReport, renderHtml, renderJson, readSpecops, sparkline } = require("../../scripts/report");
+const {
+  buildReport,
+  renderHtml,
+  renderJson,
+  readSpecops,
+  sparkline,
+} = require("../../scripts/report");
 
 const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
@@ -74,7 +80,15 @@ test("buildReport lists REQs whose test artifact is missing", () => {
       richRow("REQ-001", "features/core/a.feature", "src/A.js", "src/A.test.js", "Draft"),
       richRow("REQ-002", "features/core/b.feature", "src/B.js", "src/MISSING.test.js", "Draft"),
     ],
-    { files: ["features/core/a.feature", "src/A.js", "src/A.test.js", "features/core/b.feature", "src/B.js"] }
+    {
+      files: [
+        "features/core/a.feature",
+        "src/A.js",
+        "src/A.test.js",
+        "features/core/b.feature",
+        "src/B.js",
+      ],
+    }
   );
   const r = buildReport(dir);
   assert.deepEqual(r.needs_test, ["REQ-002"]);
@@ -214,7 +228,11 @@ test("renderJson round-trips the report structure", () => {
 test("sparkline draws a polyline only with 2+ history points", () => {
   assert.equal(sparkline([]), "");
   assert.equal(sparkline([{ implemented_pct: 50 }]), "");
-  const svg = sparkline([{ implemented_pct: 0 }, { implemented_pct: 50 }, { implemented_pct: 100 }]);
+  const svg = sparkline([
+    { implemented_pct: 0 },
+    { implemented_pct: 50 },
+    { implemented_pct: 100 },
+  ]);
   assert.match(svg, /<svg/);
   assert.match(svg, /<polyline/);
 });

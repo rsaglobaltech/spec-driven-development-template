@@ -39,17 +39,22 @@
 
 Comprobado contra el disco y el árbol de git el 2026-08-16. No repetir este análisis.
 
-### 2.1 Ramas
+### 2.1 Ramas — **resuelto en la fase 0**
 
-| Rama | Commits únicos vs `main` | Acción |
+Estado final tras C0-07: el remoto tiene **`main` y `feature/daily-ux-roadmap`**, y
+nada más. Todo lo demás está en `main` o preservado en un tag `archive/*`.
+
+| Tag de archivo | Qué preserva | Motivo |
 |---|---|---|
-| `feat/change-lifecycle` (HEAD) | 4 | mergear — `main` es ancestro, fast-forward |
-| `origin/feature/enterprise-adoption` | 19 | mergear — base de merge = `main`, ya es TypeScript |
-| `origin/feat/csda-agent` | 4 | archivar (D2) |
-| `origin/feat/agent-cli` | 3 | archivar (D2) |
-| `origin/codex/runtime-env-docker-devcontainer` | 1 | evaluar o archivar |
-| `feature/typescript-migration` · `feature/sdd-ddd-lite-evolution` · `feat/specops-conflict-detection` | 0 | podar, ya están en `main` |
-| `origin/develop` | 1 único, 136 detrás | resincronizar desde `main` o eliminar |
+| `archive/agent-cli` | REPL agéntico, F1 + F2 | Fuera de alcance (D2) |
+| `archive/csda-agent` | Agente acotado a `csda`, multi-proveedor | Fuera de alcance (D2) |
+| `archive/runtime-env` | Scaffolding de runtime pre-TypeScript | Se porta como C0-09 (D6) |
+| `archive/specops-remote-packs` | `specops sync`/`diff` inicial (M2) | Superseded por `scripts/specops/` |
+| `archive/demo-video` | Primer vídeo de demo | Superseded por `scripts/demo/` |
+| `archive/gh-pages-legacy` | Rama `gh-pages` local, nunca en el remoto | El sitio vive en `docs/` y despliega vía `pages.yml` |
+
+**`feature/daily-ux-roadmap` sigue viva y sin triar** — 10 commits que solapan
+directamente con las fases 3, 4 y 5 de este plan. Ver C0-10.
 
 **Merge verificado con `git merge-tree`:**
 `main` + `enterprise-adoption` = **limpio**.
@@ -105,23 +110,40 @@ configuración o de sincronía tras la migración a TypeScript.
 
 | ID | | Tarea | Detalle |
 |---|---|---|---|
-| C0-01 | `[ ]` | Limpiar residuo local **antes** de mergear | `packages/gradle-plugin/{.gradle,build,gradle}` sin versionar colisiona con el árbol de la rama enterprise. Borrar y añadir `.gradle/` y `build/` al `.gitignore` |
-| C0-02 | `[ ]` | Arreglar la landing | `docs/app.js` está borrado sin commit pero `docs/index.html:393` lo carga. Restaurar el fichero (`git checkout -- docs/app.js`) o quitar el `<script>`. La landing está publicada en Pages: es un bug en producción |
-| C0-03 | `[ ]` | Confirmar el borrado de `mejoras/agent-cli-plan.md` | Coherente con D2. Commitear el borrado |
-| C0-04 | `[ ]` | `feat/change-lifecycle` → `main` | Fast-forward, 4 commits |
-| C0-05 | `[ ]` | `feature/enterprise-adoption` → `main` | Conflicto único conocido: `bin/create-spec-driven-app.ts`. Fusionar ambas tablas de dispatch y ambos `usage()`: los 9 comandos actuales + `adopt`, `doctor`, `alm`, `ci`, `report` |
-| C0-06 | `[ ]` | Reconstruir limpio | `rm -rf dist coverage && npm ci && npm run build` |
-| C0-07 | `[ ]` | Podar y archivar ramas | Ver §2.1. Archivar `feat/agent-cli` y `feat/csda-agent` como tags `archive/agent-cli` y `archive/csda-agent` **antes** de borrar las ramas |
-| C0-08 | `[ ]` | Decidir `develop` | Está 136 commits detrás de `main` con 1 commit único. O se resincroniza, o se elimina y `main` pasa a ser la única línea. Anotar la decisión en §12 |
+| C0-01 | `[x]` | Limpiar residuo local **antes** de mergear | `packages/gradle-plugin/` local resultó ser solo directorios vacíos de build (0 B, nada versionado). Borrado; `.gradle/`, `build/`, `target/` e `.idea/` ignorados. Commit `f356698` |
+| C0-02 | `[x]` | Arreglar la landing | `docs/app.js` restaurado — implementa los botones «copiar» de `docs/index.html:393`. Era un borrado accidental |
+| C0-03 | `[x]` | Confirmar el borrado de `mejoras/agent-cli-plan.md` | Coherente con D2. Commit `b366dcc` |
+| C0-04 | `[x]` | `feat/change-lifecycle` → `main` | Fast-forward de 4 commits |
+| C0-05 | `[x]` | `feature/enterprise-adoption` → `main` | Commit `75e45b9`. Dos conflictos, ambos triviales (`bin/create-spec-driven-app.ts` CORE COMMANDS y `.gitignore`), resueltos por unión. **La rama traía dos defectos reales**: ver §3.1 |
+| C0-06 | `[x]` | Reconstruir limpio | `rm -rf dist coverage && npm run build` |
+| C0-07 | `[x]` | Podar y archivar ramas | 14 ramas remotas borradas, 6 tags `archive/*` creados y pusheados. El remoto queda con `main` y `feature/daily-ux-roadmap` |
+| C0-08 | `[x]` | Decidir `develop` | Eliminada (D5). `ci.yml` ya no la filtra y `CONTRIBUTING.md` §7 describe las pre-releases vía `workflow_dispatch` |
+| C0-09 | `[ ]` | **Portar el scaffolding de runtime a TypeScript** | El commit `44975df` (preservado en `archive/runtime-env`) añade Docker Compose, devcontainer y `.env.*` multi-entorno a los proyectos generados. Es pre-migración: toca `tests/cli.test.js` y los scripts `.sh` que ADR-0008 eliminó. Hay que reescribirlo sobre el código actual, no mergearlo (D6). Es la base del capítulo 6.1 de `IMPROVEMENTS.md` |
+| C0-10 | `[ ]` | **Triar `feature/daily-ux-roadmap`** | 10 commits que solapan con fases 3–5: `--json` global (C3-02), `csda completion` (C5-02), `config init` y `csda docs` (C4-04/C4-06), `csda status`, `csda req`, modo estricto de TypeScript, servidor LSP e IntelliJ. Decidir por commit qué se recupera antes de reimplementar nada de esas fases — o se duplica trabajo ya escrito |
 
-**Gate de salida:**
+### 3.1 Defectos que llegaron con la rama enterprise
+
+Su CI nunca corrió en verde. Ambos arreglados dentro del merge `75e45b9`:
+
+- `tests/unit/report.test.ts:27` — `extra = {}` se infería como `{}`, así que
+  `extra.files` no tipaba y **rompía el build entero**.
+- `tests/cli.test.ts:908` — el fixture de `--pr-cmd` envolvía la ruta del log en
+  backticks de `String.raw`. El harness ejecuta `--pr-cmd` a través de una shell, que
+  leía esos backticks como sustitución de comandos: la ruta se ejecutaba como comando
+  y la aserción del propio test no podía cumplirse nunca. La ruta pasa ahora por `argv`.
+
+**Gate de salida:** ✅ **pasado el 2026-08-16**
 
 ```bash
-npm run verify && npm run test:all      # verde sobre main
-git status --porcelain                  # vacío
-node bin/create-spec-driven-app.js --help | grep -c .   # 14 comandos listados
-node bin/create-spec-driven-app.js change list          # responde, no exit 3
+npm run verify        # exit 0
+npm run test:all      # 567 tests: 38 E2E · 428 unit · 22 escenarios BDD · 42 vscode · 23 mcp · 10 registry · 4 snapshot
+git status --porcelain    # vacío
+node bin/create-spec-driven-app.js --help   # 14 comandos de primer nivel, 22 entradas con subcomandos
+node bin/create-spec-driven-app.js change list --project-dir .   # responde (no exit 3)
 ```
+
+> C0-09 y C0-10 quedan abiertos: aparecieron durante la ejecución de la fase y no
+> bloquean el gate, pero **C0-10 debe cerrarse antes de empezar la fase 3**.
 
 ---
 
@@ -324,3 +346,7 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | 2026-08-16 | agent-cli y csda-agent fuera de alcance (D2) | No aportan al objetivo de uso enterprise; se archivan como tags |
 | 2026-08-16 | Distribución: npm público + Docker/ghcr + Maven/Gradle (D3) | Cubre las dos audiencias reales: equipos Node y equipos Java |
 | 2026-08-16 | Se crea este fichero como punto de partida único | El trabajo estaba repartido en seis documentos con marcadores contradictorios |
+| 2026-08-16 | `main` es la única línea de integración; `develop` eliminada (D5) | Llevaba 136 commits de retraso y su único commit propio era el de la rama codex. El repo ya trabajaba con ramas `feature/*` directas a `main` |
+| 2026-08-16 | El scaffolding de runtime se porta a TypeScript, no se mergea (D6) | El commit original es pre-ADR-0008: toca `tests/cli.test.js` y scripts `.sh` que ya no existen. Preservado en `archive/runtime-env` |
+| 2026-08-16 | Las ramas muertas se archivan como tags `archive/*` antes de borrarlas | Deja el remoto legible sin perder historia. 6 tags creados |
+| 2026-08-16 | `feature/daily-ux-roadmap` se conserva sin triar | Sus 10 commits solapan con las fases 3–5; triarla (C0-10) antes de reimplementar nada de ellas |
