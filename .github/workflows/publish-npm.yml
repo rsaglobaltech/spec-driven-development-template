@@ -122,12 +122,15 @@ jobs:
       - name: Check the changelog mentions this version
         run: |
           VERSION="${{ steps.package_metadata.outputs.version }}"
-          if ! grep -qF "$VERSION" CHANGELOG.md; then
-            echo "CHANGELOG.md has no entry for $VERSION." >&2
+          # A prerelease is documented by the release it leads to: requiring an
+          # entry per beta would be noise, and would push people to skip betas.
+          RELEASE="${VERSION%%-*}"
+          if ! grep -qF "$RELEASE" CHANGELOG.md; then
+            echo "CHANGELOG.md has no entry for $RELEASE." >&2
             echo "Add one before releasing — see docs/release-process.md." >&2
             exit 1
           fi
-          echo "CHANGELOG.md mentions $VERSION."
+          echo "CHANGELOG.md mentions $RELEASE (publishing $VERSION)."
 
       - name: Check package version availability
         if: steps.publish_settings.outputs.dry_run != 'true'
