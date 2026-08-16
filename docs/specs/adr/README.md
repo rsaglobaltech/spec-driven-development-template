@@ -26,6 +26,7 @@ for the policy on when and how to write an ADR.
 | [0016](0016-delta-spec-format.md)              | Delta spec format — ADDED / MODIFIED / REMOVED          | Accepted               | 2026-08-15 |
 | [0017](0017-agent-json-contract.md)            | The agent JSON contract                                 | Accepted               | 2026-08-15 |
 | [0018](0018-artifact-schemas.md)               | Artifact schemas — a dependency graph, not a phase gate | Accepted               | 2026-08-15 |
+| [0019](0019-studio-surface.md)                 | One studio surface — `csda studio`, not a standalone app | Accepted              | 2026-08-16 |
 
 ## Template
 

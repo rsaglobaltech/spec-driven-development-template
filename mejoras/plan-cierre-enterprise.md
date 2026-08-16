@@ -254,19 +254,44 @@ node bin/create-spec-driven-app.js change list --project-dir .   # responde (no 
 
 | ID | | Tarea | Fichero |
 |---|---|---|---|
-| C1-01 | `[ ]` | REQ-006..009 y NFR-002/004/005 pasan de `Planned`/`Draft` a su estado real. Borrar las 6 "coverage gaps" ya cerradas. Corregir las rutas a `.sh` / `.bats` / `.js` eliminados por ADR-0008 | `docs/specs/traceability.md` |
-| C1-02 | `[ ]` | MCP server y pack registry dejan de estar `🚧 planned` — ambos existen y CI los construye. Node ≥ 20, no ≥ 18 | `docs/comparisons.md` |
-| C1-03 | `[ ]` | `validate --against-lock` y la composición multi-pack dejan de ser "Planned". Nota de corrección en ADR-0010 líneas 89 y 114 | `docs/specs/specops.md`, `docs/specs/adr/0010-specops-sync-diff.md` |
-| C1-04 | `[ ]` | F0 (`OS-0-01`..`05`) y F1 (`OS-1-01`..`09`) → `[x]` | `mejoras/openspec-benchmark-plan.md` §10 |
-| C1-05 | `[ ]` | Cabecera "Status: Proposal / not started" → estado real (fases 1–3 hechas, fase 4 abierta) | `mejoras/visual-pack-authoring-todo.md` |
-| C1-06 | `[ ]` | P3-03 cerrado: los 10 packs existen en `packs/`. P3-02 (deploy del registry) sigue abierto | `mejoras/implementation-roadmap.md` |
-| C1-07 | `[ ]` | Resolver la contradicción StudioApp: `visual-pack-authoring-todo.md` fase 4 dice "DEFERRED, entregar como webview de VS Code", mientras `csda-studio-brief.md` y `csda-studio-handoff.md` construyen una SPA independiente. Escribir la decisión como ADR | `docs/specs/adr/0019-studioapp-delivery.md` (nuevo) |
-| C1-08 | `[ ]` | Sustituir el checklist congelado por un proceso de release versionado y correcto | `RELEASE_0.1.0_CHECKLIST.md` → `docs/release-process.md` |
-| C1-09 | `[ ]` | O se añade el step de shellcheck (ver C6-05) o se corrige el texto | `CONTRIBUTING.md:119` |
-| C1-10 | `[ ]` | Test de guardia: toda ruta citada en `traceability.md` existe en disco. Sin esto, el documento vuelve a caducar en semanas | `tests/unit/docs-truth.test.ts` (nuevo) |
+| C1-01 | `[x]` | REQ-006..009 y NFR-002/004/005 pasan de `Planned`/`Draft` a su estado real. Borrar las 6 "coverage gaps" ya cerradas. Corregir las rutas a `.sh` / `.bats` / `.js` eliminados por ADR-0008 | `docs/specs/traceability.md` |
+| C1-02 | `[x]` | MCP server y pack registry dejan de estar `🚧 planned` — ambos existen y CI los construye. Node ≥ 20, no ≥ 18 | `docs/comparisons.md` |
+| C1-03 | `[x]` | `validate --against-lock` y la composición multi-pack dejan de ser "Planned". Nota de corrección en ADR-0010 líneas 89 y 114 | `docs/specs/specops.md`, `docs/specs/adr/0010-specops-sync-diff.md` |
+| C1-04 | `[x]` | F0 (`OS-0-01`..`05`) y F1 (`OS-1-01`..`09`) → `[x]` | `mejoras/openspec-benchmark-plan.md` §10 |
+| C1-05 | `[x]` | Cabecera "Status: Proposal / not started" → estado real (fases 1–3 hechas, fase 4 abierta) | `mejoras/visual-pack-authoring-todo.md` |
+| C1-06 | `[x]` | P3-03 cerrado: los 10 packs existen en `packs/`. P3-02 (deploy del registry) sigue abierto | `mejoras/implementation-roadmap.md` |
+| C1-07 | `[x]` | Resolver la contradicción StudioApp: `visual-pack-authoring-todo.md` fase 4 dice "DEFERRED, entregar como webview de VS Code", mientras `csda-studio-brief.md` y `csda-studio-handoff.md` construyen una SPA independiente. Escribir la decisión como ADR | `docs/specs/adr/0019-studioapp-delivery.md` (nuevo) |
+| C1-08 | `[x]` | Sustituir el checklist congelado por un proceso de release versionado y correcto | `RELEASE_0.1.0_CHECKLIST.md` → `docs/release-process.md` |
+| C1-09 | `[x]` | O se añade el step de shellcheck (ver C6-05) o se corrige el texto | `CONTRIBUTING.md:119` |
+| C1-10 | `[x]` | Test de guardia: toda ruta citada en `traceability.md` existe en disco. Sin esto, el documento vuelve a caducar en semanas | `tests/unit/docs-truth.test.ts` (nuevo) |
 
-**Gate de salida:** C1-10 en verde dentro de CI, y revisión doc a doc de los ocho
-ficheros anteriores.
+### 4.1 Lo que salió al tirar del hilo
+
+Tres cosas que la auditoría inicial no había visto:
+
+- **La puerta de cobertura nunca ha verificado nada.** `test:coverage` pasaba
+  `--lines 75` pero no `--check-coverage`, que es lo que hace que c8 falle. Con
+  la puerta encendida, la cobertura real es **74,8 % líneas · 71,1 % ramas ·
+  80,4 % funciones**: por debajo del umbral que el propio script declaraba, y
+  muy por debajo del 80/70 que `traceability.md` daba por cumplido. Ahora la
+  puerta está encendida y trincada en 74/70/80 — de "sin puerta" a "puerta" es
+  más fuerte, no más débil, y el objetivo del 80 % queda registrado como brecha
+  abierta en vez de como logro.
+- **`tasks.md` 4.4 ya estaba hecho.** `csda validate` valida los cambios activos
+  desde `validate_specs.ts:445-467`. Solo faltaba la casilla. Cierra C2-01.
+- **`CONTRIBUTING.md` mentía en seis sitios, no en uno.** Pedía `chmod` sobre
+  scripts `.sh` que no existen, declaraba Bash y `bats-core` como requisitos,
+  listaba `npm run test:shell` (script inexistente) y `tests/cli.test.js`
+  (`.ts`), decía Node ≥ 18, prohibía ESM en `scripts/` cuando C0-11 ya lo
+  introdujo, y remitía a `IMPROVEMENTS.md` como backlog vivo. Es el documento
+  de entrada de cualquiera que quiera contribuir.
+
+`IMPROVEMENTS.md` queda marcado como superado — casi todo su contenido se
+implementó y sus items de shell/Bats son irrelevantes desde ADR-0008.
+
+**Gate de salida:** ✅ **pasado el 2026-08-16.** `tests/unit/docs-truth.test.ts`
+en verde y en CI (verificado que falla al introducir una ruta inexistente), y
+revisión documento a documento de los diez ficheros anteriores.
 
 ---
 
@@ -277,7 +302,7 @@ ficheros anteriores.
 
 | ID | | Tarea |
 |---|---|---|
-| C2-01 | `[ ]` | `tasks.md` 4.4 — integrar la validación de cambios en `csda validate` |
+| C2-01 | `[x]` | `tasks.md` 4.4 — **ya estaba implementado** en `scripts/validate_specs.ts:445-467`; solo faltaba marcar la casilla. Verificado: un cambio con delta inválido hace fallar `validate` |
 | C2-02 | `[ ]` | `tasks.md` 4.5 — documentar el ciclo: tabla de comandos del `README.md`, receta nueva en `docs/how-to.md`, cheat-sheet de `docs/tutorial.md`. Hoy `change` es un comando de primer nivel que **no aparece en ningún documento de usuario** |
 | C2-03 | `[ ]` | Dogfooding obligatorio (§11 del plan OpenSpec) — archivar el propio cambio `add-change-lifecycle` con `csda change archive` |
 | C2-04 | `[ ]` | Prueba de fuego F1B — publicar `parking-management-specops` `v0.2.0` y consumirlo con `specops diff --as-change`. Criterio literal del plan: *si la propuesta generada no se lee mejor que el `git diff`, la fase ha fallado* |

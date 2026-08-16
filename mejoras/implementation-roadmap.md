@@ -669,7 +669,7 @@ shell legacy. Investment: **2.5 FTE × 6 months**.
 
 ---
 
-#### **P3-03 — Ten curated packs**  🚧 5 of 10 done (auth, billing, audit-log, notifications, feature-flags); 5 remaining (multi-tenant, file-storage, search, reporting, webhooks)
+#### **P3-03 — Ten curated packs**  ✅ Done — all ten ship in `packs/` (auth, billing, audit-log, notifications, feature-flags, multi-tenant, file-storage, search, reporting, webhooks), plus `sample-contracts`. `npm run registry:build` lints every one in CI and exits non-zero on failure.
 
 - **Source:** RISK R2 (P2)
 - **Owner:** LEAD + DA
@@ -853,7 +853,7 @@ spreadsheets.
 
 - [x] P3-01 Remove legacy shell scripts (CLI is pure Node — see ADR-0008)
 - [x] P3-02 Public pack registry _(generator + 5 verified packs ready; deployment to packs.spec-driven.dev is operational)_
-- [x] P3-03 Ten curated packs _(5 of 10 authored; remaining: multi-tenant, file-storage, search, reporting, webhooks)_
+- [x] P3-03 Ten curated packs _(all ten authored and linted in CI)_
 - [x] P3-04 MCP server (`packages/mcp-spec-driven/`, 5 tools)
 - [x] P3-05 ROI calculator + comparisons (`docs/roi.html`, `docs/comparisons.md`)
 - [x] P3-06 ADR cadence policy + PR template
@@ -912,7 +912,7 @@ follow-up:
 | **Demo video for P1-12** | Recording/editing video is outside automation scope. The README rewrite is done; the video is a marketing asset. | DA + DSG |
 | **VS Code Marketplace publish (P2-10)** | Requires a Marketplace publisher account and a manual `vsce publish`. The .vsix is buildable today via `npm run package` in `packages/vscode-spec-driven`. | LEAD |
 | **packs.spec-driven.dev deployment (P3-02)** | Domain registration + Cloudflare Pages config. Generator and 5 verified packs are committed; CI builds them on every push. | LEAD + DSG |
-| **5 remaining curated packs (P3-03)** | multi-tenant, file-storage, search, reporting, webhooks. Each follows the same pattern as auth/billing/audit-log; ~1 PD per pack. | LEAD |
+| ~~5 remaining curated packs (P3-03)~~ | **Closed 2026-08-16** — all ten exist in `packs/` and are linted by `registry:build` in CI. | — |
 | **MCP server npm publish (P3-04)** | `@spec-driven/mcp-server` is functional; publish requires `npm publish` from a Maintainer account. | LEAD |
 | **Stryker pilot run (P3-07)** | Configuration is committed. Running `npm run mutation:pilot` produces an HTML report — needs to be triggered in CI or locally and the score recorded in `reports/mutation/`. | DX |
 | **Marketplace badges, GitHub Pages, npm versioning** | Operational tasks tied to the publish steps above. | LEAD |

@@ -1,6 +1,9 @@
 # Visual pack authoring — evaluation & TODO
 
-**Status:** Proposal / not started
+**Status:** Phases 1-3 shipped (2026-08-16). Phase 4 remains deferred — and
+now conflicts with two other StudioApp tracks; see ADR-0019 for the decision.
+The eraser.io escape hatch and `--graph-out` are still open, both gated on a
+user actually asking for them.
 **Author:** evaluation requested 2026-05-14
 **Scope:** how (and whether) to make `pack.yaml` + feature authoring more
 visual — eraser.io MCP, alternatives, and the "build our own StudioApp"

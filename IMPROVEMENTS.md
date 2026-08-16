@@ -1,5 +1,19 @@
 # Improvements Backlog — `create-spec-driven-app`
 
+> **Superseded — kept for the reasoning, not the status.**
+>
+> This backlog was written against `v0.1.0-beta.3`. Almost all of it shipped:
+> the CLI has its own `spec.md`, a traceability matrix, 19 ADRs, JSON Schema
+> for `pack.yaml`, Gherkin scenarios with Cucumber, coverage gates, property
+> and snapshot tests. The shell/Bats items are moot — ADR-0008 removed every
+> shell script.
+>
+> The live backlog is
+> [`mejoras/plan-cierre-enterprise.md`](mejoras/plan-cierre-enterprise.md).
+> Where the two disagree, that one wins. What is still worth reading here is
+> §6.1 (the secrets story and the migration adapter, neither of which has
+> landed) and §9's references.
+
 ## 1. Context
 
 This document proposes a prioritised set of improvements for the

@@ -85,9 +85,10 @@ duplicate any of expand's logic.
 - Upgrading a pack to a new tag is a two-step audit trail:
   `specops diff --pack-version v0.2.0` to preview, then `specops sync
   --pack-version v0.2.0` to apply.
-- The `walkFiles` + `diffDirs` helpers in `scripts/specops/diff.js` are
-  reusable: `validate --against-lock` (future work) can use exactly the
-  same machinery, just changing the exit code policy.
+- The `walkFiles` + `diffDirs` helpers in `scripts/specops/diff.ts` are
+  reusable: `validate --against-lock` uses exactly the same machinery, just
+  changing the exit code policy. _(Shipped since this ADR was written — see
+  `scripts/specops/against_lock.ts`.)_
 - No new runtime dependency beyond what M1 already required (`git`
   reachable on `PATH`).
 
@@ -111,12 +112,12 @@ duplicate any of expand's logic.
   `--all-from-lock` mode). Composition wins.
 - **Exit non-zero when `diff` finds changes (like `prettier --check`).**
   Rejected as the default because `diff` is a "show me" tool, not a
-  validation gate. A future `validate --against-lock` flag will provide
-  the CI-friendly exit code.
+  validation gate. `validate --against-lock` provides the CI-friendly exit
+  code instead. _(Shipped since this ADR was written.)_
 
 ## References
 
 - Workflow page: [`specops.md`](../specops.md)
-- Module: `scripts/specops/sync.js`
+- Module: `scripts/specops/sync.ts`
 - Module: `scripts/specops/diff.js`
 - Foundational ADR: [ADR-0009](0009-specops-remote-packs.md)

@@ -22,10 +22,16 @@ Thank you for investing your time in this project.
 git clone https://github.com/rsaglobaltech/spec-driven-development-template.git
 cd spec-driven-development-template
 npm install
-chmod +x bin/*.js scripts/*.sh
+npm run build
 ```
 
-**Prerequisites:** Node.js ≥ 18, Bash (for the legacy shell engine), `bats-core` (for shell tests).
+**Prerequisites:** Node.js ≥ 20. Nothing else — the CLI has zero runtime
+dependencies. The tests run against the compiled output in `dist/`, so
+`npm run build` (or any `npm test`, which builds first) has to happen before
+you can invoke `bin/create-spec-driven-app.js`.
+
+Optional, only if you touch those areas: a JDK 17+ and Gradle for the Maven and
+Gradle plugins, and `vhs` for the demo recordings.
 
 ---
 
@@ -33,17 +39,20 @@ chmod +x bin/*.js scripts/*.sh
 
 | Command | What it runs |
 |---|---|
-| `npm test` | E2E integration tests (`tests/cli.test.js`) |
-| `npm run test:unit` | Unit tests for JS modules (`tests/unit/`) |
-| `npm run test:vscode-unit` | VS Code extension unit tests (no VS Code runtime needed) |
-| `npm run test:coverage` | Unit tests with c8 coverage report |
-| `npm run test:shell` | Bats shell tests (`tests/shell/`) |
-| `npm run test:bdd` | Cucumber BDD scenarios (`features/cli/`) |
+| `npm test` | E2E integration tests (`tests/cli.test.ts`) |
+| `npm run test:unit` | Unit tests (`tests/unit/`) |
+| `npm run test:coverage` | The unit suite under `c8`, with the thresholds enforced |
+| `npm run test:bdd` | Cucumber scenarios (`features/`) |
+| `npm run test:snapshot` | Determinism of generated output |
+| `npm run test:vscode-unit` | VS Code extension (no VS Code runtime needed) |
+| `npm run test:mcp-unit` | MCP server |
+| `npm run test:lsp-unit` | Language server |
+| `npm run test:registry-unit` | Pack registry generator |
 | `npm run test:all` | All of the above in sequence |
-| `npm run lint` | ESLint |
-| `npm run format:check` | Prettier |
+| `npm run verify` | typecheck · ESLint · Prettier · tests · `npm pack` dry run |
 
-All tests must be **green on your branch** before opening a PR.
+`npm run verify` is what CI's lint job runs. All tests must be **green on your
+branch** before opening a PR.
 
 ---
 
@@ -104,7 +113,7 @@ Before requesting a review, confirm:
 - [ ] `npm run lint && npm run format:check` passes
 - [ ] New behaviour is covered by at least one test (unit, BDD, or E2E)
 - [ ] If this is a design decision, an ADR is included (see §3)
-- [ ] `IMPROVEMENTS.md` items completed in this PR are marked done
+- [ ] Tasks closed by this PR are ticked in [`mejoras/plan-cierre-enterprise.md`](mejoras/plan-cierre-enterprise.md), citing the task ID in the commit
 - [ ] Public CLI flags / commands are documented in `README.md` and `--help`
 - [ ] No `TODO` placeholders remain in committed files
 
@@ -112,11 +121,11 @@ Before requesting a review, confirm:
 
 ## 5. Coding standards
 
-- **Language:** CommonJS Node.js (`"type": "commonjs"`). No ESM unless inside `packages/` sub-packages that opt in explicitly.
+- **Language:** TypeScript compiled to CommonJS (`"type": "commonjs"`, `module: commonjs`). Both `export` and `module.exports` appear in `scripts/` — the newer files use ESM syntax, which `tsc` downlevels, and imports that cross into an older `module.exports` file use `require()`. Match the file you are editing.
 - **Style:** ESLint + Prettier enforce the rules automatically — run `npm run lint:fix` and `npm run format`.
 - **No comments that describe *what* the code does.** Only add a comment when the *why* is non-obvious (invariant, workaround, hidden constraint).
 - **No unused variables.** The `no-unused-vars` rule is set to `error`.
-- **Shell scripts** are linted with `shellcheck --severity=warning` in CI. If you must suppress a warning, add `# shellcheck disable=SCXXXX` with a one-line explanation.
+- **Shell scripts.** ADR-0008 removed every shell script from the CLI itself; the only ones left are the demo recording helpers under `scripts/demo/`. ShellCheck is not yet wired into CI — adding it is tracked as C6-05.
 - **Templates** live in `templates/` and use `{{VARIABLE}}` interpolation. Never add logic to templates.
 
 ---
@@ -157,3 +166,6 @@ Releases are automated via GitHub Actions (`publish-npm.yml`). To cut a release:
 **Pre-release versions** (`0.x.x-beta.N`) are published from a feature branch by
 running the `publish-github-packages.yml` workflow manually (`workflow_dispatch`)
 with `dist_tag: beta`.
+
+Full detail — what gets published where, the tag convention, and the checks to
+run before tagging — is in [`docs/release-process.md`](docs/release-process.md).

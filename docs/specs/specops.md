@@ -292,14 +292,18 @@ Shipped:
 - **M1** — remote packs + `.specops.lock`
 - **M2** — `specops sync` + `specops diff`
 - **M3** — conflict detection: `.specops/` baseline + three-way merge in `sync`
+- **M4** — `validate --against-lock`: fails in CI when the project has drifted
+  from the locked pack version, reusing the `specops diff` machinery with a
+  non-zero exit policy (`scripts/specops/against_lock.ts`)
+- **M4** — multi-pack composition: `specops.config.yaml` applies several packs
+  from one file (`scripts/specops/config.ts`)
+- **M5** — the bidirectional loop: `specops diff --as-change` turns a pack bump
+  into a reviewable change proposal, and `specops contribute` sends a local
+  change back upstream to the pack
 
 Planned:
 
-- `validate --against-lock` — fail in CI if the project has drifted from
-  the locked pack version (uses the same diff machinery as `specops
-diff`, just exits non-zero on any difference).
-- Multi-pack composition helpers — apply several packs from one config
-  file without re-typing each invocation.
+- `pack publish` — depends on a hosted registry, which is not deployed yet.
 
 ## Limitations
 

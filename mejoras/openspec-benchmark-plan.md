@@ -677,24 +677,29 @@ Los pasos 4–7 son transaccionales: si falla cualquiera, se revierte lo escrito
 
 ## 10. Checklist ejecutable
 
+> **Actualizado 2026-08-16.** F0, F1 y F1B están cerradas y verificadas contra
+> el código en `main`. F2, F3 y F4 siguen siendo el trabajo pendiente real, y
+> están replanificadas como fases 3, 4 y 5 de
+> [`plan-cierre-enterprise.md`](plan-cierre-enterprise.md).
+
 ```
 F0 — Cimientos (3 PD)
-[ ] OS-0-01  ADR change lifecycle
-[ ] OS-0-02  ADR formato delta
-[ ] OS-0-03  ADR contrato JSON de agente
-[ ] OS-0-04  ADR schemas de artefactos
-[ ] OS-0-05  Spike parser markdown compartido
+[x] OS-0-01  ADR change lifecycle
+[x] OS-0-02  ADR formato delta
+[x] OS-0-03  ADR contrato JSON de agente
+[x] OS-0-04  ADR schemas de artefactos
+[x] OS-0-05  Spike parser markdown compartido
 
 F1 — Ciclo de cambio (18 PD)   ← máxima prioridad
-[ ] OS-1-01  csda change new
-[ ] OS-1-02  csda change list
-[ ] OS-1-03  csda change show
-[ ] OS-1-04  parser + validador de deltas
-[ ] OS-1-05  integración con csda validate
-[ ] OS-1-06  csda change archive (motor de fusión)
-[ ] OS-1-07  archive → traceability.md + features/   ← el diferenciador
-[ ] OS-1-08  csda change status
-[ ] OS-1-09  skip_specs / retire_capabilities
+[x] OS-1-01  csda change new
+[x] OS-1-02  csda change list
+[x] OS-1-03  csda change show
+[x] OS-1-04  parser + validador de deltas
+[x] OS-1-05  integración con csda validate
+[x] OS-1-06  csda change archive (motor de fusión)
+[x] OS-1-07  archive → traceability.md + features/   ← el diferenciador
+[x] OS-1-08  csda change status
+[x] OS-1-09  skip_specs / retire_capabilities
 
 F1B — SpecOps × cambios (7 PD)   ← el mayor diferenciador
 [x] OS-1B-01  specops diff --as-change   (revisar intención, no ficheros)

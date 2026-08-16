@@ -23,11 +23,14 @@ Aider conventions, and plain `README.md` files.
 | **Traceability matrix** | ✅ rich + legacy | ⚠️ basic | ❌ | ❌ | ❌ |
 | **`validate` CI gate** | ✅ shipped GHA | ⚠️ external | ❌ | ❌ | ❌ |
 | **JSON Schema for the DSL** | ✅ draft 2020-12 | ❌ | ❌ | ❌ | n/a |
-| **VS Code extension** | ✅ MVP | ❌ | n/a (own editor) | ❌ | ❌ |
-| **MCP server** | 🚧 planned | ❌ | ❌ | ❌ | ❌ |
+| **VS Code extension** | ⚠️ built, not on the Marketplace | ❌ | n/a (own editor) | ❌ | ❌ |
+| **MCP server** | ✅ shipped | ❌ | ❌ | ❌ | ❌ |
+| **Language server (LSP)** | ✅ shipped | ❌ | n/a (own editor) | ❌ | ❌ |
+| **Change lifecycle (propose → review → archive)** | ✅ shipped | ❌ | ❌ | ❌ | ❌ |
+| **Versioned, installable packs (`specops`)** | ✅ shipped | ❌ | ❌ | ❌ | ❌ |
 | **Cross-platform CLI (Windows/Linux/macOS)** | ✅ Node | ⚠️ Bash-heavy | ✅ | ✅ | ✅ |
 | **Locked-in to one AI vendor** | ❌ | ❌ | ✅ Cursor | ❌ | ❌ |
-| **Discoverable pack registry** | 🚧 planned | ❌ | ❌ | ❌ | n/a |
+| **Discoverable pack registry** | ⚠️ generator ships, not yet hosted | ❌ | ❌ | ❌ | n/a |
 | **Zero-install (just docs)** | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ✅ supported · ⚠️ partial / via workaround · ❌ not supported · 🚧 in progress
@@ -95,7 +98,7 @@ adopt ours and regret it.
 | **Cursor-only team, no portability concern** | Our CLI duplicates what `.cursorrules` already does for them | Stick with Cursor rules |
 | **Already on GitHub `spec-kit` for 6+ months** | Switching cost > marginal feature gap | Wait for `spec-kit` to add DDD/JSON-Schema; we'll re-publish this page |
 | **Front-end-only project with no domain logic** | DDD vocabulary feels heavy | Use `--type frontend` (lighter) but consider plain templates |
-| **Highly conservative shop, no Node.js allowed** | We require Node ≥ 18 at runtime | Pre-render templates from CI; ship the output without the CLI |
+| **Highly conservative shop, no Node.js allowed** | We require Node ≥ 20 at runtime | Run the published Docker image, or the Maven / Gradle plugin, which launch the CLI for you |
 | **You hate YAML** | Pack format is YAML | We won't ship JSON/TOML packs in 0.x; revisit in 1.0 |
 
 ---
@@ -147,5 +150,9 @@ adopt ours and regret it.
 - [Cursor `.cursorrules` documentation](https://docs.cursor.com/context/rules-for-ai)
 - [Aider CONVENTIONS.md guide](https://aider.chat/docs/usage/conventions.html)
 
-This page is updated quarterly. Pull requests with corrections are welcome —
-see [CONTRIBUTING.md](../CONTRIBUTING.md).
+Our own column was last verified against the shipped CLI on **2026-08-16**; the
+competitor columns were last reviewed **2026-05**. OpenSpec is not compared here
+yet — that is tracked as C4-09 in
+[`mejoras/plan-cierre-enterprise.md`](../mejoras/plan-cierre-enterprise.md).
+Pull requests with corrections are welcome — see
+[CONTRIBUTING.md](../CONTRIBUTING.md).
