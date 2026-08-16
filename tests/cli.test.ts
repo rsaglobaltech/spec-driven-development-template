@@ -17,12 +17,27 @@ function runCli(args, options = {}) {
   });
 }
 
-test("shows help with no args", () => {
+test("shows the core help with no args", () => {
   const result = runCli([]);
   assert.equal(result.status, 0);
   assert.match(result.stdout, /create-spec-driven-app/);
   assert.match(result.stdout, /\bUSAGE\b/i);
+  // Eight commands, not twenty-one. The rest are one flag away.
+  assert.match(result.stdout, /START HERE/);
+  assert.match(result.stdout, /csda --help --all/);
+  assert.doesNotMatch(result.stdout, /expand --pack-root/);
+});
+
+test("--help --all shows the whole surface", () => {
+  const result = runCli(["--help", "--all"]);
+  assert.equal(result.status, 0);
   assert.match(result.stdout, /expand --pack-root/);
+  assert.match(result.stdout, /PACK COMMANDS/);
+  assert.match(result.stdout, /SPECOPS COMMANDS/);
+  assert.ok(
+    result.stdout.split("\n").length > runCli([]).stdout.split("\n").length,
+    "the full help should be longer than the core one"
+  );
 });
 
 test("shows version from package.json", () => {

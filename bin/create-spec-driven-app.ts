@@ -33,6 +33,8 @@ const reqScript = path.join(distScripts, "req.js");
 const statusScript = path.join(distScripts, "status.js");
 const fixScript = path.join(distScripts, "fix.js");
 const configInitScript = path.join(distScripts, "config_init.js");
+const configSetScript = path.join(distScripts, "config_set.js");
+const schemaScript = path.join(distScripts, "schema", "cli.js");
 const completionScript = path.join(distScripts, "completion.js");
 const studioScript = path.join(distScripts, "studio.js");
 const agentsInitScript = path.join(distScripts, "agents", "init.js");
@@ -92,7 +94,65 @@ function example(line: string, comment?: string): string {
   return `${prefix}    ${c.yellow}$${c.reset} ${line}\n`;
 }
 
-function usage() {
+/**
+ * The eight commands of the daily loop.
+ *
+ * The surface grew to twenty-one, which is more than anyone reads. A new user
+ * needs `init` or `adopt` once, then lives in status → plan → req → change →
+ * validate → done. Everything else is real but not first — `--help --all`
+ * shows it, and `csda config set profile full` makes that the default.
+ */
+function usageCore() {
+  process.stdout.write(
+    banner() +
+      section("USAGE") +
+      `    ${c.cyan}csda${c.reset} ${c.bold}<command>${c.reset} [options]\n` +
+      `    ${c.dim}Run ‘<command> --help’ for per-command details.${c.reset}\n` +
+      section("START HERE") +
+      cmd("⚡", "init", "Scaffold a new spec-driven project.") +
+      cmd("🏗", "adopt", "Install SDD on an EXISTING repository, without touching code.") +
+      section("EVERY DAY") +
+      cmd("🧭", "status", "Where the project stands, and the one command to run next.") +
+      cmd("📋", "plan", "Requirements still needing a test or implementation.") +
+      cmd("📝", "req", "Add, link and close requirements without editing the matrix.") +
+      cmd("🔄", "change", "Propose, review and archive a change to specs that already shipped.") +
+      cmd("✅", "validate", "The gate: structure, traceability, Gherkin, TDD.") +
+      cmd("✔", "done", "Mark a requirement Implemented.") +
+      section("MORE") +
+      `    ${c.dim}Thirteen more commands cover packs, automation, agents and reporting.${c.reset}\n` +
+      `    ${c.green}csda --help --all${c.reset}${c.dim}                    show every command${c.reset}\n` +
+      `    ${c.green}csda config set profile full${c.reset}${c.dim}         make that the default${c.reset}\n` +
+      section("EXAMPLES") +
+      example(`npx create-spec-driven-app@latest adopt`, "Existing codebase") +
+      example(`npx create-spec-driven-app@latest init`, "New project (wizard)") +
+      example(`csda status`, "Start of day") +
+      "\n"
+  );
+}
+
+/**
+ * `core` unless the project says otherwise. Read from .csda/config.json so a
+ * team that lives in the full surface is not re-narrowed on every invocation.
+ */
+function helpProfile(): string {
+  if (process.env.CSDA_PROFILE) return process.env.CSDA_PROFILE;
+  try {
+    const raw = fs.readFileSync(path.join(process.cwd(), ".csda", "config.json"), "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.profile === "string") return parsed.profile;
+  } catch {
+    // No config, unreadable, or malformed — core is the safe default.
+  }
+  return "core";
+}
+
+function usage(opts?: { all?: boolean }) {
+  if (opts && opts.all) return usageFull();
+  if (helpProfile() === "full") return usageFull();
+  return usageCore();
+}
+
+function usageFull() {
   process.stdout.write(
     banner() +
       section("USAGE") +
@@ -152,8 +212,9 @@ function usage() {
       ) +
       cmd("📝", "harness prompt", "Print the prompt the harness would hand an agent for one REQ.") +
       section("DX COMMANDS") +
-      cmd("⚙", "config init", "Write a starter specops.config.yaml.") +
+      cmd("⚙", "config", "Project preferences: `config init`, `config set profile full`.") +
       cmd("🤖", "agents init", "Wire the loop into Claude, Cursor, Copilot, Aider and more.") +
+      cmd("🗺", "schema", "Inspect or fork the artefact graph a change follows.") +
       cmd("⌨", "completion", "Print a shell completion script (bash · zsh).") +
       cmd(
         "🖼",
@@ -247,7 +308,7 @@ function main(): void {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
-    usage();
+    usage({ all: args.includes("--all") });
     process.exit(0);
   }
 
@@ -400,6 +461,12 @@ function main(): void {
     process.exit(2);
   }
 
+  if (command === "schema") {
+    ensureExecutable(schemaScript);
+    runNodeScript(schemaScript, args.slice(1));
+    return;
+  }
+
   if (command === "config") {
     const subCommand = args[1];
     if (subCommand === "init") {
@@ -407,7 +474,12 @@ function main(): void {
       runNodeScript(configInitScript, args.slice(2));
       return;
     }
-    error(`Unknown config sub-command: ${subCommand || "(none)"}. Expected: init`);
+    if (subCommand === "set" || subCommand === "get" || subCommand === "list") {
+      ensureExecutable(configSetScript);
+      runNodeScript(configSetScript, args.slice(1));
+      return;
+    }
+    error(`Unknown config sub-command: ${subCommand || "(none)"}. Expected: init, set, get, list`);
     usage();
     process.exit(2);
   }

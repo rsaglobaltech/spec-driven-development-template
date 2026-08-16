@@ -1,0 +1,248 @@
+"use strict";
+
+/**
+ * Artefact schemas — which artefacts a change produces, and in what order.
+ *
+ * ADR-0018 fixed the semantics: dependencies are **enablers, not gates**. A
+ * schema says "tasks make more sense once the specs exist", never "you are
+ * forbidden from writing tasks first". Making this configurable does not
+ * change that; it changes *which* artefacts a team recognises.
+ *
+ * Two schemas ship. `spec-driven` reproduces the flow the tool has always had.
+ * `bdd-first` is an opinion: the executable scenario comes before the prose
+ * spec, because a team with Cucumber already writes the `.feature` first and
+ * the spec afterwards to explain it.
+ *
+ * A project overrides either by forking it into `.csda/schemas/<name>/schema.yaml`.
+ */
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+const SCHEMA_DIR = path.join(".csda", "schemas");
+const SCHEMA_FILE = "schema.yaml";
+
+const BUILT_IN = {
+  "spec-driven": {
+    name: "spec-driven",
+    description: "Proposal first, then the delta specs, then the tasks. The default.",
+    artifacts: [
+      { id: "proposal", generates: "proposal.md", requires: [] },
+      { id: "specs", generates: "specs/**/spec.md", requires: ["proposal"] },
+      { id: "design", generates: "design.md", requires: ["proposal"] },
+      { id: "tasks", generates: "tasks.md", requires: ["specs", "design"] },
+    ],
+  },
+  "bdd-first": {
+    name: "bdd-first",
+    description:
+      "The executable scenario before the prose spec. For teams whose Cucumber suite is the real contract.",
+    artifacts: [
+      { id: "proposal", generates: "proposal.md", requires: [] },
+      { id: "feature", generates: "features/**/*.feature", requires: ["proposal"] },
+      { id: "specs", generates: "specs/**/spec.md", requires: ["feature"] },
+      { id: "design", generates: "design.md", requires: ["proposal"] },
+      { id: "tasks", generates: "tasks.md", requires: ["specs", "design"] },
+    ],
+  },
+};
+
+/** Minimal YAML emitter for a schema — the repo has no YAML dependency. */
+function toYaml(schema) {
+  const lines = [
+    `# ${schema.description}`,
+    "#",
+    "# Dependencies are enablers, not gates (ADR-0018): `requires` says what makes",
+    "# an artefact easier to write, never what blocks it.",
+    `name: ${schema.name}`,
+    `description: "${schema.description.replace(/"/g, '\\"')}"`,
+    "artifacts:",
+  ];
+  for (const a of schema.artifacts) {
+    lines.push(`  - id: ${a.id}`);
+    lines.push(`    generates: "${a.generates}"`);
+    lines.push(
+      a.requires.length === 0 ? "    requires: []" : `    requires: [${a.requires.join(", ")}]`
+    );
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+/**
+ * Parse the subset of YAML a schema file uses. Hand-rolled to keep the CLI's
+ * zero-runtime-dependency promise, and narrow on purpose: anything richer than
+ * this list-of-maps shape is rejected rather than half-understood.
+ */
+function parseYaml(text) {
+  const schema: any = { artifacts: [] };
+  let current = null;
+  for (const raw of text.replace(/\r\n/g, "\n").split("\n")) {
+    const line = raw.replace(/\s+$/, "");
+    if (!line.trim() || line.trim().startsWith("#")) continue;
+
+    const top = /^([a-z_]+):\s*(.*)$/.exec(line);
+    if (top && !line.startsWith(" ")) {
+      if (top[1] === "artifacts") continue;
+      schema[top[1]] = unquote(top[2]);
+      continue;
+    }
+
+    const item = /^\s*-\s*id:\s*(.+)$/.exec(line);
+    if (item) {
+      current = { id: unquote(item[1]), generates: "", requires: [] };
+      schema.artifacts.push(current);
+      continue;
+    }
+
+    const field = /^\s+([a-z_]+):\s*(.*)$/.exec(line);
+    if (field && current) {
+      const [, key, value] = field;
+      if (key === "requires") {
+        const inner = value
+          .trim()
+          .replace(/^\[|\]$/g, "")
+          .trim();
+        current.requires = inner
+          ? inner
+              .split(",")
+              .map((v) => v.trim())
+              .filter(Boolean)
+          : [];
+      } else {
+        current[key] = unquote(value);
+      }
+    }
+  }
+  return schema;
+}
+
+function unquote(value) {
+  const v = (value || "").trim();
+  return v.replace(/^["']|["']$/g, "");
+}
+
+/**
+ * Structural problems, as diagnostics rather than exceptions. A schema that
+ * names a dependency it does not declare would silently mark every artefact
+ * blocked, which looks like the tool being broken.
+ */
+function validateSchema(schema) {
+  const problems = [];
+  if (!schema.name) {
+    problems.push({ code: "schema_no_name", message: "The schema has no `name`." });
+  }
+  if (!Array.isArray(schema.artifacts) || schema.artifacts.length === 0) {
+    problems.push({ code: "schema_no_artifacts", message: "The schema declares no artifacts." });
+    return problems;
+  }
+
+  const ids = new Set();
+  for (const a of schema.artifacts) {
+    if (!a.id) {
+      problems.push({ code: "artifact_no_id", message: "An artifact has no `id`." });
+      continue;
+    }
+    if (ids.has(a.id)) {
+      problems.push({
+        code: "artifact_duplicate_id",
+        message: `Duplicate artifact id: ${a.id}.`,
+        target: a.id,
+      });
+    }
+    ids.add(a.id);
+    if (!a.generates) {
+      problems.push({
+        code: "artifact_no_output",
+        message: `Artifact ${a.id} does not say what it generates.`,
+        target: a.id,
+      });
+    }
+  }
+
+  for (const a of schema.artifacts) {
+    for (const dep of a.requires || []) {
+      if (!ids.has(dep)) {
+        problems.push({
+          code: "artifact_unknown_dependency",
+          message: `Artifact ${a.id} requires "${dep}", which the schema does not declare.`,
+          target: a.id,
+        });
+      }
+    }
+  }
+
+  const cycle = findCycle(schema.artifacts);
+  if (cycle) {
+    problems.push({
+      code: "artifact_cycle",
+      message: `Artifacts form a cycle: ${cycle.join(" → ")}.`,
+      target: cycle[0],
+    });
+  }
+  return problems;
+}
+
+function findCycle(artifacts) {
+  const byId = new Map<string, any>(artifacts.map((a) => [a.id, a]));
+  const state = new Map();
+  let cycle = null;
+
+  function visit(id, trail) {
+    if (cycle) return;
+    if (state.get(id) === "done") return;
+    if (state.get(id) === "visiting") {
+      cycle = [...trail.slice(trail.indexOf(id)), id];
+      return;
+    }
+    state.set(id, "visiting");
+    for (const dep of (byId.get(id) || { requires: [] }).requires || []) {
+      if (byId.has(dep)) visit(dep, [...trail, id]);
+    }
+    state.set(id, "done");
+  }
+
+  for (const a of artifacts) visit(a.id, []);
+  return cycle;
+}
+
+/** Where a schema comes from: the project's fork, or the built-in. */
+function resolveSchema(projectDir, name) {
+  const wanted = name || "spec-driven";
+  const forked = path.join(projectDir, SCHEMA_DIR, wanted, SCHEMA_FILE);
+  if (fs.existsSync(forked)) {
+    return {
+      source: "project",
+      path: path.join(SCHEMA_DIR, wanted, SCHEMA_FILE),
+      schema: parseYaml(fs.readFileSync(forked, "utf8")),
+    };
+  }
+  if (BUILT_IN[wanted]) {
+    return { source: "built-in", path: null, schema: BUILT_IN[wanted] };
+  }
+  return null;
+}
+
+function listSchemas(projectDir) {
+  const names = new Set(Object.keys(BUILT_IN));
+  const dir = path.join(projectDir, SCHEMA_DIR);
+  if (fs.existsSync(dir)) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory() && fs.existsSync(path.join(dir, entry.name, SCHEMA_FILE))) {
+        names.add(entry.name);
+      }
+    }
+  }
+  return [...names].sort();
+}
+
+module.exports = {
+  BUILT_IN,
+  SCHEMA_DIR,
+  SCHEMA_FILE,
+  toYaml,
+  parseYaml,
+  validateSchema,
+  findCycle,
+  resolveSchema,
+  listSchemas,
+};

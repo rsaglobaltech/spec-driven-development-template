@@ -34,6 +34,7 @@ const COMMANDS = [
   "harness",
   "config",
   "agents",
+  "schema",
   "completion",
   "studio",
 ];
@@ -47,7 +48,8 @@ const SUBCOMMANDS: Record<string, string[]> = {
   ci: ["init"],
   alm: ["sync"],
   agents: ["init"],
-  config: ["init"],
+  schema: ["which", "init", "fork", "validate"],
+  config: ["init", "set", "get", "list"],
   completion: ["bash", "zsh"],
 };
 

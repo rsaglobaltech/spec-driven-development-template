@@ -7,16 +7,21 @@
  * it, and having the second require the first created an import cycle that
  * only showed up at runtime.
  *
- * Dependencies are enablers, not gates (ADR-0018): `blocked` means "you have
- * not written what this builds on yet", never "you are forbidden from writing
- * this".
+ * Which artefacts exist is a house style, not a law: the graph comes from the
+ * change's declared schema (`schema:` in `change.yaml`), so a team can fork
+ * `bdd-first` — scenario before spec — or write its own. The semantics do not
+ * change with it. Dependencies are enablers, not gates (ADR-0018): `blocked`
+ * means "you have not written what this builds on yet", never "you are
+ * forbidden from writing this".
  */
 
 const fs = require("node:fs");
 const path = require("node:path");
 
 const { paths, listDeltas } = require("./common");
+const { resolveSchema } = require("../schema/registry");
 
+/** The default graph, still exported for callers that predate schemas. */
 const ARTIFACTS = [
   { id: "proposal", generates: "proposal.md", requires: [] },
   { id: "specs", generates: "specs/**/spec.md", requires: ["proposal"] },
@@ -24,15 +29,56 @@ const ARTIFACTS = [
   { id: "tasks", generates: "tasks.md", requires: ["specs", "design"] },
 ];
 
+/**
+ * The graph this change follows. An unknown or malformed schema falls back to
+ * the default rather than failing: a change already in flight should not become
+ * unreadable because someone deleted a schema file.
+ */
+function artifactsFor(projectDir, config) {
+  const found = resolveSchema(projectDir, (config && config.schema) || "spec-driven");
+  if (!found || !Array.isArray(found.schema.artifacts) || found.schema.artifacts.length === 0) {
+    return ARTIFACTS;
+  }
+  return found.schema.artifacts;
+}
+
+/**
+ * Whether each artefact's output is present.
+ *
+ * Two are special. `specs` counts deltas rather than one file, because a change
+ * may touch several capabilities. `feature` (in `bdd-first`) is written into
+ * the project's own `features/` tree, not into the change directory.
+ */
+function outputsPresent(projectDir, changeId, artifacts) {
+  const dir = paths(projectDir).change(changeId);
+  const present: any = {};
+  for (const a of artifacts) {
+    if (a.id === "specs") {
+      present[a.id] = listDeltas(projectDir, changeId).length > 0;
+    } else if (a.generates.includes("*")) {
+      // Globs resolve inside the change directory. Looking at the project tree
+      // instead would mark `feature` done from day one in any repo that already
+      // has a .feature file — the artefact means "the scenario this change
+      // adds", not "the project has scenarios".
+      present[a.id] = hasAnyFile(path.join(dir, a.generates.split("*")[0]));
+    } else {
+      present[a.id] = fs.existsSync(path.join(dir, a.generates));
+    }
+  }
+  return present;
+}
+
+function hasAnyFile(dir) {
+  try {
+    return fs.readdirSync(dir).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function artifactState(projectDir, changeId, config) {
-  const p = paths(projectDir);
-  const dir = p.change(changeId);
-  const exists = {
-    proposal: fs.existsSync(path.join(dir, "proposal.md")),
-    specs: listDeltas(projectDir, changeId).length > 0,
-    design: fs.existsSync(path.join(dir, "design.md")),
-    tasks: fs.existsSync(path.join(dir, "tasks.md")),
-  };
+  const artifacts = artifactsFor(projectDir, config);
+  const exists = outputsPresent(projectDir, changeId, artifacts);
 
   // A change that declares skip_specs satisfies the `specs` dependency without
   // creating anything — the artefact counts as done, not as missing.
@@ -42,8 +88,8 @@ function artifactState(projectDir, changeId, config) {
 
   const satisfied = (id) => exists[id] || skipped[id];
 
-  return ARTIFACTS.map((a) => {
-    const missingDeps = a.requires.filter((dep) => !satisfied(dep));
+  return artifacts.map((a) => {
+    const missingDeps = (a.requires || []).filter((dep) => !satisfied(dep));
     let status;
     if (skipped[a.id]) status = "skipped";
     else if (exists[a.id]) status = "done";
@@ -53,11 +99,11 @@ function artifactState(projectDir, changeId, config) {
       id: a.id,
       outputPath: a.generates,
       status,
-      requires: a.requires,
+      requires: a.requires || [],
     };
     if (status === "blocked") entry.missingDeps = missingDeps;
     return entry;
   });
 }
 
-module.exports = { ARTIFACTS, artifactState };
+module.exports = { ARTIFACTS, artifactsFor, artifactState };

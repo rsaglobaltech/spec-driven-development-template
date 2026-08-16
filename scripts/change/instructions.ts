@@ -23,7 +23,8 @@ const { resolveProjectDir } = require("../lib/project-root");
 const { error } = require("../lib/diagnostics");
 const { agentIo, wantsJson, EXIT } = require("../lib/agent");
 const { paths, listChangeIds, listDeltas, readConfig, CAPABILITIES_DIR } = require("./common");
-const { artifactState, ARTIFACTS } = require("./artifacts");
+const { artifactState, artifactsFor, ARTIFACTS } = require("./artifacts");
+const { BUILT_IN } = require("../schema/registry");
 
 /**
  * The rules an agent gets wrong when it is not told them. Each one exists
@@ -87,8 +88,10 @@ const STAGES = {
 };
 
 /** What writing this artefact unblocks, derived from the graph rather than restated. */
-function unlockedBy(artifactId) {
-  return ARTIFACTS.filter((a) => a.requires.includes(artifactId)).map((a) => a.id);
+function unlockedBy(artifactId, artifacts?) {
+  return (artifacts || ARTIFACTS)
+    .filter((a) => (a.requires || []).includes(artifactId))
+    .map((a) => a.id);
 }
 
 function readIfExists(file) {
@@ -125,6 +128,7 @@ function buildInstructions(projectDir, artifact, changeId, templates) {
   const p = paths(projectDir);
   const stage = STAGES[artifact];
   const config = readConfig(projectDir, changeId);
+  const artifacts = artifactsFor(projectDir, config);
   const states = artifactState(projectDir, changeId, config);
   const state = states.find((s) => s.id === artifact);
 
@@ -136,6 +140,7 @@ function buildInstructions(projectDir, artifact, changeId, templates) {
     context.reservedReqRange = config.req_range;
   }
   context.rigor = config.rigor;
+  context.schema = config.schema || "spec-driven";
   context.deltasWritten = listDeltas(projectDir, changeId).length;
 
   if (stage) {
@@ -157,7 +162,7 @@ function buildInstructions(projectDir, artifact, changeId, templates) {
     outputPath: state ? state.outputPath : null,
     state: state ? state.status : "unknown",
     requires: state ? state.requires : [],
-    unlocks: unlockedBy(artifact),
+    unlocks: unlockedBy(artifact, artifacts),
     template: templates[artifact] ? templates[artifact](changeId) : null,
     rules: ARTIFACT_RULES[artifact] || [],
     context,
@@ -165,7 +170,19 @@ function buildInstructions(projectDir, artifact, changeId, templates) {
   };
 }
 
+/** The default vocabulary. A project schema may add to it — see knownFor(). */
 const KNOWN = [...ARTIFACTS.map((a) => a.id), ...Object.keys(STAGES)];
+
+/** Every artefact id any built-in schema declares, for the pre-check. */
+const ANY_KNOWN = [
+  ...new Set(Object.values(BUILT_IN).flatMap((s: any) => s.artifacts.map((a) => a.id))),
+  ...Object.keys(STAGES),
+];
+
+/** What this project actually recognises, once its schema is resolved. */
+function knownFor(projectDir, config) {
+  return [...artifactsFor(projectDir, config).map((a) => a.id), ...Object.keys(STAGES)];
+}
 
 function usage() {
   process.stdout.write(
@@ -197,15 +214,19 @@ function main(argv, templates) {
       }),
     ]);
   }
-  if (!KNOWN.includes(artifact)) {
+
+  // A cheap typo check against every artefact any built-in schema declares.
+  // The precise, schema-specific check happens once the change is resolved —
+  // but running only that one turns `instructions nonsense` in a project with
+  // no changes into "no active change", which hides the real mistake.
+  if (!ANY_KNOWN.includes(artifact)) {
     io.usage(NULL_SHAPE, [
       error("artifact_unknown", `Unknown artefact: ${artifact}.`, {
         target: artifact,
-        fix: `Use one of: ${KNOWN.join(", ")}.`,
+        fix: `Use one of: ${ANY_KNOWN.join(", ")}.`,
       }),
     ]);
   }
-
   // Split flags from positionals in one pass — `--project-dir <path>` takes a
   // value, so a naive filter on "starts with -" leaves the path behind as a
   // positional and it gets read as a change id.
@@ -258,6 +279,19 @@ function main(argv, templates) {
     ]);
   }
 
+  // Which artefact names are valid depends on the change's schema — `bdd-first`
+  // recognises `feature`, `spec-driven` does not. So this check waits until the
+  // change is resolved rather than using the default vocabulary.
+  const known = knownFor(projectDir, readConfig(projectDir, changeId));
+  if (!known.includes(artifact)) {
+    io.usage(NULL_SHAPE, [
+      error("artifact_unknown", `Unknown artefact: ${artifact}.`, {
+        target: artifact,
+        fix: `This change follows the "${readConfig(projectDir, changeId).schema || "spec-driven"}" schema. Use one of: ${known.join(", ")}.`,
+      }),
+    ]);
+  }
+
   const instructions = buildInstructions(projectDir, artifact, changeId, templates);
   io.emit({ instructions }, () => renderHuman(instructions));
   process.exit(EXIT.OK);
@@ -290,4 +324,4 @@ function renderHuman(ins) {
   process.stdout.write(`${out.join("\n")}\n`);
 }
 
-module.exports = { buildInstructions, main, DELTA_RULES, STAGES, unlockedBy, KNOWN };
+module.exports = { buildInstructions, main, DELTA_RULES, STAGES, unlockedBy, KNOWN, knownFor };
