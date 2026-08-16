@@ -9,16 +9,29 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    ignore:
+      # Majors blocked on a platform decision, not on the bump itself. Each
+      # entry states what would unblock it; drop the entry when that happens.
+      #
+      # cucumber 13 declares `engines.node: 22 || 24 || >=26`. We declare
+      # `>=20` and the CI matrix runs Node 20, so BDD fails on every runner.
+      # Unblocked by raising the floor to Node 22 — a contributor-facing
+      # change only, since cucumber is a devDependency end users never install.
+      - dependency-name: '@cucumber/cucumber'
+        update-types: [version-update:semver-major]
     groups:
       # Packages that must move together. `@eslint/js` alone jumping to 10
       # while `eslint` stayed at 9 produced a peer conflict that broke
-      # `npm ci` — the first thing the new audit job caught.
-      eslint:
+      # `npm ci` — the first thing the new audit job caught. `typescript`
+      # belongs here for the same reason: TS 7 alone hit ERESOLVE against
+      # `@typescript-eslint/eslint-plugin@8`, which peers on TS <6.
+      typescript-and-eslint:
         patterns:
           - eslint
           - '@eslint/*'
           - '@typescript-eslint/*'
           - typescript-eslint
+          - typescript
       # One PR for the routine bumps. Majors outside the groups above still
       # arrive on their own, because a major deserves a human reading it.
       dev-minor-and-patch:
@@ -48,3 +61,13 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
+    ignore:
+      # JUnit 6 publishes only a Java 17 variant. The plugin compiles to
+      # Java 11 on purpose — enterprise build agents are the whole reason
+      # the Gradle and Maven plugins exist — so Gradle cannot resolve
+      # `junit-jupiter` at all: "No matching variant ... this component
+      # declares a component, compatible with Java 17 and the consumer
+      # needed a component, compatible with Java 11".
+      # Unblocked by raising the plugin's target to Java 17.
+      - dependency-name: org.junit:junit-bom
+        update-types: [version-update:semver-major]
