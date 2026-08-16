@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 const os = require("node:os");
+const fs = require("node:fs");
 
 const {
   renderTemplate,
@@ -18,10 +19,13 @@ const {
   parseTraceabilityRows,
   buildTraceabilityMarkdown,
   hasStructuredDomainModel,
+  PACK_SCHEMA_VERSION,
+  isNewerThan,
 } = require("../../scripts/domain-pack/common");
 
 const FIXTURE_ROOT = path.resolve(__dirname, "../../../tests/fixtures/domain-packs");
 const FIXTURE_ID = "parking-management/backend";
+const REPO_ROOT = path.resolve(__dirname, "../../..");
 
 // ── renderTemplate ────────────────────────────────────────────────────────────
 
@@ -295,4 +299,72 @@ test("hasStructuredDomainModel returns false when all domain sections absent", (
 
 test("hasStructuredDomainModel returns true when any domain section is non-empty", () => {
   assert.equal(hasStructuredDomainModel({ requirements: [{ id: "REQ-001" }] }), true);
+});
+
+// ── pack.yaml schema compatibility ────────────────────────────────────────────
+//
+// `schema_version` was written by `pack init` and read by nothing. A pack
+// authored against a newer schema failed later with "unknown property X" —
+// accurate, and useless for working out that the CLI was simply too old.
+
+test("validatePackModel rejects a pack.yaml from a newer schema, and names the fix", () => {
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  pack.schema_version = "9.0.0";
+  assert.throws(
+    () => validatePackModel(pack, packRoot),
+    (err) =>
+      /schema_version 9\.0\.0/.test(err.message) &&
+      new RegExp(`up to ${PACK_SCHEMA_VERSION.replace(/\./g, "\\.")}`).test(err.message) &&
+      /Fix:/.test(err.message)
+  );
+});
+
+test("validatePackModel accepts the current schema and older ones", () => {
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  for (const version of [PACK_SCHEMA_VERSION, "1.1.0", "1.0.0"]) {
+    pack.schema_version = version;
+    assert.doesNotThrow(() => validatePackModel(pack, packRoot), `${version} should be accepted`);
+  }
+});
+
+test("a pack.yaml with no schema_version is still accepted", () => {
+  // The field is optional and predates this gate; requiring it would reject
+  // every pack written before the field existed.
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  delete pack.schema_version;
+  assert.doesNotThrow(() => validatePackModel(pack, packRoot));
+});
+
+test("isNewerThan compares each numeric field, not the string", () => {
+  // "1.10.0" > "1.9.0" is false under string comparison and true under this.
+  assert.equal(isNewerThan("1.10.0", "1.9.0"), true);
+  assert.equal(isNewerThan("1.9.0", "1.10.0"), false);
+  assert.equal(isNewerThan("2.0.0", "1.99.99"), true);
+  assert.equal(isNewerThan("1.2.0", "1.2.0"), false);
+  assert.equal(isNewerThan("1.2", "1.2.0"), false);
+});
+
+test("every curated pack declares a schema this CLI can read", () => {
+  // Guards the release order: bumping PACK_SCHEMA_VERSION without shipping the
+  // CLI that understands it would make our own packs uninstallable.
+  const packsDir = path.join(REPO_ROOT, "packs");
+  const found = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name === "pack.yaml") found.push(full);
+    }
+  };
+  walk(packsDir);
+  assert.ok(found.length > 0, "no curated packs found");
+  for (const file of found) {
+    const declared = /schema_version:\s*"([^"]+)"/.exec(fs.readFileSync(file, "utf8"));
+    if (!declared) continue;
+    assert.equal(
+      isNewerThan(declared[1], PACK_SCHEMA_VERSION),
+      false,
+      `${path.relative(REPO_ROOT, file)} declares ${declared[1]}, newer than ${PACK_SCHEMA_VERSION}`
+    );
+  }
 });

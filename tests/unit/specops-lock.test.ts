@@ -145,3 +145,56 @@ test("write-then-read round-trip preserves the lock", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ── Forward compatibility ─────────────────────────────────────────────────────
+//
+// `specops_version` was written from the very first lockfile and read by
+// nothing, so a lockfile from a newer CLI used to be accepted and then misread
+// one field at a time. These pin the gate that now rejects it up front.
+
+test("readLock rejects a lockfile written by a newer CLI, and names the fix", () => {
+  const dir = tmpProject();
+  try {
+    fs.writeFileSync(
+      path.join(dir, LOCK_FILENAME),
+      JSON.stringify({ specops_version: SPECOPS_SCHEMA_VERSION + 1, packs: [] }),
+      "utf8"
+    );
+    assert.throws(
+      () => readLock(dir),
+      (err) =>
+        /newer version of this CLI/.test(err.message) &&
+        /Fix:/.test(err.message) &&
+        new RegExp(`format ${SPECOPS_SCHEMA_VERSION + 1}`).test(err.message)
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("readLock accepts the current version and any older one", () => {
+  const dir = tmpProject();
+  try {
+    for (const version of [SPECOPS_SCHEMA_VERSION, SPECOPS_SCHEMA_VERSION - 1]) {
+      fs.writeFileSync(
+        path.join(dir, LOCK_FILENAME),
+        JSON.stringify({ specops_version: version, packs: [] }),
+        "utf8"
+      );
+      assert.doesNotThrow(() => readLock(dir), `version ${version} should be readable`);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a lockfile with no specops_version at all is still readable", () => {
+  // Pre-dates the field; refusing to read it would strand existing projects.
+  const dir = tmpProject();
+  try {
+    fs.writeFileSync(path.join(dir, LOCK_FILENAME), JSON.stringify({ packs: [] }), "utf8");
+    assert.doesNotThrow(() => readLock(dir));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

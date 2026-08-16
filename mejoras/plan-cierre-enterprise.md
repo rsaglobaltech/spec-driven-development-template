@@ -649,8 +649,38 @@ y el goal `csda:validate` de Maven sobre un proyecto Java real.
 | C9-04 | `[x]` | Modo offline / air-gap (B4): runbook en `docs/supply-chain.md`. Las dos vías, `CSDA_OFFLINE=1` contra caché y `pack bundle` para redes que nunca vieron el pack. Ninguna estaba documentada; `CSDA_OFFLINE` no aparecía en ningún doc |
 | C9-05 | `[ ]` | Telemetría opt-in con consentimiento explícito (R1 de `risk-mitigation-plan.md`, nunca implementada) |
 | C9-06 | `[x]` | SBOM CycloneDX vía `npm sbom` (sin dependencia nueva) + `scripts/license_check.ts` como puerta de licencias, en el workflow de seguridad y como `npm run licenses`. Árbol actual: **377 componentes, todos permisivos, cero copyleft**. El gate se probó fallando, no solo pasando |
-| C9-07 | `[ ]` | Política de soporte y versionado: LTS, y ventana de compatibilidad del `schemaVersion` de los packs |
+| C9-07 | `[x]` | Política de soporte y ventanas de compatibilidad en `docs/release-process.md`. **Y las ventanas ahora se aplican de verdad**: `schema_version` de `pack.yaml` y `specops_version` del lockfile se escribían y no los leía nadie — ver §12.3 |
 | C9-08 | `[ ]` | Validar la guía de adopción L1–L4 (A5, llega en C0-05) con un equipo real |
+
+---
+
+## 12.3 Dos campos de versión que nadie leía (C9-07)
+
+Al ir a escribir la política de compatibilidad apareció el problema de fondo:
+**los dos campos existían y no los leía nadie.**
+
+- `pack.yaml` → `schema_version`. Lo escribe `pack init`, lo valida el JSON
+  schema *como formato* (`^\d+\.\d+\.\d+$`) y ahí acababa todo. Un pack escrito
+  contra un schema más nuevo fallaba después con `unknown property X` — cierto
+  y completamente inútil para deducir que el CLI se había quedado corto.
+- `.specops.lock` → `specops_version`. Se escribe desde el primer lockfile y no
+  se leía jamás. Un lockfile de un CLI más nuevo se aceptaba en silencio y
+  luego se malinterpretaba campo a campo.
+
+Escribir una política de ventanas de compatibilidad sobre eso habría sido
+exactamente el defecto que persigue la fase 1: un documento que afirma una
+garantía que el código no da. Así que se implementaron las dos puertas.
+
+**Solo se rechaza lo más nuevo que el CLI.** Un pack con schema viejo, o un
+lockfile sin `specops_version`, siguen funcionando: esos ficheros son
+anteriores al campo y rechazarlos sería dejar tirados a proyectos existentes
+para aplicar una regla inventada después.
+
+**Orden de release al subir el schema de packs:** primero el CLI que lo
+entiende, después los packs que lo usan. Al revés, los diez packs curados (más
+el de ejemplo `sample-contracts`, el único ya en `1.2.0`) se vuelven
+ininstalables con el CLI publicado. Hay un test que recorre `packs/` y lo
+comprueba, así que equivocarse de orden rompe CI y no a los usuarios.
 
 ---
 
