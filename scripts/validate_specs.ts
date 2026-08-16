@@ -53,9 +53,28 @@ function fail(msg, exitCode = 1, fix = null) {
   process.exit(exitCode);
 }
 
+// Never scanned: dependency trees and build output are not the project's specs,
+// and template libraries inside node_modules are full of {{...}} tokens that
+// would report as unresolved placeholders in any project with dependencies
+// installed.
+const SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  "build",
+  "out",
+  "target",
+  "coverage",
+  "vendor",
+  ".git",
+  ".next",
+  ".gradle",
+  ".specops",
+]);
+
 function walk(dir) {
   const out = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) out.push(...walk(full));
     else out.push(full);
@@ -111,6 +130,10 @@ const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
 const LEGACY_HEADER = "| Feature | Scenario | Technical artifact | Status |";
 const PLACEHOLDER_RE = /\{\{[A-Z_][A-Z0-9_]*\}\}/;
+// Syntax-neutral on purpose: put it in whatever comment form the file uses —
+// `<!-- csda:allow-placeholders -->` in markdown, `// csda:allow-placeholders`
+// in code. Same convention as the `csda:trace` marker.
+const PLACEHOLDER_ALLOW_RE = /csda:allow-placeholders/;
 
 function trimCell(s) {
   return (s || "").trim();
@@ -263,6 +286,14 @@ function main() {
     } catch {
       continue;
     }
+    // A .tpl file is unrendered by definition — its {{VAR}} tokens are the
+    // point, not a defect. Generated projects never contain .tpl files, so this
+    // does not weaken the check for the projects the gate is aimed at; it only
+    // stops it firing on template and pack repositories.
+    if (f.endsWith(".tpl")) continue;
+    // Documentation that explains the template syntax has to be able to quote
+    // it. An explicit per-file opt-out keeps that honest: you have to say so.
+    if (PLACEHOLDER_ALLOW_RE.test(content)) continue;
     if (PLACEHOLDER_RE.test(content)) {
       offenders.push(f);
     }

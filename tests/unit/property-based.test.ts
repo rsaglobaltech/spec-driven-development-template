@@ -1,3 +1,4 @@
+// csda:allow-placeholders — this file emits or asserts on {{VAR}} template syntax.
 "use strict";
 
 /**

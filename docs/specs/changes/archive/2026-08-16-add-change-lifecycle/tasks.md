@@ -29,4 +29,4 @@
 - [x] 4.2 Unit tests for archive, rollback and traceability upsert
 - [x] 4.3 End-to-end run on a generated project
 - [x] 4.4 Integrate change validation into `csda validate`
-- [ ] 4.5 Document the lifecycle in docs/
+- [x] 4.5 Document the lifecycle in docs/

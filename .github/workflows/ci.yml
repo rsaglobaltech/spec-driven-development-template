@@ -71,6 +71,11 @@ jobs:
       - name: Run LSP server unit tests
         run: npm run test:lsp-unit
 
+      # The tool has to pass its own gate. spec.md's success criteria claim it
+      # does; before this step, nothing checked.
+      - name: Validate this repository against its own spec gate
+        run: node bin/create-spec-driven-app.js validate .
+
       - name: Build pack registry
         run: npm run registry:build
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
+// csda:allow-placeholders — this file emits or asserts on {{VAR}} template syntax.
 /**
  * pack init — interactively scaffold a valid pack.yaml skeleton.
  *

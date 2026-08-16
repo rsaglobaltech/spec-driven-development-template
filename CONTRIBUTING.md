@@ -1,3 +1,5 @@
+<!-- csda:allow-placeholders — this file documents the {{VAR}} template syntax. -->
+
 # Contributing to `create-spec-driven-app`
 
 Thank you for investing your time in this project.

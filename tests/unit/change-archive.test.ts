@@ -445,3 +445,57 @@ test("traceRow backticks paths so the generated matrix reads uniformly", () => {
   assert.equal(row.status, "Draft");
   assert.equal(row.testArtifact, "TBD");
 });
+
+// ── Surrounding content is not the tool's to delete ───────────────────────────
+
+test("syncTraceability keeps everything around the matrix table", () => {
+  // buildTraceabilityMarkdown regenerates a whole document from rows alone.
+  // Used directly it wiped every other section of traceability.md — the
+  // non-functional requirements, the test inventory, the notes — silently.
+  // Dogfooding this repo's own matrix is what surfaced it.
+  const existing = `# Traceability Matrix — my project
+
+> A preamble the tool did not write.
+
+## 1. Requirements
+
+| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| REQ-000 | SCN-000 | \`features/core/health.feature\` | - | - | - | - | \`API /health\` | TBD | Draft |
+
+## 2. Non-functional requirements
+
+| NFR | Requirement | Attribute | Measured by | Status |
+|---|---|---|---|---|
+| NFR-001 | Boots in under a second | Performance | A benchmark | Draft |
+
+## 3. Notes
+
+Prose the tool has no business touching.
+`;
+
+  const applied = {
+    upserts: [{ req: { id: "REQ-014", title: "Dynamic peak pricing", scenarios: [] } }],
+    removals: [],
+  };
+  const { markdown, totals } = syncTraceability(existing, applied);
+
+  assert.equal(totals.added, 1);
+  assert.match(markdown, /REQ-014/, "the new row is spliced in");
+  assert.match(markdown, /REQ-000/, "the existing row survives");
+  assert.match(markdown, /A preamble the tool did not write/);
+  assert.match(markdown, /## 2\. Non-functional requirements/);
+  assert.match(markdown, /NFR-001 \| Boots in under a second/);
+  assert.match(markdown, /## 3\. Notes/);
+  assert.match(markdown, /Prose the tool has no business touching/);
+});
+
+test("syncTraceability still generates a whole document when there is no table", () => {
+  const applied = {
+    upserts: [{ req: { id: "REQ-001", title: "First requirement", scenarios: [] } }],
+    removals: [],
+  };
+  const { markdown } = syncTraceability("", applied);
+  assert.match(markdown, /^# Traceability Matrix/);
+  assert.match(markdown, /REQ-001/);
+});

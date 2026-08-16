@@ -99,6 +99,13 @@ docker run --rm -v "$PWD:/workspace" ghcr.io/rsaglobaltech/csda validate . --str
 | `expand`                         | Apply a domain pack (local path or remote git repo) onto a project (low-level; `specops add` is the ergonomic path).                                                             |
 | `plan`                           | List requirements still needing a test, code, or status update. `--format json` for AI agents and CI.                                                                            |
 | `done`                           | Mark a requirement `Implemented` in `traceability.md`. `--check` / `--strict` validate first.                                                                                    |
+| `status`                         | The daily dashboard: totals by state, orphan features, locked pack versions, and one suggested next command.                                                                     |
+| `req`                            | Add, link and close requirements without hand-editing the ten-column matrix: `req add`, `req link`, `req done`, `req list`.                                                       |
+| `fix`                            | Apply the repairs `validate` suggests — orphan features, requirements in `spec.md` with no row. `--dry-run` previews.                                                             |
+| `change`                         | **Propose, review and archive a change**: `new`, `list`, `show`, `status`, `validate`, `archive`. See the section below.                                                          |
+| `doctor`                         | Diagnose the project and environment; every finding ships a concrete fix.                                                                                                        |
+| `report`                         | Spec-coverage dashboard as a self-contained HTML file — a CI or Pages artifact.                                                                                                  |
+| `ci init` / `alm sync`           | Generate the spec gate for GitHub/GitLab/Azure/Jenkins; sync requirements with Jira or Azure Boards.                                                                              |
 | `pack init` / `pack lint`        | Scaffold a pack, or lint it: schema, cross-refs, and scenario quality (`--strict`).                                                                                              |
 | `pack lint --graph`              | Render the pack's `REQ→UC→CMD/AGG→EVT` graph (Mermaid/DOT); doubles as a CI link-check.                                                                                          |
 | `pack infer`                     | Propose a `pack.yaml` skeleton from a `.feature` file — write the scenario first.                                                                                                |
@@ -106,6 +113,8 @@ docker run --rm -v "$PWD:/workspace" ghcr.io/rsaglobaltech/csda validate . --str
 | `specops sync` / `specops diff`  | Three-way-merge a project to a locked pack version, or preview the change.                                                                                                       |
 | `harness run`                    | Run the plan → agent → verify → done loop for every pending requirement, in isolated git worktrees.                                                                              |
 | `harness prompt`                 | Print the exact prompt the harness would hand the agent for one REQ — useful for previewing what the agent sees before paying tokens.                                            |
+| `studio`                         | Serve a local, read-only HTML view of the spec tree. `--json` for the same data as a document.                                                                                    |
+| `config init` / `completion`     | Write a starter config; print a bash or zsh completion script.                                                                                                                   |
 
 Full reference: `npx create-spec-driven-app --help` · **[End-to-end tutorial](docs/tutorial.md)** · **[Architecture overview](docs/specs/architecture.md)** · [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
 
@@ -198,6 +207,70 @@ packs:
     vars:
       PROJECT_NAME: Smart Parking
 ```
+
+## 🔄 Change a spec that already exists
+
+`init` and `adopt` cover day one. Every day after that, the question is
+different: **how do you change a requirement that already shipped, without the
+matrix and the feature files drifting apart?**
+
+The answer is a change: a reviewable proposal that lives alongside the specs,
+gets validated in CI, and is *archived* — merged into the spec tree — once the
+work lands.
+
+```bash
+csda change new add-dynamic-pricing      # scaffolds the proposal, deltas and tasks
+csda change status                       # what to write next, in dependency order
+csda change validate                     # runs automatically inside `csda validate` too
+csda change archive add-dynamic-pricing  # merge into the specs, then file it away
+```
+
+You describe the change as a **delta** — only what moves, never a copy of the
+whole spec:
+
+```markdown
+## ADDED Requirements
+
+### Requirement: REQ-014 — Dynamic peak pricing
+
+The system SHALL raise the tariff automatically when occupancy crosses a
+configured threshold.
+
+#### Scenario: SCN-014 — Peak rate applies above the threshold
+
+- GIVEN occupancy is above 85%
+- WHEN a vehicle enters
+- THEN the peak tariff is applied
+
+<!-- csda:trace uc=UC-007 cmd=CMD-011 agg=AGG-Pricing evt=EVT-PriceApplied
+     feature=features/pricing/dynamic_pricing.feature -->
+```
+
+Steps are plain `- GIVEN` bullets, not `**GIVEN**` — the validator needs the
+keyword at the start of the line. The optional `csda:trace` comment is the
+bridge to the DDD matrix: without it the requirement still archives, just with
+`-` in those columns.
+
+Archiving is where the leverage is. It does not just move a file: it applies
+the `ADDED` / `MODIFIED` / `REMOVED` sections to `docs/specs/capabilities/`,
+**inserts the new rows into `traceability.md`**, and copies the proposed
+`.feature` files into `features/`. The moment the requirement lands, `csda
+plan` lists it as pending; set its status to `In Dev` without a test and
+`validate --strict-tdd` fails with `[TDD-1]`. A merged proposal cannot quietly
+become undone work.
+
+`change.yaml` carries two escape hatches for the cases that do not fit:
+`skip_specs: true` for tooling changes with no behavioural impact, and
+`retire_capabilities: true` to allow deleting a spec when its last requirement
+goes away.
+
+**It composes with packs.** `specops diff --as-change` turns an upstream pack
+bump into a change proposal you review as *intent* rather than as a file diff,
+and `specops contribute --change <id>` sends a local change back upstream to
+the pack. See [Keep packs in sync](#-keep-packs-in-sync).
+
+→ Full reference: [`docs/how-to.md`](docs/how-to.md) · ADRs
+[0015](docs/specs/adr/0015-change-lifecycle.md)–[0018](docs/specs/adr/0018-artifact-schemas.md).
 
 ## 🤖 Automate delivery with the harness
 

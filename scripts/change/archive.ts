@@ -149,9 +149,38 @@ function syncTraceability(existingContent, applied) {
   }
 
   return {
-    markdown: buildTraceabilityMarkdown(rows, "rich"),
+    markdown: spliceMatrix(existingContent, buildTraceabilityMarkdown(rows, "rich")),
     totals: { added, updated, removed, legacyDropped },
   };
+}
+
+/**
+ * Replace only the matrix table inside `existing`, keeping everything around it.
+ *
+ * buildTraceabilityMarkdown regenerates a whole document from rows alone. Used
+ * directly it deletes every other section of traceability.md — non-functional
+ * requirements, test inventories, notes — with no warning. Splice the freshly
+ * built table into the position the old one occupied instead.
+ *
+ * With no existing table to replace (a fresh project, or a legacy matrix that
+ * was dropped), the generated document stands on its own.
+ */
+function spliceMatrix(existing, generated) {
+  if (!existing) return generated;
+
+  const lines = existing.replace(/\r\n/g, "\n").split("\n");
+  const start = lines.findIndex(
+    (l) => l.trim().startsWith("| Requirement |") && l.includes("Scenario ID")
+  );
+  if (start === -1) return generated;
+
+  // The table runs to the first line that is not a table row.
+  let end = start;
+  while (end < lines.length && lines[end].trim().startsWith("|")) end++;
+
+  const table = generated.split("\n").filter((l) => l.trim().startsWith("|"));
+
+  return [...lines.slice(0, start), ...table, ...lines.slice(end)].join("\n");
 }
 
 // ── Planning ──────────────────────────────────────────────────────────────────

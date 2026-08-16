@@ -20,8 +20,20 @@ const path = require("node:path");
 const ROOT_DIR = path.resolve(__dirname, "../../..");
 const MATRIX = path.join(ROOT_DIR, "docs", "specs", "traceability.md");
 
-/** Looks like a repo path: has a slash, and an extension or a trailing slash. */
-const PATH_LIKE = /^[\w.@-]+(?:\/[\w.*{},@-]+)+(?:\/)?$/;
+/** Has a slash and plausible path characters. */
+const PATH_SHAPED = /^[\w.@-]+(?:\/[\w.*{},@-]+)+(?:\/)?$/;
+
+/**
+ * A slash alone is not enough — column headers like `Command/Query` are shaped
+ * like paths. Require the token to also carry a file extension, a glob, or a
+ * trailing slash before treating it as something that must exist on disk.
+ */
+function looksLikePath(token: string): boolean {
+  if (!PATH_SHAPED.test(token)) return false;
+  if (token.endsWith("/") || token.includes("*")) return true;
+  const last = token.split("/").pop() || "";
+  return last.includes(".");
+}
 
 /** `a/{b,c}.ts` → ["a/b.ts", "a/c.ts"] */
 function expandBraces(token: string): string[] {
@@ -44,7 +56,7 @@ function resolveTarget(token: string): string {
 function pathsNamedIn(markdown: string): string[] {
   const inline = [...markdown.matchAll(/`([^`\n]+)`/g)].map((m) => m[1]);
   const tokens = inline
-    .filter((t) => PATH_LIKE.test(t))
+    .filter(looksLikePath)
     .flatMap(expandBraces)
     .map(resolveTarget)
     .filter(Boolean);
@@ -64,6 +76,14 @@ test("every path named in traceability.md exists on disk", () => {
     [],
     `traceability.md names paths that do not exist:\n  ${missing.join("\n  ")}`
   );
+});
+
+test("a path-shaped column header is not treated as a path", () => {
+  // `Command/Query` is a matrix column name, not a file.
+  assert.equal(looksLikePath("Command/Query"), false);
+  assert.equal(looksLikePath("scripts/req.ts"), true);
+  assert.equal(looksLikePath("features/cli/"), true);
+  assert.equal(looksLikePath("packages/*/test/unit/**"), true);
 });
 
 test("brace and glob tokens resolve the way the guard assumes", () => {

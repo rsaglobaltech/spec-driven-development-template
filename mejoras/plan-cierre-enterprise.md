@@ -1,3 +1,4 @@
+<!-- csda:allow-placeholders — this file documents the {{VAR}} template syntax. -->
 # Plan de cierre — de `create-spec-driven-app` a herramienta enterprise
 
 > **Creado:** 2026-08-16
@@ -303,12 +304,75 @@ revisión documento a documento de los diez ficheros anteriores.
 | ID | | Tarea |
 |---|---|---|
 | C2-01 | `[x]` | `tasks.md` 4.4 — **ya estaba implementado** en `scripts/validate_specs.ts:445-467`; solo faltaba marcar la casilla. Verificado: un cambio con delta inválido hace fallar `validate` |
-| C2-02 | `[ ]` | `tasks.md` 4.5 — documentar el ciclo: tabla de comandos del `README.md`, receta nueva en `docs/how-to.md`, cheat-sheet de `docs/tutorial.md`. Hoy `change` es un comando de primer nivel que **no aparece en ningún documento de usuario** |
-| C2-03 | `[ ]` | Dogfooding obligatorio (§11 del plan OpenSpec) — archivar el propio cambio `add-change-lifecycle` con `csda change archive` |
-| C2-04 | `[ ]` | Prueba de fuego F1B — publicar `parking-management-specops` `v0.2.0` y consumirlo con `specops diff --as-change`. Criterio literal del plan: *si la propuesta generada no se lee mejor que el `git diff`, la fase ha fallado* |
+| C2-02 | `[x]` | `tasks.md` 4.5 — documentar el ciclo: tabla de comandos del `README.md`, receta nueva en `docs/how-to.md`, cheat-sheet de `docs/tutorial.md`. Hoy `change` es un comando de primer nivel que **no aparece en ningún documento de usuario** |
+| C2-03 | `[x]` | Dogfooding obligatorio (§11 del plan OpenSpec) — archivar el propio cambio `add-change-lifecycle` con `csda change archive` |
+| C2-04 | `[x]` | Prueba de fuego F1B — publicar `parking-management-specops` `v0.2.0` y consumirlo con `specops diff --as-change`. Criterio literal del plan: *si la propuesta generada no se lee mejor que el `git diff`, la fase ha fallado* |
 
-**Gate de salida:** demo end-to-end grabada — `change new` → `archive` →
-`validate --strict-tdd` falla con `[TDD-1]`.
+### 5.1 Lo que el dogfooding destapó
+
+Archivar el propio cambio del repo obligó a que el repo se validara a sí mismo,
+y ahí salió casi todo:
+
+- **`spec.md` §6 afirmaba que «the repository's own `validate` check is green in
+  CI on every PR».** No estaba en CI **y fallaba.** Ahora `csda validate .` corre
+  en el job de tests y en `npm run verify` (script `selfcheck`).
+- **`csda change archive` borraba contenido del usuario.** `syncTraceability`
+  reconstruía `traceability.md` entero desde las filas, tirando todo lo demás —
+  NFRs, inventario de tests, notas — sin un aviso. Verificado sobre la matriz
+  real de este repo: se cargó cuatro secciones. Corregido con `spliceMatrix`,
+  que sustituye solo el bloque de tabla; dos tests de regresión.
+- **`validate` escaneaba `node_modules/`.** Cualquier proyecto con dependencias
+  instaladas se comía falsos positivos de placeholders de las librerías de
+  plantillas. Ahora salta `node_modules`, `dist`, `build`, `out`, `target`,
+  `coverage`, `vendor`, `.git`, `.next`, `.gradle` y `.specops`.
+- **`validate` marcaba los `.tpl` como placeholders sin resolver.** Un `.tpl`
+  está sin renderizar por definición. Los proyectos generados no contienen
+  `.tpl`, así que excluirlos no debilita la puerta para su destinatario: solo
+  deja de dispararse en repos de plantillas y de packs.
+- **No había forma de eximir prosa que documenta la sintaxis.** Añadido el
+  marcador explícito `csda:allow-placeholders`, en la misma convención que
+  `csda:trace`. Se dice, no se adivina.
+- **El parser de la matriz interpreta cualquier tabla de pipes del fichero.**
+  Una tabla de 3 o 4 columnas en otra sección se lee como filas de matriz y su
+  primera columna como Scenario IDs. Documentado en la cabecera de la matriz.
+- **La matriz del propio CLI estaba en un formato inventado de 6 columnas**, no
+  en el formato rico de 10 que la herramienta genera. Convertida: la herramienta
+  tiene que poder operar sobre su propio repositorio.
+- **El ejemplo de delta que escribí para el README era inválido.** Usaba
+  `- **GIVEN**`; el validador exige la palabra clave al principio de línea.
+  Detectado al ejecutar el flujo en vez de suponerlo.
+
+**Gate de salida:** ✅ **pasado el 2026-08-16.** Bucle completo ejecutado de
+punta a punta: `change new` → delta → `change validate` → `change archive` →
+fila en la matriz + capability spec + `csda plan` lo lista → estado a `In Dev` →
+`validate --strict-tdd` falla con `[TDD-1]`, con su remedio.
+
+### 5.2 Prueba de fuego F1B (C2-04)
+
+`parking-management-specops` ya tenía `v0.2.0` publicado, pero ese bump **no
+cambiaba ningún requisito** — y `--as-change` lo dice: *«No requirement changed;
+nothing to review»*, donde el diff plano reporta «2 modified». Ya ahí discrimina
+ruido de intención.
+
+Para juzgar la legibilidad hacía falta un bump que sí moviera requisitos, así
+que se construyó uno (un requisito añadido, otro reformulado):
+
+| | Salida |
+|---|---|
+| `specops diff` | `~ docs/specs/traceability.md` · *0 added · 1 modified · 13 unchanged* |
+| `specops diff --as-change` | `+ REQ-010` · `~ REQ-002` · *1 added · 1 modified · 0 removed*, más una propuesta que nombra los requisitos y un delta con el texto nuevo, el escenario completo del reformulado y `origin=pack:backend@v0.3.0` en ambos |
+
+**Veredicto: supera el criterio.** Del diff plano no se puede deducir qué cambió
+en el dominio; de la propuesta, sí. Y cuando el pack declara un requisito sin
+plantilla Gherkin, el delta deja un `TODO` explícito y la propuesta avisa de
+ello en vez de inventarse el comportamiento.
+
+Dos asperezas anotadas, ninguna bloqueante:
+
+- Un bump que añade variables requeridas hace fallar `specops diff` una vez por
+  variable (`STACK`, luego `LANG`) en lugar de pedirlas todas de golpe.
+- La propuesta generada sale en español y las cabeceras del delta en inglés.
+  Lo cubre C4-08 (contexto de idioma).
 
 ---
 

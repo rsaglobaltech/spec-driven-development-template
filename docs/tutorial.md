@@ -1,3 +1,4 @@
+<!-- csda:allow-placeholders — this file documents the {{VAR}} template syntax. -->
 # 🚗 End-to-end tutorial — building **Smart Parking**
 
 A friendly, step-by-step walk through **every** command in
@@ -89,7 +90,7 @@ Optionally install the CLI globally so `csda` works everywhere:
 
 ```bash
 npm install -g create-spec-driven-app@latest
-csda --version          # 0.1.2
+csda --version          # 0.1.4
 csda --help             # the full command list
 ```
 
@@ -885,10 +886,19 @@ The 📍 / 📦 column is the thing to remember — **where** you run it.
 | `csda validate <dir> [--strict-tdd]`                                  | 📍 project    | Check structure, traceability, Gherkin; `--strict-tdd` adds the TDD gate |
 | `csda plan [--format json]`                                           | 📍 project    | List requirements still needing work                                     |
 | `csda done REQ-NNN [--check\|--strict]`                               | 📍 project    | Mark a requirement done in the matrix                                    |
+| `csda status`                                                         | 📍 project    | Daily dashboard: totals, orphans, pack versions, next command            |
+| `csda req add\|link\|done\|list`                                        | 📍 project    | Manage matrix rows without hand-editing the table                        |
+| `csda fix [--dry-run]`                                                | 📍 project    | Apply the repairs `validate` suggests                                    |
+| `csda change new <id> [--lite\|--full]`                                | 📍 project    | Open a change against specs that already shipped                         |
+| `csda change status \| validate \| show \| list`                        | 📍 project    | What to write next · check the deltas · inspect · enumerate              |
+| `csda change archive <id> [--dry-run\|--yes]`                          | 📍 project    | Merge the delta into the specs + matrix, then file the change away       |
 | `csda specops add --pack-repo … --pack-version … --pack … --var …`    | 📍 project    | Pull a pack in; writes `.specops.lock` + `.specops/` baseline            |
 | `csda specops diff [--pack-version …]`                                | 📍 project    | Preview what a sync would change — writes nothing                        |
 | `csda specops sync [--pack-version …]`                                | 📍 project    | Re-render + three-way merge the pack into the project                    |
 | `csda specops remove <pack-id>`                                       | 📍 project    | Drop a pack from `.specops.lock`                                         |
+| `csda specops diff --as-change`                                       | 📍 project    | Turn an upstream pack bump into a reviewable change proposal             |
+| `csda specops contribute --change <id>`                               | 📍 project    | Send a local change back upstream to the pack (never pushes)             |
+| `csda validate --against-lock`                                        | 📍 project    | Fail CI when the project has drifted from the locked pack version        |
 | `csda expand --pack-repo … --pack-version … --pack …`                 | 📍 project    | Low-level pack render (what `sync` calls)                                |
 | `csda harness run --agent "… {prompt_file}" [--test-cmd …]`           | 📍 project    | Run the plan→agent→verify→done loop per requirement                      |
 | `csda pack init --out … --name … --type backend\|frontend\|contracts` | 📦 pack repo  | Scaffold a pack skeleton                                                 |
@@ -896,17 +906,21 @@ The 📍 / 📦 column is the thing to remember — **where** you run it.
 | `csda pack lint … --graph [--graph-format mermaid\|dot]`              | 📦 pack repo  | Render the pack reference graph; CI link-check                           |
 | `csda pack infer --from <feature> [--format json]`                    | 📦 pack repo  | Propose a `pack.yaml` skeleton from a `.feature`                         |
 
-**The two "add a requirement" loops, side by side:**
+**Three ways to add a requirement, side by side:**
 
-|       | As a project consumer (Step 6) | As a pack author (Step 10)                   |
-| ----- | ------------------------------ | -------------------------------------------- |
-| Where | 📍 your implementation project | 📦 the pack repo                             |
-| 1     | edit `spec.md`                 | draft a `.feature`, run `pack infer`         |
-| 2     | write `features/**.feature`    | merge the inferred skeleton into `pack.yaml` |
-| 3     | add a row to `traceability.md` | add the feature template under `templates/`  |
-| 4     | `validate --strict-tdd`        | `pack lint --strict --graph`                 |
-| 5     | `plan` → implement → `done`    | bump version, tag, push                      |
-| 6     | survives every `specops sync`  | consumers `specops diff` + `specops sync`    |
+|       | Day one, by hand (Step 6)      | As a change (recipe 12)                       | As a pack author (Step 10)                   |
+| ----- | ------------------------------ | --------------------------------------------- | -------------------------------------------- |
+| Where | 📍 your implementation project | 📍 your implementation project                | 📦 the pack repo                             |
+| 1     | edit `spec.md`                 | `change new <id>`                             | draft a `.feature`, run `pack infer`         |
+| 2     | write `features/**.feature`    | write the delta under `specs/<cap>/spec.md`   | merge the inferred skeleton into `pack.yaml` |
+| 3     | add a row to `traceability.md` | `change validate`                             | add the feature template under `templates/`  |
+| 4     | `validate --strict-tdd`        | `change archive` — writes the row **for you** | `pack lint --strict --graph`                 |
+| 5     | `plan` → implement → `done`    | `plan` → implement → `done`                   | bump version, tag, push                      |
+| 6     | survives every `specops sync`  | reviewable as intent, archived with a date    | consumers `specops diff` + `specops sync`    |
+
+Use the middle column once the project is live: it is the only one of the three
+that leaves an audit trail of *why* a requirement changed, and the only one
+where you do not touch the ten-column matrix by hand.
 
 ---
 
