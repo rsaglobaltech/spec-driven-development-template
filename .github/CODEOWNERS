@@ -1,0 +1,40 @@
+# Code owners — see MAINTAINERS.md for who owns what and why.
+#
+# One maintainer today, so every rule points at the same person. The paths are
+# split anyway: this file is where a second maintainer gets added, and a single
+# catch-all line would hide that structure rather than record it.
+#
+# CODEOWNERS assigns reviewers. It does not require an approval — that is
+# branch protection, and required reviews are deliberately off while there is
+# one maintainer (a maintainer cannot approve their own pull request).
+
+# Fallback: anything not matched below.
+*                               @rsaglobaltech
+
+# The CLI and the validator — the contract every other surface depends on.
+/bin/                           @rsaglobaltech
+/scripts/                       @rsaglobaltech
+
+# Domain packs and their schemas. A change here can rewrite files in every
+# project that has the pack installed, so it gets read as carefully as code.
+/packs/                         @rsaglobaltech
+/schemas/                       @rsaglobaltech
+
+# Specs and ADRs. Changing a decision record is changing the project's mind.
+/docs/specs/                    @rsaglobaltech
+
+# Build-tool plugins — the Java surface, with its own compatibility floor.
+/packages/maven-plugin/         @rsaglobaltech
+/packages/gradle-plugin/        @rsaglobaltech
+
+# Editor and agent surfaces.
+/packages/vscode-spec-driven/   @rsaglobaltech
+/packages/lsp-spec-driven/      @rsaglobaltech
+/packages/mcp-spec-driven/      @rsaglobaltech
+/templates/agents/              @rsaglobaltech
+
+# Release, CI and anything that can publish an artefact or touch a secret.
+/.github/                       @rsaglobaltech
+/Dockerfile.cli                 @rsaglobaltech
+/package.json                   @rsaglobaltech
+/SECURITY.md                    @rsaglobaltech

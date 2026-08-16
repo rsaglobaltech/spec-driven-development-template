@@ -129,6 +129,8 @@ plugins** for teams that do not want Node on the build agent.
 
 PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Good first contributions:
 new module templates, validator rules, additional domain packs.
+[MAINTAINERS.md](MAINTAINERS.md) says who owns what;
+[SECURITY.md](SECURITY.md) is how to report a vulnerability privately.
 
 ## 📄 License
 
