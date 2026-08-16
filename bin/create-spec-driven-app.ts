@@ -35,6 +35,7 @@ const fixScript = path.join(distScripts, "fix.js");
 const configInitScript = path.join(distScripts, "config_init.js");
 const completionScript = path.join(distScripts, "completion.js");
 const studioScript = path.join(distScripts, "studio.js");
+const agentsInitScript = path.join(distScripts, "agents", "init.js");
 
 // ── Pretty output helpers ─────────────────────────────────────────────────────────
 
@@ -152,6 +153,7 @@ function usage() {
       cmd("📝", "harness prompt", "Print the prompt the harness would hand an agent for one REQ.") +
       section("DX COMMANDS") +
       cmd("⚙", "config init", "Write a starter specops.config.yaml.") +
+      cmd("🤖", "agents init", "Wire the loop into Claude, Cursor, Copilot, Aider and more.") +
       cmd("⌨", "completion", "Print a shell completion script (bash · zsh).") +
       cmd(
         "🖼",
@@ -384,6 +386,18 @@ function main(): void {
     ensureExecutable(completionScript);
     runNodeScript(completionScript, args.slice(1));
     return;
+  }
+
+  if (command === "agents") {
+    const subCommand = args[1];
+    if (subCommand === "init") {
+      ensureExecutable(agentsInitScript);
+      runNodeScript(agentsInitScript, args.slice(2));
+      return;
+    }
+    error(`Unknown agents sub-command: ${subCommand || "(none)"}. Expected: init`);
+    usage();
+    process.exit(2);
   }
 
   if (command === "config") {

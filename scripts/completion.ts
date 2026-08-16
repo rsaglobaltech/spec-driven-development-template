@@ -33,6 +33,7 @@ const COMMANDS = [
   "specops",
   "harness",
   "config",
+  "agents",
   "completion",
   "studio",
 ];
@@ -45,6 +46,7 @@ const SUBCOMMANDS: Record<string, string[]> = {
   req: ["add", "link", "done", "list"],
   ci: ["init"],
   alm: ["sync"],
+  agents: ["init"],
   config: ["init"],
   completion: ["bash", "zsh"],
 };

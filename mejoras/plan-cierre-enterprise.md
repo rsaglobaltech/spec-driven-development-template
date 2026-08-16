@@ -386,16 +386,49 @@ Especificación de referencia: `mejoras/openspec-benchmark-plan.md:503-522`.
 
 | ID | | Tarea | Estado real de partida |
 |---|---|---|---|
-| C3-01 | `[ ]` | Envoltorio de diagnóstico `{severity, code, message, target?, fix?}` en **todos** los comandos; ningún `console.error` suelto en modo `--json` | `scripts/lib/diagnostics.ts` ya existe, pero solo lo usa `change` |
-| C3-02 | `[ ]` | `--json` en los 12 comandos aptos para agente: un documento en stdout, prosa a stderr, null-shape en fallo. Test: `cmd --json 2>/dev/null \| jq .` parsea en éxito y en fallo | hoy solo `change` y `plan --format json`. Hay un intento previo en `feature/daily-ux-roadmap` (`d9715b6`) — leerlo antes de empezar |
-| C3-03 | `[ ]` | Contrato de exit codes: 0 éxito (hallazgos incluidos), 1 fallo, 130 cancelación | hoy hay `2` (subcomando desconocido) y `3` (script no encontrado) sin documentar → normalizar o incorporarlos al contrato |
-| C3-04 | `[ ]` | `docs/specs/agent-contract.md` — shapes campo a campo y catálogo de códigos, **generado y verificado desde tests snapshot**, no escrito a mano | nuevo |
-| C3-05 | `[ ]` | `csda agents init --tool claude,cursor,copilot,windsurf,aider,gemini,cline,codex` — genera `.claude/commands/csda-*.md`, `.cursor/rules/csda.mdc`, `.github/copilot-instructions.md`, `AGENTS.md`; `--dry-run` lista destinos | `scripts/agents/*.ts`, `templates/agents/**` (nuevos) |
-| C3-06 | `[ ]` | Slash commands `/csda:explore`, `/csda:propose`, `/csda:apply`, `/csda:verify`, `/csda:archive`, `/csda:onboard` — cada uno invoca `csda change instructions <artifact> --json` | `templates/agents/commands/*.md.tpl` |
-| C3-07 | `[ ]` | `csda change instructions <artifact> [--json]` — plantilla + contexto + reglas + dependencias + `unlocks`. Motor único que consumen slash commands, MCP, VS Code y harness. `harness run` deja de construir su prompt ad hoc | `scripts/change/instructions.ts` (nuevo); reutiliza `scripts/harness/prompt.ts` |
+| C3-01 | `[x]` | Envoltorio de diagnóstico `{severity, code, message, target?, fix?}` en **todos** los comandos; ningún `console.error` suelto en modo `--json` | `scripts/lib/diagnostics.ts` ya existe, pero solo lo usa `change` |
+| C3-02 | `[x]` | `--json` en los 12 comandos aptos para agente: un documento en stdout, prosa a stderr, null-shape en fallo. Test: `cmd --json 2>/dev/null \| jq .` parsea en éxito y en fallo | hoy solo `change` y `plan --format json`. Hay un intento previo en `feature/daily-ux-roadmap` (`d9715b6`) — leerlo antes de empezar |
+| C3-03 | `[x]` | Contrato de exit codes: 0 éxito (hallazgos incluidos), 1 fallo, 130 cancelación | hoy hay `2` (subcomando desconocido) y `3` (script no encontrado) sin documentar → normalizar o incorporarlos al contrato |
+| C3-04 | `[x]` | `docs/specs/agent-contract.md` — shapes campo a campo y catálogo de códigos, **generado y verificado desde tests snapshot**, no escrito a mano | nuevo |
+| C3-05 | `[x]` | `csda agents init --tool claude,cursor,copilot,windsurf,aider,gemini,cline,codex` — genera `.claude/commands/csda-*.md`, `.cursor/rules/csda.mdc`, `.github/copilot-instructions.md`, `AGENTS.md`; `--dry-run` lista destinos | `scripts/agents/*.ts`, `templates/agents/**` (nuevos) |
+| C3-06 | `[x]` | Slash commands `/csda:explore`, `/csda:propose`, `/csda:apply`, `/csda:verify`, `/csda:archive`, `/csda:onboard` — cada uno invoca `csda change instructions <artifact> --json` | `templates/agents/commands/*.md.tpl` |
+| C3-07 | `[x]` | `csda change instructions <artifact> [--json]` — plantilla + contexto + reglas + dependencias + `unlocks`. Motor único que consumen slash commands, MCP, VS Code y harness. `harness run` deja de construir su prompt ad hoc | `scripts/change/instructions.ts` (nuevo); reutiliza `scripts/harness/prompt.ts` |
 
-**Gate de salida:** Claude Code, Cursor y Copilot completan el ciclo sobre un repo
-brownfield real usando **solo** comandos slash generados.
+### 6.1 Lo que salió al implementar el contrato
+
+- **La puerta de cobertura tenía hermana.** `validate` y `doctor` mantenían cada
+  uno su propio escaneo de placeholders, y divergieron: arreglar `validate` en
+  la fase 2 dejó a `doctor` reportando **64 errores** en este repo, todos falsos
+  positivos de `coverage/` y `templates/`. Extraído a
+  `scripts/lib/placeholders.ts` con 6 tests. Doctor pasó a 0 errores.
+- **`doctor` no conocía `docs/specs/capabilities/`.** Comparaba la matriz solo
+  contra el `spec.md` raíz, así que daba por fila huérfana cada requisito que
+  `change archive` fusiona — siete, justo después del dogfood de la fase 2.
+- **La salida JSON mezclaba snake_case y camelCase.** `plan`, `status`,
+  `report`, `studio`, `infer` y `harness` emitían `schema_version` y
+  `project_dir` junto a `scenarioId` y `featureFile`; `studio` lograba ambas en
+  el mismo documento. Normalizado a camelCase (ADR-0017 regla 4). **Rompe a los
+  consumidores de `plan --format json`** — va en las notas de la 0.2.0. Los
+  formatos en disco (`pack.yaml`, `.specops.lock`) no se tocan: son esquemas de
+  fichero, no salida de comando.
+- **Los tests del contrato cazaron tres cosas más al escribirlos:** el
+  recolector de códigos ignoraba el reportero `fail("code", …)` de `validate`
+  (diez códigos ausentes del catálogo publicado), `plan --json` no emitía
+  `status` en absoluto, y quedaban claves anidadas en snake_case que el barrido
+  anterior no tocó.
+- **Ciclo de imports.** `instructions.ts` requería `cli.ts` para el grafo de
+  artefactos, y `cli.ts` aún no había asignado `module.exports`. Resuelto
+  extrayendo el grafo a `change/artifacts.ts`, no con requires perezosos.
+
+**Gate de salida:** ✅ **pasado el 2026-08-16.** `csda agents init` genera los
+seis slash commands y los ficheros de instrucciones de ocho herramientas desde
+una única definición, y `change instructions` es el motor que consumen tanto
+ellos como `harness run`. La verificación del contrato la hacen los propios
+tests contra los comandos reales, no una lectura del documento.
+
+> Queda pendiente la prueba con un agente real sobre un repo brownfield
+> ajeno — es observación de campo, no algo que un test pueda cerrar. Anotado
+> para la fase 8.
 
 ---
 

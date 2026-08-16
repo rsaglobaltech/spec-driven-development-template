@@ -114,6 +114,7 @@ docker run --rm -v "$PWD:/workspace" ghcr.io/rsaglobaltech/csda validate . --str
 | `harness run`                    | Run the plan → agent → verify → done loop for every pending requirement, in isolated git worktrees.                                                                              |
 | `harness prompt`                 | Print the exact prompt the harness would hand the agent for one REQ — useful for previewing what the agent sees before paying tokens.                                            |
 | `studio`                         | Serve a local, read-only HTML view of the spec tree. `--json` for the same data as a document.                                                                                    |
+| `agents init`                    | Wire the loop into Claude, Cursor, Copilot, Windsurf, Aider, Gemini, Cline and Codex — slash commands and instruction files, from one definition.                                 |
 | `config init` / `completion`     | Write a starter config; print a bash or zsh completion script.                                                                                                                   |
 
 Full reference: `npx create-spec-driven-app --help` · **[End-to-end tutorial](docs/tutorial.md)** · **[Architecture overview](docs/specs/architecture.md)** · [Documentation site](https://rsaglobaltech.github.io/spec-driven-development-template/)
@@ -271,6 +272,38 @@ the pack. See [Keep packs in sync](#-keep-packs-in-sync).
 
 → Full reference: [`docs/how-to.md`](docs/how-to.md) · ADRs
 [0015](docs/specs/adr/0015-change-lifecycle.md)–[0018](docs/specs/adr/0018-artifact-schemas.md).
+
+## 🧠 Drive it from your agent
+
+Every command speaks JSON. One document on stdout, prose on stderr, a `status`
+array of diagnostics that each carry a `fix`, and exit codes that are part of
+the contract — so an agent branches on `code`, never on scraped prose.
+
+```bash
+csda agents init                    # slash commands + instruction files for 8 tools
+csda agents init --tool claude,cursor --dry-run
+```
+
+That generates `/csda:explore`, `/csda:propose`, `/csda:apply`, `/csda:verify`,
+`/csda:archive` and `/csda:onboard`, plus the instruction file each tool reads
+(`.cursor/rules/`, `.github/copilot-instructions.md`, `CONVENTIONS.md`, …).
+
+The generated files are deliberately thin. They do not restate the delta
+grammar — a markdown copy of it is stale the moment the grammar moves. They
+call the engine instead:
+
+```bash
+csda change instructions specs --json
+```
+
+which returns the template, the rules the validator actually enforces, the
+project's declared stack, the reserved REQ range, and what writing that
+artefact unblocks. `harness run` builds its prompt from the same call, so the
+agent, the harness and the MCP server cannot disagree about the format.
+
+→ Full contract, code catalogue and exit-code table:
+[`docs/specs/agent-contract.md`](docs/specs/agent-contract.md) — generated from
+the source, with CI failing when it drifts.
 
 ## 🤖 Automate delivery with the harness
 
