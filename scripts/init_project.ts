@@ -106,6 +106,7 @@ const KNOWN_KEYS = new Set([
   "DEFAULT_ENV",
   "DOCKER_SUPPORT",
   "DEVCONTAINER_SUPPORT",
+  "DATASTORE",
   "DATABASE_ENGINE",
   "DATABASE_VERSION",
   "DATABASE_IMAGE",
@@ -217,6 +218,18 @@ function validateConfig(cfg) {
   cfg.DATABASE_USER = cfg.DATABASE_USER || `${cfg.DATABASE_NAME}_app`;
   cfg.DATABASE_PASSWORD = cfg.DATABASE_PASSWORD || "change-me";
 
+  // A frontend or mobile app has no database of its own. Defaulting every
+  // project to Postgres generated a runtime contract documenting a datastore
+  // that does not exist, and .env files full of DATABASE_* nobody reads.
+  cfg.DATASTORE = cfg.DATASTORE || (cfg.PROJECT_TYPE === "backend" ? "postgres" : "none");
+  const SUPPORTED_DATASTORES = ["postgres", "none"];
+  if (!SUPPORTED_DATASTORES.includes(cfg.DATASTORE)) {
+    logError(
+      `DATASTORE '${cfg.DATASTORE}' is not supported. Supported: ${SUPPORTED_DATASTORES.join(", ")}`
+    );
+    process.exit(2);
+  }
+
   const SUPPORTED_ENGINES = ["postgres"];
   if (!SUPPORTED_ENGINES.includes(cfg.DATABASE_ENGINE)) {
     logError(
@@ -238,6 +251,11 @@ function validateConfig(cfg) {
   cfg.DATABASE_URL_PROD = dbUrl(cfg.DATABASE_NAME_PROD);
 
   cfg.RUNTIME_DOCKER_SECTION = runtimeDockerSection(cfg);
+  cfg.RUNTIME_ENV_TABLE = runtimeEnvTable(cfg);
+  cfg.RUNTIME_DATABASE_SECTION = runtimeDatabaseSection(cfg);
+  cfg.RUNTIME_INVARIANTS = runtimeInvariants(cfg);
+  cfg.COMPOSE_DEPENDS_ON = composeDependsOn(cfg);
+  cfg.COMPOSE_DB_SERVICE = composeDbService(cfg);
 
   if (!["backend", "frontend"].includes(cfg.PROJECT_TYPE)) {
     logError("PROJECT_TYPE must be backend or frontend");
@@ -272,19 +290,20 @@ function runtimeDockerSection(cfg) {
     ].join("\n");
   }
 
+  const service = hasDatastore(cfg) ? cfg.DATABASE_HOST : "workspace";
   const lines = [
     "## Docker",
     "",
     "- Compose file: `docker-compose.yml`",
-    `- Database image: \`${cfg.DATABASE_IMAGE}\``,
-    `- Service name: \`${cfg.DATABASE_HOST}\``,
+    ...(hasDatastore(cfg) ? [`- Database image: \`${cfg.DATABASE_IMAGE}\``] : []),
+    `- Service name: \`${service}\``,
     "",
     "Bring one environment up:",
     "",
     "```bash",
-    "APP_ENV=dev docker compose --env-file .env.dev up -d db",
-    "APP_ENV=feature docker compose --env-file .env.feature up -d db",
-    "APP_ENV=prod docker compose --env-file .env.prod up -d db",
+    `APP_ENV=dev docker compose --env-file .env.dev up -d ${service}`,
+    `APP_ENV=feature docker compose --env-file .env.feature up -d ${service}`,
+    `APP_ENV=prod docker compose --env-file .env.prod up -d ${service}`,
     "```",
   ];
 
@@ -294,12 +313,122 @@ function runtimeDockerSection(cfg) {
       "## Devcontainer",
       "",
       "- Configuration: `.devcontainer/devcontainer.json`",
-      "- The devcontainer joins the same Compose network as the database service,",
-      `  so it reaches it at \`${cfg.DATABASE_HOST}:${cfg.DATABASE_CONTAINER_PORT}\`.`
+      ...(hasDatastore(cfg)
+        ? [
+            "- The devcontainer joins the same Compose network as the database service,",
+            `  so it reaches it at \`${cfg.DATABASE_HOST}:${cfg.DATABASE_CONTAINER_PORT}\`.`,
+          ]
+        : ["- The devcontainer runs the workspace service defined in `docker-compose.yml`."])
     );
   }
 
   return lines.join("\n");
+}
+
+/** True when the project owns a database of its own. */
+function hasDatastore(cfg) {
+  return cfg.DATASTORE !== "none";
+}
+
+/**
+ * The environment catalog. Its Database column only exists when there is one —
+ * a frontend or mobile project listing `lixy_mobile_dev` is documenting
+ * something that was never created.
+ */
+function runtimeEnvTable(cfg) {
+  const rows = [
+    ["dev", "Local development and day-to-day implementation", "`.env.dev`", cfg.DATABASE_NAME_DEV],
+    [
+      "feature",
+      "Short-lived branch or preview validation",
+      "`.env.feature`",
+      cfg.DATABASE_NAME_FEATURE,
+    ],
+    ["prod", "Production-like configuration contract", "`.env.prod`", cfg.DATABASE_NAME_PROD],
+  ];
+  if (!hasDatastore(cfg)) {
+    return [
+      "| Environment | Purpose | Env file |",
+      "| --- | --- | --- |",
+      ...rows.map((r) => `| ${r[0]} | ${r[1]} | ${r[2]} |`),
+    ].join("\n");
+  }
+  return [
+    "| Environment | Purpose | Env file | Database |",
+    "| --- | --- | --- | --- |",
+    ...rows.map((r) => `| ${r[0]} | ${r[1]} | ${r[2]} | \`${r[3]}\` |`),
+  ].join("\n");
+}
+
+function runtimeDatabaseSection(cfg) {
+  if (!hasDatastore(cfg)) {
+    return [
+      "## Data",
+      "",
+      "This project owns no datastore (`DATASTORE=none`). It reads its data through",
+      "the APIs declared in `AI_RULES.md`; the environments above differ in",
+      "configuration, not in schema.",
+    ].join("\n");
+  }
+  return [
+    "## Database",
+    "",
+    `- Engine: \`${cfg.DATABASE_ENGINE}\` (version \`${cfg.DATABASE_VERSION}\`)`,
+    `- Application user: \`${cfg.DATABASE_USER}\``,
+    "",
+    "| Environment | Host port | URL |",
+    "| --- | --- | --- |",
+    `| dev | \`${cfg.DATABASE_PORT_DEV}\` | \`${cfg.DATABASE_URL_DEV}\` |`,
+    `| feature | \`${cfg.DATABASE_PORT_FEATURE}\` | \`${cfg.DATABASE_URL_FEATURE}\` |`,
+    `| prod | \`${cfg.DATABASE_PORT_PROD}\` | \`${cfg.DATABASE_URL_PROD}\` |`,
+    "",
+    "Each environment binds a different host port so two of them can run side by",
+    `side. Inside the network every database listens on \`${cfg.DATABASE_CONTAINER_PORT}\`.`,
+  ].join("\n");
+}
+
+function runtimeInvariants(cfg) {
+  const invariants = [];
+  if (hasDatastore(cfg)) {
+    invariants.push(
+      "**No shared databases.** Each environment owns its own database name; the three above never point at the same instance."
+    );
+  }
+  invariants.push(
+    "**No credentials in the repository.** The generated `.env.*` files carry placeholders. Real secrets arrive from the deployment platform or a secret manager, never from a commit.",
+    "**No hardcoded configuration.** Hosts, ports and credentials are read from the environment at runtime.",
+    "**`.env.example` is the schema.** Every variable the application reads must appear there, with a safe placeholder value.",
+    "**Adding an environment is a spec change.** Extend this document and the `.env.*` set together — a new environment that exists only in deployment configuration is drift."
+  );
+  return invariants.map((line, i) => `${i + 1}. ${line}`).join("\n");
+}
+
+/** The workspace service only waits on a database when there is one. */
+function composeDependsOn(cfg) {
+  return hasDatastore(cfg) ? "    depends_on:\n      db:\n        condition: service_healthy" : "";
+}
+
+function composeDbService(cfg) {
+  if (!hasDatastore(cfg)) return "";
+  return `
+  db:
+    image: ${cfg.DATABASE_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - .env.\${APP_ENV:-${cfg.DEFAULT_ENV}}.infra
+    ports:
+      - "\${DATABASE_PORT:-${cfg.DATABASE_PORT_DEV}}:${cfg.DATABASE_CONTAINER_PORT}"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$\${POSTGRES_USER} -d $$\${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
+    name: ${cfg.PROJECT_SLUG}_\${APP_ENV:-${cfg.DEFAULT_ENV}}_db_data`;
 }
 
 // ── Template rendering ────────────────────────────────────────────────────────
@@ -349,6 +478,22 @@ function walkDir(dir) {
 // ── Runtime support flags ─────────────────────────────────────────────────────
 
 function applyRuntimeSupportFlags(projectDir, cfg, dryRun) {
+  // No datastore means the DATABASE_*/POSTGRES_* half of every .env is noise.
+  // The templates carry it because the renderer has no conditionals; stripping
+  // it here keeps one template instead of two that drift.
+  if (cfg.DATASTORE === "none" && !dryRun) {
+    for (const file of fs.readdirSync(projectDir)) {
+      if (!/^\.env\b/.test(file)) continue;
+      const full = path.join(projectDir, file);
+      const kept = fs
+        .readFileSync(full, "utf8")
+        .split("\n")
+        .filter((line) => !/^\s*(DATABASE_|POSTGRES_)/.test(line));
+      // Collapse the blank line the removed block leaves behind.
+      fs.writeFileSync(full, kept.join("\n").replace(/\n{3,}/g, "\n\n"), "utf8");
+    }
+  }
+
   if (cfg.DOCKER_SUPPORT !== "true") {
     if (dryRun) {
       logInfo("[dry-run] skip Docker artifacts");

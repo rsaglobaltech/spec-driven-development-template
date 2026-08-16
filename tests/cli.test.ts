@@ -1045,3 +1045,72 @@ test("an unsupported DATABASE_ENGINE is rejected with the supported list", () =>
   assert.match(result.stdout + result.stderr, /is not supported.*postgres/s);
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
+
+// ── Datastore ─────────────────────────────────────────────────────────────────
+
+test("a project with no datastore documents no database", () => {
+  // Every project used to get a Postgres contract, whether or not it had one.
+  // A frontend or mobile app then shipped .env files full of DATABASE_* nobody
+  // reads and a runtime spec describing a database that was never created.
+  const { tempRoot, projectDir } = initRuntimeProject(['PROJECT_TYPE="frontend"']);
+
+  const env = fs.readFileSync(path.join(projectDir, ".env.dev"), "utf8");
+  assert.doesNotMatch(env, /DATABASE_/);
+  assert.doesNotMatch(env, /POSTGRES_/);
+  assert.match(env, /APP_ENV=dev/, "the environment itself still exists");
+
+  const spec = fs.readFileSync(path.join(projectDir, "docs/specs/runtime-environments.md"), "utf8");
+  assert.match(spec, /owns no datastore/);
+  assert.doesNotMatch(spec, /## Database/);
+  // The catalog drops its Database column rather than listing a name nobody created.
+  assert.doesNotMatch(spec, /\| Environment \| Purpose \| Env file \| Database \|/);
+
+  // Compose keeps the workspace service and loses only the database.
+  const compose = fs.readFileSync(path.join(projectDir, "docker-compose.yml"), "utf8");
+  assert.match(compose, /workspace:/);
+  assert.doesNotMatch(compose, /^ {2}db:/m);
+  assert.doesNotMatch(compose, /depends_on/);
+  assert.doesNotMatch(compose, /db_data/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("a backend still gets the full database contract", () => {
+  const { tempRoot, projectDir } = initRuntimeProject([]);
+
+  const env = fs.readFileSync(path.join(projectDir, ".env.dev"), "utf8");
+  assert.match(env, /DATABASE_ENGINE=postgres/);
+
+  const spec = fs.readFileSync(path.join(projectDir, "docs/specs/runtime-environments.md"), "utf8");
+  assert.match(spec, /## Database/);
+  assert.match(spec, /1\. \*\*No shared databases/);
+
+  const compose = fs.readFileSync(path.join(projectDir, "docker-compose.yml"), "utf8");
+  assert.match(compose, /^ {2}db:/m);
+  assert.match(compose, /depends_on/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("DATASTORE=none is accepted explicitly on a backend too", () => {
+  // A backend that talks only to other services is a real shape.
+  const { tempRoot, projectDir } = initRuntimeProject(['DATASTORE="none"']);
+  const spec = fs.readFileSync(path.join(projectDir, "docs/specs/runtime-environments.md"), "utf8");
+  assert.match(spec, /owns no datastore/);
+  // With no database, the invariant list starts at the credentials rule.
+  assert.match(spec, /1\. \*\*No credentials in the repository/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("an unsupported DATASTORE is rejected with the allowed list", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-datastore-"));
+  const configPath = path.join(tempRoot, "project.config");
+  fs.writeFileSync(configPath, [...RUNTIME_BASE_CONFIG, 'DATASTORE="mongo"'].join("\n"), "utf8");
+  const result = runCli(["init", "--config", configPath, "--out", tempRoot, "--force", "--no-git"]);
+  assert.equal(result.status, 2);
+  assert.match(
+    result.stdout + result.stderr,
+    /DATASTORE 'mongo' is not supported.*postgres, none/s
+  );
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});

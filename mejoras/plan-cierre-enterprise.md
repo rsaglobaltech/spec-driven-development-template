@@ -570,6 +570,32 @@ y el goal `csda:validate` de Maven sobre un proyecto Java real.
 
 ---
 
+## 12.5 Fase 7.5 — `mobile` como tipo de proyecto de primera clase
+
+*Decidido el 2026-08-16, tras comprobar que hoy hay que mentir en `PROJECT_TYPE`
+para montar una app móvil. Se hace **después de la fase 7**, con el CLI ya
+publicado.*
+
+Hoy una app móvil funciona con `PROJECT_TYPE: frontend` y el `STACK` bien
+puesto — el stack nunca está hardcodeado y todo el núcleo es agnóstico. Lo que
+falla es el vocabulario y la honestidad del tipo declarado.
+
+| ID | | Tarea | Detalle |
+|---|---|---|---|
+| C75-01 | `[ ]` | `mobile` en el enum de `PROJECT_TYPE` | `scripts/init_project.ts`. Hoy solo acepta `backend\|frontend`, así que el tipo declarado en `spec.md` miente |
+| C75-02 | `[ ]` | `templates/mobile/` con su propio `AI_RULES.md.tpl` | El de frontend habla vocabulario web: *responsive behavior*, *componentization*. Lo que necesita un equipo móvil: offline-first, paridad iOS/Android, ciclo background/foreground, deep links, permisos, y que una release pasa por revisión de store — lo cual cambia qué significa «hecho». `templates/frontend/` son 2 ficheros; este será igual de pequeño |
+| C75-03 | `[ ]` | `mobile` en `schemas/pack.schema.json` y en `pack init --type` | Para que existan packs de dominio móvil |
+| C75-04 | `[ ]` | Escenario base móvil en vez del `health.feature` web | Un smoke de arranque de app, no un endpoint HTTP |
+
+**Ya resuelto por adelantado (fase 5):** el contrato de runtime documentaba
+Postgres para todo proyecto, incluido frontend web. Ahora hay `DATASTORE`
+(`postgres` \| `none`, por defecto según `PROJECT_TYPE`), y sin datastore no se
+generan variables `DATABASE_*`, ni sección de base de datos en el spec, ni
+servicio `db` en compose. Eso era el 80 % de la fricción del caso móvil, y
+además arreglaba frontend web, que estaba mal desde el principio.
+
+---
+
 ## 13. Backlog aparcado
 
 Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el motivo.
