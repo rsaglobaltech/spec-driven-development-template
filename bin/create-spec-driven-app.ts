@@ -35,6 +35,7 @@ const fixScript = path.join(distScripts, "fix.js");
 const configInitScript = path.join(distScripts, "config_init.js");
 const configSetScript = path.join(distScripts, "config_set.js");
 const schemaScript = path.join(distScripts, "schema", "cli.js");
+const onboardScript = path.join(distScripts, "onboard.js");
 const completionScript = path.join(distScripts, "completion.js");
 const studioScript = path.join(distScripts, "studio.js");
 const agentsInitScript = path.join(distScripts, "agents", "init.js");
@@ -111,6 +112,7 @@ function usageCore() {
       section("START HERE") +
       cmd("⚡", "init", "Scaffold a new spec-driven project.") +
       cmd("🏗", "adopt", "Install SDD on an EXISTING repository, without touching code.") +
+      cmd("🧭", "onboard", "Read an existing repo and propose the capabilities its code implies.") +
       section("EVERY DAY") +
       cmd("🧭", "status", "Where the project stands, and the one command to run next.") +
       cmd("📋", "plan", "Requirements still needing a test or implementation.") +
@@ -161,6 +163,7 @@ function usageFull() {
       section("CORE COMMANDS") +
       cmd("⚡", "init", "Scaffold a new project (interactive wizard when no --config).") +
       cmd("🏗", "adopt", "Install SDD on an EXISTING repository (brownfield, non-invasive).") +
+      cmd("🧭", "onboard", "Read an existing repo and propose the capabilities its code implies.") +
       cmd("🩺", "doctor", "Diagnose the project and environment; every finding ships a fix.") +
       cmd("🧭", "status", "Daily dashboard: what is done, what is orphaned, what to do next.") +
       cmd("🚦", "ci init", "Generate the spec gate for GitHub, GitLab, Azure, or Jenkins.") +
@@ -459,6 +462,12 @@ function main(): void {
     error(`Unknown agents sub-command: ${subCommand || "(none)"}. Expected: init`);
     usage();
     process.exit(2);
+  }
+
+  if (command === "onboard") {
+    ensureExecutable(onboardScript);
+    runNodeScript(onboardScript, args.slice(1));
+    return;
   }
 
   if (command === "schema") {

@@ -22,6 +22,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const { parseYamlLite, asArray } = require("../domain-pack/common");
+const { phrases } = require("../lib/language");
 
 // ── Reading the pack model ────────────────────────────────────────────────────
 
@@ -149,6 +150,7 @@ function traceComment(scenario, origin?) {
 }
 
 function renderRequirementBlock(req, scenarios, packDir, opts?) {
+  const t = phrases(opts && opts.projectDir);
   const o = opts || {};
   const out = [];
   out.push(`### Requirement: ${req.id} — ${req.title || req.id}`);
@@ -162,27 +164,27 @@ function renderRequirementBlock(req, scenarios, packDir, opts?) {
   }
 
   const description = String(req.description || "").trim();
-  out.push(description || `El sistema SHALL cumplir "${req.title || req.id}".`);
-  if (req.priority) out.push("", `_Prioridad: ${req.priority}._`);
+  out.push(description || t.systemShallMeet(req.title || req.id));
+  if (req.priority) out.push("", t.priority(req.priority));
   out.push("");
 
   for (const sc of scenarios || []) {
-    const name = sc.scenario || sc.id || "Escenario";
+    const name = sc.scenario || sc.id || "Scenario";
     out.push(`#### Scenario: ${sc.id ? `${sc.id} — ${name}` : name}`);
     out.push("");
     const steps = stepsForScenario(packDir, sc);
     if (steps) {
       for (const step of steps) out.push(`- ${step}`);
     } else {
-      out.push(`- TODO: escribir los pasos GIVEN / WHEN / THEN de "${name}"`);
+      out.push(t.todoSteps(name));
     }
     out.push("");
   }
 
   if ((scenarios || []).length === 0) {
-    out.push(`#### Scenario: TODO — escenario de "${req.title || req.id}"`);
+    out.push(`#### Scenario: TODO — ${req.title || req.id}`);
     out.push("");
-    out.push("- TODO: escribir los pasos GIVEN / WHEN / THEN");
+    out.push(t.todoStepsPlain);
     out.push("");
   }
 
@@ -251,6 +253,7 @@ function deriveDelta(oldPackRoot, newPackRoot, packId, opts?) {
         renderRequirementBlock(entry.req, entry.scenarios, newPack.packDir, {
           ...(blockOpts || {}),
           origin: options.origin,
+          projectDir: options.projectDir,
         })
       );
       lines.push("");
@@ -288,7 +291,8 @@ function changeIdFor(packId, fromVersion, toVersion) {
   return `upgrade-${slug(packId.split("/").pop())}-${slug(toVersion)}`;
 }
 
-function renderProposal(entry, targetVersion, summary) {
+function renderProposal(entry, targetVersion, summary, projectDir?) {
+  const t = phrases(projectDir);
   const count = summary.added.length + summary.modified.length + summary.removed.length;
   const list = (label, ids) =>
     ids.length === 0 ? "" : `\n### ${label}\n\n${ids.map((id) => `- ${id}`).join("\n")}\n`;
@@ -304,7 +308,7 @@ del diff de ficheros — lo que se revisa aquí es la intención del dominio.
 ## Scope
 
 ${count} requisito(s) afectado(s).
-${list("Añadidos", summary.added)}${list("Modificados", summary.modified)}${list("Retirados", summary.removed)}
+${list(t.added, summary.added)}${list(t.modified, summary.modified)}${list(t.removed, summary.removed)}
 Fuera de alcance: la reconciliación de los ficheros generados, que sigue siendo
 trabajo de \`specops sync\`.
 
@@ -348,7 +352,7 @@ function materialiseChange(projectDir, entry, targetVersion, derived, opts?) {
   const files = [
     {
       file: path.join(changeDir, "proposal.md"),
-      contents: renderProposal(entry, targetVersion, derived.summary),
+      contents: renderProposal(entry, targetVersion, derived.summary, projectDir),
     },
     { file: path.join(changeDir, "tasks.md"), contents: renderTasks(entry, targetVersion) },
     {

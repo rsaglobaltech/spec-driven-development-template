@@ -18,6 +18,7 @@ const path = require("node:path");
 const { resolveProjectDir } = require("../lib/project-root");
 const { error, warning, hasErrors, printDiagnostics } = require("../lib/diagnostics");
 const { agentIo } = require("../lib/agent");
+const { phrases } = require("../lib/language");
 const { ARTIFACTS, artifactState } = require("./artifacts");
 const { validateDelta } = require("./delta");
 const { parseDelta } = require("./parser");
@@ -58,7 +59,7 @@ const TEMPLATES = {
   proposal: (changeId) => templateProposal(changeId),
   tasks: () => templateTasks(),
   design: (changeId) => templateDesign(changeId),
-  specs: () => templateDelta("<capability>", "REQ-NNN"),
+  specs: (_changeId, projectDir?) => templateDelta("<capability>", "REQ-NNN", projectDir),
 };
 
 function usage() {
@@ -184,22 +185,25 @@ function templateDesign(changeId) {
 `;
 }
 
-function templateDelta(capability, reqId) {
+function templateDelta(capability, reqId, projectDir?) {
+  // Prose follows the project's language; the grammar never does. SHALL,
+  // GIVEN/WHEN/THEN and the section headings are what the validator parses.
+  const t = phrases(projectDir);
   return `# Delta — ${capability}
 
 ## ADDED Requirements
 
-### Requirement: ${reqId} — <short name>
+### Requirement: ${reqId} — ${t.shortName}
 
-El sistema SHALL <comportamiento observable>.
+${t.systemShall(t.observableBehaviour)}
 
-#### Scenario: <nombre del escenario>
+#### Scenario: ${t.scenarioName}
 
-- GIVEN <precondición>
-- WHEN <acción>
-- THEN <resultado observable>
+- GIVEN ${t.precondition}
+- WHEN ${t.action}
+- THEN ${t.outcome}
 
-<!-- csda:trace uc=UC-000 feature=features/<módulo>/<nombre>.feature -->
+<!-- csda:trace uc=UC-000 feature=features/<area>/<name>.feature -->
 `;
 }
 

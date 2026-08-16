@@ -1,9 +1,13 @@
 # Comparison: `create-spec-driven-app` vs. alternatives
 
-This document positions `create-spec-driven-app` honestly against four
-adjacent tools that teams commonly evaluate when adopting Spec-Driven
-Development or AI-assisted scaffolding: GitHub `spec-kit`, Cursor rules,
-Aider conventions, and plain `README.md` files.
+This document positions `create-spec-driven-app` honestly against the tools
+teams commonly evaluate when adopting Spec-Driven Development or AI-assisted
+scaffolding: **OpenSpec**, GitHub `spec-kit`, Cursor rules, Aider conventions,
+and plain `README.md` files.
+
+OpenSpec is the closest comparison and the one worth reading first — it is the
+best current exponent of the change-lifecycle idea, and several things in this
+tool exist because of it.
 
 > **Bias disclosure.** This is written by the maintainers of
 > `create-spec-driven-app`. Where we lose, we say so. We have asked the
@@ -14,24 +18,29 @@ Aider conventions, and plain `README.md` files.
 
 ## 1. At-a-glance matrix
 
-| Capability | `create-spec-driven-app` | GitHub `spec-kit` | Cursor `.cursorrules` | Aider `CONVENTIONS.md` | Plain `README.md` |
-|---|:-:|:-:|:-:|:-:|:-:|
-| **Generates an initial repo structure** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Ships with a domain pack format** | ✅ (YAML+schema) | ⚠️ ad-hoc | ❌ | ❌ | ❌ |
-| **DDD-lite artefacts (aggregates, contexts, events)** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Gherkin scenario stubs** | ✅ | ⚠️ via templates | ❌ | ❌ | ❌ |
-| **Traceability matrix** | ✅ rich + legacy | ⚠️ basic | ❌ | ❌ | ❌ |
-| **`validate` CI gate** | ✅ shipped GHA | ⚠️ external | ❌ | ❌ | ❌ |
-| **JSON Schema for the DSL** | ✅ draft 2020-12 | ❌ | ❌ | ❌ | n/a |
-| **VS Code extension** | ⚠️ built, not on the Marketplace | ❌ | n/a (own editor) | ❌ | ❌ |
-| **MCP server** | ✅ shipped | ❌ | ❌ | ❌ | ❌ |
-| **Language server (LSP)** | ✅ shipped | ❌ | n/a (own editor) | ❌ | ❌ |
-| **Change lifecycle (propose → review → archive)** | ✅ shipped | ❌ | ❌ | ❌ | ❌ |
-| **Versioned, installable packs (`specops`)** | ✅ shipped | ❌ | ❌ | ❌ | ❌ |
-| **Cross-platform CLI (Windows/Linux/macOS)** | ✅ Node | ⚠️ Bash-heavy | ✅ | ✅ | ✅ |
-| **Locked-in to one AI vendor** | ❌ | ❌ | ✅ Cursor | ❌ | ❌ |
-| **Discoverable pack registry** | ⚠️ generator ships, not yet hosted | ❌ | ❌ | ❌ | n/a |
-| **Zero-install (just docs)** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Capability | `create-spec-driven-app` | **OpenSpec** | GitHub `spec-kit` | Cursor `.cursorrules` | Aider `CONVENTIONS.md` | Plain `README.md` |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| **Generates an initial repo structure** | ✅ | ⚠️ minimal | ✅ | ❌ | ❌ | ❌ |
+| **Ships with a domain pack format** | ✅ (YAML+schema) | ❌ | ⚠️ ad-hoc | ❌ | ❌ | ❌ |
+| **DDD-lite artefacts (aggregates, contexts, events)** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Gherkin scenario stubs** | ✅ | ⚠️ prose scenarios | ⚠️ via templates | ❌ | ❌ | ❌ |
+| **Traceability matrix** | ✅ rich + legacy | ❌ | ⚠️ basic | ❌ | ❌ | ❌ |
+| **`validate` CI gate** | ✅ shipped GHA | ✅ | ⚠️ external | ❌ | ❌ | ❌ |
+| **JSON Schema for the DSL** | ✅ draft 2020-12 | n/a (plain markdown) | ❌ | ❌ | ❌ | n/a |
+| **VS Code extension** | ⚠️ built, not on the Marketplace | ❌ | ❌ | n/a (own editor) | ❌ | ❌ |
+| **MCP server** | ✅ shipped | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Language server (LSP)** | ✅ shipped | ❌ | ❌ | n/a (own editor) | ❌ | ❌ |
+| **Change lifecycle (propose → review → archive)** | ✅ shipped | ✅ **their idea first** | ❌ | ❌ | ❌ | ❌ |
+| **Versioned, installable packs (`specops`)** | ✅ shipped | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Cross-platform CLI (Windows/Linux/macOS)** | ✅ Node | ✅ Node | ⚠️ Bash-heavy | ✅ | ✅ | ✅ |
+| **Locked-in to one AI vendor** | ❌ | ❌ | ❌ | ✅ Cursor | ❌ | ❌ |
+| **Discoverable pack registry** | ⚠️ generator ships, not yet hosted | n/a | ❌ | ❌ | ❌ | n/a |
+| **Zero-install (just docs)** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Agent JSON contract, documented and tested** | ✅ generated from source | ✅ hand-written | ❌ | ❌ | ❌ | ❌ |
+| **Slash commands for agent tools** | ✅ 8 tools | ✅ | ❌ | n/a | ❌ | ❌ |
+| **Configurable artefact graph** | ✅ `csda schema` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Multi-repo spec sharing** | ✅ private packs | ⚠️ Stores | ❌ | ❌ | ❌ | ❌ |
+| **Time to first value** | ⚠️ minutes | ✅ minutes | ✅ minutes | ✅ instant | ✅ instant | ✅ instant |
 
 ✅ supported · ⚠️ partial / via workaround · ❌ not supported · 🚧 in progress
 
@@ -49,6 +58,27 @@ Aider conventions, and plain `README.md` files.
   Docker / devcontainer / `.env` scaffolding aligned with the domain.
 - You want a **portable, vendor-neutral** workflow that works with Claude,
   Cursor, Aider, Copilot, or no agent at all.
+
+### OpenSpec wins when…
+
+- You want the **change lifecycle and nothing else**. OpenSpec is smaller, and
+  smaller is a feature: fewer concepts to teach, less to get wrong.
+- Your specs are **prose, not a domain model**. If aggregates, commands and
+  events would be ceremony for your team, our DDD-lite artefacts are cost
+  without benefit.
+- You want **plain markdown with no schema**. Our `pack.yaml` buys reuse and
+  validation; it also buys a format to learn.
+- You are **starting today and want the shortest path** to a working loop.
+
+We took the delta format, the `ADDED`/`MODIFIED`/`REMOVED` grammar and the
+idea of an audited agent contract from their design. Where we differ is
+deliberate: they optimise for the change loop, we add versioned domain packs
+(`specops`) and a traceability matrix that CI enforces. If you do not need
+those two things, their smaller surface is the better tool.
+
+> Their contract documents a set of known inconsistencies — snake_case in one
+> command family and camelCase in another. We had the advantage of reading that
+> before writing ours, and picked one. We are not cleverer; we were later.
 
 ### GitHub `spec-kit` wins when…
 
@@ -105,6 +135,26 @@ adopt ours and regret it.
 
 ## 4. Migration paths
 
+### From OpenSpec → `create-spec-driven-app`
+
+The delta format is deliberately the same, so the specs come across as-is.
+
+1. `csda adopt` in the repo — it never overwrites an existing file.
+2. Move `openspec/changes/<id>/` to `docs/specs/changes/<id>/` and add a
+   `change.yaml` (`csda change new <id>` writes one to copy).
+3. Move `openspec/specs/<capability>/spec.md` to
+   `docs/specs/capabilities/<capability>/spec.md`.
+4. `csda change validate` — the `ADDED`/`MODIFIED`/`REMOVED` grammar is
+   compatible; what it will flag is missing RFC-2119 keywords and scenario
+   steps that are prose rather than `- GIVEN` bullets.
+5. Optionally add `<!-- csda:trace uc=… cmd=… -->` comments where you want
+   requirements to reach the traceability matrix. Without them a requirement
+   still archives, with `-` in those columns.
+
+**Do not migrate** if what you valued was the smaller surface. Steps 4 and 5
+are the tax for the matrix and the CI gate; if you do not want those, you do
+not want this tool.
+
 ### From `spec-kit` → `create-spec-driven-app`
 
 1. Run `npx create-spec-driven-app init --config your.config --out ./next`.
@@ -146,13 +196,12 @@ adopt ours and regret it.
 
 - [Case Study 1: Smart Parking brownfield adoption](case-studies/case-1.md)
 - [ROI Calculator](roi.html)
+- [OpenSpec](https://github.com/Fission-AI/OpenSpec) (last reviewed 2026-08) — the benchmark that shaped this tool's change lifecycle; the full analysis is in [`mejoras/openspec-benchmark-plan.md`](../mejoras/openspec-benchmark-plan.md)
 - [GitHub spec-kit](https://github.com/github/spec-kit) (last reviewed 2026-05)
 - [Cursor `.cursorrules` documentation](https://docs.cursor.com/context/rules-for-ai)
 - [Aider CONVENTIONS.md guide](https://aider.chat/docs/usage/conventions.html)
 
-Our own column was last verified against the shipped CLI on **2026-08-16**; the
-competitor columns were last reviewed **2026-05**. OpenSpec is not compared here
-yet — that is tracked as C4-09 in
-[`mejoras/plan-cierre-enterprise.md`](../mejoras/plan-cierre-enterprise.md).
+Our own column was last verified against the shipped CLI on **2026-08-16**.
+OpenSpec was reviewed **2026-08**; the other columns **2026-05**.
 Pull requests with corrections are welcome — see
 [CONTRIBUTING.md](../CONTRIBUTING.md).

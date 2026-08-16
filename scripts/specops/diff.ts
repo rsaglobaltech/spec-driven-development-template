@@ -249,6 +249,9 @@ function runAsChange(args, projectDir, lock) {
       // Provenance rides with the requirement so `archive` can carry it into
       // the capability spec, and a later reader can tell pack-owned from local.
       origin: `pack:${entry.pack_id}@${targetVersion}`,
+      // Generated prose follows the project's language setting; the grammar
+      // (SHALL, GIVEN/WHEN/THEN, the section headings) never does.
+      projectDir,
     });
 
     if (!derived.markdown) {

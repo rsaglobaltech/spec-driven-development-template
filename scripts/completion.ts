@@ -17,6 +17,7 @@
 const COMMANDS = [
   "init",
   "adopt",
+  "onboard",
   "doctor",
   "status",
   "ci",

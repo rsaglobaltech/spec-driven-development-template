@@ -163,7 +163,7 @@ function buildInstructions(projectDir, artifact, changeId, templates) {
     state: state ? state.status : "unknown",
     requires: state ? state.requires : [],
     unlocks: unlockedBy(artifact, artifacts),
-    template: templates[artifact] ? templates[artifact](changeId) : null,
+    template: templates[artifact] ? templates[artifact](changeId, projectDir) : null,
     rules: ARTIFACT_RULES[artifact] || [],
     context,
     nextCommand: `csda change validate ${changeId}`,

@@ -236,7 +236,10 @@ test("a missing template yields an explicit TODO, never an invented step", () =>
   });
   try {
     const derived = deriveDelta(before, after, PACK_ID);
-    assert.match(derived.markdown, /TODO: escribir los pasos/);
+    // Default language is English; the TODO is prose, so it follows it.
+    assert.match(derived.markdown, /TODO: write the GIVEN \/ WHEN \/ THEN steps/);
+    // The keywords inside it never translate — they are what the validator parses.
+    assert.match(derived.markdown, /GIVEN \/ WHEN \/ THEN/);
   } finally {
     cleanup(before, after);
   }
