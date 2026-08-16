@@ -312,8 +312,41 @@ ${rows}
 `;
 }
 
+/**
+ * The report object keeps the matrix's snake_case row vocabulary because the
+ * HTML renderer reads it directly. The JSON *contract* is camelCase
+ * (ADR-0017 §4), so the rename happens here and nowhere else.
+ */
+function toCamelRequirement(item) {
+  const {
+    scenario_id,
+    feature_file,
+    technical_artifact,
+    test_artifact,
+    feature_exists,
+    technical_exists,
+    test_exists,
+    ...rest
+  } = item;
+  return {
+    ...rest,
+    scenarioId: scenario_id,
+    featureFile: feature_file,
+    technicalArtifact: technical_artifact,
+    testArtifact: test_artifact,
+    featureExists: feature_exists,
+    technicalExists: technical_exists,
+    testExists: test_exists,
+  };
+}
+
 function renderJson(report) {
-  return JSON.stringify(report, null, 2) + "\n";
+  const wire = {
+    ...report,
+    requirements: (report.requirements || []).map(toCamelRequirement),
+    status: report.status || [],
+  };
+  return JSON.stringify(wire, null, 2) + "\n";
 }
 
 // ── CLI ────────────────────────────────────────────────────────────────────────────
@@ -331,7 +364,13 @@ function parseArgs(argv) {
     if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
     else if (a === "--out" && argv[i + 1]) opts.out = argv[++i];
     else if (a === "--format" && argv[i + 1]) opts.format = argv[++i];
-    else if (a === "--html") opts.format = "html";
+    // ADR-0017: `--json` and `--format json` are the same request. It also
+    // implies stdout — the contract is one JSON document on stdout, and a
+    // caller that wanted a file would have said `--out`.
+    else if (a === "--json") {
+      opts.format = "json";
+      opts.stdout = true;
+    } else if (a === "--html") opts.format = "html";
     else if (a === "--stdout") opts.stdout = true;
     else if (a === "--record") opts.record = true;
     else if (a === "--help" || a === "-h") {
@@ -358,6 +397,7 @@ function usage() {
       `  OPTIONS\n` +
       `    --project-dir <path>  Project root (default: cwd).\n` +
       `    --format html|json    Output format (default: html).\n` +
+      `    --json                Same as --format json --stdout.\n` +
       `    --out <file>          Write here (default: reports/spec-coverage.{html,json}).\n` +
       `    --stdout              Print to stdout instead of a file.\n` +
       `    --record              Append this run to reports/spec-coverage-history.jsonl (trend).\n` +
