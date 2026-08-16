@@ -647,10 +647,41 @@ y el goal `csda:validate` de Maven sobre un proyecto Java real.
 | C9-02 | `[x]` | `CODEOWNERS` + `MAINTAINERS.md` + protección de `main` — ver §12.6 |
 | C9-03 | `[x]` | Integridad y firma de packs (B5) documentadas en `docs/supply-chain.md`, y **la deriva de packs entra por defecto en el gate generado**: `ci init` emite `validate --against-lock` en los cuatro proveedores, condicionado a que exista `.specops.lock`. La **firma sigue opt-in a propósito** — ver §12.4 |
 | C9-04 | `[x]` | Modo offline / air-gap (B4): runbook en `docs/supply-chain.md`. Las dos vías, `CSDA_OFFLINE=1` contra caché y `pack bundle` para redes que nunca vieron el pack. Ninguna estaba documentada; `CSDA_OFFLINE` no aparecía en ningún doc |
-| C9-05 | `[ ]` | Telemetría opt-in con consentimiento explícito (R1 de `risk-mitigation-plan.md`, nunca implementada) |
+| C9-05 | `[ ]` | Telemetría opt-in con consentimiento explícito (R1 de `risk-mitigation-plan.md`, nunca implementada). **Decisión tuya, no mía** — ver §12.2 |
 | C9-06 | `[x]` | SBOM CycloneDX vía `npm sbom` (sin dependencia nueva) + `scripts/license_check.ts` como puerta de licencias, en el workflow de seguridad y como `npm run licenses`. Árbol actual: **377 componentes, todos permisivos, cero copyleft**. El gate se probó fallando, no solo pasando |
 | C9-07 | `[x]` | Política de soporte y ventanas de compatibilidad en `docs/release-process.md`. **Y las ventanas ahora se aplican de verdad**: `schema_version` de `pack.yaml` y `specops_version` del lockfile se escribían y no los leía nadie — ver §12.3 |
-| C9-08 | `[ ]` | Validar la guía de adopción L1–L4 (A5, llega en C0-05) con un equipo real |
+| C9-08 | `[ ]` | Validar la guía de adopción L1–L4 (A5) con un equipo real. Trabajo de campo: no hay test que lo cierre. Va con la fase 8 |
+
+**Estado: 6 de 8 cerradas** (C9-01, C9-02, C9-03, C9-04, C9-06, C9-07). Las dos
+que quedan no dependen de escribir código: una es una decisión de producto tuya
+y la otra necesita gente.
+
+---
+
+## 12.2 Decisión pendiente — telemetría (C9-05)
+
+*No la implemento por mi cuenta. Recoger datos de las máquinas de otros es una
+decisión de producto y de privacidad, no una tarea técnica, y el coste de
+equivocarse cae sobre tu reputación, no sobre la mía.*
+
+`risk-mitigation-plan.md` la propuso como R1 para saber qué comandos se usan de
+verdad. Nunca se implementó, y el proyecto ha llegado hasta aquí sin ella.
+
+Lo que hay que decidir antes de escribir una línea:
+
+| Pregunta | Por qué bloquea |
+|---|---|
+| ¿Qué se envía exactamente? | Nombres de comandos y códigos de salida es una cosa; rutas, nombres de requisitos o contenido de specs es otra muy distinta. Un spec puede ser confidencial |
+| ¿A dónde? | Un endpoint propio implica ser responsable del tratamiento. Uno de terceros implica un encargado del tratamiento y su contrato |
+| ¿Opt-in u opt-out? | En herramientas de desarrollo el opt-out se percibe como traición aunque sea legal. El opt-in da menos datos y cero incidentes |
+| ¿Qué dice el RGPD aquí? | Aunque no haya datos personales por diseño, hay que poder demostrarlo |
+
+**Mi recomendación:** no hacerlo todavía. El público objetivo son equipos
+enterprise, que es justo el segmento donde una llamada de red no solicitada
+desde una herramienta de build es motivo de veto — y ya hay una vía sin ese
+coste, `csda report` y `plan --json`, que dejan los datos en manos del equipo
+que los genera. Si algún día hace falta, que sea opt-in explícito y con la
+lista de campos publicada en `docs/`.
 
 ---
 
