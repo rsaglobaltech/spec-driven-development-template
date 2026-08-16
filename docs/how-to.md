@@ -18,6 +18,7 @@ Task-shaped guides, each self-contained. Copy/paste should work end to end.
 | Wire it into editors, agents, hooks and CI | [Automation](automation.md) |
 | Drive it from Claude, Cursor or Copilot | [Agents](agents.md) |
 | Work out why something is not behaving | [Troubleshooting](troubleshooting.md) |
+| Look up a command | [Command reference](commands.md) |
 
 ## By adoption level
 

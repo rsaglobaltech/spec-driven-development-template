@@ -151,3 +151,33 @@ test("the README stays short enough to read", () => {
   const lines = fs.readFileSync(path.join(ROOT_DIR, "README.md"), "utf8").split("\n").length;
   assert.ok(lines < 150, `README is ${lines} lines; it should stay under 150 and link out`);
 });
+
+test("every command the CLI dispatches is documented somewhere", () => {
+  // Phases 4 and 5 shipped commands after the docs were reorganised, and the
+  // documentation quietly fell behind: `status` and `req` are in the eight-command
+  // core help and appeared in no guide at all. A command nobody wrote down is a
+  // command nobody finds.
+  const bin = fs.readFileSync(path.join(ROOT_DIR, "bin", "create-spec-driven-app.ts"), "utf8");
+  const dispatched = [...new Set([...bin.matchAll(/command === "([a-z-]+)"/g)].map((m) => m[1]))];
+
+  const docs = [
+    "README.md",
+    ...fs
+      .readdirSync(path.join(ROOT_DIR, "docs"))
+      .filter((f) => f.endsWith(".md"))
+      .map((f) => `docs/${f}`),
+  ]
+    .map((rel) => fs.readFileSync(path.join(ROOT_DIR, rel), "utf8"))
+    .join("\n");
+
+  // Both spellings count: the README leads with `npx create-spec-driven-app`,
+  // the guides use the `csda` alias.
+  const undocumented = dispatched.filter(
+    (cmd) => !new RegExp(`\\b(csda|create-spec-driven-app(@[\\w.-]+)?) ${cmd}\\b`).test(docs)
+  );
+  assert.deepEqual(
+    undocumented,
+    [],
+    `commands with no mention in README.md or docs/*.md:\n  ${undocumented.join("\n  ")}`
+  );
+});

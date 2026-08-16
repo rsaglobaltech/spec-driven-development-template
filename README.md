@@ -56,9 +56,15 @@ Each level is useful on its own and never requires the ones above it.
 
 ## 🛠️ What it does
 
-**Specs that are checked.** `validate` fails the build when a requirement has no
-scenario, no test, or no row in the traceability matrix. `--strict-tdd` fails it
-when a requirement moves past Draft without a test.
+**A daily loop, not a one-shot scaffolder.** `csda status` says where the
+project stands and what to run next; `csda plan` is the queue; `csda req` adds
+and links requirements so nobody hand-edits the ten-column matrix; `csda done`
+closes them.
+→ [Quickstart](docs/quickstart.md) · [Command reference](docs/commands.md)
+
+**Specs that are checked.** `csda validate` fails the build when a requirement
+has no scenario, no test, or no row in the traceability matrix. `--strict-tdd`
+fails it when a requirement moves past Draft without a test.
 → [Writing specs](docs/writing-specs.md) · [Validating](docs/validating.md)
 
 **Changes you review as intent.** Modify a spec that already shipped through a
@@ -77,9 +83,16 @@ diagnostic codes and a `fix` on each. `csda agents init` wires the loop into
 eight agent tools from one definition.
 → [Agents](docs/agents.md) · [The agent contract](docs/specs/agent-contract.md)
 
-**Unattended delivery.** `harness run` drives plan → agent → verify → done for
-every pending requirement, each in its own git worktree. It never merges.
+**Unattended delivery.** `csda harness run` drives plan → agent → verify → done
+for every pending requirement, each in its own git worktree. It never merges.
+`csda ci init` generates the gate for GitHub, GitLab, Azure or Jenkins, and
+`csda alm sync` keeps Jira or Azure Boards in step.
 → [Automation](docs/automation.md)
+
+**It stays current.** `csda update` refreshes the generated agent files after an
+upgrade, three-way merging your edits rather than clobbering them. `csda doctor`
+reports what has drifted, with a fix per finding.
+→ [Command reference](docs/commands.md)
 
 ## 🆚 How it compares
 
@@ -98,6 +111,7 @@ loop without versioned packs or an enforced matrix, theirs is the better fit.
 
 ## 📚 Documentation
 
+- [Command reference](docs/commands.md) — every command, grouped by when you reach for it
 - [How-to guides](docs/how-to.md) — by task and by adoption level
 - [Tutorial](docs/tutorial.md) — long-form, on a real public pack
 - [Architecture](docs/specs/architecture.md) — three repos, three lifecycles

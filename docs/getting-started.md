@@ -91,8 +91,32 @@ Useful flags:
 
 ---
 
+## Then: the daily loop
+
+Scaffolding is day one. From day two the loop is four commands, and none of them
+asks you to edit the ten-column matrix by hand.
+
+```bash
+csda status                      # where things stand, and what to run next
+csda plan                        # the queue: what still needs a test or code
+csda req add "Operators can export a monthly report"
+csda req link REQ-007 --feature features/reporting/export.feature \
+                      --test src/ReportTest.java
+csda done REQ-007 --check        # validates first, then flips the status
+```
+
+`csda status` is the one to start the day with — it names the single next
+command, so you never have to remember which of the others applies.
+
+If `validate` complains about something mechanical — an orphan `.feature`, a
+requirement in `spec.md` with no row — `csda fix --dry-run` shows what it would
+repair, and `csda fix` applies it.
+
+---
+
 ## Next
 
+- [Every command, grouped by when you need it](commands.md)
 - [Write your first scenario](writing-specs.md)
 - [Put the gate in CI](validating.md)
 - [The whole loop, end to end](tutorial.md)
