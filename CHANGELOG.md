@@ -5,6 +5,20 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
+## [0.2.1] — 2026-08-16
+
+### Fixed
+
+- **The Docker image is built for arm64 as well as amd64.** `0.2.0` shipped
+  amd64 only, so `docker run ghcr.io/rsaglobaltech/csda` — which the README
+  tells people to use — failed on every Apple Silicon laptop and every ARM CI
+  runner. The workflow needed QEMU alongside buildx to cross-build.
+
+  The 0.2.0 image tag could not be rebuilt in place: re-running a workflow
+  against an old tag checks out the workflow *as it was at that tag*, which did
+  not yet have the fix. Hence a patch release rather than moving a published
+  tag.
+
 ## [0.2.0] — 2026-08-16
 
 Three months of work that never shipped. `0.1.4` went to npm in May and the
