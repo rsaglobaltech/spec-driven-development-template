@@ -163,9 +163,9 @@ test("readLock rejects a lockfile written by a newer CLI, and names the fix", ()
     assert.throws(
       () => readLock(dir),
       (err) =>
-        /newer version of this CLI/.test(err.message) &&
-        /Fix:/.test(err.message) &&
-        new RegExp(`format ${SPECOPS_SCHEMA_VERSION + 1}`).test(err.message)
+        err.message.includes("newer version of this CLI") &&
+        err.message.includes("Fix:") &&
+        err.message.includes(`format ${SPECOPS_SCHEMA_VERSION + 1}`)
     );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

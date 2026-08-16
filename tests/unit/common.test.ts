@@ -312,10 +312,13 @@ test("validatePackModel rejects a pack.yaml from a newer schema, and names the f
   pack.schema_version = "9.0.0";
   assert.throws(
     () => validatePackModel(pack, packRoot),
+    // Plain substring checks: building a regex out of a version string means
+    // escaping it, and a half-escaped pattern is how this file earned a
+    // js/incomplete-sanitization alert in the first place.
     (err) =>
-      /schema_version 9\.0\.0/.test(err.message) &&
-      new RegExp(`up to ${PACK_SCHEMA_VERSION.replace(/\./g, "\\.")}`).test(err.message) &&
-      /Fix:/.test(err.message)
+      err.message.includes("schema_version 9.0.0") &&
+      err.message.includes(`up to ${PACK_SCHEMA_VERSION}`) &&
+      err.message.includes("Fix:")
   );
 });
 
