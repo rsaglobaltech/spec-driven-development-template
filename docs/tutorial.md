@@ -73,8 +73,9 @@ folder. After that, you `cd` into it and stay there.
 9. [Step 8 — Remove a pack (`specops remove`)](#9-step-8--remove-a-pack-specops-remove)
 10. [Step 9 — Author your own pack (`pack init` · `lint` · `--graph` · `infer`)](#10-step-9--author-your-own-pack)
 11. [Step 10 — Add a NEW requirement (as a pack author)](#11-step-10--add-a-new-requirement-as-a-pack-author)
+11½. [Step 10½ — Change a requirement that already shipped (`change`)](#11-step-10--change-a-requirement-that-already-shipped)
 12. [Step 11 — Automate delivery with the harness (`harness run`)](#12-step-11--automate-delivery-with-the-harness-harness-run)
-13. [Step 12 — Companion tooling (VS Code · MCP)](#13-step-12--companion-tooling)
+13. [Step 12 — Companion tooling (VS Code · MCP · agents)](#13-step-12--companion-tooling)
 14. [Command cheat-sheet](#14-command-cheat-sheet)
 
 ---
@@ -90,8 +91,9 @@ Optionally install the CLI globally so `csda` works everywhere:
 
 ```bash
 npm install -g create-spec-driven-app@latest
-csda --version          # 0.1.4
-csda --help             # the full command list
+csda --version          # 0.2.0
+csda --help             # the eight commands of the daily loop
+csda --help --all       # the whole surface
 ```
 
 ---
@@ -378,28 +380,47 @@ Feature: Reserve a parking spot
 EOF
 ```
 
-### 7.3 Add the traceability row
+### 7.3 Add the traceability row — with `csda req`, not by hand
 
-Append a row to `docs/specs/traceability.md` using the **rich** header
-(`| Requirement | Scenario ID | Feature file | Use Case | Command/Query |
-Aggregate | Event | Technical artifact | Test artifact | Status |`):
+The matrix is a ten-column pipe table. Editing it by hand is the single most
+common source of broken links in a spec-driven project, and one misplaced `|`
+breaks the row silently. `csda req` writes it for you:
 
-```text
-| REQ-101 | SCN-101 | `features/reservations/reserve_spot.feature` | UC-101 | ReserveSpotCommand | ParkingFacility | SpotReserved | ReservationService.java | ReservationServiceTest | Draft |
+```bash
+csda req add "Reserve a parking spot in advance"
+#   ✔  Added REQ-101 (SCN-101, status Draft)
+
+csda req link REQ-101 \
+  --feature features/reservations/reserve_spot.feature \
+  --uc UC-101 --cmd ReserveSpotCommand \
+  --agg ParkingFacility --evt SpotReserved
 ```
+
+`req add` picks the next free ID, so it cannot collide with the pack's range,
+and `req link` fills the columns you name and leaves the rest alone.
+
+> `AI_RULES.md` tells every agent never to edit `traceability.md` directly.
+> The same applies to you: `csda req`, `csda done` and `csda change archive`
+> are the three things that write it.
 
 ### 7.4 Validate, plan, implement, close
 
 ```bash
+csda status                      # where the project stands, and what is next
 csda validate . --strict-tdd     # confirms REQ-101 is wired in correctly
 csda plan                        # REQ-101 now appears as pending
 # …write ReservationServiceTest, then ReservationService.java…
+csda req link REQ-101 --test ReservationServiceTest --code ReservationService.java
 csda done REQ-101 --strict
 ```
 
 That is the whole consumer loop: **spec → scenario → matrix row → validate
 → plan → implement → done.** To put a requirement into the **pack** so
 every project gets it, see Step 10.
+
+> **This is the day-one path.** Once a requirement has shipped, changing it
+> goes through the change lifecycle instead — Step 11½ — so the modification
+> is reviewable as intent rather than as a diff of the matrix.
 
 ---
 
@@ -663,6 +684,93 @@ That is the full pack-author loop: **draft scenario → `pack infer` → merge
 
 ---
 
+## 11¼. Step 10½ — Change a requirement that already shipped
+
+> 📍 **Run from:** inside your project — `smart-parking/`.
+
+### Concept
+
+Step 6 added a requirement on a blank page. This is the other case, and it is
+the one you hit for the rest of the project's life: **REQ-101 shipped, and now
+it has to change.**
+
+Editing `spec.md` and the matrix directly would work, and it would leave no
+record of *why*. A change makes the modification reviewable as intent — a
+delta stating only what moves — and archiving it writes the matrix rows for you.
+
+### Open it
+
+```bash
+csda change new reservations-need-a-deposit
+#   ✔ Change reservations-need-a-deposit created (lite · REQ ids REQ-102…REQ-104 reserved)
+
+csda change status
+#   ✔ proposal   proposal.md
+#   ▶ specs      specs/**/spec.md
+#   Next → Write specs/**/spec.md
+```
+
+The reserved ID range means two changes in flight never hand out the same
+`REQ-NNN`.
+
+### Write the delta
+
+Only what moves. `csda change instructions specs` prints the template, the
+rules the validator enforces and your project's declared stack:
+
+```markdown
+# Delta — reservations
+
+## MODIFIED Requirements
+
+### Requirement: REQ-101 — Reserve a parking spot in advance
+
+The system SHALL require a deposit before confirming a reservation, and SHALL
+release the spot if the deposit is not paid within 15 minutes.
+
+#### Scenario: SCN-101 — A reservation without a deposit expires
+
+- GIVEN spot "A-12" is reserved but unpaid
+- WHEN 15 minutes pass
+- THEN the reservation is cancelled and the spot is free again
+
+<!-- csda:trace uc=UC-101 cmd=ReserveSpotCommand agg=ParkingFacility evt=ReservationExpired
+     feature=features/reservations/reserve_spot.feature -->
+```
+
+`MODIFIED` replaces the whole requirement block; it does not merge scenario by
+scenario. Steps are plain `- GIVEN` bullets, and the body needs `SHALL`,
+`MUST`, `SHOULD` or `MAY` — the validator rejects both alternatives.
+
+### Review, archive, implement
+
+```bash
+csda change validate                       # runs inside `csda validate` too
+csda change archive reservations-need-a-deposit --dry-run
+csda change archive reservations-need-a-deposit --yes
+```
+
+Archiving is the part that earns the ceremony. It applies the delta to
+`docs/specs/capabilities/`, **writes the traceability rows**, copies the
+proposed `.feature` files into `features/`, and files the change under
+`docs/specs/changes/archive/<date>-<id>/`.
+
+The moment it lands, the requirement is real work again:
+
+```bash
+csda plan                        # the modified REQ is pending once more
+csda validate . --strict-tdd     # fails with [TDD-1] once you move it to In Dev
+```
+
+> **It composes with packs.** When the pack itself changes, `csda specops diff
+> --as-change` derives exactly this kind of proposal from the version bump — so
+> you review an upstream upgrade as intent rather than as a file diff. That is
+> Step 7 with one extra flag.
+
+→ [Reviewing changes](reviewing-changes.md) for the full reference.
+
+---
+
 ## 11½. Bootstrap before the harness (the only freeform-AI step)
 
 > 📍 **Run from:** inside your project — `smart-parking/`.
@@ -873,6 +981,30 @@ side-panel Mermaid render of the pack graph that refreshes as you edit.
 The `mcp-spec-driven` server exposes `plan`, `mark_requirement_done`,
 `read_spec`, `lint_pack` and friends as MCP tools, so an MCP-aware client
 (Claude Desktop, Cursor, opencode, Aider) can drive the same loop natively.
+
+### Slash commands, for eight tools at once
+
+```bash
+csda agents init                     # or --tool claude,cursor
+```
+
+That writes `/csda:explore`, `/csda:propose`, `/csda:verify`, `/csda:apply`,
+`/csda:archive` and `/csda:onboard`, plus the instruction file each tool reads
+— `.cursor/rules/`, `.github/copilot-instructions.md`, `CONVENTIONS.md` and so
+on. They are thin on purpose: rather than restating the delta grammar, which
+would be stale the moment it moved, they call `csda change instructions
+<artifact> --json` for it.
+
+After a CLI upgrade, `csda update` three-way merges those files so your edits
+survive.
+
+### Keeping an existing repository honest
+
+This tutorial started from `init`, on a blank page. On a repository that
+already has code, start with `csda onboard` — it reads the layout and proposes
+the capabilities the code already implies — then `csda adopt`, which writes the
+spec skeleton without touching a line of source. `csda doctor` reports what has
+drifted, with a fix per finding.
 
 ---
 
