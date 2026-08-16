@@ -73,7 +73,7 @@
   },
   "devDependencies": {
     "@cucumber/cucumber": "^12.8.3",
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@stryker-mutator/core": "^9.6.1",
     "@types/cucumber": "^6.0.1",
     "@types/node": "^25.7.0",
