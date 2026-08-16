@@ -161,7 +161,7 @@ test("readSpecops treats a project without a lockfile as pack-free", () => {
 
 test("renderHtml is self-contained — no external requests", () => {
   const report = {
-    project_dir: "/tmp/demo",
+    projectDir: "/tmp/demo",
     total: 1,
     implemented: 1,
     pending: 0,
@@ -193,7 +193,7 @@ test("renderHtml is self-contained — no external requests", () => {
 
 test("renderHtml escapes requirement values", () => {
   const report = {
-    project_dir: "/tmp/demo",
+    projectDir: "/tmp/demo",
     total: 1,
     implemented: 0,
     pending: 1,

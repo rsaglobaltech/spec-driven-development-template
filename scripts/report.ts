@@ -56,8 +56,8 @@ function buildReport(projectDir) {
   const needsTest = items.filter((it) => !it.test_exists).map((it) => it.requirement);
 
   return {
-    schema_version: 1,
-    project_dir: path.resolve(projectDir),
+    schemaVersion: 1,
+    projectDir: path.resolve(projectDir),
     total,
     implemented,
     pending: total - implemented,
@@ -181,7 +181,7 @@ function renderHtml(report, opts) {
   const generatedAt = (opts && opts.generatedAt) || new Date();
   const history = (opts && opts.history) || [];
   const pct = report.implemented_pct;
-  const projectName = path.basename(report.project_dir);
+  const projectName = path.basename(report.projectDir);
 
   const rows = report.requirements
     .map((it) => {

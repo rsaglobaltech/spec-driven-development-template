@@ -283,7 +283,7 @@ function runAsChange(args, projectDir, lock) {
 
   if (args.format === "json") {
     process.stdout.write(
-      JSON.stringify({ project_dir: projectDir, changes: results }, null, 2) + "\n"
+      JSON.stringify({ schemaVersion: 1, projectDir, changes: results }, null, 2) + "\n"
     );
     return;
   }
@@ -335,7 +335,7 @@ function main() {
     }
 
     const jsonOut = {
-      project_dir: projectDir,
+      projectDir,
       diffs: [] as any[],
     };
     let matched = 0;

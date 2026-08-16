@@ -17,6 +17,7 @@ const path = require("node:path");
 
 const { resolveProjectDir } = require("../lib/project-root");
 const { error, warning, hasErrors, printDiagnostics } = require("../lib/diagnostics");
+const { agentIo } = require("../lib/agent");
 const { validateDelta } = require("./delta");
 const { parseDelta } = require("./parser");
 const { planArchive, executeArchive } = require("./archive");
@@ -117,25 +118,10 @@ function parseArgs(argv) {
   return opts;
 }
 
-/** JSON mode: one document on stdout, exit 1, plus the command's null-shape. */
-function fail(opts, nullShape, diags) {
-  if (opts.json) {
-    process.stdout.write(`${JSON.stringify({ ...nullShape, status: diags }, null, 2)}\n`);
-  } else {
-    printDiagnostics(diags);
-  }
-  process.exit(1);
-}
-
-function emit(opts, payload, renderHuman) {
-  if (opts.json) {
-    process.stdout.write(
-      `${JSON.stringify({ ...payload, status: payload.status || [] }, null, 2)}\n`
-    );
-  } else {
-    renderHuman();
-  }
-}
+// The contract itself lives in scripts/lib/agent.ts; these are thin adapters
+// that keep the existing `opts`-first call sites unchanged.
+const fail = (opts, nullShape, diags) => agentIo(opts.json).fail(nullShape, diags);
+const emit = (opts, payload, renderHuman) => agentIo(opts.json).emit(payload, renderHuman);
 
 // ── new ───────────────────────────────────────────────────────────────────────
 

@@ -164,8 +164,8 @@ test("strict-tdd violations come with per-code remedies", () => {
     assert.equal(r.status, 1);
     assert.match(r.stderr, /\[TDD-1\]/);
     assert.match(r.stderr, /\[TDD-3\]/);
-    assert.match(r.stderr, /💡 \[FIX\] TDD-1: write the test first/);
-    assert.match(r.stderr, /💡 \[FIX\] TDD-3: add a traceability row/);
+    assert.match(r.stderr, /💡 \[FIX\] TDD-1: Write the test first/);
+    assert.match(r.stderr, /💡 \[FIX\] TDD-3: Add a traceability row/);
     // No TDD-2 violation → no TDD-2 remedy noise.
     assert.ok(!r.stderr.includes("TDD-2:"));
   });

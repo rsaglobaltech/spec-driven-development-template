@@ -187,8 +187,8 @@ function emitJson(items, projectDir, orphans) {
   process.stdout.write(
     JSON.stringify(
       {
-        schema_version: 1,
-        project_dir: path.resolve(projectDir),
+        schemaVersion: 1,
+        projectDir: path.resolve(projectDir),
         total: items.length,
         pending: items.length - (summary.DONE || 0),
         summary,

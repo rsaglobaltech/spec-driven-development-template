@@ -460,8 +460,8 @@ test("plan --format json returns a stable, parseable structure", () => {
   const planResult = runCli(["plan", "--project-dir", projectDir, "--format", "json"]);
   assert.equal(planResult.status, 0, planResult.stderr);
   const parsed = JSON.parse(planResult.stdout);
-  assert.equal(parsed.schema_version, 1);
-  assert.ok(parsed.project_dir);
+  assert.equal(parsed.schemaVersion, 1);
+  assert.ok(parsed.projectDir);
   assert.ok(Array.isArray(parsed.requirements));
   assert.ok(Array.isArray(parsed.orphan_features));
   fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -774,7 +774,7 @@ test("pack infer --format json emits a structured model", () => {
   ]);
   assert.equal(result.status, 0, result.stderr);
   const parsed = JSON.parse(result.stdout);
-  assert.equal(parsed.schema_version, 1);
+  assert.equal(parsed.schemaVersion, 1);
   assert.ok(Array.isArray(parsed.scenarios));
   assert.ok(parsed.use_cases[0].name.length > 0);
 });

@@ -313,7 +313,7 @@ function main(): void {
       usage();
       process.exit(2);
     }
-    const VALIDATE_FLAGS = new Set(["--strict-tdd", "--against-lock"]);
+    const VALIDATE_FLAGS = new Set(["--strict-tdd", "--against-lock", "--json"]);
     const unknownFlags = validateArgs.filter((a) => a.startsWith("-") && !VALIDATE_FLAGS.has(a));
     if (unknownFlags.length > 0) {
       error(`Unknown flag(s) for validate: ${unknownFlags.join(", ")}`);

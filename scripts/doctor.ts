@@ -17,11 +17,13 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { resolveProjectDir } = require("./lib/project-root");
+const { diagnostic } = require("./lib/diagnostics");
+const { findUnresolvedPlaceholders } = require("./lib/placeholders");
+const { agentIo, wantsJson, EXIT } = require("./lib/agent");
 
 const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
 const LEGACY_HEADER = "| Feature | Scenario | Technical artifact | Status |";
-const PLACEHOLDER_RE = /\{\{[A-Z_][A-Z0-9_]*\}\}/;
 
 // ── Findings collection ───────────────────────────────────────────────────────
 
@@ -171,11 +173,15 @@ function checkTraceability(dir) {
     }
   }
 
-  // REQs in spec.md ⇄ matrix, both directions.
-  const spec = readIfExists(path.join(dir, "spec.md"));
+  // REQs in the spec tree ⇄ matrix, both directions.
+  //
+  // The spec tree is root spec.md *plus* docs/specs/capabilities/, where
+  // `change archive` merges requirements. Reading only the root file reported
+  // every archived requirement as a stale matrix row.
+  const spec = readSpecTree(dir);
   if (spec !== null) {
     const specReqs = new Set(spec.match(/\bREQ-\d+\b/g) || []);
-    const matrixReqs = new Set(trace.match(/\bREQ-\d+\b/g) || []);
+    const matrixReqs = new Set<string>(trace.match(/\bREQ-\d+\b/g) || []);
     for (const req of specReqs) {
       if (!matrixReqs.has(req)) {
         warn(
@@ -197,14 +203,25 @@ function checkTraceability(dir) {
   }
 }
 
-function checkPlaceholders(dir) {
-  const offenders = [];
-  for (const f of walk(dir)) {
-    const content = readIfExists(f);
-    if (content !== null && PLACEHOLDER_RE.test(content)) {
-      offenders.push(path.relative(dir, f).split(path.sep).join("/"));
+/** Root spec.md concatenated with every archived capability spec, or null. */
+function readSpecTree(dir) {
+  const parts = [];
+  const root = readIfExists(path.join(dir, "spec.md"));
+  if (root !== null) parts.push(root);
+
+  const capabilities = path.join(dir, "docs/specs/capabilities");
+  if (fs.existsSync(capabilities)) {
+    for (const entry of fs.readdirSync(capabilities, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const spec = readIfExists(path.join(capabilities, entry.name, "spec.md"));
+      if (spec !== null) parts.push(spec);
     }
   }
+  return parts.length > 0 ? parts.join("\n") : null;
+}
+
+function checkPlaceholders(dir) {
+  const offenders = findUnresolvedPlaceholders(dir);
   if (offenders.length === 0) {
     ok("placeholders", "no unresolved {{...}} tokens");
   } else {
@@ -256,9 +273,10 @@ function main() {
   let projectDir = null;
   for (let i = start; i < argv.length; i++) {
     if (argv[i] === "--project-dir" && argv[i + 1]) projectDir = argv[++i];
+    else if (argv[i] === "--json") continue;
     else if (argv[i] === "--help" || argv[i] === "-h") {
       process.stdout.write(
-        "Usage:\n  create-spec-driven-app doctor [--project-dir <dir>]\n\n" +
+        "Usage:\n  create-spec-driven-app doctor [--project-dir <dir>] [--json]\n\n" +
           "Runs every diagnostic (environment, structure, traceability in both\n" +
           "directions, placeholders, specops lockfile) and prints a fix per finding.\n"
       );
@@ -266,10 +284,12 @@ function main() {
     }
   }
 
+  const io = agentIo(wantsJson(argv));
+
   checkEnvironment();
 
   const dir = resolveProjectDir(projectDir || ".");
-  process.stdout.write(`\n🩺 Doctor report for: ${dir}\n\n`);
+  if (!io.json) process.stdout.write(`\n🩺 Doctor report for: ${dir}\n\n`);
 
   if (!fs.existsSync(path.join(dir, "spec.md"))) {
     error(
@@ -284,21 +304,49 @@ function main() {
     checkSpecops(dir);
   }
 
+  const errors = findings.filter((f) => f.level === "error").length;
+  const warns = findings.filter((f) => f.level === "warn").length;
+
+  if (io.json) {
+    // A doctor finding already is a diagnostic — it has a check, a detail and a
+    // fix. Only the severity vocabulary differs, so map it and reuse the
+    // envelope rather than inventing a second shape.
+    const SEVERITY_OF = { ok: "info", warn: "warning", error: "error" };
+    io.emit({
+      doctor: {
+        projectDir: dir,
+        errors,
+        warnings: warns,
+        passed: findings.length - errors - warns,
+      },
+      status: findings.map((f) =>
+        diagnostic(
+          SEVERITY_OF[f.level],
+          // `check` is a display name ("requirement coverage"); `code` is the
+          // stable surface an agent branches on, so slug it.
+          `doctor_${String(f.check)
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "_")
+            .replace(/^_|_$/g, "")}`,
+          f.detail,
+          { target: f.check, ...(f.fix ? { fix: f.fix } : {}) }
+        )
+      ),
+    });
+    process.exit(errors === 0 ? EXIT.OK : EXIT.FAILURE);
+  }
+
   const icons = { ok: "✅", warn: "⚠️", error: "❌" };
-  let errors = 0;
-  let warns = 0;
   for (const f of findings) {
     process.stdout.write(`${icons[f.level]} ${f.check}: ${f.detail}\n`);
     if (f.fix) process.stdout.write(`   💡 Fix: ${f.fix}\n`);
-    if (f.level === "error") errors++;
-    if (f.level === "warn") warns++;
   }
 
   process.stdout.write(
     `\n${errors === 0 ? "✅" : "❌"} ${errors} error(s), ${warns} warning(s), ` +
       `${findings.length - errors - warns} check(s) passed\n`
   );
-  process.exit(errors === 0 ? 0 : 1);
+  process.exit(errors === 0 ? EXIT.OK : EXIT.FAILURE);
 }
 
 main();

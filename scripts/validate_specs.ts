@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 "use strict";
 
+const { error } = require("./lib/diagnostics");
+const { agentIo, wantsJson, EXIT } = require("./lib/agent");
+const { findUnresolvedPlaceholders } = require("./lib/placeholders");
+
 /**
  * Node.js port of validate_specs.sh — same checks, same exit codes.
  * Usage:
@@ -13,7 +17,8 @@ const { spawnSync } = require("node:child_process");
 const { parseYamlLite } = require("./domain-pack/common");
 
 function logInfo(msg) {
-  process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
+  const stream = IO && IO.json ? process.stderr : process.stdout;
+  stream.write(`ℹ️ [INFO] ${msg}\n`);
 }
 function logError(msg) {
   process.stderr.write(`❌ [ERROR] ${msg}\n`);
@@ -47,9 +52,27 @@ function logFix(lines) {
   }
 }
 
-function fail(msg, exitCode = 1, fix = null) {
+// Set once in main(). In --json mode the human reporters write to stderr so
+// stdout carries exactly one JSON document (ADR-0017 rule 1).
+let IO = null;
+
+/**
+ * A failure, as both prose and a diagnostic.
+ *
+ * `code` is the stable surface an agent branches on. `exitCode` stays a
+ * parameter because a bad invocation is a usage error (2) while a failing
+ * check is a gate failure (1).
+ */
+function fail(code, msg, exitCode = 1, fix = null) {
+  const fixLines = fix ? (Array.isArray(fix) ? fix : [fix]) : [];
+  if (IO && IO.json) {
+    const diag = error(code, msg, fixLines.length ? { fix: fixLines.join(" ") } : undefined);
+    if (exitCode === EXIT.USAGE) IO.usage({ validation: null }, [diag]);
+    IO.fail({ validation: null }, [diag]);
+    return;
+  }
   logError(msg);
-  if (fix) logFix(fix);
+  if (fixLines.length) logFix(fixLines);
   process.exit(exitCode);
 }
 
@@ -130,10 +153,6 @@ const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
 const LEGACY_HEADER = "| Feature | Scenario | Technical artifact | Status |";
 const PLACEHOLDER_RE = /\{\{[A-Z_][A-Z0-9_]*\}\}/;
-// Syntax-neutral on purpose: put it in whatever comment form the file uses —
-// `<!-- csda:allow-placeholders -->` in markdown, `// csda:allow-placeholders`
-// in code. Same convention as the `csda:trace` marker.
-const PLACEHOLDER_ALLOW_RE = /csda:allow-placeholders/;
 
 function trimCell(s) {
   return (s || "").trim();
@@ -214,6 +233,7 @@ function validateMonorepo(targetDir, strictTdd) {
 
 function main() {
   const argv = process.argv.slice(2);
+  IO = agentIo(wantsJson(argv));
   const strictTdd = argv.includes("--strict-tdd");
   const againstLock = argv.includes("--against-lock");
   const positional = argv.filter((a) => !a.startsWith("-"));
@@ -224,7 +244,7 @@ function main() {
     process.exit(2);
   }
   if (!fs.existsSync(targetDir) || !fs.statSync(targetDir).isDirectory()) {
-    fail(`Directory not found: ${targetDir}`, 2, [
+    fail("project_dir_not_found", `Directory not found: ${targetDir}`, EXIT.USAGE, [
       "Check the path for typos, or scaffold a new project first:",
       "  create-spec-driven-app init",
     ]);
@@ -238,7 +258,7 @@ function main() {
   // Required directories
   for (const d of REQUIRED_DIRS) {
     if (!fs.existsSync(path.join(targetDir, d))) {
-      fail(`Missing required directory: ${d}`, 1, [
+      fail("missing_required_dir", `Missing required directory: ${d}`, 1, [
         `Create it: mkdir -p ${d}`,
         "Or scaffold the full SDD structure with `create-spec-driven-app init` / `specops add`.",
       ]);
@@ -258,7 +278,7 @@ function main() {
   };
   for (const f of REQUIRED_FILES) {
     if (!fs.existsSync(path.join(targetDir, f))) {
-      fail(`Missing required file: ${f}`, 1, [
+      fail("missing_required_file", `Missing required file: ${f}`, 1, [
         FILE_FIXES[f] || `Create ${f}.`,
         "Generated projects include every required file — compare with `create-spec-driven-app init --yes --out <tmp>`.",
       ]);
@@ -269,35 +289,16 @@ function main() {
   const featuresDir = path.join(targetDir, "features");
   const featureFiles = findRecursive(featuresDir, (f) => f.endsWith(".feature"));
   if (featureFiles.length < 1) {
-    fail("No .feature files were found in features/", 1, [
+    fail("no_feature_files", "No .feature files were found in features/", 1, [
       "Write at least one Gherkin scenario, e.g. features/<area>/<name>.feature,",
       "or pull scenarios from a domain pack: create-spec-driven-app specops add --pack-repo <url> …",
     ]);
   }
   const featureCount = featureFiles.length;
 
-  // Unresolved placeholders anywhere in the project
-  const allFiles = walk(targetDir);
-  const offenders = [];
-  for (const f of allFiles) {
-    let content;
-    try {
-      content = fs.readFileSync(f, "utf8");
-    } catch {
-      continue;
-    }
-    // A .tpl file is unrendered by definition — its {{VAR}} tokens are the
-    // point, not a defect. Generated projects never contain .tpl files, so this
-    // does not weaken the check for the projects the gate is aimed at; it only
-    // stops it firing on template and pack repositories.
-    if (f.endsWith(".tpl")) continue;
-    // Documentation that explains the template syntax has to be able to quote
-    // it. An explicit per-file opt-out keeps that honest: you have to say so.
-    if (PLACEHOLDER_ALLOW_RE.test(content)) continue;
-    if (PLACEHOLDER_RE.test(content)) {
-      offenders.push(f);
-    }
-  }
+  // Unresolved placeholders anywhere in the project. The scan lives in
+  // scripts/lib/placeholders.ts so `doctor` cannot drift from it again.
+  const offenders = findUnresolvedPlaceholders(targetDir).map((rel) => path.join(targetDir, rel));
   if (offenders.length > 0) {
     logError("Unresolved placeholders detected");
     const tokens = new Set();
@@ -328,10 +329,15 @@ function main() {
   } else if (traceContent.includes(LEGACY_HEADER)) {
     traceMode = "legacy";
   } else {
-    fail("traceability.md is missing the expected legacy or rich matrix header", 1, [
-      "Add the rich matrix header (recommended) to docs/specs/traceability.md:",
-      `  ${RICH_HEADER}`,
-    ]);
+    fail(
+      "traceability_header_missing",
+      "traceability.md is missing the expected legacy or rich matrix header",
+      1,
+      [
+        "Add the rich matrix header (recommended) to docs/specs/traceability.md:",
+        `  ${RICH_HEADER}`,
+      ]
+    );
   }
 
   // Status validation + duplicate scenario detection
@@ -365,16 +371,21 @@ function main() {
 
     if (scenarioId && scenarioId !== "-") {
       if (seenScenarios.has(scenarioId)) {
-        fail(`Duplicate Scenario ID in traceability.md: ${scenarioId}`, 1, [
-          "Every Scenario ID must be unique across the matrix — renumber one of the rows",
-          `(e.g. keep ${scenarioId} on the first row and give the second a new ID).`,
-        ]);
+        fail(
+          "duplicate_scenario_id",
+          `Duplicate Scenario ID in traceability.md: ${scenarioId}`,
+          1,
+          [
+            "Every Scenario ID must be unique across the matrix — renumber one of the rows",
+            `(e.g. keep ${scenarioId} on the first row and give the second a new ID).`,
+          ]
+        );
       }
       seenScenarios.add(scenarioId);
     }
 
     if (status && !ALLOWED_STATUS.has(status)) {
-      fail(`Invalid status in traceability.md: ${status}`, 1, [
+      fail("invalid_status", `Invalid status in traceability.md: ${status}`, 1, [
         `Allowed statuses: ${[...ALLOWED_STATUS].join(" · ")}`,
         "Use `create-spec-driven-app done <REQ-id>` to flip a row to Implemented safely.",
       ]);
@@ -411,21 +422,37 @@ function main() {
     }
   }
 
+  const TDD_FIXES = {
+    "TDD-1":
+      "Write the test first, then set its path in the row's 'Test artifact' column (or move the status back to Draft).",
+    "TDD-2":
+      "Give the row a Scenario ID that matches a scenario in its feature file (e.g. SCN-001).",
+    "TDD-3":
+      "Add a traceability row for the requirement — run `create-spec-driven-app plan` to list what each REQ still needs.",
+  };
+
   if (strictTddViolations.length > 0) {
+    if (IO.json) {
+      // One diagnostic per violation, each carrying its own TDD code and fix,
+      // rather than a prose block the caller would have to parse.
+      IO.fail(
+        { validation: null },
+        strictTddViolations.map((v) => {
+          const tdd = v.slice(1, 6);
+          // "TDD-1" → "strict_tdd_1"
+          return error(`strict_tdd_${tdd.split("-")[1]}`, v, {
+            fix: TDD_FIXES[tdd],
+          });
+        })
+      );
+      return;
+    }
     logError("--strict-tdd violations detected:");
     for (const v of strictTddViolations) {
       process.stderr.write(`  ${v}\n`);
     }
     const codes = new Set(strictTddViolations.map((v) => v.slice(1, 6)));
-    const TDD_FIXES = {
-      "TDD-1":
-        "TDD-1: write the test first, then set its path in the row's 'Test artifact' column (or move the status back to Draft).",
-      "TDD-2":
-        "TDD-2: give the row a Scenario ID that matches a scenario in its feature file (e.g. SCN-001).",
-      "TDD-3":
-        "TDD-3: add a traceability row for the requirement — run `create-spec-driven-app plan` to list what each REQ still needs.",
-    };
-    logFix([...codes].sort().map((c) => TDD_FIXES[c]));
+    logFix([...codes].sort().map((c) => `${c}: ${TDD_FIXES[c]}`));
     process.exit(1);
   }
 
@@ -438,7 +465,7 @@ function main() {
         traceMode === "rich"
           ? `| REQ-TBD | SCN-TBD | \`${rel}\` | UC-TBD | TBD | TBD | TBD | TBD | TBD | Draft |`
           : `| \`${rel}\` | <scenario> | TBD | Draft |`;
-      fail(`Feature file missing from traceability.md: ${rel}`, 1, [
+      fail("feature_not_in_matrix", `Feature file missing from traceability.md: ${rel}`, 1, [
         "Add a row for it to docs/specs/traceability.md, e.g.:",
         `  ${exampleRow}`,
       ]);
@@ -452,7 +479,7 @@ function main() {
     if (
       !content.includes("| ID | Use Case | Actor | Requirement | Command/Query | Aggregate | Emits")
     ) {
-      fail("use-cases.md is missing the expected table header", 1, [
+      fail("use_cases_header_missing", "use-cases.md is missing the expected table header", 1, [
         "Start the use-case table with:",
         "  | ID | Use Case | Actor | Requirement | Command/Query | Aggregate | Emits |",
       ]);
@@ -462,7 +489,7 @@ function main() {
   if (fs.existsSync(eventsPath)) {
     const content = fs.readFileSync(eventsPath, "utf8");
     if (!content.includes("| ID | Event | Producer | Consumers | Payload |")) {
-      fail("events.md is missing the expected table header", 1, [
+      fail("events_header_missing", "events.md is missing the expected table header", 1, [
         "Start the events table with:",
         "  | ID | Event | Producer | Consumers | Payload |",
       ]);
@@ -484,13 +511,21 @@ function main() {
     const ids = listChangeIds(targetDir);
     changeCount = ids.length;
     const problems = [];
+    const rawProblems = [];
     for (const id of ids) {
       const result = validateChange(targetDir, id, { strict: false });
       for (const d of result.diagnostics) {
-        if (d.severity === "error") problems.push(formatDiagnostic(d));
+        if (d.severity === "error") {
+          rawProblems.push(d);
+          problems.push(formatDiagnostic(d));
+        }
       }
     }
     if (problems.length > 0) {
+      if (IO.json) {
+        IO.fail({ validation: null }, rawProblems);
+        return;
+      }
       logError("Active changes have invalid delta specs:");
       for (const line of problems) process.stderr.write(`  ${line}\n`);
       process.exit(1);
@@ -502,6 +537,7 @@ function main() {
   // Requirement-level, not file-level: a pack whose templates were reformatted
   // reports nothing; a pack requirement the project never took in fails.
   let lockChecked = 0;
+  let lockAdvisories = [];
   if (againstLock) {
     const { checkAgainstLock } = require("./specops/against_lock");
     const { formatDiagnostic } = require("./lib/diagnostics");
@@ -511,13 +547,37 @@ function main() {
     const errors = result.diagnostics.filter((d) => d.severity === "error");
     const rest = result.diagnostics.filter((d) => d.severity !== "error");
 
-    for (const d of rest) process.stdout.write(`  ${formatDiagnostic(d)}\n`);
+    if (!IO.json) {
+      for (const d of rest) process.stdout.write(`  ${formatDiagnostic(d)}\n`);
+    }
 
     if (errors.length > 0) {
+      if (IO.json) {
+        IO.fail({ validation: null }, result.diagnostics);
+        return;
+      }
       logError("--against-lock violations detected:");
       for (const d of errors) process.stderr.write(`  ${formatDiagnostic(d)}\n`);
       process.exit(1);
     }
+    lockAdvisories = rest;
+  }
+
+  if (IO.json) {
+    IO.emit({
+      validation: {
+        projectDir: targetDir,
+        passed: true,
+        features: featureCount,
+        activeChanges: changeCount,
+        traceabilityMode: traceMode,
+        strictTdd,
+        againstLock,
+        packsChecked: lockChecked,
+      },
+      status: lockAdvisories,
+    });
+    process.exit(EXIT.OK);
   }
 
   // Success summary

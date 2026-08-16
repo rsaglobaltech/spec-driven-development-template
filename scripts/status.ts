@@ -148,8 +148,8 @@ function emitJson(projectDir, summary, lock) {
   process.stdout.write(
     JSON.stringify(
       {
-        schema_version: 1,
-        project_dir: path.resolve(projectDir),
+        schemaVersion: 1,
+        projectDir: path.resolve(projectDir),
         total: counts.total,
         pending,
         counts,

@@ -170,11 +170,7 @@ function main() {
 
   if (opts.json) {
     process.stdout.write(
-      JSON.stringify(
-        { schema_version: 1, project_dir: projectDir, ...loadModel(projectDir) },
-        null,
-        2
-      ) + "\n"
+      JSON.stringify({ schemaVersion: 1, projectDir, ...loadModel(projectDir) }, null, 2) + "\n"
     );
     process.exit(0);
   }
@@ -184,7 +180,7 @@ function main() {
     const model = loadModel(projectDir);
     if (req.url === "/status.json") {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ project_dir: projectDir, ...model }));
+      res.end(JSON.stringify({ schemaVersion: 1, projectDir, ...model }));
       return;
     }
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });

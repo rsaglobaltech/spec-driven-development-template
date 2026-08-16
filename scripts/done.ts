@@ -17,6 +17,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { resolveProjectDir } = require("./lib/project-root");
+const { error } = require("./lib/diagnostics");
+const { agentIo, EXIT } = require("./lib/agent");
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -65,6 +67,7 @@ function parseArgs(argv) {
     if (a === "--status" && argv[i + 1]) opts.status = argv[++i];
     else if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
     else if (a === "--check") opts.check = true;
+    else if (a === "--json") opts.json = true;
     else if (a === "--strict") {
       opts.strict = true;
       opts.check = true;
@@ -122,48 +125,67 @@ function runValidate(projectDir, strict) {
 
 function main() {
   const opts = parseArgs(process.argv.slice(2));
+  const io = agentIo(opts.json);
+  const NULL_SHAPE = { requirement: null };
 
   if (!opts.reqId) {
-    process.stderr.write(`${c.red}✖${c.reset}  REQ-id is required (e.g. REQ-007).\n`);
-    usage();
-    process.exit(2);
+    if (!io.json) usage();
+    io.usage(NULL_SHAPE, [
+      error("req_id_required", "REQ-id is required (e.g. REQ-007).", {
+        fix: "Pass the requirement id: csda done REQ-007",
+      }),
+    ]);
   }
   if (!/^REQ-\d+$/.test(opts.reqId)) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  Invalid REQ-id: ${opts.reqId} (expected REQ-NNN).\n`
-    );
-    process.exit(2);
+    io.usage(NULL_SHAPE, [
+      error("req_id_malformed", `Invalid REQ-id: ${opts.reqId} (expected REQ-NNN).`, {
+        target: opts.reqId,
+        fix: "Use the REQ-NNN form, e.g. REQ-007.",
+      }),
+    ]);
   }
   if (!ALLOWED_STATUSES.includes(opts.status)) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  Invalid status: ${opts.status}. Allowed: ${ALLOWED_STATUSES.join(", ")}.\n`
-    );
-    process.exit(2);
+    io.usage(NULL_SHAPE, [
+      error("status_not_allowed", `Invalid status: ${opts.status}.`, {
+        target: opts.status,
+        fix: `Use one of: ${ALLOWED_STATUSES.join(", ")}.`,
+      }),
+    ]);
   }
 
   let projectDir;
   try {
     projectDir = resolveProjectDir(opts.projectDir);
   } catch (err) {
-    process.stderr.write(`${err.message}\n`);
-    process.exit(2);
+    io.usage(NULL_SHAPE, [
+      error("project_not_found", err.message, {
+        fix: "Run from inside a spec-driven project, or pass --project-dir.",
+      }),
+    ]);
   }
   const tracePath = path.join(projectDir, "docs/specs/traceability.md");
   if (!fs.existsSync(tracePath)) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  docs/specs/traceability.md not found in ${projectDir}\n`
-    );
-    process.exit(2);
+    io.usage(NULL_SHAPE, [
+      error("traceability_not_found", `docs/specs/traceability.md not found in ${projectDir}`, {
+        file: "docs/specs/traceability.md",
+        fix: "Scaffold it with `csda init`, or adopt the project with `csda adopt`.",
+      }),
+    ]);
   }
 
   if (opts.check) {
     const r = runValidate(projectDir, opts.strict);
     if (r.status !== 0) {
       const gate = opts.strict ? "validate --strict-tdd" : "validate";
-      process.stderr.write(`${c.red}✖${c.reset}  ${gate} failed; aborting status update.\n`);
-      process.stderr.write(r.stdout || "");
-      process.stderr.write(r.stderr || "");
-      process.exit(r.status || 1);
+      if (!io.json) {
+        process.stderr.write(r.stdout || "");
+        process.stderr.write(r.stderr || "");
+      }
+      io.fail(NULL_SHAPE, [
+        error("validate_gate_failed", `${gate} failed; aborting status update.`, {
+          fix: `Run \`csda ${gate} .\` and fix what it reports, then retry.`,
+        }),
+      ]);
     }
   }
 
@@ -171,15 +193,21 @@ function main() {
   const { content, updated } = setRequirementStatus(original, opts.reqId, opts.status);
 
   if (updated === 0) {
-    process.stderr.write(`${c.red}✖${c.reset}  ${opts.reqId} not found in traceability.md.\n`);
-    process.exit(1);
+    io.fail(NULL_SHAPE, [
+      error("requirement_not_in_matrix", `${opts.reqId} not found in traceability.md.`, {
+        target: opts.reqId,
+        fix: `Add a row for ${opts.reqId} — \`csda req add\` writes one for you.`,
+      }),
+    ]);
   }
 
   fs.writeFileSync(tracePath, content, "utf8");
-  process.stdout.write(
-    `${c.green}✔${c.reset}  ${c.bold}${opts.reqId}${c.reset} → ${c.bold}${opts.status}${c.reset} ${c.dim}(${updated} row${updated > 1 ? "s" : ""} updated)${c.reset}\n`
+  io.emit({ requirement: { id: opts.reqId, status: opts.status, rowsUpdated: updated } }, () =>
+    process.stdout.write(
+      `${c.green}✔${c.reset}  ${c.bold}${opts.reqId}${c.reset} → ${c.bold}${opts.status}${c.reset} ${c.dim}(${updated} row${updated > 1 ? "s" : ""} updated)${c.reset}\n`
+    )
   );
-  process.exit(0);
+  process.exit(EXIT.OK);
 }
 
 if (require.main === module) main();

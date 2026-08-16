@@ -430,7 +430,7 @@ function printReport(results, format) {
       return acc;
     }, {});
     process.stdout.write(
-      JSON.stringify({ schema_version: 1, total: results.length, summary, results }, null, 2) + "\n"
+      JSON.stringify({ schemaVersion: 1, total: results.length, summary, results }, null, 2) + "\n"
     );
     return;
   }

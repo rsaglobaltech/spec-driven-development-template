@@ -329,7 +329,7 @@ function main() {
 
   if (opts.format === "json") {
     process.stdout.write(
-      JSON.stringify({ schema_version: 1, source: opts.from, ...model }, null, 2) + "\n"
+      JSON.stringify({ schemaVersion: 1, source: opts.from, ...model }, null, 2) + "\n"
     );
   } else {
     process.stdout.write(renderYamlFragment(model, opts.from) + "\n");
