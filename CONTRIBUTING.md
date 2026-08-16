@@ -119,6 +119,22 @@ Before requesting a review, confirm:
 - [ ] Public CLI flags / commands are documented in `README.md` and `--help`
 - [ ] No `TODO` placeholders remain in committed files
 
+### Required checks
+
+`main` is protected. These checks must be green before a pull request can merge:
+
+| Check | What it guards |
+| --- | --- |
+| `Lint and format` | typecheck, ESLint, Prettier, ShellCheck, and the agent-contract staleness check |
+| `Test (<os> / Node <version>)`, six jobs | the full suite — unit, BDD, E2E — across ubuntu, macos and windows on Node 20 and 22. Node 20 is the floor `package.json` declares; windows is where path handling breaks first |
+| `Maven plugin` · `Gradle plugin` | the Java surface, which the Node suite never touches |
+| `Package` | `npm pack` produces a usable tarball |
+| `npm audit` · `CodeQL` | a devDependency runs on CI with a publish token in scope |
+
+An approving review is **not** required, and that is a deliberate consequence of
+having one maintainer rather than a statement that review does not matter — see
+[MAINTAINERS.md](MAINTAINERS.md#how-merging-works-here).
+
 ---
 
 ## 5. Coding standards
@@ -127,7 +143,7 @@ Before requesting a review, confirm:
 - **Style:** ESLint + Prettier enforce the rules automatically — run `npm run lint:fix` and `npm run format`.
 - **No comments that describe *what* the code does.** Only add a comment when the *why* is non-obvious (invariant, workaround, hidden constraint).
 - **No unused variables.** The `no-unused-vars` rule is set to `error`.
-- **Shell scripts.** ADR-0008 removed every shell script from the CLI itself; the only ones left are the demo recording helpers under `scripts/demo/`. ShellCheck is not yet wired into CI — adding it is tracked as C6-05.
+- **Shell scripts.** ADR-0008 removed every shell script from the CLI itself; the only ones left are the demo recording helpers under `scripts/demo/`. ShellCheck runs in the lint job at `--severity=warning` over every tracked `*.sh`.
 - **Templates** live in `templates/` and use `{{VARIABLE}}` interpolation. Never add logic to templates.
 
 ---
