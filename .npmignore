@@ -1,0 +1,4 @@
+# Source maps without their .ts sources are dead weight for a consumer: 133
+# files that cannot resolve anything. They stay in the repository for local
+# debugging and out of the published tarball.
+*.map

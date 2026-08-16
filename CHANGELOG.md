@@ -5,9 +5,9 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
-## [Unreleased] — 0.2.0
+## [0.2.0] — 2026-08-16
 
-Three months of work that never shipped. `0.1.4` was tagged in May and the
+Three months of work that never shipped. `0.1.4` went to npm in May and the
 change lifecycle, SpecOps contribution loop, agent contract, artefact schemas
 and brownfield onboarding have all landed since.
 
