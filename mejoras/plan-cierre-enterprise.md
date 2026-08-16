@@ -53,8 +53,8 @@ nada más. Todo lo demás está en `main` o preservado en un tag `archive/*`.
 | `archive/demo-video` | Primer vídeo de demo | Superseded por `scripts/demo/` |
 | `archive/gh-pages-legacy` | Rama `gh-pages` local, nunca en el remoto | El sitio vive en `docs/` y despliega vía `pages.yml` |
 
-**`feature/daily-ux-roadmap` sigue viva y sin triar** — 10 commits que solapan
-directamente con las fases 3, 4 y 5 de este plan. Ver C0-10.
+**`feature/daily-ux-roadmap` sigue viva, ya triada** (C0-10, §3.3). Se mantiene
+hasta que C0-11 recupere lo aprobado; entonces se archiva como `archive/daily-ux`.
 
 **Merge verificado con `git merge-tree`:**
 `main` + `enterprise-adoption` = **limpio**.
@@ -97,10 +97,12 @@ configuración o de sincronía tras la migración a TypeScript.
 | 5 | Los workflows de publish disparan con tags `v*`, pero los tags existentes son `0.1.4` y `0.1.0-beta.1` (sin `v`) → **nunca han disparado** | `.github/workflows/publish-*.yml` |
 | 6 | Los workflows de publish gatean con `npm test` (37 tests E2E), no con `test:all` | idem |
 | 7 | No existe `CHANGELOG.md`. `RELEASE_0.1.0_CHECKLIST.md` está congelado en 0.1.0, todo sin marcar, y dice Node ≥18 cuando el paquete exige ≥20 | raíz |
-| 8 | Windows en CI solo corre `test:unit` — la "cross-OS matrix" que `traceability.md` da por cerrada lo está a medias | `.github/workflows/ci.yml` |
-| 9 | **La landing está rota:** `docs/index.html:393` carga `./app.js`, borrado sin commit | `docs/index.html`, `docs/app.js` |
-| 10 | Árbol local sucio: `packages/gradle-plugin/{.gradle,build,gradle}` sin versionar (colisiona con el árbol de la rama enterprise), `dist/packages/csda-agent/` con salida huérfana de código ya borrado, `coverage/` con informes pre-migración | working tree |
-| 11 | `dist/` no tiene `scripts/change/` → `csda change` falla con exit 3 hasta reconstruir | working tree |
+| 8 | ~~Windows en CI solo corre `test:unit`~~ — **resuelto**: el merge enterprise (A4) subió el job de Windows a la suite completa. Sigue pendiente corregir `traceability.md` (C1-01) | `.github/workflows/ci.yml` |
+| 9 | ~~La landing está rota~~ — **resuelto en C0-02** | `docs/index.html`, `docs/app.js` |
+| 10 | ~~Árbol local sucio~~ — **resuelto en C0-01 y C0-06** | working tree |
+| 11 | ~~`dist/` sin `scripts/change/`~~ — **resuelto en C0-06** | working tree |
+| 12 | El job de Gradle fallaba: `validatePlugins` de Gradle 9 exige que todo task type se pronuncie sobre cacheado. **Resuelto** con `@UntrackedTask` en los cuatro | `packages/gradle-plugin/src/**` |
+| 13 | `pages.yml` ejecutaba `packages/pack-registry/src/build.js`, ruta inexistente desde la migración a TypeScript. **Resuelto**: compila antes y usa `dist/`. Misma causa que el punto 3 | `.github/workflows/pages.yml` |
 
 ---
 
@@ -119,7 +121,8 @@ configuración o de sincronía tras la migración a TypeScript.
 | C0-07 | `[x]` | Podar y archivar ramas | 14 ramas remotas borradas, 6 tags `archive/*` creados y pusheados. El remoto queda con `main` y `feature/daily-ux-roadmap` |
 | C0-08 | `[x]` | Decidir `develop` | Eliminada (D5). `ci.yml` ya no la filtra y `CONTRIBUTING.md` §7 describe las pre-releases vía `workflow_dispatch` |
 | C0-09 | `[x]` | **Portar el scaffolding de runtime a TypeScript** | Resultó ser mucho menor de lo previsto: 15 de los 16 ficheros del commit archivado ya estaban en `main` (y mejorados, con el split `.env.*.infra`/`.app` de P1-08). Ver §3.2 |
-| C0-10 | `[ ]` | **Triar `feature/daily-ux-roadmap`** | 10 commits que solapan con fases 3–5: `--json` global (C3-02), `csda completion` (C5-02), `config init` y `csda docs` (C4-04/C4-06), `csda status`, `csda req`, modo estricto de TypeScript, servidor LSP e IntelliJ. Decidir por commit qué se recupera antes de reimplementar nada de esas fases — o se duplica trabajo ya escrito |
+| C0-10 | `[x]` | **Triar `feature/daily-ux-roadmap`** | Triaje completo en §3.3. Resultado: 6 comandos y 2 paquetes se recuperan; los dos refactors masivos y las dos implementaciones duplicadas se descartan |
+| C0-11 | `[ ]` | **Recuperar lo aprobado de `daily-ux-roadmap`** | Ver la tabla de §3.3. Coste estimado: 1–2 PD. **Bloquea C4-04, C5-02 y parte de C3-02** — hacerlo antes que esas tareas o se escribe dos veces |
 
 ### 3.1 Defectos que llegaron con la rama enterprise
 
@@ -155,6 +158,48 @@ dos cosas, y una era un bug:
 El renderizador solo sustituye `{{VAR}}` y no tiene condicionales, así que la
 mitad Docker del spec se calcula en `runtimeDockerSection()` — de otro modo un
 proyecto sin Docker documentaría un compose inexistente.
+
+### 3.3 Triaje de `feature/daily-ux-roadmap` (C0-10)
+
+La rama sale de la **misma base que la enterprise** (`15d277e`), así que las dos
+resolvieron problemas solapados sin saberlo. Un merge directo da 9 conflictos,
+dos de ellos irreconciliables por diseño: `scripts/doctor.ts` y el wizard de
+`init` están implementados **dos veces**.
+
+Su diagnóstico de partida sigue vigente y no lo cubre ninguna otra fase: *editar
+a mano la tabla de 10 columnas de `traceability.md` es la queja número uno*.
+
+**Descubrimiento clave:** los ficheros nuevos no compilan contra `main` porque
+dependen del refactor `import/export` de la rama. Pero la dependencia es
+mínima — 2 o 3 imports locales por fichero. Verificado: `scripts/req.ts`
+compila contra `main` cambiando exactamente 2 líneas. **No hace falta traerse el
+refactor de 64 ficheros para recuperar el valor.**
+
+#### Se recupera (C0-11)
+
+Ninguno de estos ficheros existe en `main`, así que entran sin conflicto.
+
+| Qué | Ficheros | Encaje en el plan |
+|---|---|---|
+| `csda req` — añadir, enlazar y cerrar requisitos sin tocar la tabla a mano | `scripts/req.ts` + tests (815 líneas) | **Nuevo.** Ataca la queja número uno; no estaba en ninguna fase |
+| `csda status` — panel diario: totales por estado, features huérfanas, versiones de pack y el siguiente comando sugerido | `scripts/status.ts` | **Nuevo** |
+| `csda fix` — remedios automáticos de `validate` | `scripts/fix.ts` | **Nuevo.** Complementa los remedios accionables de A6 |
+| `csda config init` | `scripts/config_init.ts` | C4-04 (perfiles) — **ya escrito**, cero imports que tocar |
+| `csda completion [bash\|zsh]` | `scripts/completion.ts` | **C5-02 / OS-4-02 — ya escrito**, cero imports que tocar |
+| `csda studio` — visor local de solo lectura | `scripts/studio.ts` | Entra en la decisión C1-07 sobre StudioApp: es la tercera variante en liza |
+| Servidor LSP para artefactos de spec | `packages/lsp-spec-driven/` | **Nuevo**, no estaba en el plan |
+| Plugin IntelliJ (cliente LSP fino, Kotlin) | `packages/intellij-spec-driven/` | **Nuevo**, no estaba en el plan |
+| Quickstart de una página | `docs/quickstart.md` | C4-07 |
+
+#### Se descarta
+
+| Qué | Motivo |
+|---|---|
+| `561d956` refactor `import/export` (64 ficheros) | Chocaría con todo lo que trajo el merge enterprise. Cero valor para el usuario. Rehacerlo como tarea propia si se quiere |
+| `950c88f` modo estricto de TypeScript (32 ficheros) | Igual. Merece su propia tarea, no un merge |
+| `doctor` de la rama | Duplicado. Gana el de la rama enterprise (A3), que ya está en `main` con un `fix` por hallazgo |
+| Wizard interactivo de `init` | Duplicado. Gana el de la rama enterprise (A2) |
+| `d9715b6` `--json` global | Se escribió contra una superficie sin `change`, `specops contribute` ni `report`. Se usa como referencia al abordar C3-02, no se mergea |
 
 **Gate de salida:** ✅ **pasado el 2026-08-16**
 
@@ -223,7 +268,7 @@ Especificación de referencia: `mejoras/openspec-benchmark-plan.md:503-522`.
 | ID | | Tarea | Estado real de partida |
 |---|---|---|---|
 | C3-01 | `[ ]` | Envoltorio de diagnóstico `{severity, code, message, target?, fix?}` en **todos** los comandos; ningún `console.error` suelto en modo `--json` | `scripts/lib/diagnostics.ts` ya existe, pero solo lo usa `change` |
-| C3-02 | `[ ]` | `--json` en los 12 comandos aptos para agente: un documento en stdout, prosa a stderr, null-shape en fallo. Test: `cmd --json 2>/dev/null \| jq .` parsea en éxito y en fallo | hoy solo `change` y `plan --format json` |
+| C3-02 | `[ ]` | `--json` en los 12 comandos aptos para agente: un documento en stdout, prosa a stderr, null-shape en fallo. Test: `cmd --json 2>/dev/null \| jq .` parsea en éxito y en fallo | hoy solo `change` y `plan --format json`. Hay un intento previo en `feature/daily-ux-roadmap` (`d9715b6`) — leerlo antes de empezar |
 | C3-03 | `[ ]` | Contrato de exit codes: 0 éxito (hallazgos incluidos), 1 fallo, 130 cancelación | hoy hay `2` (subcomando desconocido) y `3` (script no encontrado) sin documentar → normalizar o incorporarlos al contrato |
 | C3-04 | `[ ]` | `docs/specs/agent-contract.md` — shapes campo a campo y catálogo de códigos, **generado y verificado desde tests snapshot**, no escrito a mano | nuevo |
 | C3-05 | `[ ]` | `csda agents init --tool claude,cursor,copilot,windsurf,aider,gemini,cline,codex` — genera `.claude/commands/csda-*.md`, `.cursor/rules/csda.mdc`, `.github/copilot-instructions.md`, `AGENTS.md`; `--dry-run` lista destinos | `scripts/agents/*.ts`, `templates/agents/**` (nuevos) |
@@ -246,7 +291,7 @@ Especificación de referencia: `mejoras/openspec-benchmark-plan.md:526-543`.
 | C4-01 | `[ ]` | `OS-3-01` — grafo de artefactos configurable: `.csda/schemas/<name>/schema.yaml` con `artifacts[{id, generates, requires}]`. El schema `spec-driven` built-in reproduce el flujo actual |
 | C4-02 | `[ ]` | `OS-3-02` — `csda schema init \| fork \| validate \| which` |
 | C4-03 | `[ ]` | `OS-3-03` — schema built-in `bdd-first`: `proposal → feature → spec → tasks`, el `.feature` **antes** que la spec. Es nuestra opinión de producto |
-| C4-04 | `[ ]` | `OS-3-04` — perfiles `core \| full`: el help por defecto muestra 6 comandos, `--help --all` los muestra todos |
+| C4-04 | `[ ]` | `OS-3-04` — perfiles `core \| full`: el help por defecto muestra 6 comandos, `--help --all` los muestra todos. **`config init` ya está escrito** — recuperarlo en C0-11 primero |
 | C4-05 | `[ ]` | `OS-3-05` — rigor progresivo: `change new --lite` (proposal + tasks) vs `--full` |
 | C4-06 | `[ ]` | `OS-3-06` — `csda onboard`: tour guiado sobre repo existente, detecta stack, propone capabilities, genera el primer cambio |
 | C4-07 | `[ ]` | `OS-3-07` — reestructurar `docs/` en guías cortas (`overview`, `getting-started`, `concepts`, `workflows`, `writing-specs`, `reviewing-changes`, `existing-projects`, `commands`, `cli`, `agent-contract`, `customization`, `glossary`, `faq`, `troubleshooting`). Ninguna > 300 líneas; README < 150 |
@@ -263,7 +308,7 @@ Especificación de referencia: `mejoras/openspec-benchmark-plan.md:526-543`.
 | ID | | Tarea |
 |---|---|---|
 | C5-01 | `[ ]` | `OS-4-01` — `csda update`: regenera ficheros de instrucciones y slash commands tras un upgrade, preservando ediciones locales. 3-way merge reutilizando `scripts/specops/merge.ts` |
-| C5-02 | `[ ]` | `OS-4-02` — `csda completion [bash\|zsh\|fish] [--install]` |
+| C5-02 | `[ ]` | `OS-4-02` — `csda completion [bash\|zsh\|fish] [--install]`. **Bash y zsh ya están escritos** en `feature/daily-ux-roadmap` — recuperarlo en C0-11 antes de escribir nada |
 | C5-03 | `[ ]` | `OS-4-03` — `doctor` extendido: deltas huérfanos, cambios archivados con tareas sin marcar, drift entre matriz y specs, requisitos de pack editados sin cambio asociado. Cada hallazgo con `fix` accionable. Construye sobre el `doctor` que llega en C0-05 |
 | C5-04 | `[ ]` | `OS-4-04` — `csda init --from-pack <repo>@<tag>` en un paso, y `specops.config.yaml` heredable entre repos. **No replicar los *Stores* de OpenSpec**: nuestra respuesta al multi-repo es el pack privado compartido, que ya existe |
 | C5-05 | `[ ]` | `OS-4-05` — gobierno de repo: changesets y devcontainer (el resto se completa en la Fase 9) |
@@ -373,4 +418,5 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | 2026-08-16 | `main` es la única línea de integración; `develop` eliminada (D5) | Llevaba 136 commits de retraso y su único commit propio era el de la rama codex. El repo ya trabajaba con ramas `feature/*` directas a `main` |
 | 2026-08-16 | El scaffolding de runtime se porta a TypeScript, no se mergea (D6) | El commit original es pre-ADR-0008: toca `tests/cli.test.js` y scripts `.sh` que ya no existen. Preservado en `archive/runtime-env` |
 | 2026-08-16 | Las ramas muertas se archivan como tags `archive/*` antes de borrarlas | Deja el remoto legible sin perder historia. 6 tags creados |
-| 2026-08-16 | `feature/daily-ux-roadmap` se conserva sin triar | Sus 10 commits solapan con las fases 3–5; triarla (C0-10) antes de reimplementar nada de ellas |
+| 2026-08-16 | `feature/daily-ux-roadmap` triada (C0-10) | Se recuperan 6 comandos y 2 paquetes; se descartan los dos refactors masivos y las dos implementaciones duplicadas. Detalle en §3.3 |
+| 2026-08-16 | Los refactors `import/export` y `strict mode` no se mergean | 96 ficheros entre los dos, todos tocados también por el merge enterprise. Sin valor para el usuario y con coste de conflicto alto. Si se quieren, son tarea propia sobre `main` |
