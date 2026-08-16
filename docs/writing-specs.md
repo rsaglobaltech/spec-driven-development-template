@@ -1,0 +1,120 @@
+# Writing specs
+
+Requirements, Gherkin scenarios and the traceability matrix — the three
+artefacts everything else is built on.
+
+---
+
+## Add a Gherkin scenario and keep traceability green
+
+**Goal:** add a feature file and register it in the matrix so `validate` stays green.
+
+```bash
+# 1. Create the feature
+mkdir -p features/billing
+cat > features/billing/discounts.feature <<'EOF'
+Feature: Apply discount on checkout
+  Scenario: Premium customer receives 10% discount
+    Given a logged-in premium customer
+    When they checkout with an order of 100 EUR
+    Then the final price is 90 EUR
+EOF
+
+# 2. Add a row to docs/specs/traceability.md (rich header shown below)
+#    | REQ-007 | SCN-007 | features/billing/discounts.feature | UC-007 | ApplyDiscountCommand | CartAggregate | DiscountApplied | DiscountService.java | DiscountServiceTest | Draft |
+
+# 3. Validate
+npx create-spec-driven-app@latest validate .
+```
+
+If the new `.feature` is not in `traceability.md`, the validator exits with a non-zero status and tells you the missing file.
+
+---
+
+---
+
+## Close the loop: `plan` → implement → `done`
+
+**Goal:** after a `specops sync` brings new requirements into the project, drive a human or AI agent through the implementation cycle without manually reading every `.feature` file.
+
+```bash
+# 1. After sync (or any time), see what's left
+csda plan
+```
+
+You get a bucketed report:
+
+```
+📋 Plan  (12 requirement(s), 3 pending)
+
+  ❌ Needs everything (no test, no code)
+    REQ-007    SCN-007
+      · feature: features/pricing/dynamic_pricing.feature
+      · test:    src/test/.../DynamicPricingTest.java
+      · code:    src/main/.../DynamicPricing.java
+
+  ⚠️  Test exists, production code missing
+    REQ-008    SCN-008
+      ✓ test:    src/test/.../SeasonalRateTest.java
+      · code:    src/main/.../SeasonalRateService.java
+
+  ⚠️  Artifacts present — run `csda done <REQ>`
+    REQ-009    SCN-009
+
+  Next: read the feature file, write the test, write the code, then run `csda done <REQ-id>`.
+```
+
+For AI agents, swap to JSON:
+
+```bash
+csda plan --format json
+```
+
+```json
+{
+  "schema_version": 1,
+  "total": 12,
+  "pending": 3,
+  "summary": { "NEEDS_EVERYTHING": 1, "NEEDS_IMPLEMENTATION": 1, "NEEDS_STATUS_UPDATE": 1, "DONE": 9 },
+  "next_steps": [
+    { "requirement": "REQ-007", "category": "NEEDS_EVERYTHING", "hint": "Read features/pricing/dynamic_pricing.feature, then write the test, then the production code." }
+  ],
+  "requirements": [],
+  "orphan_features": []
+}
+```
+
+### After implementing, mark the REQ done
+
+```bash
+csda done REQ-007                          # → Status="Implemented"
+csda done REQ-007 --status Verified         # → Status="Verified"
+csda done REQ-007 --check                   # runs `validate` first; aborts on red
+csda done REQ-007 --strict                  # like --check but uses `validate --strict-tdd`
+```
+
+`done` edits exactly one cell in `docs/specs/traceability.md`. Combined with `validate --strict-tdd` in CI, the matrix is the live source of truth instead of a rear-view mirror.
+
+### AI agent recipe (Claude Desktop / Cursor / Aider with MCP)
+
+The MCP server exposes `plan` and `mark_requirement_done`. A canonical prompt:
+
+```
+1. Call the `plan` tool with projectDir set to my repo.
+2. Pick the first item from next_steps.
+3. Read the feature file (using `read_spec` or your editor).
+4. Write the test file at the expected path. Run the test — confirm it fails.
+5. Write production code until the test passes.
+6. Run `validate_project` to confirm gates are green.
+7. Call `mark_requirement_done` with that requirement id and check=true.
+8. Repeat from step 1 until plan returns pending=0.
+```
+
+---
+
+---
+
+## Next
+
+- [Change something that already shipped](reviewing-changes.md)
+- [Enforce it in CI](validating.md)

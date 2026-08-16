@@ -1,0 +1,84 @@
+# Agents
+
+Every command speaks JSON, and the loop can be driven entirely from Claude
+Code, Cursor, Copilot, Windsurf, Aider, Gemini, Cline or Codex.
+
+---
+
+## Wire it in
+
+```bash
+csda agents init                          # all eight tools
+csda agents init --tool claude,cursor     # or pick
+csda agents init --dry-run                # list destinations, write nothing
+```
+
+This writes the six slash commands (`/csda:explore`, `/csda:propose`,
+`/csda:verify`, `/csda:apply`, `/csda:archive`, `/csda:onboard`) and the
+instruction file each tool reads — `.cursor/rules/csda.mdc`,
+`.github/copilot-instructions.md`, `CONVENTIONS.md`, `AGENTS.md` and so on.
+
+Existing files are never overwritten without `--force`.
+
+---
+
+## Why the generated files are thin
+
+They do not restate the delta grammar. A markdown copy of the format is stale
+the moment the format moves, and an agent following a stale copy fails in a way
+that looks like the agent's fault.
+
+Instead they call the engine:
+
+```bash
+csda change instructions specs --json
+```
+
+which returns the template, the rules the validator actually enforces, the
+project's declared stack, the reserved `REQ` range, and what writing that
+artefact unblocks. `harness run` builds its prompt from the same call, so the
+slash commands, the harness and the MCP server cannot disagree.
+
+Each generated command says so out loud: *if this file and the engine disagree,
+the engine is right*.
+
+---
+
+## The contract
+
+```bash
+csda validate . --json 2>/dev/null | jq .
+```
+
+- One JSON document on stdout. Prose goes to stderr.
+- Every document carries `status`: an array of diagnostics, each with a stable
+  `code` and a `fix`.
+- Branch on `code`, never on `message` — the message is prose and may be
+  reworded.
+- A failure carries the command's null-shape, so the document has the same keys
+  whether the command succeeded or not.
+- Exit codes: `0` success, `1` failure or gate finding, `2` usage error.
+
+→ Full rules, the code catalogue and the exit-code table:
+[`specs/agent-contract.md`](specs/agent-contract.md). It is generated from the
+source, and CI fails when it drifts.
+
+---
+
+## Instructions for a stage, not just a file
+
+`apply` and `archive` are stages rather than artefacts — they return the rules
+for carrying out a step, with no template:
+
+```bash
+csda change instructions apply --json
+csda change instructions archive --json
+```
+
+---
+
+## Next
+
+- [Reviewing changes](reviewing-changes.md) — the loop the agent drives
+- [The agent contract](specs/agent-contract.md) — the full reference
+- [The harness spec](specs/harness.md) — unattended delivery, one requirement per worktree

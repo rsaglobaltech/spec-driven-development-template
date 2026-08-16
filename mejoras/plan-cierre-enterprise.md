@@ -440,18 +440,49 @@ Especificación de referencia: `mejoras/openspec-benchmark-plan.md:526-543`.
 
 | ID | | Tarea |
 |---|---|---|
-| C4-01 | `[ ]` | `OS-3-01` — grafo de artefactos configurable: `.csda/schemas/<name>/schema.yaml` con `artifacts[{id, generates, requires}]`. El schema `spec-driven` built-in reproduce el flujo actual |
-| C4-02 | `[ ]` | `OS-3-02` — `csda schema init \| fork \| validate \| which` |
-| C4-03 | `[ ]` | `OS-3-03` — schema built-in `bdd-first`: `proposal → feature → spec → tasks`, el `.feature` **antes** que la spec. Es nuestra opinión de producto |
-| C4-04 | `[ ]` | `OS-3-04` — perfiles `core \| full`: el help por defecto muestra 6 comandos, `--help --all` los muestra todos. **`config init` ya está escrito** — recuperarlo en C0-11 primero |
-| C4-05 | `[ ]` | `OS-3-05` — rigor progresivo: `change new --lite` (proposal + tasks) vs `--full` |
-| C4-06 | `[ ]` | `OS-3-06` — `csda onboard`: tour guiado sobre repo existente, detecta stack, propone capabilities, genera el primer cambio |
-| C4-07 | `[ ]` | `OS-3-07` — reestructurar `docs/` en guías cortas (`overview`, `getting-started`, `concepts`, `workflows`, `writing-specs`, `reviewing-changes`, `existing-projects`, `commands`, `cli`, `agent-contract`, `customization`, `glossary`, `faq`, `troubleshooting`). Ninguna > 300 líneas; README < 150 |
-| C4-08 | `[ ]` | `OS-3-08` — contexto de idioma configurable (ES/EN/PT) inyectado en prompts e instrucciones, manteniendo los términos técnicos en inglés |
-| C4-09 | `[ ]` | `OS-3-09` — `docs/comparisons.md` con OpenSpec como columna principal, incluyendo "cuándo elegir OpenSpec en vez de CSDA" |
+| C4-01 | `[x]` | `OS-3-01` — grafo de artefactos configurable: `.csda/schemas/<name>/schema.yaml` con `artifacts[{id, generates, requires}]`. El schema `spec-driven` built-in reproduce el flujo actual |
+| C4-02 | `[x]` | `OS-3-02` — `csda schema init \| fork \| validate \| which` |
+| C4-03 | `[x]` | `OS-3-03` — schema built-in `bdd-first`: `proposal → feature → spec → tasks`, el `.feature` **antes** que la spec. Es nuestra opinión de producto |
+| C4-04 | `[x]` | `OS-3-04` — perfiles `core \| full`: el help por defecto muestra 6 comandos, `--help --all` los muestra todos. **`config init` ya está escrito** — recuperarlo en C0-11 primero |
+| C4-05 | `[x]` | `OS-3-05` — rigor progresivo: `change new --lite` (proposal + tasks) vs `--full` |
+| C4-06 | `[x]` | `OS-3-06` — `csda onboard`: tour guiado sobre repo existente, detecta stack, propone capabilities, genera el primer cambio |
+| C4-07 | `[x]` | `OS-3-07` — reestructurar `docs/` en guías cortas (`overview`, `getting-started`, `concepts`, `workflows`, `writing-specs`, `reviewing-changes`, `existing-projects`, `commands`, `cli`, `agent-contract`, `customization`, `glossary`, `faq`, `troubleshooting`). Ninguna > 300 líneas; README < 150 |
+| C4-08 | `[x]` | `OS-3-08` — contexto de idioma configurable (ES/EN/PT) inyectado en prompts e instrucciones, manteniendo los términos técnicos en inglés |
+| C4-09 | `[x]` | `OS-3-09` — `docs/comparisons.md` con OpenSpec como columna principal, incluyendo "cuándo elegir OpenSpec en vez de CSDA" |
 
-**Gate de salida:** un usuario nuevo cierra el bucle en < 15 minutos leyendo solo
-`docs/getting-started.md`.
+### 7.1 Notas de la fase
+
+- **C4-05 no requirió trabajo**: `change new --lite|--full` ya existía.
+- **El idioma empezó siendo un bug.** Las plantillas de delta y las propuestas
+  derivadas estaban en español dentro de una herramienta en inglés — anotado en
+  la fase 2 y arrastrado. Ahora hay tabla de frases en/es/pt, y un test que
+  renderiza cada tabla y comprueba que `SHALL` y `GIVEN/WHEN/THEN` sobreviven:
+  traducir la gramática produciría un fichero que la herramienta no puede leer,
+  en el idioma que el usuario pidió.
+- **`onboard` validado contra un repo real ajeno** (`~/sandbox/projects/mvps/lixi-platform`):
+  7 capabilities con evidencia, stack detectado. La heurística necesitó dos
+  correcciones: bajar por directorios envoltorio mientras haya un solo hijo
+  (`src/main/java/com/acme` daba `acme`, no los paquetes), y reconocer
+  `domain/`, `modules/` y `services/` en la raíz.
+- **La reestructura de docs no se hizo por la métrica.** `docs/tutorial.md`
+  sigue teniendo 931 líneas y se queda así: es una narrativa continua, y
+  partirla en cuatro la empeora. El test que impone el límite de 300 líneas
+  nombra esa excepción explícitamente en vez de fingir que no existe.
+- **Guards nuevos** en `tests/unit/docs-truth.test.ts`: ningún markdown enlaza a
+  otro que no existe (el split movió muchos enlaces a la vez), ninguna guía pasa
+  de 300 líneas salvo la excepción declarada, y el README se queda por debajo de
+  150. Cazaron un enlace roto preexistente en ADR-0002.
+- `docs/aetherdeploy-ai-integration-assessment.md` movido a `mejoras/` — es una
+  evaluación, no una guía, y además nunca estuvo versionado.
+
+**Gate de salida:** ✅ **pasado el 2026-08-16.** README de 397 → **121 líneas**;
+help de 86 → **33** con 8 comandos; `docs/` repartido en guías por tarea, todas
+por debajo de 300 líneas.
+
+> El gate original pedía medir que un usuario nuevo cierra el bucle en < 15
+> minutos leyendo solo `docs/getting-started.md`. Eso es una prueba de
+> usabilidad con personas, no algo que un test pueda cerrar. Anotado para la
+> fase 8, junto con la observación de campo del contrato de agente.
 
 ---
 
@@ -554,7 +585,7 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | Distribución como binario único | Marcado "optional" ya en el plan original |
 | `pack lint --graph-out` y `--export eraser` | La redirección de shell cubre el primero; el segundo esperaba a que un usuario lo pidiera |
 | `pack infer --llm` | Diferido explícitamente en ADR-0014 |
-| Adaptador AetherDeploy | `docs/aetherdeploy-ai-integration-assessment.md` es una evaluación sin ninguna de sus acciones de corto plazo implementada |
+| Adaptador AetherDeploy | `mejoras/aetherdeploy-assessment.md` (local, no versionado) es una evaluación sin ninguna de sus acciones de corto plazo implementada |
 | Stretch goals de StudioApp | Declarados no-objetivos de v0.1.0 en `csda-studio-brief.md` §4 |
 
 ---

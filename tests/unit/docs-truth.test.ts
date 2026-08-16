@@ -95,3 +95,59 @@ test("brace and glob tokens resolve the way the guard assumes", () => {
   assert.equal(resolveTarget("packages/*/test/unit/**"), "packages");
   assert.equal(resolveTarget("scripts/req.ts"), "scripts/req.ts");
 });
+
+// ── Internal links ────────────────────────────────────────────────────────────
+
+/** Every markdown file the repository ships, excluding dependencies. */
+function markdownFiles(): string[] {
+  const out: string[] = [];
+  const SKIP = new Set(["node_modules", "dist", "coverage", ".git", "_site"]);
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (!SKIP.has(entry.name)) walk(path.join(dir, entry.name));
+      } else if (entry.name.endsWith(".md")) {
+        out.push(path.join(dir, entry.name));
+      }
+    }
+  };
+  walk(ROOT_DIR);
+  return out;
+}
+
+test("no markdown file links to another that does not exist", () => {
+  // Splitting how-to.md into topic guides moved a lot of links at once, and a
+  // dead link in the docs is the same defect class as a dead path in the
+  // matrix: the document claims something that is not true.
+  const broken: string[] = [];
+  for (const file of markdownFiles()) {
+    const body = fs.readFileSync(file, "utf8");
+    for (const m of body.matchAll(/\]\(([^)#:]+\.md)(?:#[^)]*)?\)/g)) {
+      const target = path.resolve(path.dirname(file), m[1]);
+      if (!fs.existsSync(target)) {
+        broken.push(`${path.relative(ROOT_DIR, file)} → ${m[1]}`);
+      }
+    }
+  }
+  assert.deepEqual(broken, [], `broken links:\n  ${broken.join("\n  ")}`);
+});
+
+test("no shipped guide is longer than 300 lines", () => {
+  // The exception is deliberate and named: the tutorial is one narrative, and
+  // splitting it into four files would make it worse, not more navigable.
+  const EXCEPTIONS = new Set(["docs/tutorial.md"]);
+  const tooLong: string[] = [];
+  for (const file of fs.readdirSync(path.join(ROOT_DIR, "docs"))) {
+    if (!file.endsWith(".md")) continue;
+    const rel = `docs/${file}`;
+    if (EXCEPTIONS.has(rel)) continue;
+    const lines = fs.readFileSync(path.join(ROOT_DIR, "docs", file), "utf8").split("\n").length;
+    if (lines > 300) tooLong.push(`${rel} (${lines} lines)`);
+  }
+  assert.deepEqual(tooLong, [], `guides over 300 lines:\n  ${tooLong.join("\n  ")}`);
+});
+
+test("the README stays short enough to read", () => {
+  const lines = fs.readFileSync(path.join(ROOT_DIR, "README.md"), "utf8").split("\n").length;
+  assert.ok(lines < 150, `README is ${lines} lines; it should stay under 150 and link out`);
+});

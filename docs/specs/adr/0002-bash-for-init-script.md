@@ -2,7 +2,7 @@
 # ADR-0002: Use Bash for the project initialisation script (superseded by ADR-0006)
 
 **Date:** 2024-01-15  
-**Status:** Superseded by [ADR-0006](./0006-node-port-of-init.md) (Phase 2)  
+**Status:** Superseded by [ADR-0006](./0006-node-engine-for-init.md) (Phase 2)  
 **Deciders:** Core maintainers
 
 ---
