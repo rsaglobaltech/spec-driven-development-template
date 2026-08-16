@@ -555,7 +555,7 @@ corren en CI; Dependabot cubre npm, actions, Maven y Gradle.
 |---|---|---|
 | C7-01 | `[x]` | `CHANGELOG.md` **escrito** en la fase 5, con el cambio incompatible de camelCase registrado mientras estaba fresco. Falta changesets |
 | C7-02 | `[x]` | Preparar la release **0.2.0**: tres meses de features sin publicar — ciclo `change`, `specops contribute`, `diff --as-change`, F1B, más todo lo que entra en C0-05 |
-| C7-03 | `[~]` | **`0.2.0-beta.1` publicada** bajo dist-tag `beta`, con provenance, y verificada instalándola desde npm. `latest` sigue en `0.1.4` a propósito. Falta promover a `latest` cuando la beta se haya usado de verdad |
+| C7-03 | `[x]` | **`0.2.1` en `latest`**, con provenance. Verificada con `npm install create-spec-driven-app` en un proyecto limpio: `init` + `validate` de punta a punta. La página de npmjs.com ya renderiza el README actual |
 | C7-04 | `[ ]` | Docker: primer push a ghcr.io con `Dockerfile.cli` + `publish-docker.yml` (llegan en C0-05). Documentar el uso en pipelines de cliente |
 | C7-05 | `[ ]` | Maven: publicar `packages/maven-plugin`. Requiere groupId, firma GPG y cuenta OSSRH — o Nexus/Artifactory interno |
 | C7-06 | `[ ]` | Gradle: publicar `packages/gradle-plugin` en el Gradle Plugin Portal o repo interno |
@@ -596,6 +596,27 @@ El primer intento falló con
 `404 Not Found - PUT`, que en npm significa que el token no tiene permiso sobre
 el paquete —no que el paquete no exista—. Nada quedó a medias. Resuelto rotando
 `NPM_TOKEN`.
+
+### 10.2 El README publicado no es el del repositorio
+
+Republicar una beta **no** arregla la página de npmjs.com: npm renderiza el
+README de la versión con dist-tag `latest`. Con `latest` en `0.1.4`, el campo
+`readme` del registry estaba literalmente vacío. Solo al promover `0.2.0` a
+`latest` pasó a tener los 6185 caracteres del README actual.
+
+Consecuencia práctica: **cada cambio de documentación que deba verse en npm
+necesita una release**, no basta con un commit. Está en `docs/release-process.md`.
+
+### 10.3 La imagen de 0.2.0 no corría en ARM
+
+Se publicó solo `amd64`, así que la línea `docker run` que el README recomienda
+fallaba en cualquier Mac con Apple Silicon y en cualquier runner ARM. Faltaba
+QEMU junto a buildx para compilar cruzado.
+
+El tag `0.2.0` **no se podía reconstruir en su sitio**: relanzar un workflow
+contra un ref antiguo usa el workflow *tal como estaba en ese ref*, que aún no
+tenía el arreglo. Mover un tag ya publicado —del que npm había publicado— era
+peor. De ahí `0.2.1`.
 
 **Gate de salida:** desde una máquina limpia funcionan
 `npx create-spec-driven-app@latest --help`,
