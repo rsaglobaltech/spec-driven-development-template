@@ -553,15 +553,44 @@ corren en CI; Dependabot cubre npm, actions, Maven y Gradle.
 
 | ID | | Tarea |
 |---|---|---|
-| C7-01 | `[~]` | `CHANGELOG.md` **escrito** en la fase 5, con el cambio incompatible de camelCase registrado mientras estaba fresco. Falta changesets |
-| C7-02 | `[ ]` | Preparar la release **0.2.0**: tres meses de features sin publicar — ciclo `change`, `specops contribute`, `diff --as-change`, F1B, más todo lo que entra en C0-05 |
-| C7-03 | `[ ]` | npm público vía `publish-npm.yml` con tag `v0.2.0`. `--provenance` e `id-token: write` ya están configurados |
+| C7-01 | `[x]` | `CHANGELOG.md` **escrito** en la fase 5, con el cambio incompatible de camelCase registrado mientras estaba fresco. Falta changesets |
+| C7-02 | `[x]` | Preparar la release **0.2.0**: tres meses de features sin publicar — ciclo `change`, `specops contribute`, `diff --as-change`, F1B, más todo lo que entra en C0-05 |
+| C7-03 | `[~]` | **Bloqueado por credencial.** La cadena entera está verificada —dry-run verde, suite completa, tarball firmado con provenance— pero el `PUT` al registry devuelve `404`, que es como npm dice «este token no puede publicar aquí». El secreto `NPM_TOKEN` es del 2026-05-13. Requiere un Automation token nuevo con permiso de publicación |
 | C7-04 | `[ ]` | Docker: primer push a ghcr.io con `Dockerfile.cli` + `publish-docker.yml` (llegan en C0-05). Documentar el uso en pipelines de cliente |
 | C7-05 | `[ ]` | Maven: publicar `packages/maven-plugin`. Requiere groupId, firma GPG y cuenta OSSRH — o Nexus/Artifactory interno |
 | C7-06 | `[ ]` | Gradle: publicar `packages/gradle-plugin` en el Gradle Plugin Portal o repo interno |
 | C7-07 | `[ ]` | VS Code Marketplace: cuenta de publisher + `vsce publish`. El `.vsix` 0.1.0 ya está construido en `releases/` |
 | C7-08 | `[ ]` | npm: `@spec-driven/mcp-server` |
 | C7-09 | `[ ]` | Desplegar el registry en `packs.spec-driven.dev`: dominio + Pages/Cloudflare |
+
+### 10.1 Estado de la publicación (2026-08-16)
+
+Verificado sin publicar nada:
+
+- **Tarball**: instalado en un proyecto limpio; `init` + `validate` de punta a
+  punta, y `status`, `change new`, `change instructions`, `agents init`,
+  `schema which`, `onboard`, `doctor` y `req` funcionando desde el paquete
+  instalado. El job `package` de CI solo comprobaba `--help`, que no habría
+  detectado un script ausente.
+- **Imagen Docker**: construida y ejecutada; `init` + `validate` dentro del
+  contenedor. 217 MB.
+- **Workflow de npm**: dry-run completo en verde, con la suite entera, el gate
+  del changelog y la firma de provenance.
+
+**Lo que el tarball dejó de llevar:** 98 ficheros de tests compilados, los 38 de
+los paquetes que se publican aparte, las definiciones de pasos de Cucumber y 133
+source maps sin fuentes. 326 → 187 ficheros, 461 → 277 kB. Iba así desde 0.1.0.
+
+**Metadatos que npm corregía en silencio al publicar:** los cuatro manifiestos
+sin el prefijo `git+` en la URL del repositorio, y el LSP apuntando a
+`spec-driven-template` — un repositorio que no existe.
+
+**El único bloqueo es la credencial.** El publish real falló con
+`404 Not Found - PUT`, que en npm significa que el token no tiene permiso sobre
+el paquete. Nada se publicó: `latest` sigue en `0.1.4` y no hay `0.2.0-beta.1`
+parcial. Para desbloquear: crear un **Automation token** en npmjs.com con acceso
+de publicación a `create-spec-driven-app` y reemplazar el secreto `NPM_TOKEN`
+del repositorio.
 
 **Gate de salida:** desde una máquina limpia funcionan
 `npx create-spec-driven-app@latest --help`,
