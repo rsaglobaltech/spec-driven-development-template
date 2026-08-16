@@ -490,11 +490,11 @@ por debajo de 300 líneas.
 
 | ID | | Tarea |
 |---|---|---|
-| C5-01 | `[ ]` | `OS-4-01` — `csda update`: regenera ficheros de instrucciones y slash commands tras un upgrade, preservando ediciones locales. 3-way merge reutilizando `scripts/specops/merge.ts` |
-| C5-02 | `[ ]` | `OS-4-02` — `csda completion [bash\|zsh\|fish] [--install]`. **Bash y zsh ya están escritos** en `feature/daily-ux-roadmap` — recuperarlo en C0-11 antes de escribir nada |
-| C5-03 | `[ ]` | `OS-4-03` — `doctor` extendido: deltas huérfanos, cambios archivados con tareas sin marcar, drift entre matriz y specs, requisitos de pack editados sin cambio asociado. Cada hallazgo con `fix` accionable. Construye sobre el `doctor` que llega en C0-05 |
-| C5-04 | `[ ]` | `OS-4-04` — `csda init --from-pack <repo>@<tag>` en un paso, y `specops.config.yaml` heredable entre repos. **No replicar los *Stores* de OpenSpec**: nuestra respuesta al multi-repo es el pack privado compartido, que ya existe |
-| C5-05 | `[ ]` | `OS-4-05` — gobierno de repo: changesets y devcontainer (el resto se completa en la Fase 9) |
+| C5-01 | `[x]` | `OS-4-01` — `csda update`: regenera ficheros de instrucciones y slash commands tras un upgrade, preservando ediciones locales. 3-way merge reutilizando `scripts/specops/merge.ts` |
+| C5-02 | `[x]` | `OS-4-02` — `csda completion [bash\|zsh\|fish] [--install]`. **Bash y zsh ya están escritos** en `feature/daily-ux-roadmap` — recuperarlo en C0-11 antes de escribir nada |
+| C5-03 | `[x]` | `OS-4-03` — `doctor` extendido: deltas huérfanos, cambios archivados con tareas sin marcar, drift entre matriz y specs, requisitos de pack editados sin cambio asociado. Cada hallazgo con `fix` accionable. Construye sobre el `doctor` que llega en C0-05 |
+| C5-04 | `[x]` | `OS-4-04` — `csda init --from-pack <repo>@<tag>` en un paso, y `specops.config.yaml` heredable entre repos. **No replicar los *Stores* de OpenSpec**: nuestra respuesta al multi-repo es el pack privado compartido, que ya existe |
+| C5-05 | `[x]` | `OS-4-05` — gobierno de repo: changesets y devcontainer (el resto se completa en la Fase 9) |
 
 ---
 
@@ -524,7 +524,7 @@ hasta publish en dry-run sin fallar.
 
 | ID | | Tarea |
 |---|---|---|
-| C7-01 | `[ ]` | `CHANGELOG.md` + changesets. Hoy no existe ninguno |
+| C7-01 | `[~]` | `CHANGELOG.md` **escrito** en la fase 5, con el cambio incompatible de camelCase registrado mientras estaba fresco. Falta changesets |
 | C7-02 | `[ ]` | Preparar la release **0.2.0**: tres meses de features sin publicar — ciclo `change`, `specops contribute`, `diff --as-change`, F1B, más todo lo que entra en C0-05 |
 | C7-03 | `[ ]` | npm público vía `publish-npm.yml` con tag `v0.2.0`. `--provenance` e `id-token: write` ya están configurados |
 | C7-04 | `[ ]` | Docker: primer push a ghcr.io con `Dockerfile.cli` + `publish-docker.yml` (llegan en C0-05). Documentar el uso en pipelines de cliente |

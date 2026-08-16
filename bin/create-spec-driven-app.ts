@@ -9,6 +9,7 @@ const distScripts = path.join(__dirname, "..", "scripts");
 const packageJson = require(path.join(rootDir, "package.json"));
 const VERSION: string = packageJson.version || "0.0.0";
 const initNodeScript = path.join(distScripts, "init_project.js");
+const initFromPackScript = path.join(distScripts, "init_from_pack.js");
 const adoptScript = path.join(distScripts, "adopt_project.js");
 const doctorScript = path.join(distScripts, "doctor.js");
 const ciInitScript = path.join(distScripts, "ci_init.js");
@@ -36,6 +37,7 @@ const configInitScript = path.join(distScripts, "config_init.js");
 const configSetScript = path.join(distScripts, "config_set.js");
 const schemaScript = path.join(distScripts, "schema", "cli.js");
 const onboardScript = path.join(distScripts, "onboard.js");
+const updateScript = path.join(distScripts, "update.js");
 const completionScript = path.join(distScripts, "completion.js");
 const studioScript = path.join(distScripts, "studio.js");
 const agentsInitScript = path.join(distScripts, "agents", "init.js");
@@ -161,7 +163,7 @@ function usageFull() {
       `    ${c.cyan}create-spec-driven-app${c.reset} ${c.bold}<command>${c.reset} [options]\n` +
       `    ${c.dim}Run ‘<command> --help’ for per-command details.${c.reset}\n` +
       section("CORE COMMANDS") +
-      cmd("⚡", "init", "Scaffold a new project (interactive wizard when no --config).") +
+      cmd("⚡", "init", "Scaffold a new project; --from-pack <repo>@<tag> also installs a pack.") +
       cmd("🏗", "adopt", "Install SDD on an EXISTING repository (brownfield, non-invasive).") +
       cmd("🧭", "onboard", "Read an existing repo and propose the capabilities its code implies.") +
       cmd("🩺", "doctor", "Diagnose the project and environment; every finding ships a fix.") +
@@ -217,6 +219,11 @@ function usageFull() {
       section("DX COMMANDS") +
       cmd("⚙", "config", "Project preferences: `config init`, `config set profile full`.") +
       cmd("🤖", "agents init", "Wire the loop into Claude, Cursor, Copilot, Aider and more.") +
+      cmd(
+        "🔄",
+        "update",
+        "Refresh generated agent files after a CLI upgrade, keeping your edits."
+      ) +
       cmd("🗺", "schema", "Inspect or fork the artefact graph a change follows.") +
       cmd("⌨", "completion", "Print a shell completion script (bash · zsh).") +
       cmd(
@@ -334,6 +341,13 @@ function main(): void {
         "--engine=shell was removed. The CLI is now Node-only. Drop the flag to use the (sole) Node engine."
       );
       process.exit(2);
+    }
+    // `--from-pack` composes init with `specops add`, so it needs its own
+    // orchestrator rather than another flag inside init.
+    if (passThrough.includes("--from-pack")) {
+      ensureExecutable(initFromPackScript);
+      runNodeScript(initFromPackScript, passThrough);
+      return;
     }
     ensureExecutable(initNodeScript);
     runNodeScript(initNodeScript, passThrough);
@@ -462,6 +476,12 @@ function main(): void {
     error(`Unknown agents sub-command: ${subCommand || "(none)"}. Expected: init`);
     usage();
     process.exit(2);
+  }
+
+  if (command === "update") {
+    ensureExecutable(updateScript);
+    runNodeScript(updateScript, args.slice(1));
+    return;
   }
 
   if (command === "onboard") {

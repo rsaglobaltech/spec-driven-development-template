@@ -220,6 +220,116 @@ function readSpecTree(dir) {
   return parts.length > 0 ? parts.join("\n") : null;
 }
 
+/**
+ * The change lifecycle's own failure modes.
+ *
+ * These are the ones that accumulate silently: a delta nobody archived, an
+ * archived change whose tasks were never finished, a requirement in the matrix
+ * that no spec describes. None of them break a build, which is exactly why they
+ * need a command that goes looking.
+ */
+function checkChanges(dir) {
+  const changesDir = path.join(dir, "docs/specs/changes");
+  if (!fs.existsSync(changesDir)) {
+    ok("changes", "no change directory (not using the change lifecycle — that is fine)");
+    return;
+  }
+
+  const {
+    listChangeIds,
+    listArchivedIds,
+    listDeltas,
+    taskProgress,
+    readConfig,
+    paths,
+    parseTasks,
+  } = require("./change/common");
+
+  const active = listChangeIds(dir);
+  const archived = listArchivedIds(dir);
+
+  for (const id of active) {
+    const deltas = listDeltas(dir, id);
+    const config = readConfig(dir, id);
+    const progress = taskProgress(dir, id);
+
+    // A change with every task done but never archived is work that has landed
+    // in the code and not in the specs — the drift the lifecycle exists to stop.
+    if (progress.total > 0 && progress.remaining === 0) {
+      warn(
+        "stale change",
+        `${id} has all ${progress.total} tasks checked but is still active`,
+        `Archive it: csda change archive ${id} --dry-run`
+      );
+    }
+
+    if (deltas.length === 0 && config.skip_specs !== true) {
+      warn(
+        "empty change",
+        `${id} declares no delta specs`,
+        `Write one under docs/specs/changes/${id}/specs/<capability>/spec.md, or set skip_specs: true in its change.yaml if this change has no behavioural impact.`
+      );
+    }
+  }
+
+  // taskProgress only looks under changes/; an archived change has moved.
+  for (const id of archived) {
+    const tasksFile = path.join(paths(dir).archive, id, "tasks.md");
+    const raw = readIfExists(tasksFile);
+    if (raw === null) continue;
+    const tasks = parseTasks(raw);
+    const remaining = tasks.filter((t) => !t.done).length;
+    if (tasks.length > 0 && remaining > 0) {
+      warn(
+        "archived with open tasks",
+        `${id} was archived with ${remaining} task(s) unchecked`,
+        "Either the tasks were not needed — delete them — or the work is unfinished and needs a follow-up change."
+      );
+    }
+  }
+
+  if (active.length === 0 && archived.length === 0) {
+    ok("changes", "no changes yet");
+  } else {
+    ok("changes", `${active.length} active, ${archived.length} archived`);
+  }
+}
+
+/**
+ * Requirements that reached the matrix but no spec describes, and vice versa.
+ *
+ * `checkTraceability` already compares the matrix against the spec tree. This
+ * looks at the other direction the change lifecycle introduces: a capability
+ * spec whose requirements never made it into the matrix, which means `plan`
+ * will never list them and nobody will implement them.
+ */
+function checkCapabilityDrift(dir) {
+  const capabilities = path.join(dir, "docs/specs/capabilities");
+  if (!fs.existsSync(capabilities)) return;
+
+  const trace = readIfExists(path.join(dir, "docs/specs/traceability.md"));
+  if (trace === null) return;
+  const inMatrix = new Set(trace.match(/\bREQ-\d+\b/g) || []);
+
+  let checked = 0;
+  for (const entry of fs.readdirSync(capabilities, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const spec = readIfExists(path.join(capabilities, entry.name, "spec.md"));
+    if (spec === null) continue;
+    for (const req of new Set(spec.match(/\bREQ-\d+\b/g) || [])) {
+      checked++;
+      if (!inMatrix.has(req)) {
+        warn(
+          "capability drift",
+          `${req} is in the ${entry.name} capability spec but has no traceability row`,
+          `csda req add` + " — or re-run `csda change archive`, which writes the row for you."
+        );
+      }
+    }
+  }
+  if (checked > 0) ok("capability specs", `${checked} requirement(s) reconciled with the matrix`);
+}
+
 function checkPlaceholders(dir) {
   const offenders = findUnresolvedPlaceholders(dir);
   if (offenders.length === 0) {
@@ -300,6 +410,8 @@ function main() {
   } else {
     checkStructure(dir);
     checkTraceability(dir);
+    checkCapabilityDrift(dir);
+    checkChanges(dir);
     checkPlaceholders(dir);
     checkSpecops(dir);
   }

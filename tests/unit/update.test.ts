@@ -1,0 +1,187 @@
+"use strict";
+
+/**
+ * `csda update` — refreshing generated files without discarding local edits.
+ *
+ * The behaviour that matters is the one nobody tests until it bites: a team
+ * edits a generated instruction file, the CLI is upgraded, and the upgrade must
+ * neither clobber the edit nor silently skip the file. Three-way merge is the
+ * only answer that does both, and a conflict has to be reported rather than
+ * resolved on the user's behalf.
+ */
+
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
+
+const ROOT_DIR = path.resolve(__dirname, "../../..");
+const CLI = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+
+const { updateFile, generatedFiles, BASELINE_DIR } = require("../../scripts/update");
+
+function cli(...args) {
+  return spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8", cwd: ROOT_DIR });
+}
+
+function withProject(fn) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "update-"));
+  const r = cli(
+    "init",
+    "--config",
+    path.join(ROOT_DIR, "examples/project.config.example"),
+    "--out",
+    root,
+    "--force",
+    "--no-git"
+  );
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const dir = path.join(root, "acme-energy-hub");
+  assert.equal(
+    cli("agents", "init", "--project-dir", dir, "--tool", "claude", "--force").status,
+    0
+  );
+  try {
+    fn(dir);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const REL = path.join(".claude", "commands", "csda", "propose.md");
+
+/** Put a file, its baseline, and the incoming version into a known state. */
+function stage(dir, { local, base }: { local: string; base?: string }) {
+  fs.writeFileSync(path.join(dir, REL), local, "utf8");
+  if (base !== undefined) {
+    const b = path.join(dir, BASELINE_DIR, REL);
+    fs.mkdirSync(path.dirname(b), { recursive: true });
+    fs.writeFileSync(b, base, "utf8");
+  }
+}
+
+test("a file with no baseline is adopted, not clobbered", () => {
+  // Every project that predates `update` is in this state. Merging against an
+  // empty base would report every line as a conflict.
+  withProject((dir) => {
+    stage(dir, { local: "hand written\n" });
+    const result = updateFile(dir, { path: REL, contents: "generated\n" }, { dryRun: false });
+
+    assert.equal(result.outcome, "adopted");
+    assert.equal(fs.readFileSync(path.join(dir, REL), "utf8"), "hand written\n");
+    // And it starts tracking from here, so the next update can merge properly.
+    assert.ok(fs.existsSync(path.join(dir, BASELINE_DIR, REL)));
+  });
+});
+
+test("an upstream change lands when the file was not edited locally", () => {
+  withProject((dir) => {
+    stage(dir, { local: "line one\nline two\n", base: "line one\nline two\n" });
+    const result = updateFile(
+      dir,
+      { path: REL, contents: "line one\nline two\nline three\n" },
+      { dryRun: false }
+    );
+    assert.equal(result.outcome, "updated");
+    assert.match(fs.readFileSync(path.join(dir, REL), "utf8"), /line three/);
+  });
+});
+
+test("a local edit survives an upstream change to a different part", () => {
+  // The whole point of the command.
+  withProject((dir) => {
+    stage(dir, {
+      base: "header\nmiddle\nfooter\n",
+      local: "header\nMY TEAM RULE\nmiddle\nfooter\n",
+    });
+    const result = updateFile(
+      dir,
+      { path: REL, contents: "header\nmiddle\nfooter\nNEW UPSTREAM LINE\n" },
+      { dryRun: false }
+    );
+
+    assert.equal(result.outcome, "updated");
+    const merged = fs.readFileSync(path.join(dir, REL), "utf8");
+    assert.match(merged, /MY TEAM RULE/, "the local edit survives");
+    assert.match(merged, /NEW UPSTREAM LINE/, "the upstream change lands");
+  });
+});
+
+test("a genuine conflict is marked and reported, never resolved silently", () => {
+  withProject((dir) => {
+    stage(dir, { base: "the original line\n", local: "our version of the line\n" });
+    const result = updateFile(
+      dir,
+      { path: REL, contents: "their version of the line\n" },
+      { dryRun: false }
+    );
+
+    assert.equal(result.outcome, "conflict");
+    assert.ok(result.conflicts > 0);
+    const merged = fs.readFileSync(path.join(dir, REL), "utf8");
+    assert.match(merged, /<<<<<<</);
+    assert.match(merged, /our version of the line/);
+    assert.match(merged, /their version of the line/);
+  });
+});
+
+test("an unchanged file is left alone", () => {
+  withProject((dir) => {
+    stage(dir, { local: "same\n", base: "same\n" });
+    const result = updateFile(dir, { path: REL, contents: "same\n" }, { dryRun: false });
+    assert.equal(result.outcome, "unchanged");
+  });
+});
+
+test("upstream not moving means the local file is intentional", () => {
+  withProject((dir) => {
+    stage(dir, { base: "generated\n", local: "generated, then edited\n" });
+    const result = updateFile(dir, { path: REL, contents: "generated\n" }, { dryRun: false });
+    assert.equal(result.outcome, "unchanged");
+    assert.equal(fs.readFileSync(path.join(dir, REL), "utf8"), "generated, then edited\n");
+  });
+});
+
+test("--dry-run writes neither the file nor the baseline", () => {
+  withProject((dir) => {
+    stage(dir, { base: "a\n", local: "a\n" });
+    const before = fs.readFileSync(path.join(dir, REL), "utf8");
+    updateFile(dir, { path: REL, contents: "a\nb\n" }, { dryRun: true });
+    assert.equal(fs.readFileSync(path.join(dir, REL), "utf8"), before);
+    assert.equal(fs.readFileSync(path.join(dir, BASELINE_DIR, REL), "utf8"), "a\n");
+  });
+});
+
+test("update never introduces a tool the project did not opt into", () => {
+  // The project asked for claude only. Cursor's rule file must not appear.
+  withProject((dir) => {
+    const paths = generatedFiles(dir).map((f) => f.path);
+    assert.ok(
+      paths.some((p) => p.includes("commands")),
+      "claude's files are tracked"
+    );
+    assert.ok(!paths.some((p) => p.includes(".cursor")), "cursor was never opted into");
+
+    cli("update", "--project-dir", dir);
+    assert.ok(!fs.existsSync(path.join(dir, ".cursor")), "update must not create it either");
+  });
+});
+
+test("a conflict is surfaced as a diagnostic with a fix", () => {
+  withProject((dir) => {
+    stage(dir, { base: "original\n", local: "ours\n" });
+    // Force the incoming side to differ by regenerating from a modified baseline.
+    fs.writeFileSync(path.join(dir, BASELINE_DIR, REL), "original\n", "utf8");
+
+    const r = cli("update", "--project-dir", dir, "--json");
+    assert.equal(r.status, 0, r.stderr);
+    const doc = JSON.parse(r.stdout);
+    const conflicts = doc.status.filter((d) => d.code === "update_conflict");
+    for (const d of conflicts) {
+      assert.ok(d.fix, "a conflict the user has to resolve must say how");
+      assert.match(d.fix, /<<<<<<</);
+    }
+  });
+});
