@@ -9,6 +9,11 @@ const distScripts = path.join(__dirname, "..", "scripts");
 const packageJson = require(path.join(rootDir, "package.json"));
 const VERSION: string = packageJson.version || "0.0.0";
 const initNodeScript = path.join(distScripts, "init_project.js");
+const adoptScript = path.join(distScripts, "adopt_project.js");
+const doctorScript = path.join(distScripts, "doctor.js");
+const ciInitScript = path.join(distScripts, "ci_init.js");
+const packBundleScript = path.join(distScripts, "bundle_pack.js");
+const almScript = path.join(distScripts, "alm", "cli.js");
 const validateScript = path.join(distScripts, "validate_specs.js");
 const expandScript = path.join(distScripts, "expand_domain_pack.js");
 const packInitScript = path.join(distScripts, "init_pack.js");
@@ -21,6 +26,7 @@ const specopsRemoveScript = path.join(distScripts, "specops", "remove.js");
 const specopsContributeScript = path.join(distScripts, "specops", "contribute.js");
 const harnessRunScript = path.join(distScripts, "harness", "run.js");
 const planScript = path.join(distScripts, "plan.js");
+const reportScript = path.join(distScripts, "report.js");
 const doneScript = path.join(distScripts, "done.js");
 const changeScript = path.join(distScripts, "change", "cli.js");
 
@@ -86,7 +92,11 @@ function usage() {
       `    ${c.cyan}create-spec-driven-app${c.reset} ${c.bold}<command>${c.reset} [options]\n` +
       `    ${c.dim}Run ‘<command> --help’ for per-command details.${c.reset}\n` +
       section("CORE COMMANDS") +
-      cmd("⚡", "init", "Scaffold a new spec-driven project from a config file.") +
+      cmd("⚡", "init", "Scaffold a new project (interactive wizard when no --config).") +
+      cmd("🏗", "adopt", "Install SDD on an EXISTING repository (brownfield, non-invasive).") +
+      cmd("🩺", "doctor", "Diagnose the project and environment; every finding ships a fix.") +
+      cmd("🚦", "ci init", "Generate the spec gate for GitHub, GitLab, Azure, or Jenkins.") +
+      cmd("🎫", "alm sync", "Sync REQs with Jira / Azure Boards (create, close, drift).") +
       cmd(
         "✅",
         "validate",
@@ -94,6 +104,7 @@ function usage() {
       ) +
       cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
+      cmd("📊", "report", "Spec-coverage dashboard as self-contained HTML (CI/Pages artifact).") +
       cmd("✔", "done", "Mark a requirement as Implemented in traceability.md.") +
       cmd(
         "🔄",
@@ -104,6 +115,7 @@ function usage() {
       cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
       cmd("🔍", "pack lint", "Lint a pack: schema, cross-refs, and scenario quality (--strict).") +
       cmd("🔮", "pack infer", "Propose a pack.yaml skeleton from a .feature file.") +
+      cmd("📴", "pack bundle", "Export a pack repo as a git bundle for air-gapped use.") +
       section("SPECOPS COMMANDS") +
       cmd("➕", "specops add", "Add a pack (npm-install-style); writes .specops.lock.") +
       cmd("➖", "specops remove", "Drop a pack entry from .specops.lock.") +
@@ -133,9 +145,14 @@ function usage() {
       flag("-h, --help", "Show this help.") +
       flag("-v, --version", "Show CLI version.") +
       section("EXAMPLES") +
+      example(`npx create-spec-driven-app@latest init`, "Generate a new project (wizard)") +
+      example(
+        `npx create-spec-driven-app@latest adopt --project-dir ./my-existing-repo`,
+        "Adopt SDD on an existing codebase"
+      ) +
       example(
         `npx create-spec-driven-app@latest init --config ./project.config --out ./projects`,
-        "Generate a new project"
+        "Generate a new project from a config file"
       ) +
       example(
         `npx create-spec-driven-app@latest validate ./projects/my-app --strict-tdd`,
@@ -240,6 +257,35 @@ function main(): void {
     return;
   }
 
+  if (command === "adopt") {
+    ensureExecutable(adoptScript);
+    runNodeScript(adoptScript, args.slice(1));
+    return;
+  }
+
+  if (command === "doctor") {
+    ensureExecutable(doctorScript);
+    runNodeScript(doctorScript, args.slice(1));
+    return;
+  }
+
+  if (command === "alm") {
+    ensureExecutable(almScript);
+    runNodeScript(almScript, args.slice(1));
+    return;
+  }
+
+  if (command === "ci") {
+    const sub = args[1];
+    if (sub !== "init") {
+      error(`Unknown ci subcommand: ${sub || "(none)"} — expected 'ci init'.`);
+      process.exit(2);
+    }
+    ensureExecutable(ciInitScript);
+    runNodeScript(ciInitScript, args.slice(2));
+    return;
+  }
+
   if (command === "validate") {
     ensureExecutable(validateScript);
 
@@ -266,6 +312,12 @@ function main(): void {
     ensureExecutable(expandScript);
     const passThrough = args.slice(1);
     runNodeScript(expandScript, passThrough);
+    return;
+  }
+
+  if (command === "report") {
+    ensureExecutable(reportScript);
+    runNodeScript(reportScript, args.slice(1));
     return;
   }
 
@@ -304,7 +356,14 @@ function main(): void {
       runNodeScript(packInferScript, args.slice(1));
       return;
     }
-    error(`Unknown pack sub-command: ${subCommand || "(none)"}. Expected: init, lint, infer`);
+    if (subCommand === "bundle") {
+      ensureExecutable(packBundleScript);
+      runNodeScript(packBundleScript, args.slice(2));
+      return;
+    }
+    error(
+      `Unknown pack sub-command: ${subCommand || "(none)"}. Expected: init, lint, infer, bundle`
+    );
     usage();
     process.exit(2);
   }

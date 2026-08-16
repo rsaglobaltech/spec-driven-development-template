@@ -14,6 +14,7 @@ const { spawnSync } = require("node:child_process");
 
 const {
   resolveRemotePack,
+  createPackBundle,
   repoHash,
   safeVersionDir,
   gitAvailable,
@@ -155,3 +156,77 @@ test("resolveRemotePack throws a contextual error for an unknown ref", { skip: s
     fs.rmSync(cache, { recursive: true, force: true });
   }
 });
+
+// ── Offline mode (B4) ─────────────────────────────────────────────────────────
+
+test("offline mode serves a cached pack without touching the network", { skip: skipReason }, () => {
+  const cache = fs.mkdtempSync(path.join(os.tmpdir(), "specops-cache-"));
+  try {
+    resolveRemotePack({ repo: SOURCE_REPO, version: TAG, cacheDir: cache });
+    const offline = resolveRemotePack({
+      repo: SOURCE_REPO,
+      version: TAG,
+      cacheDir: cache,
+      offline: true,
+    });
+    assert.equal(offline.cached, true);
+    assert.ok(fs.existsSync(path.join(offline.packRoot, "backend", "pack.yaml")));
+  } finally {
+    fs.rmSync(cache, { recursive: true, force: true });
+  }
+});
+
+test("offline mode fails a cache miss with the bundle remedy", { skip: skipReason }, () => {
+  const cache = fs.mkdtempSync(path.join(os.tmpdir(), "specops-cache-"));
+  try {
+    assert.throws(
+      () => resolveRemotePack({ repo: SOURCE_REPO, version: TAG, cacheDir: cache, offline: true }),
+      /Offline mode: .*not in the local cache[\s\S]*pack bundle/
+    );
+  } finally {
+    fs.rmSync(cache, { recursive: true, force: true });
+  }
+});
+
+test("CSDA_OFFLINE env var activates offline mode", { skip: skipReason }, () => {
+  const cache = fs.mkdtempSync(path.join(os.tmpdir(), "specops-cache-"));
+  const prev = process.env.CSDA_OFFLINE;
+  process.env.CSDA_OFFLINE = "1";
+  try {
+    assert.throws(
+      () => resolveRemotePack({ repo: SOURCE_REPO, version: TAG, cacheDir: cache }),
+      /Offline mode/
+    );
+  } finally {
+    if (prev === undefined) delete process.env.CSDA_OFFLINE;
+    else process.env.CSDA_OFFLINE = prev;
+    fs.rmSync(cache, { recursive: true, force: true });
+  }
+});
+
+// ── Pack bundles for air-gapped transport (B4) ────────────────────────────────
+
+test(
+  "a bundle round-trips: create, then resolve a tagged pack from it",
+  { skip: skipReason },
+  () => {
+    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "specops-bundle-"));
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "specops-cache-"));
+    try {
+      const bundlePath = path.join(workDir, "pack.bundle");
+      const { out, refs } = createPackBundle({ repo: SOURCE_REPO, out: bundlePath });
+      assert.ok(fs.existsSync(out));
+      assert.ok(
+        refs.some((r) => r.includes(TAG)),
+        `bundle should carry the ${TAG} tag, got: ${refs.join(", ")}`
+      );
+
+      // The bundle file is a valid --pack-repo source (this is the air-gapped path).
+      const resolved = resolveRemotePack({ repo: bundlePath, version: TAG, cacheDir: cache });
+      assert.ok(fs.existsSync(path.join(resolved.packRoot, "backend", "pack.yaml")));
+    } finally {
+      fs.rmSync(workDir, { recursive: true, force: true });
+      fs.rmSync(cache, { recursive: true, force: true });
+    }
+  }
+);

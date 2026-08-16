@@ -142,6 +142,39 @@ function updateTraceability(args) {
   return { updated: true, rowsAdded: 1 };
 }
 
+// ── CLI invocation (cross-platform) ──────────────────────────────────────────────
+
+/**
+ * Tokenize a cliPath command line, honoring double/single quotes so paths
+ * with spaces work (e.g. `"C:\Program Files\nodejs\node.exe" cli.js`).
+ */
+function parseCliCommand(cliPath) {
+  const raw = (cliPath || "npx create-spec-driven-app").trim();
+  const tokens = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    tokens.push(m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3]);
+  }
+  return tokens;
+}
+
+/**
+ * Spawn the CLI. On Windows a shell is required to resolve `npx` (.cmd),
+ * and spawnSync does not quote for the shell — so quote every token that
+ * contains whitespace before handing the command over.
+ */
+function spawnCli(cliPath, argv, options) {
+  const cliCmd = parseCliCommand(cliPath);
+  const useShell = process.platform === "win32";
+  const quote = (s) => (useShell && /\s/.test(s) ? `"${s}"` : s);
+  return spawnSync(quote(cliCmd[0]), [...cliCmd.slice(1), ...argv].map(quote), {
+    encoding: "utf8",
+    shell: useShell,
+    ...options,
+  });
+}
+
 // ── Tool: lint_pack ────────────────────────────────────────────────────────────────
 
 /**
@@ -153,11 +186,10 @@ function lintPack(args) {
   if (!args.packRoot || !args.packId) {
     throw new Error("packRoot and packId are required");
   }
-  const cliCmd = (args.cliPath || "npx create-spec-driven-app").trim().split(/\s+/);
-  const result = spawnSync(
-    cliCmd[0],
-    [...cliCmd.slice(1), "pack", "lint", "--pack-root", args.packRoot, "--pack", args.packId],
-    { encoding: "utf8", timeout: 30_000, shell: process.platform === "win32" }
+  const result = spawnCli(
+    args.cliPath,
+    ["pack", "lint", "--pack-root", args.packRoot, "--pack", args.packId],
+    { timeout: 30_000 }
   );
 
   const combined = (result.stdout || "") + "\n" + (result.stderr || "");
@@ -185,12 +217,7 @@ function lintPack(args) {
  */
 function validateProject(args) {
   const dir = ensureProjectDir(args.projectDir);
-  const cliCmd = (args.cliPath || "npx create-spec-driven-app").trim().split(/\s+/);
-  const result = spawnSync(cliCmd[0], [...cliCmd.slice(1), "validate", dir], {
-    encoding: "utf8",
-    timeout: 30_000,
-    shell: process.platform === "win32",
-  });
+  const result = spawnCli(args.cliPath, ["validate", dir], { timeout: 30_000 });
 
   const combined = (result.stdout || "") + "\n" + (result.stderr || "");
   const errors = [];
@@ -221,16 +248,9 @@ function validateProject(args) {
  */
 function plan(args) {
   const dir = ensureProjectDir(args.projectDir);
-  const cliCmd = (args.cliPath || "npx create-spec-driven-app").trim().split(/\s+/);
-  const result = spawnSync(
-    cliCmd[0],
-    [...cliCmd.slice(1), "plan", "--project-dir", dir, "--format", "json"],
-    {
-      encoding: "utf8",
-      timeout: 30_000,
-      shell: process.platform === "win32",
-    }
-  );
+  const result = spawnCli(args.cliPath, ["plan", "--project-dir", dir, "--format", "json"], {
+    timeout: 30_000,
+  });
   if (result.status !== 0) {
     throw new Error(
       `plan failed (${result.status}): ${result.stderr || result.stdout || "unknown error"}`
@@ -255,15 +275,10 @@ function plan(args) {
 function markRequirementDone(args) {
   const dir = ensureProjectDir(args.projectDir);
   if (!args.requirement) throw new Error("Missing argument: requirement (e.g. REQ-007)");
-  const cliCmd = (args.cliPath || "npx create-spec-driven-app").trim().split(/\s+/);
-  const argv = [...cliCmd.slice(1), "done", args.requirement, "--project-dir", dir];
+  const argv = ["done", args.requirement, "--project-dir", dir];
   if (args.status) argv.push("--status", args.status);
   if (args.check) argv.push("--check");
-  const result = spawnSync(cliCmd[0], argv, {
-    encoding: "utf8",
-    timeout: 60_000,
-    shell: process.platform === "win32",
-  });
+  const result = spawnCli(args.cliPath, argv, { timeout: 60_000 });
   const raw = (result.stdout || "") + (result.stderr ? `\n${result.stderr}` : "");
   return {
     exitCode: typeof result.status === "number" ? result.status : 1,

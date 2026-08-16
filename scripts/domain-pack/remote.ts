@@ -54,8 +54,15 @@ function gitAvailable() {
   return result.status === 0;
 }
 
+/** Offline mode: opt-in via option or the CSDA_OFFLINE env var (CI-friendly). */
+function isOffline(opts) {
+  if (typeof opts.offline === "boolean") return opts.offline;
+  const env = process.env.CSDA_OFFLINE;
+  return env === "1" || env === "true";
+}
+
 /**
- * @param {{ repo: string, version: string, cacheDir?: string, force?: boolean }} options
+ * @param {{ repo: string, version: string, cacheDir?: string, force?: boolean, offline?: boolean }} options
  * @returns {{ packRoot: string, commit: string, version: string, cached: boolean }}
  */
 function resolveRemotePack(options) {
@@ -71,6 +78,14 @@ function resolveRemotePack(options) {
   if (cached && !opts.force) {
     const commit = runGit(["rev-parse", "HEAD"], { cwd: targetDir });
     return { packRoot: targetDir, commit, version: opts.version, cached: true };
+  }
+
+  if (isOffline(opts)) {
+    throw new Error(
+      `Offline mode: pack ${opts.repo}@${opts.version} is not in the local cache (${targetDir}).\n` +
+        "Fix: on a connected machine run `create-spec-driven-app pack bundle --repo <url> --out pack.bundle`,\n" +
+        "copy the bundle across, and use it as --pack-repo /path/to/pack.bundle."
+    );
   }
 
   if (cached && opts.force) {
@@ -94,8 +109,42 @@ function resolveRemotePack(options) {
   return { packRoot: targetDir, commit, version: opts.version, cached: false };
 }
 
+/**
+ * Create a single-file git bundle of a pack repository (all refs and tags),
+ * transportable into air-gapped environments. The bundle is a valid clone
+ * source, so `--pack-repo /path/to/pack.bundle` works everywhere a URL does.
+ *
+ * @param {{ repo: string, out: string, tmpDir?: string }} options
+ * @returns {{ out: string, refs: string[] }}
+ */
+function createPackBundle(options) {
+  const opts = options || {};
+  if (!opts.repo) throw new Error("createPackBundle: 'repo' is required");
+  if (!opts.out) throw new Error("createPackBundle: 'out' is required");
+  if (!gitAvailable()) throw new Error("createPackBundle: 'git' is not available on PATH");
+
+  const tmpRoot = opts.tmpDir || fs.mkdtempSync(path.join(os.tmpdir(), "csda-bundle-"));
+  const mirrorDir = path.join(tmpRoot, "mirror.git");
+  try {
+    // A mirror clone carries every branch and tag — bundles from shallow
+    // clones are rejected by git, so this must be a full mirror.
+    runGit(["clone", "--mirror", opts.repo, mirrorDir], { timeout: 300_000 });
+    const outAbs = path.resolve(opts.out);
+    fs.mkdirSync(path.dirname(outAbs), { recursive: true });
+    runGit(["bundle", "create", outAbs, "--all"], { cwd: mirrorDir });
+    const refs = runGit(["bundle", "list-heads", outAbs])
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => line.split(" ").slice(1).join(" "));
+    return { out: outAbs, refs };
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+}
+
 module.exports = {
   resolveRemotePack,
+  createPackBundle,
   repoHash,
   safeVersionDir,
   gitAvailable,

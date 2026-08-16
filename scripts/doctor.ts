@@ -1,0 +1,304 @@
+#!/usr/bin/env node
+"use strict";
+
+/**
+ * `doctor` — diagnose a spec-driven project and the local environment,
+ * reporting every finding with a concrete fix. Unlike `validate` (a
+ * fail-fast CI gate), doctor runs ALL checks and never stops at the first
+ * problem — it is the "why is my setup broken?" command.
+ *
+ * Usage:
+ *   create-spec-driven-app doctor [--project-dir <dir>]
+ *
+ * Exit codes: 0 = no errors (warnings allowed), 1 = at least one error.
+ */
+
+const fs = require("node:fs");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
+const { resolveProjectDir } = require("./lib/project-root");
+
+const RICH_HEADER =
+  "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
+const LEGACY_HEADER = "| Feature | Scenario | Technical artifact | Status |";
+const PLACEHOLDER_RE = /\{\{[A-Z_][A-Z0-9_]*\}\}/;
+
+// ── Findings collection ───────────────────────────────────────────────────────
+
+const findings = [];
+
+function ok(check, detail) {
+  findings.push({ level: "ok", check, detail });
+}
+function warn(check, detail, fix) {
+  findings.push({ level: "warn", check, detail, fix });
+}
+function error(check, detail, fix) {
+  findings.push({ level: "error", check, detail, fix });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function walk(dir) {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === ".git") continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walk(full));
+    else out.push(full);
+  }
+  return out;
+}
+
+function readIfExists(p) {
+  try {
+    return fs.readFileSync(p, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+// ── Checks ────────────────────────────────────────────────────────────────────
+
+function checkEnvironment() {
+  const major = Number(process.versions.node.split(".")[0]);
+  if (major >= 20) {
+    ok("Node.js", `v${process.versions.node}`);
+  } else {
+    error(
+      "Node.js",
+      `v${process.versions.node} is below the required minimum`,
+      "Install Node.js >= 20 (https://nodejs.org) or use nvm/fnm to switch."
+    );
+  }
+
+  const git = spawnSync("git", ["--version"], { encoding: "utf8", shell: false });
+  if (git.status === 0) {
+    ok("git", git.stdout.trim());
+  } else {
+    warn(
+      "git",
+      "git is not available on PATH",
+      "Install git — init, specops (remote packs) and harness need it."
+    );
+  }
+}
+
+function checkStructure(dir) {
+  const required = [
+    "spec.md",
+    "AI_RULES.md",
+    "README.md",
+    "docs/specs/traceability.md",
+    "docs/specs/adr/README.md",
+  ];
+  const missing = required.filter((f) => !fs.existsSync(path.join(dir, f)));
+  if (missing.length === 0) {
+    ok("SDD structure", "all required files present");
+  } else {
+    for (const f of missing) {
+      error(
+        "SDD structure",
+        `missing required file: ${f}`,
+        "Run `create-spec-driven-app adopt` (brownfield) to generate missing skeleton files without overwriting anything."
+      );
+    }
+  }
+
+  if (!fs.existsSync(path.join(dir, "features"))) {
+    error(
+      "features/",
+      "directory does not exist",
+      "Create features/ and add at least one .feature file (or `specops add` a pack)."
+    );
+  }
+}
+
+function checkTraceability(dir) {
+  const tracePath = path.join(dir, "docs/specs/traceability.md");
+  const trace = readIfExists(tracePath);
+  if (trace === null) return; // already reported by checkStructure
+
+  let mode = null;
+  if (trace.includes(RICH_HEADER)) mode = "rich";
+  else if (trace.includes(LEGACY_HEADER)) mode = "legacy";
+  if (!mode) {
+    error(
+      "traceability.md",
+      "matrix header not recognised",
+      `Paste the rich header into docs/specs/traceability.md:\n      ${RICH_HEADER}`
+    );
+    return;
+  }
+  ok("traceability.md", `${mode} matrix`);
+
+  // Feature files ⇄ matrix, both directions.
+  const featuresDir = path.join(dir, "features");
+  const featureFiles = fs.existsSync(featuresDir)
+    ? walk(featuresDir).filter((f) => f.endsWith(".feature"))
+    : [];
+  if (featureFiles.length === 0) {
+    error(
+      "features/",
+      "no .feature files found",
+      "Write at least one Gherkin scenario or `specops add` a domain pack."
+    );
+  } else {
+    ok("features/", `${featureFiles.length} feature file(s)`);
+  }
+
+  const orphanFeatures = featureFiles
+    .map((ff) => path.relative(dir, ff).split(path.sep).join("/"))
+    .filter((rel) => !trace.includes(rel));
+  for (const rel of orphanFeatures) {
+    error(
+      "orphan feature",
+      `${rel} has no row in traceability.md`,
+      `Add a matrix row referencing \`${rel}\` (validate prints a paste-ready one).`
+    );
+  }
+
+  // Matrix rows pointing at feature files that do not exist (validate misses this).
+  const referenced = trace.match(/`(features\/[^`]+\.feature)`/g) || [];
+  for (const raw of referenced) {
+    const rel = raw.replace(/`/g, "");
+    if (!fs.existsSync(path.join(dir, rel))) {
+      error(
+        "dangling matrix row",
+        `traceability.md references ${rel}, which does not exist`,
+        `Create ${rel} or fix/remove the row pointing at it.`
+      );
+    }
+  }
+
+  // REQs in spec.md ⇄ matrix, both directions.
+  const spec = readIfExists(path.join(dir, "spec.md"));
+  if (spec !== null) {
+    const specReqs = new Set(spec.match(/\bREQ-\d+\b/g) || []);
+    const matrixReqs = new Set(trace.match(/\bREQ-\d+\b/g) || []);
+    for (const req of specReqs) {
+      if (!matrixReqs.has(req)) {
+        warn(
+          "requirement coverage",
+          `${req} is in spec.md but has no traceability row`,
+          "Add a row for it — `create-spec-driven-app plan` lists what each REQ still needs."
+        );
+      }
+    }
+    for (const req of matrixReqs) {
+      if (req !== "REQ-TBD" && !specReqs.has(req)) {
+        warn(
+          "requirement coverage",
+          `${req} is in traceability.md but spec.md has no section for it`,
+          `Add a \`## ${req} — <title>\` section to spec.md (or remove the stale row).`
+        );
+      }
+    }
+  }
+}
+
+function checkPlaceholders(dir) {
+  const offenders = [];
+  for (const f of walk(dir)) {
+    const content = readIfExists(f);
+    if (content !== null && PLACEHOLDER_RE.test(content)) {
+      offenders.push(path.relative(dir, f).split(path.sep).join("/"));
+    }
+  }
+  if (offenders.length === 0) {
+    ok("placeholders", "no unresolved {{...}} tokens");
+  } else {
+    for (const f of offenders) {
+      error(
+        "placeholders",
+        `unresolved {{...}} tokens in ${f}`,
+        "Replace them with real values, or re-expand the pack with the missing --var values."
+      );
+    }
+  }
+}
+
+function checkSpecops(dir) {
+  const lockPath = path.join(dir, ".specops.lock");
+  const lockRaw = readIfExists(lockPath);
+  if (lockRaw === null) {
+    ok("specops", "no lockfile (packs not used — that is fine at L1/L2)");
+    return;
+  }
+  let lock;
+  try {
+    lock = JSON.parse(lockRaw);
+  } catch (err) {
+    error(
+      "specops",
+      `.specops.lock is not valid JSON: ${err.message}`,
+      "Restore it from git history, or delete it and re-run `specops add` for each pack."
+    );
+    return;
+  }
+  const packs = Array.isArray(lock.packs) ? lock.packs : [];
+  ok("specops", `.specops.lock with ${packs.length} pack(s)`);
+
+  if (packs.length > 0 && !fs.existsSync(path.join(dir, ".specops", "baseline"))) {
+    warn(
+      "specops baseline",
+      ".specops/baseline/ is missing — `specops sync` cannot three-way merge",
+      "Re-run `specops sync` to regenerate it, and commit .specops/baseline/."
+    );
+  }
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+function main() {
+  const argv = process.argv.slice(2);
+  const start = argv[0] === "doctor" ? 1 : 0;
+  let projectDir = null;
+  for (let i = start; i < argv.length; i++) {
+    if (argv[i] === "--project-dir" && argv[i + 1]) projectDir = argv[++i];
+    else if (argv[i] === "--help" || argv[i] === "-h") {
+      process.stdout.write(
+        "Usage:\n  create-spec-driven-app doctor [--project-dir <dir>]\n\n" +
+          "Runs every diagnostic (environment, structure, traceability in both\n" +
+          "directions, placeholders, specops lockfile) and prints a fix per finding.\n"
+      );
+      process.exit(0);
+    }
+  }
+
+  checkEnvironment();
+
+  const dir = resolveProjectDir(projectDir || ".");
+  process.stdout.write(`\n🩺 Doctor report for: ${dir}\n\n`);
+
+  if (!fs.existsSync(path.join(dir, "spec.md"))) {
+    error(
+      "project",
+      "spec.md not found — this directory is not spec-driven yet",
+      "Run `create-spec-driven-app adopt` here (existing code) or `init` (new project)."
+    );
+  } else {
+    checkStructure(dir);
+    checkTraceability(dir);
+    checkPlaceholders(dir);
+    checkSpecops(dir);
+  }
+
+  const icons = { ok: "✅", warn: "⚠️", error: "❌" };
+  let errors = 0;
+  let warns = 0;
+  for (const f of findings) {
+    process.stdout.write(`${icons[f.level]} ${f.check}: ${f.detail}\n`);
+    if (f.fix) process.stdout.write(`   💡 Fix: ${f.fix}\n`);
+    if (f.level === "error") errors++;
+    if (f.level === "warn") warns++;
+  }
+
+  process.stdout.write(
+    `\n${errors === 0 ? "✅" : "❌"} ${errors} error(s), ${warns} warning(s), ` +
+      `${findings.length - errors - warns} check(s) passed\n`
+  );
+  process.exit(errors === 0 ? 0 : 1);
+}
+
+main();

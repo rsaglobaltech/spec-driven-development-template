@@ -190,7 +190,7 @@ test("validate_project succeeds on a freshly generated project", () => {
   try {
     const r = validateProject({
       projectDir,
-      cliPath: `${process.execPath} ${CLI}`,
+      cliPath: `"${process.execPath}" "${CLI}"`,
     });
     assert.equal(r.passed, true, `expected passed=true, got: ${JSON.stringify(r)}`);
     assert.equal(r.exitCode, 0);

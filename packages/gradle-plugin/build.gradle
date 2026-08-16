@@ -1,0 +1,37 @@
+plugins {
+    id 'java-gradle-plugin'
+    id 'maven-publish'
+}
+
+group = 'com.rsaglobaltech'
+version = '0.1.4'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+gradlePlugin {
+    plugins {
+        csda {
+            id = 'com.rsaglobaltech.csda'
+            implementationClass = 'com.rsaglobaltech.csda.gradle.CsdaPlugin'
+            displayName = 'csda spec gate'
+            description = 'Run the create-spec-driven-app spec gate from Gradle — no local Node.js required.'
+        }
+    }
+}

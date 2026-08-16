@@ -52,6 +52,10 @@ function readHarnessConfig(projectDir) {
     config.maxAttempts = n;
   }
 
+  if (parsed.push !== undefined) config.push = parsed.push === true || parsed.push === "true";
+  if (parsed.remote !== undefined) config.remote = String(parsed.remote);
+  if (parsed.pr_cmd !== undefined) config.prCmd = String(parsed.pr_cmd);
+
   // prompt_prefix_file wins over inline prompt_prefix when both are set —
   // file is the realistic source for the multi-line bootstrap directives.
   if (parsed.prompt_prefix_file !== undefined) {
@@ -79,6 +83,9 @@ function resolveHarnessSettings(fileConfig, cliArgs) {
     testCmd: cliArgs.testCmd || file.testCmd || "",
     maxAttempts: cliArgs.maxAttempts || file.maxAttempts || 3,
     promptPrefix: cliArgs.promptPrefix || file.promptPrefix || "",
+    push: cliArgs.push || file.push || false,
+    remote: cliArgs.remote || file.remote || "origin",
+    prCmd: cliArgs.prCmd || file.prCmd || "",
   };
 }
 

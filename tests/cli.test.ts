@@ -69,7 +69,7 @@ test("expands domain pack in dry-run mode", () => {
     "--pack",
     "parking-management/backend",
     "--project-dir",
-    "/private/tmp/smart-parking",
+    path.join(os.tmpdir(), "smart-parking"),
     "--var",
     "PROJECT_NAME=Smart Parking Backend",
     "--var",
@@ -602,7 +602,7 @@ test("harness run refuses a dirty working tree", { skip: !hasGit() }, () => {
     "--project-dir",
     projectDir,
     "--agent",
-    "cat {prompt_file} > /dev/null",
+    `node -e "" {prompt_file}`,
   ]);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /not clean/);
@@ -624,7 +624,9 @@ test(
       "--project-dir",
       projectDir,
       "--agent",
-      "touch agent-ran.txt && cat {prompt_file} > /dev/null",
+      // Cross-platform agent (cmd.exe and sh): drop a file proving it ran,
+      // then read the prompt file passed as argv.
+      `node -e "require('node:fs').writeFileSync('agent-ran.txt','ok');require('node:fs').readFileSync(process.argv[1])" {prompt_file}`,
     ]);
 
     assert.equal(result.status, 0, result.stderr + result.stdout);
@@ -682,7 +684,7 @@ test("harness run skips an existing branch unless --force", { skip: !hasGit() },
     "--project-dir",
     projectDir,
     "--agent",
-    "cat {prompt_file} > /dev/null",
+    `node -e "" {prompt_file}`,
   ]);
   assert.notEqual(result.status, 0);
   assert.match(result.stdout, /REQ-001\s+skipped/);
@@ -881,5 +883,49 @@ test("harness prompt prepends prompt_prefix from harness.config.yaml", { skip: !
   const idxPrefix = result.stdout.indexOf("Lead Architect");
   const idxHeader = result.stdout.indexOf("# Implement REQ-001");
   assert.ok(idxPrefix > 0 && idxHeader > idxPrefix);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("harness run --push --pr-cmd publishes green branches (CI mode)", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-ci-"));
+  const projectDir = makeHarnessProject(tempRoot);
+
+  // Local bare repo standing in for the enterprise remote.
+  const remoteDir = path.join(tempRoot, "remote.git");
+  gitInTest(["init", "--quiet", "--bare", "--initial-branch=main", remoteDir]);
+  gitInTest(["remote", "add", "origin", remoteDir], { cwd: projectDir });
+
+  const prLog = path.join(tempRoot, "pr-calls.txt");
+  const result = runCli([
+    "harness",
+    "run",
+    "--project-dir",
+    projectDir,
+    "--agent",
+    `node -e "" {prompt_file}`,
+    "--push",
+    "--pr-cmd",
+    // The harness runs --pr-cmd through a shell, so the log path is passed as an
+    // argument rather than interpolated into the script — a bare path inside the
+    // command string would be eaten by the shell.
+    `node -e "require('node:fs').appendFileSync(process.argv[1], process.argv[2]+' '+process.argv[3]+'\\n')" '${prLog}' {branch} {req}`,
+  ]);
+
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /pushed harness\/REQ-001 to origin/);
+  assert.match(result.stdout, /pr command succeeded/);
+
+  // The branch exists on the remote.
+  const remoteBranches = spawnSync(
+    "git",
+    ["-C", remoteDir, "branch", "--list", "harness/REQ-001"],
+    { encoding: "utf8" }
+  );
+  assert.match(remoteBranches.stdout, /harness\/REQ-001/);
+
+  // The PR command ran with both placeholders substituted.
+  const calls = fs.readFileSync(prLog, "utf8");
+  assert.match(calls, /harness\/REQ-001 REQ-001/);
+
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
