@@ -659,8 +659,23 @@ y el goal `csda:validate` de Maven sobre un proyecto Java real.
 *Decidido el 2026-08-16, al pasar a trabajar con ramas cortas.*
 
 A partir de aquí cada unidad de trabajo va en su rama con PR. `main` está
-protegida: no se puede empujar directo, no se puede forzar, no se puede borrar,
-y los checks de CI son obligatorios.
+protegida: nada de push directo, ni forzado, ni borrado, y los 12 checks de CI
+son obligatorios con `strict` (la rama tiene que estar al día antes de mergear).
+Esto último se comprobó en caliente: el PR #52 fue **rechazado** por no estar al
+día y hubo que actualizarlo.
+
+**Con una excepción que conviene escribir en vez de dejar implícita:**
+`enforce_admins` está en `false`, así que un administrador del repo **sí** puede
+empujar directo a `main`. Comprobado, no supuesto — un commit de prueba enviado
+a pelo entró sin ser rechazado. Ese commit (`7ae3adf`, vacío) sigue en `main`:
+revertir un commit vacío solo añade otro commit vacío, y el force-push para
+quitarlo se bloqueó, con buen criterio, por ser una reescritura destructiva de
+una rama pública.
+
+Es una salida de emergencia, no una puerta de uso diario. Activar
+`enforce_admins` dejaría al único mantenedor encerrado fuera de su propia vía de
+recuperación; se revisa junto con las revisiones obligatorias cuando entre un
+segundo mantenedor.
 
 **Las revisiones aprobatorias están deliberadamente desactivadas.** Con un solo
 mantenedor, exigir una aprobación significa que nadie puede mergear nada —

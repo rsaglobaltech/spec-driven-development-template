@@ -34,6 +34,18 @@ your own pull request. The gate that actually protects `main` here is the test
 suite, and that one is enforced. When a second maintainer joins, turn on
 required reviews and delete this paragraph.
 
+**Administrators are exempt from the protection** (`enforce_admins: false`),
+which is worth stating rather than implying that `main` is sealed. A repository
+admin can still push straight to `main`, and this was verified rather than
+assumed: a probe commit pushed directly landed on `main` without being rejected.
+The commit `7ae3adf` on `main` is that probe — empty, and left in place because
+reverting an empty commit only adds a second empty commit.
+
+Treat that bypass as a fire escape, not a door. Everything goes through a pull
+request. Turning `enforce_admins` on would lock the sole maintainer out of their
+own recovery path, which is the wrong trade at this size; revisit it alongside
+required reviews when there is a second maintainer.
+
 ## Becoming a maintainer
 
 There is no committee. Sustained, reviewed contributions in one of the areas
