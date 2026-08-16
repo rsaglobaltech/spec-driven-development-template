@@ -76,7 +76,7 @@ jobs:
           npm version "$PACKAGE_VERSION_NORMALIZED" --no-git-tag-version
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
