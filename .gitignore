@@ -13,3 +13,9 @@ packages/vscode-spec-driven/*.vsix
 _site/
 aetherdeploy-ai-integration-assessment.md
 scripts/demo/**/out/
+# JVM plugin build output (Java sources are tracked, build artefacts are not)
+packages/gradle-plugin/.gradle/
+packages/gradle-plugin/build/
+packages/maven-plugin/target/
+# IDE
+.idea/
