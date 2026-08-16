@@ -31,10 +31,10 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}📊 status${c.reset}  ${c.dim}— project state at a glance + what to do next${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda status${c.reset} [--project-dir <path>] [--format <text|json>]\n\n` +
+      `    ${c.cyan}csda status${c.reset} [--project-dir <path>] [--json]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--project-dir <path>${c.reset} ${c.dim}Project root (auto-detected from cwd if omitted).${c.reset}\n` +
-      `    ${c.green}--format <text|json>${c.reset} ${c.dim}Output format (default text).${c.reset}\n` +
+      `    ${c.green}--json${c.reset}               ${c.dim}One JSON document on stdout; prose on stderr.${c.reset}\n` +
       `    ${c.green}-h, --help${c.reset}           ${c.dim}Show this help.${c.reset}\n\n`
   );
 }
@@ -45,6 +45,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
     else if (a === "--format" && argv[i + 1]) opts.format = argv[++i];
+    else if (a === "--json") opts.format = "json";
     else if (a === "--help" || a === "-h") {
       usage();
       process.exit(0);

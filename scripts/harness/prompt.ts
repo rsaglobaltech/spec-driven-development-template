@@ -94,16 +94,16 @@ function buildPrompt(req, projectDir, opts: any = {}) {
     parts.push(section("Project rules (AI_RULES.md — non-negotiable)", aiRules.trimEnd()));
   }
 
-  parts.push(
-    section(
-      "Definition of done",
-      "1. Write the test artifact first; it must fail for the right reason.\n" +
-        "2. Write the production artifact until the test passes.\n" +
-        "3. **Do not modify** `spec.md`, `AI_RULES.md`, or any `features/**/*.feature` — they are the project's source of truth.\n" +
-        "4. **Do not edit** `docs/specs/traceability.md` — the harness closes the loop with `csda done`.\n" +
-        "5. The harness will run `validate --strict-tdd` and the project test command. Both must pass."
-    )
-  );
+  // The implementation rules come from the same place the slash commands and
+  // the MCP server read them — `change instructions apply`. Restating them here
+  // is how the two copies drift apart when the delta grammar moves.
+  const { STAGES } = require("../change/instructions");
+  const doneRules = [
+    ...STAGES.apply.rules,
+    "**Do not modify** `spec.md`, `AI_RULES.md`, or any `features/**/*.feature` — they are the project's source of truth.",
+    "The harness will run `validate --strict-tdd` and the project test command. Both must pass.",
+  ];
+  parts.push(section("Definition of done", doneRules.map((r, i) => `${i + 1}. ${r}`).join("\n")));
 
   if (opts.previousFailure) {
     parts.push(

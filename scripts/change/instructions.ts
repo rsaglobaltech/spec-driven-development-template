@@ -1,0 +1,293 @@
+#!/usr/bin/env node
+"use strict";
+
+// csda:allow-placeholders — the templates it hands out contain {{VAR}} tokens.
+
+/**
+ * `change instructions <artifact>` — everything needed to write one artefact.
+ *
+ * The single context engine. Before this existed, `harness run` assembled its
+ * own prompt, the MCP server had its own idea of what an agent needs to know,
+ * and a slash command had nothing at all. Three answers to one question is two
+ * too many: when the delta grammar changes, only one of them gets updated.
+ *
+ * Everything that drives an agent — slash commands, the harness, MCP, the VS
+ * Code extension — consumes this. It is deliberately data, not prose: the
+ * caller decides how to render it.
+ */
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+const { resolveProjectDir } = require("../lib/project-root");
+const { error } = require("../lib/diagnostics");
+const { agentIo, wantsJson, EXIT } = require("../lib/agent");
+const { paths, listChangeIds, listDeltas, readConfig, CAPABILITIES_DIR } = require("./common");
+const { artifactState, ARTIFACTS } = require("./artifacts");
+
+/**
+ * The rules an agent gets wrong when it is not told them. Each one exists
+ * because the validator rejects the alternative — these are not style
+ * preferences, they are the grammar.
+ */
+const DELTA_RULES = [
+  "Write only what changes. A delta is not a copy of the spec.",
+  "Use exactly these section headings: `## ADDED Requirements`, `## MODIFIED Requirements`, `## REMOVED Requirements`.",
+  "`MODIFIED` replaces the whole requirement block — it does not merge scenario by scenario.",
+  "Every requirement body must state an obligation with SHALL, MUST, SHOULD or MAY, or validation reports `no_rfc2119_keyword`.",
+  "Scenario steps are plain `- GIVEN` / `- WHEN` / `- THEN` bullets. `- **GIVEN**` fails with `scenario_not_gherkin`: the keyword has to start the line.",
+  "Every requirement needs at least one scenario.",
+  "The optional `<!-- csda:trace uc=… cmd=… agg=… evt=… feature=… -->` comment is the bridge to the DDD matrix. Without it the requirement still archives, with `-` in those columns.",
+];
+
+const PROPOSAL_RULES = [
+  "State the problem, not the solution. The approach belongs in one paragraph; technical detail belongs in design.md.",
+  "Say what is out of scope. A proposal that excludes nothing has not been thought about.",
+];
+
+const TASKS_RULES = [
+  "Tasks are checkboxes. `change archive` refuses to run while any are unchecked, unless --force.",
+  "One task per reviewable unit of work, not one per file touched.",
+];
+
+const DESIGN_RULES = [
+  "Only for `--full` rigor. At `--lite` this artefact is skipped, not missing.",
+  "Record the decision and the alternatives rejected. If it is a decision the project will be asked about later, it wants an ADR instead.",
+];
+
+const ARTIFACT_RULES = {
+  proposal: PROPOSAL_RULES,
+  specs: DELTA_RULES,
+  design: DESIGN_RULES,
+  tasks: TASKS_RULES,
+};
+
+/** Pseudo-artefacts: not files to write, but stages to carry out. */
+const STAGES = {
+  apply: {
+    summary: "Implement the change: write the tests first, then the code.",
+    rules: [
+      "Work one requirement at a time. `csda plan` is the queue.",
+      "The scenario in the delta is the acceptance criterion — implement to it, not around it.",
+      "Set the row's Test artifact and move its status to `In Dev` only once the test exists; `validate --strict-tdd` fails with `[TDD-1]` otherwise.",
+      "Do not edit `docs/specs/traceability.md` by hand — `csda req link` and `csda done` write it.",
+    ],
+    nextCommand: "csda validate . --strict-tdd",
+  },
+  archive: {
+    summary: "Merge the change into the spec tree and file it away.",
+    rules: [
+      "Every task must be checked first, or archive refuses.",
+      "Preview with `--dry-run`: it lists the specs and matrix rows that will move.",
+      "Archiving inserts the traceability rows and materialises the proposed feature files. It is not a file move.",
+      "After archiving, the requirement is real work: `csda plan` lists it as pending.",
+    ],
+    nextCommand: "csda change archive <id> --dry-run",
+  },
+};
+
+/** What writing this artefact unblocks, derived from the graph rather than restated. */
+function unlockedBy(artifactId) {
+  return ARTIFACTS.filter((a) => a.requires.includes(artifactId)).map((a) => a.id);
+}
+
+function readIfExists(file) {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+/** The project's declared stack, so an agent does not invent one. */
+function projectContext(projectDir) {
+  const rules = readIfExists(path.join(projectDir, "AI_RULES.md"));
+  const context: any = {};
+  if (rules) {
+    const stack = /^-?\s*\**Stack:?\**:?\s*(.+)$/m.exec(rules);
+    if (stack) context.stack = stack[1].trim();
+    const testing = /^-?\s*\**Testing:?\**:?\s*(.+)$/m.exec(rules);
+    if (testing) context.testing = testing[1].trim();
+    context.rulesFile = "AI_RULES.md";
+  }
+  const capabilities = path.join(projectDir, CAPABILITIES_DIR);
+  if (fs.existsSync(capabilities)) {
+    context.existingCapabilities = fs
+      .readdirSync(capabilities, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort();
+  }
+  return context;
+}
+
+function buildInstructions(projectDir, artifact, changeId, templates) {
+  const p = paths(projectDir);
+  const stage = STAGES[artifact];
+  const config = readConfig(projectDir, changeId);
+  const states = artifactState(projectDir, changeId, config);
+  const state = states.find((s) => s.id === artifact);
+
+  const context: any = { ...projectContext(projectDir) };
+  const proposal = readIfExists(path.join(p.change(changeId), "proposal.md"));
+  // The proposal is the intent every later artefact has to stay faithful to.
+  if (proposal && artifact !== "proposal") context.proposal = proposal;
+  if (Array.isArray(config.req_range) && config.req_range.length === 2) {
+    context.reservedReqRange = config.req_range;
+  }
+  context.rigor = config.rigor;
+  context.deltasWritten = listDeltas(projectDir, changeId).length;
+
+  if (stage) {
+    return {
+      change: changeId,
+      artifact,
+      kind: "stage",
+      summary: stage.summary,
+      rules: stage.rules,
+      context,
+      nextCommand: stage.nextCommand.replace("<id>", changeId),
+    };
+  }
+
+  return {
+    change: changeId,
+    artifact,
+    kind: "artifact",
+    outputPath: state ? state.outputPath : null,
+    state: state ? state.status : "unknown",
+    requires: state ? state.requires : [],
+    unlocks: unlockedBy(artifact),
+    template: templates[artifact] ? templates[artifact](changeId) : null,
+    rules: ARTIFACT_RULES[artifact] || [],
+    context,
+    nextCommand: `csda change validate ${changeId}`,
+  };
+}
+
+const KNOWN = [...ARTIFACTS.map((a) => a.id), ...Object.keys(STAGES)];
+
+function usage() {
+  process.stdout.write(
+    "Usage:\n" +
+      `  csda change instructions <${KNOWN.join("|")}> [<change-id>] [--json]\n\n` +
+      "Everything needed to write one artefact of a change: the template, the\n" +
+      "rules the validator enforces, the project's declared stack, and what\n" +
+      "writing it unblocks. The single context engine behind the slash commands,\n" +
+      "the harness and the MCP server.\n"
+  );
+}
+
+function main(argv, templates) {
+  const args = argv.filter((a) => a !== "--json");
+  const io = agentIo(wantsJson(argv));
+  const NULL_SHAPE = { instructions: null };
+
+  if (args.includes("--help") || args.includes("-h")) {
+    usage();
+    process.exit(EXIT.OK);
+  }
+
+  const artifact = args[0];
+  if (!artifact) {
+    if (!io.json) usage();
+    io.usage(NULL_SHAPE, [
+      error("artifact_required", "Name the artefact you want instructions for.", {
+        fix: `Use one of: ${KNOWN.join(", ")}.`,
+      }),
+    ]);
+  }
+  if (!KNOWN.includes(artifact)) {
+    io.usage(NULL_SHAPE, [
+      error("artifact_unknown", `Unknown artefact: ${artifact}.`, {
+        target: artifact,
+        fix: `Use one of: ${KNOWN.join(", ")}.`,
+      }),
+    ]);
+  }
+
+  // Split flags from positionals in one pass — `--project-dir <path>` takes a
+  // value, so a naive filter on "starts with -" leaves the path behind as a
+  // positional and it gets read as a change id.
+  const positional = [];
+  let projectDirArg = ".";
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === "--project-dir" && args[i + 1]) {
+      projectDirArg = args[++i];
+    } else if (!args[i].startsWith("-")) {
+      positional.push(args[i]);
+    }
+  }
+
+  let projectDir;
+  try {
+    projectDir = resolveProjectDir(projectDirArg);
+  } catch (err) {
+    io.usage(NULL_SHAPE, [
+      error("project_not_found", err.message, {
+        fix: "Run from inside a spec-driven project, or pass --project-dir.",
+      }),
+    ]);
+  }
+
+  const ids = listChangeIds(projectDir);
+  const changeId = positional[0] || (ids.length === 1 ? ids[0] : null);
+
+  if (!changeId) {
+    io.fail(NULL_SHAPE, [
+      error(
+        ids.length === 0 ? "no_active_change" : "change_ambiguous",
+        ids.length === 0
+          ? "No active changes."
+          : `Several active changes — name the one you mean: ${ids.join(", ")}.`,
+        {
+          fix:
+            ids.length === 0
+              ? "Open one first: csda change new <id>"
+              : `csda change instructions ${artifact} <change-id>`,
+        }
+      ),
+    ]);
+  }
+  if (!ids.includes(changeId)) {
+    io.fail(NULL_SHAPE, [
+      error("change_not_found", `Change "${changeId}" does not exist.`, {
+        target: changeId,
+        fix: ids.length ? `Active changes: ${ids.join(", ")}.` : "Open one: csda change new <id>",
+      }),
+    ]);
+  }
+
+  const instructions = buildInstructions(projectDir, artifact, changeId, templates);
+  io.emit({ instructions }, () => renderHuman(instructions));
+  process.exit(EXIT.OK);
+}
+
+function renderHuman(ins) {
+  const out = [];
+  out.push(`\n  ${ins.artifact} — ${ins.change}\n`);
+  if (ins.summary) out.push(`  ${ins.summary}\n`);
+  if (ins.outputPath) out.push(`  write to: ${ins.outputPath}  (${ins.state})`);
+  if (ins.unlocks && ins.unlocks.length) out.push(`  unlocks:  ${ins.unlocks.join(", ")}`);
+  if (ins.context.stack) out.push(`  stack:    ${ins.context.stack}`);
+  if (ins.context.reservedReqRange) {
+    out.push(`  REQ ids:  ${ins.context.reservedReqRange.join("…")}`);
+  }
+  if (ins.rules.length) {
+    out.push("\n  Rules");
+    for (const r of ins.rules) out.push(`    · ${r}`);
+  }
+  if (ins.template) {
+    out.push("\n  Template\n");
+    out.push(
+      ins.template
+        .split("\n")
+        .map((l) => `    ${l}`)
+        .join("\n")
+    );
+  }
+  out.push(`\n  Next: ${ins.nextCommand}\n`);
+  process.stdout.write(`${out.join("\n")}\n`);
+}
+
+module.exports = { buildInstructions, main, DELTA_RULES, STAGES, unlockedBy, KNOWN };

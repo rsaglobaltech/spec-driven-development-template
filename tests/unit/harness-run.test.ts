@@ -90,8 +90,11 @@ test("buildPrompt embeds the requirement facts and the definition of done", () =
     assert.match(prompt, /# Implement REQ-001/);
     assert.match(prompt, /Test artifact \(write this first — TDD\): test\/CapacityTest\.java/);
     assert.match(prompt, /Definition of done/);
-    assert.match(prompt, /Do not edit\*\* `docs\/specs\/traceability\.md`/);
+    // Sourced from `change instructions apply`, so assert the substance rather
+    // than the emphasis markers it happens to use.
+    assert.match(prompt, /Do not edit `docs\/specs\/traceability\.md`/);
     assert.match(prompt, /Do not modify\*\* `spec\.md`, `AI_RULES\.md`/);
+    assert.match(prompt, /csda plan` is the queue/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

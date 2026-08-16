@@ -18,6 +18,7 @@ const path = require("node:path");
 const { resolveProjectDir } = require("../lib/project-root");
 const { error, warning, hasErrors, printDiagnostics } = require("../lib/diagnostics");
 const { agentIo } = require("../lib/agent");
+const { ARTIFACTS, artifactState } = require("./artifacts");
 const { validateDelta } = require("./delta");
 const { parseDelta } = require("./parser");
 const { planArchive, executeArchive } = require("./archive");
@@ -51,18 +52,20 @@ const c = {
 // The artefact graph. Dependencies are enablers, not gates: `requires` says
 // what makes an artefact *possible*, never what the author must do next.
 // F3 makes this configurable per schema; for now the built-in is the default.
-const ARTIFACTS = [
-  { id: "proposal", generates: "proposal.md", requires: [] },
-  { id: "specs", generates: "specs/**/spec.md", requires: ["proposal"] },
-  { id: "design", generates: "design.md", requires: ["proposal"] },
-  { id: "tasks", generates: "tasks.md", requires: ["specs", "design"] },
-];
+
+/** The skeletons `change new` writes, shared with `change instructions`. */
+const TEMPLATES = {
+  proposal: (changeId) => templateProposal(changeId),
+  tasks: () => templateTasks(),
+  design: (changeId) => templateDesign(changeId),
+  specs: () => templateDelta("<capability>", "REQ-NNN"),
+};
 
 function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}🔄 change${c.reset}  ${c.dim}— propose, review and archive a change${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda change${c.reset} <new|list|show|status|validate|archive> [options]\n\n` +
+      `    ${c.cyan}csda change${c.reset} <new|list|show|status|instructions|validate|archive> [options]\n\n` +
       `  ${c.bold}SUBCOMMANDS${c.reset}\n` +
       `    ${c.green}new <id>${c.reset}       ${c.dim}Scaffold a change folder (proposal, tasks, delta skeleton).${c.reset}\n` +
       `    ${c.green}list${c.reset}           ${c.dim}Active changes with task progress.${c.reset}\n` +
@@ -390,42 +393,6 @@ function cmdShow(opts) {
 
 // ── status ────────────────────────────────────────────────────────────────────
 
-function artifactState(projectDir, changeId, config) {
-  const p = paths(projectDir);
-  const dir = p.change(changeId);
-  const exists = {
-    proposal: fs.existsSync(path.join(dir, "proposal.md")),
-    specs: listDeltas(projectDir, changeId).length > 0,
-    design: fs.existsSync(path.join(dir, "design.md")),
-    tasks: fs.existsSync(path.join(dir, "tasks.md")),
-  };
-
-  // A change that declares skip_specs satisfies the `specs` dependency without
-  // creating anything — the artefact counts as done, not as missing.
-  const skipped: any = { specs: config.skip_specs === true };
-  // Lite rigor makes design optional in the same way.
-  if (config.rigor === "lite" && !exists.design) skipped.design = true;
-
-  const satisfied = (id) => exists[id] || skipped[id];
-
-  return ARTIFACTS.map((a) => {
-    const missingDeps = a.requires.filter((dep) => !satisfied(dep));
-    let status;
-    if (skipped[a.id]) status = "skipped";
-    else if (exists[a.id]) status = "done";
-    else if (missingDeps.length > 0) status = "blocked";
-    else status = "ready";
-    const entry: any = {
-      id: a.id,
-      outputPath: a.generates,
-      status,
-      requires: a.requires,
-    };
-    if (status === "blocked") entry.missingDeps = missingDeps;
-    return entry;
-  });
-}
-
 function cmdStatus(opts) {
   const projectDir = resolveProjectDir(opts.projectDir);
   const ids = listChangeIds(projectDir);
@@ -682,6 +649,16 @@ function main() {
     usage();
     process.exit(sub ? 0 : 2);
   }
+
+  // `instructions` parses its own arguments: its first positional is an
+  // artefact name, not a change id, so the shared parser does not fit.
+  if (sub === "instructions") {
+    // Required lazily — instructions.ts imports ARTIFACTS from this module.
+    const { main: instructionsMain } = require("./instructions");
+    instructionsMain(argv.slice(1), TEMPLATES);
+    return;
+  }
+
   const opts = parseArgs(argv.slice(1));
 
   const table = {
@@ -714,4 +691,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { validateChange, artifactState, ARTIFACTS };
+module.exports = { validateChange, artifactState, ARTIFACTS, TEMPLATES };
