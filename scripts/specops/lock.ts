@@ -44,6 +44,18 @@ function readLock(projectDir) {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error(`Invalid ${LOCK_FILENAME}: root must be an object`);
   }
+  // Forward-compatibility gate. The version was written from the start and
+  // read by nothing, so a lockfile from a newer CLI used to be accepted
+  // silently and then misread field by field. Failing here names the cause.
+  const declared = parsed.specops_version;
+  if (typeof declared === "number" && declared > SPECOPS_SCHEMA_VERSION) {
+    throw new Error(
+      `${LOCK_FILENAME} was written by a newer version of this CLI ` +
+        `(lockfile format ${declared}, this CLI understands ${SPECOPS_SCHEMA_VERSION}).\n` +
+        "Fix: upgrade with `npm install -g create-spec-driven-app@latest`, or ask " +
+        "whoever committed the lockfile which version they used."
+    );
+  }
   if (!Array.isArray(parsed.packs)) parsed.packs = [];
   return parsed;
 }

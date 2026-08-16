@@ -10,7 +10,7 @@ unticked long after 0.1.4 shipped).
 |---|---|---|---|
 | `create-spec-driven-app` | npm, public | `publish-npm.yml` | Live |
 | `@rsaglobaltech/create-spec-driven-app` | GitHub Packages | `publish-github-packages.yml` | Live |
-| CLI image | `ghcr.io` | `publish-docker.yml` | Built, never pushed — C7-04 |
+| CLI image | `ghcr.io` | `publish-docker.yml` | Live, `linux/amd64` and `linux/arm64` |
 | `csda-maven-plugin` | Maven Central or an internal Nexus | none yet | C7-05 |
 | `csda-gradle-plugin` | Gradle Plugin Portal or an internal repo | none yet | C7-06 |
 | `vscode-spec-driven` | VS Code Marketplace | none yet | C7-07 |
@@ -26,12 +26,71 @@ that predate this document (`0.1.0-beta.1`, `0.1.4`) have no `v` prefix, which
 is why the tag-triggered path had never once fired. Do not create unprefixed
 tags.
 
+## Support policy
+
+**Which versions get fixes.** Pre-1.0, only the latest minor. Backports to an
+older minor are not promised — the upgrade path is forward, and pretending
+otherwise would be a commitment one maintainer cannot keep. The same table is
+in [SECURITY.md](../SECURITY.md#supported-versions) for vulnerabilities
+specifically.
+
+Once 1.0 ships, the intent is one supported line at a time plus the previous
+minor for six months. That is intent, not a promise, until it is written here
+without this sentence.
+
+**Node.js.** `package.json` declares `>=20` and CI tests Node 20 and 22 across
+Linux, macOS and Windows. Raising the floor is a **major** bump for the CLI,
+never a minor — an `npx` invocation that used to work and now refuses to run is
+breaking, whatever the changelog calls it.
+
+Node 20 left LTS maintenance in April 2026, so the floor will move. Two
+devDependency majors are already parked waiting on it; see §12.7 of the closure
+plan.
+
+**Docker.** Images are tagged `X.Y.Z` and `latest`, for `linux/amd64` and
+`linux/arm64`. A published tag is never rebuilt in place — `0.2.0` shipped
+amd64-only and the fix had to be `0.2.1`, because re-running a workflow against
+an old tag checks out the workflow *as it was at that tag*. Pin `X.Y.Z` in CI
+and treat `latest` as a convenience only.
+
+## Compatibility windows
+
+Three version numbers travel with a project, and they are checked, not merely
+recorded. Both gates below were added after finding that the fields were
+written by the CLI and read by nothing.
+
+| Field | Where | This CLI supports | On mismatch |
+| --- | --- | --- | --- |
+| `schema_version` | `pack.yaml` | up to **1.2.0** | A pack declaring a newer schema is rejected with the reason and the upgrade command |
+| `specops_version` | `.specops.lock` | **1** | A lockfile from a newer CLI is rejected on read |
+| pack `version` | `.specops.lock` | any | Pinned; a content digest change fails the build — see [supply chain](supply-chain.md) |
+
+**Older is always readable.** A pack on an older schema, or a lockfile with no
+`specops_version` at all, works unchanged — those files predate the field, and
+refusing them would strand existing projects to enforce a rule invented later.
+Only *newer than this CLI* is refused, because `schemas/pack.schema.json` sets
+`additionalProperties: false`: a newer minor is genuinely unreadable here, not
+merely unfamiliar. Failing at the top with "upgrade the CLI" beats failing
+twenty lines in with "unknown property".
+
+**Bumping the pack schema** is a two-step release, in this order:
+
+1. Ship the CLI that understands the new schema — raise `PACK_SCHEMA_VERSION`
+   in `scripts/domain-pack/common.ts` in the same change as the field.
+2. Only then publish packs that use it.
+
+Reverse the order and every curated pack becomes uninstallable on the released
+CLI. A unit test asserts that no pack in `packs/` declares a schema newer than
+the CLI supports, so getting this backwards fails CI rather than users.
+
 ## Cutting a release
 
 1. Update `CHANGELOG.md`. Every user-visible change gets a line; group by
    Added / Changed / Fixed / Removed.
 2. Bump `version` in `package.json`.
-3. Open a PR to `main`. CI must be green — all ten jobs, Windows included.
+3. Open a PR to `main`. `main` is protected: the twelve required checks in
+   [CONTRIBUTING.md](../CONTRIBUTING.md#required-checks) must be green, and the
+   branch must be up to date with `main` before it will merge.
 4. Merge.
 5. Tag the merge commit `vX.Y.Z` and push the tag. `publish-npm.yml` fires.
 6. Write the GitHub release notes from the changelog entry.
@@ -44,9 +103,9 @@ the public npm registry with the `latest` tag.
 
 ## Before you tag — the gate
 
-The publish workflows currently gate on `npm test`, which is the 37-case E2E
-suite only. Until C6-06 changes that to `test:all`, run the full suite locally
-first:
+`publish-npm.yml` gates on `npm run test:all` and a `pack:dry-run`, so a broken
+tag cannot publish. Run the same things locally first — finding it here costs a
+commit, finding it in the workflow costs a version number:
 
 ```bash
 npm run verify        # typecheck · eslint · prettier · tests · pack dry-run
