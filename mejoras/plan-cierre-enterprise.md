@@ -735,6 +735,31 @@ haya que añadir el secreto y lanzarlo. Ninguno está empezado.
 
 ---
 
+## 12.7 Decisión pendiente — dos majors bloqueados por el suelo de plataforma
+
+*Abierta el 2026-08-16, al triar los 10 PRs de Dependabot. Ninguno de los dos es
+un problema del bump: los dos preguntan hasta dónde soportamos runtimes viejos.*
+
+Ambos están cerrados en GitHub con el motivo escrito en el PR e ignorados para
+majors en `.github/dependabot.yml`, con el comentario que dice qué los
+desbloquea. Se quita la entrada de `ignore` cuando se decida.
+
+| PR | Bump | Por qué rompe | Qué lo desbloquea |
+|---|---|---|---|
+| #45 | `@cucumber/cucumber` 12 → 13 | Declara `engines.node: 22 \|\| 24 \|\| >=26`. Nosotros declaramos `>=20` y la matriz de CI corre Node 20, así que `Run BDD tests` falla en los tres runners. En local pasa entero porque ahí hay Node 24 | Subir el suelo a Node 22. **Cucumber es devDependency**, así que solo afecta a quien contribuye y a CI: ningún usuario final lo instala |
+| #36 | `org.junit:junit-bom` 5 → 6 | JUnit 6 publica solo variante Java 17. El plugin de Gradle compila a Java 11 a propósito, así que Gradle ni resuelve: *«No matching variant … this component declares a component, compatible with Java 17 and the consumer needed a component, compatible with Java 11»* | Subir el objetivo del plugin a Java 17 |
+
+**Dato que pesa en la primera:** Node 20 salió de mantenimiento LTS en abril de
+2026. Hoy la matriz prueba contra un runtime sin soporte. Eso no fuerza la
+decisión —hay empresas ancladas en Node 20, y ese es justamente nuestro
+público— pero conviene decidirlo a la vista, no por inercia.
+
+**La segunda tiene menos margen:** Java 11 en los plugins de Maven y Gradle es
+la razón de que existan. Un agente de build corporativo es exactamente el sitio
+donde no puedes elegir la JDK. Subir a 17 se lleva por delante ese caso de uso.
+
+---
+
 ## 13. Backlog aparcado
 
 Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el motivo.
@@ -768,4 +793,6 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | 2026-08-16 | Las ramas muertas se archivan como tags `archive/*` antes de borrarlas | Deja el remoto legible sin perder historia. 6 tags creados |
 | 2026-08-16 | `feature/daily-ux-roadmap` triada (C0-10) | Se recuperan 6 comandos y 2 paquetes; se descartan los dos refactors masivos y las dos implementaciones duplicadas. Detalle en §3.3 |
 | 2026-08-16 | La recuperación (C0-11) puentea estilos en vez de unificarlos | 11 líneas de `require()` en la frontera contra un refactor de 64 ficheros. La mezcla ESM/CommonJS es cosmética: `tsc` con `module: commonjs` compila ambas |
+| 2026-08-16 | Los 10 PRs de Dependabot: 6 mergeados, 4 cerrados con motivo (D7) | 6 verdes tras correr la suite; 2 cerrados por config equivocada (`typescript` y `@eslint/js` fuera de su grupo, arreglado en `dependabot.yml`) y 2 por suelo de plataforma (§12.7). Cero PRs abiertos |
+| 2026-08-16 | `js-yaml` 4 → 5 se mergea pese a ser major (D8) | js-yaml 5 pasa a YAML 1.2, donde `yes`/`no`/`on`/`off` dejan de ser booleanos. Los tres sitios de producción pasan `{ json: true }`, que ya forzaba esquema JSON, así que el cambio no les afecta. Comprobado ejecutando ambas versiones sobre el mismo documento: salida idéntica, y coincide con `parseYamlLite` del propio CLI |
 | 2026-08-16 | Los refactors `import/export` y `strict mode` no se mergean | 96 ficheros entre los dos, todos tocados también por el merge enterprise. Sin valor para el usuario y con coste de conflicto alto. Si se quieren, son tarea propia sobre `main` |
