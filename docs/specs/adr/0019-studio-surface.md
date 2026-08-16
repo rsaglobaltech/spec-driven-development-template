@@ -81,7 +81,7 @@ editor, over SSH, and in CI.
 
 ## References
 
-- `mejoras/visual-pack-authoring-todo.md` — Phase 4, now closed
+- `mejoras/visual-pack-authoring-todo.md` — Phase 4, closed by this ADR. _(Document removed 2026-08-16; it is in git history.)_
 - `mejoras/csda-studio-brief.md`, `mejoras/csda-studio-handoff.md`
 - `scripts/studio.ts`
 - `mejoras/plan-cierre-enterprise.md` — C1-07 (this decision), C8-01 (the experiment)

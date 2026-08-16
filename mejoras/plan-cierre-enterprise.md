@@ -596,6 +596,40 @@ además arreglaba frontend web, que estaba mal desde el principio.
 
 ---
 
+## 12.9 Limpieza documental (2026-08-16)
+
+Ocho documentos eliminados y uno recortado. Todos describían un pasado
+terminado con la forma de un plan — exactamente el defecto que las fases 1 y 2
+corrigieron en los demás. Siguen en el historial de git; lo que se ha quitado
+es su presencia en el árbol, donde se leen como si estuvieran vigentes.
+
+| Eliminado | Por qué |
+|---|---|
+| `IMPROVEMENTS.md` (206 l.) | Backlog de `v0.1.0-beta.3`. Prácticamente todo implementado; sus items de shell/Bats son irrelevantes desde ADR-0008 |
+| `PROJECT_REPORT.md` (419 l.) | Overview de mayo. README (121 l.), `comparisons.md` y `architecture.md` cubren su terreno; su §9 Roadmap estaba obsoleto |
+| `mejoras/implementation-roadmap.md` (923 l.) | «31/31 pasos completos». Sus 7 items diferidos de §8 viven ahora en este plan |
+| `mejoras/risk-mitigation-plan.md` (390 l.) | R1–R4: entregado, o en el backlog aparcado de §13 |
+| `mejoras/enterprise-adoption-plan.md` (359 l.) | A1–A6 y B1–B8 mergeados en C0-05. Cero referencias entrantes |
+| `mejoras/visual-pack-authoring-todo.md` (224 l.) | Fases 1–3 hechas; la 4 la cerró ADR-0019 |
+| `reports/mutation/pilot-results.md` + `README.md` (129 l.) | Resultados de mayo contra `scripts/domain-pack/common.js`, fichero que ya no existe |
+
+**Recortado:** `mejoras/openspec-benchmark-plan.md`, de 768 a 413 líneas. Se
+eliminó el plan por fases, el diseño técnico y el checklist —ejecutados como
+fases 3, 4 y 5— y se conservó lo que no caduca: qué es OpenSpec, la comparativa,
+la valoración de SpecOps y qué decidimos no copiar. `docs/comparisons.md` lo
+cita como la evidencia de su columna de OpenSpec, así que borrarlo entero habría
+dejado sin respaldo una afirmación pública.
+
+**Conservado a propósito:** los tres documentos de `csda-studio` (1540 líneas).
+C8-01 es trabajo vivo y el runbook es la guía para retomarlo; borrarlos habría
+cerrado la fase 8 de facto sin decidirlo.
+
+Las citas que quedaban en ADR-0014 y ADR-0019 se anotaron en vez de borrarse:
+un ADR es registro permanente, y una cita que el lector no puede seguir es peor
+que ninguna.
+
+---
+
 ## 13. Backlog aparcado
 
 Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el motivo.

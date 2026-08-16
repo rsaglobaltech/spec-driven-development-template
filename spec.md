@@ -6,7 +6,9 @@ It is an npm CLI that scaffolds new software projects around executable specific
 code boilerplate, combining Spec-Driven Development (SDD), Domain-Driven Design (DDD),
 Behavior-Driven Development (BDD) and Test-Driven Development (TDD) into a single `npx` command.
 
-See [`PROJECT_REPORT.md`](./PROJECT_REPORT.md) for the full project overview.
+See the [README](./README.md) for the overview, [`docs/comparisons.md`](./docs/comparisons.md)
+for positioning against alternatives, and
+[`docs/specs/architecture.md`](./docs/specs/architecture.md) for how the pieces fit.
 
 ## 2. Target users
 - **Primary users:** Software engineers and tech leads starting a new service, module or product.

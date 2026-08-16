@@ -102,5 +102,5 @@ string. `--format json` emits the same model as a structured object.
 
 - `scripts/infer_pack.ts`
 - `docs/specs/domain-pack-format.md` §5c
-- `mejoras/visual-pack-authoring-todo.md` — Phase 3
+- `mejoras/visual-pack-authoring-todo.md` — Phase 3. _(Document removed 2026-08-16 once its phases were done; it is in git history.)_
 - ADR-0013 — `harness run` (the shell-out pattern a future `--llm` mode would reuse)

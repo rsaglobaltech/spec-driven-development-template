@@ -25,7 +25,7 @@
 
 - [ ] No `TODO` placeholders left in committed files
 - [ ] `README.md` / `--help` updated if public API changed
-- [ ] `IMPROVEMENTS.md` items completed here are marked done
+- [ ] Tasks closed here are ticked in `mejoras/plan-cierre-enterprise.md`, citing the ID in the commit
 - [ ] `package.json` version bumped if this is a release PR
 
 <!-- session link -->
