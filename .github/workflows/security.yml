@@ -29,6 +29,36 @@ jobs:
       - name: Audit
         run: npm audit --audit-level=high
 
+  sbom:
+    name: SBOM and licences
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      # CycloneDX from npm itself — no extra dependency for a project whose
+      # whole pitch is zero runtime dependencies.
+      - name: Generate SBOM
+        run: npm sbom --sbom-format cyclonedx > sbom.cyclonedx.json
+      - name: Check licence policy
+        run: node dist/scripts/license_check.js --sbom sbom.cyclonedx.json
+      - name: Licence summary
+        if: always()
+        run: node dist/scripts/license_check.js --sbom sbom.cyclonedx.json --markdown >> "$GITHUB_STEP_SUMMARY"
+      # Retained so an auditor can answer "what was in the tree on that day"
+      # without rebuilding a historical dependency graph.
+      - name: Upload SBOM
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cyclonedx.json
+          retention-days: 90
+
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest

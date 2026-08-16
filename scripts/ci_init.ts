@@ -9,7 +9,8 @@
  *   create-spec-driven-app ci init --provider github|gitlab|azure|jenkins
  *                                   [--project-dir <dir>] [--stdout] [--force]
  *
- * The generated job runs `validate --strict-tdd` and publishes the
+ * The generated job runs `validate --strict-tdd`, runs `validate
+ * --against-lock` when the project has a `.specops.lock`, and publishes the
  * machine-readable `plan --format json` as a build artifact.
  */
 
@@ -115,7 +116,9 @@ function main() {
   logInfo(`write ${provider.dest}`);
   logInfo("✅ CI gate installed. The job:");
   logInfo("  1. runs `validate --strict-tdd` on every PR/MR (the L2 gate)");
-  logInfo("  2. publishes `plan --format json` as the spec-plan artifact");
+  logInfo("  2. runs `validate --against-lock` when .specops.lock exists, so a");
+  logInfo("     moved pack tag or an edited generated file fails the build");
+  logInfo("  3. publishes `plan --format json` as the spec-plan artifact");
   logInfo("Commit the file and open a PR to see the gate in action.");
   process.exit(0);
 }

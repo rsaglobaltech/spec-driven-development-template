@@ -114,6 +114,7 @@ loop without versioned packs or an enforced matrix, theirs is the better fit.
 - [Command reference](docs/commands.md) — every command, grouped by when you reach for it
 - [How-to guides](docs/how-to.md) — by task and by adoption level
 - [Tutorial](docs/tutorial.md) — long-form, on a real public pack
+- [Supply chain](docs/supply-chain.md) — pack pinning, digests, signing, air-gapped installs, SBOM
 - [Architecture](docs/specs/architecture.md) — three repos, three lifecycles
 - [Bootstrap prompt](docs/bootstrap-prompt.md) — the one freeform-AI step
 - [Case study](docs/case-studies/case-1.md) · [ADRs](docs/specs/adr/README.md) · [Docs site](https://rsaglobaltech.github.io/spec-driven-development-template/)

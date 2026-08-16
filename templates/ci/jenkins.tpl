@@ -11,6 +11,20 @@ pipeline {
                 sh 'npx create-spec-driven-app@{{CSDA_VERSION}} validate . --strict-tdd'
             }
         }
+        // Supply-chain gate: fails when rendered pack content no longer
+        // matches the digest pinned in .specops.lock. Skipped when the
+        // project installs no packs.
+        stage('Pack drift') {
+            steps {
+                sh '''
+                    if [ -f .specops.lock ]; then
+                        npx create-spec-driven-app@{{CSDA_VERSION}} validate . --against-lock
+                    else
+                        echo "No .specops.lock — no packs installed, nothing to check."
+                    fi
+                '''
+            }
+        }
     }
     post {
         always {

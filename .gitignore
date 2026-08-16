@@ -21,3 +21,4 @@ packages/gradle-plugin/build/
 packages/maven-plugin/target/
 # IDE
 .idea/
+sbom.cyclonedx.json
