@@ -907,8 +907,10 @@ test("harness run --push --pr-cmd publishes green branches (CI mode)", { skip: !
     "--pr-cmd",
     // The harness runs --pr-cmd through a shell, so the log path is passed as an
     // argument rather than interpolated into the script — a bare path inside the
-    // command string would be eaten by the shell.
-    `node -e "require('node:fs').appendFileSync(process.argv[1], process.argv[2]+' '+process.argv[3]+'\\n')" '${prLog}' {branch} {req}`,
+    // command string would be eaten by the shell. Double quotes, not single:
+    // cmd.exe treats single quotes as ordinary characters and would keep them
+    // in the path.
+    `node -e "require('node:fs').appendFileSync(process.argv[1], process.argv[2]+' '+process.argv[3]+'\\n')" "${prLog}" {branch} {req}`,
   ]);
 
   assert.equal(result.status, 0, result.stdout + result.stderr);

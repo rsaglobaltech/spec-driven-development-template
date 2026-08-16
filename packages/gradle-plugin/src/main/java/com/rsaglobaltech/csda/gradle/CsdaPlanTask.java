@@ -7,12 +7,14 @@ import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.options.Option;
+import org.gradle.api.tasks.UntrackedTask;
 
 /**
  * {@code gradle csdaPlan} — list requirements that still need a test, code,
  * or a status update. Use {@code --format=json} (or {@code -Pcsda.format=json})
  * for machine output.
  */
+@UntrackedTask(because = "reports the current state of the spec tree, which must be recomputed on every invocation")
 public abstract class CsdaPlanTask extends CsdaTask {
 
     /** Output format: text (human) or json (agents/CI). */

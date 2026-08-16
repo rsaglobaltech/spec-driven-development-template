@@ -43,10 +43,14 @@ jobs:
           mkdir -p _site
           cp -R docs/. _site/
 
+      - name: Compile TypeScript
+        # The registry generator is TypeScript; tsc emits it under dist/.
+        run: npm run build
+
       - name: Build pack registry
-        # Generator emits dist/index.html and dist/manifest.json
+        # Generator emits index.html and manifest.json into --out
         run: |
-          node packages/pack-registry/src/build.js \
+          node dist/packages/pack-registry/src/build.js \
             --packs ./packs \
             --out _site/packs
 

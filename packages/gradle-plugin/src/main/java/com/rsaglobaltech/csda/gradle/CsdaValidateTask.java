@@ -7,6 +7,7 @@ import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.options.Option;
+import org.gradle.api.tasks.UntrackedTask;
 
 /**
  * {@code gradle csdaValidate} — run the Spec-Driven Development gate.
@@ -14,6 +15,7 @@ import org.gradle.api.tasks.options.Option;
  * artifact, or its traceability row. Wired into {@code check} by the plugin
  * so it also runs on {@code gradle check}/{@code build}.
  */
+@UntrackedTask(because = "runs the csda spec gate on every invocation; skipping it on an up-to-date check would let a broken spec tree pass")
 public abstract class CsdaValidateTask extends CsdaTask {
 
     /** Enforce the strict TDD rules (TDD-1/2/3), not just structure. */

@@ -7,6 +7,7 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
+import org.gradle.api.tasks.UntrackedTask;
 
 /**
  * Base for every csda task. Holds the launcher-resolution knobs shared by
@@ -14,6 +15,7 @@ import org.gradle.api.tasks.Internal;
  * are seeded by {@link CsdaPlugin} from the {@code csda { }} extension and
  * {@code -Pcsda.*} project properties.
  */
+@UntrackedTask(because = "delegates to the csda CLI, which reads the whole spec tree and writes only to the console")
 public abstract class CsdaTask extends DefaultTask {
 
     /** CLI version to run (npx tag or docker tag). */
