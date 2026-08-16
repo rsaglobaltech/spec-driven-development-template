@@ -224,6 +224,32 @@ function fail(message) {
   throw new Error(message);
 }
 
+/**
+ * Highest `pack.yaml` schema this CLI can read. Bump it in the same change
+ * that adds a field to `schemas/pack.schema.json`, or packs authored against
+ * the new field will be rejected by a CLI that in fact understands them.
+ */
+const PACK_SCHEMA_VERSION = "1.2.0";
+
+/**
+ * Numeric SemVer comparison for schema versions — `a > b`.
+ *
+ * Deliberately not a SemVer library: schema versions here are always three
+ * plain integers (the JSON schema enforces `^\d+\.\d+\.\d+$`), so there are no
+ * pre-release or build parts to handle, and this project ships no runtime
+ * dependencies.
+ */
+function isNewerThan(a, b) {
+  const pa = String(a).split(".").map(Number);
+  const pb = String(b).split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    const x = pa[i] || 0;
+    const y = pb[i] || 0;
+    if (x !== y) return x > y;
+  }
+  return false;
+}
+
 const ALLOWED_STATUSES = new Set([
   "Draft",
   "Needs Clarification",
@@ -528,6 +554,22 @@ function validatePackModel(pack, packRoot) {
   if (pack.schema_version !== undefined && typeof pack.schema_version !== "string") {
     fail("schema_version must be a string when provided.");
   }
+  // Forward-compatibility gate. Until now `schema_version` was written by
+  // `pack init` and read by nothing, so a pack authored against a newer schema
+  // failed later with "unknown property X" — accurate but useless. The schema
+  // sets additionalProperties:false, so a newer minor is genuinely unreadable
+  // here, not merely unfamiliar; say so at the top rather than field by field.
+  if (
+    typeof pack.schema_version === "string" &&
+    isNewerThan(pack.schema_version, PACK_SCHEMA_VERSION)
+  ) {
+    fail(
+      `pack.yaml declares schema_version ${pack.schema_version}, but this CLI ` +
+        `understands up to ${PACK_SCHEMA_VERSION}.\n` +
+        "Fix: upgrade with `npm install -g create-spec-driven-app@latest`, or " +
+        "pin the pack to a version that targets the older schema."
+    );
+  }
 
   for (const item of Array.isArray(pack.requirements) ? pack.requirements : []) {
     remember("requirements", item, "requirement");
@@ -816,6 +858,8 @@ function buildTraceabilityMarkdown(rows, mode = "legacy") {
 
 module.exports = {
   ALLOWED_STATUSES,
+  PACK_SCHEMA_VERSION,
+  isNewerThan,
   asArray,
   buildTraceabilityMarkdown,
   entityLabel,
