@@ -29,6 +29,12 @@ const planScript = path.join(distScripts, "plan.js");
 const reportScript = path.join(distScripts, "report.js");
 const doneScript = path.join(distScripts, "done.js");
 const changeScript = path.join(distScripts, "change", "cli.js");
+const reqScript = path.join(distScripts, "req.js");
+const statusScript = path.join(distScripts, "status.js");
+const fixScript = path.join(distScripts, "fix.js");
+const configInitScript = path.join(distScripts, "config_init.js");
+const completionScript = path.join(distScripts, "completion.js");
+const studioScript = path.join(distScripts, "studio.js");
 
 // ── Pretty output helpers ─────────────────────────────────────────────────────────
 
@@ -95,6 +101,7 @@ function usage() {
       cmd("⚡", "init", "Scaffold a new project (interactive wizard when no --config).") +
       cmd("🏗", "adopt", "Install SDD on an EXISTING repository (brownfield, non-invasive).") +
       cmd("🩺", "doctor", "Diagnose the project and environment; every finding ships a fix.") +
+      cmd("🧭", "status", "Daily dashboard: what is done, what is orphaned, what to do next.") +
       cmd("🚦", "ci init", "Generate the spec gate for GitHub, GitLab, Azure, or Jenkins.") +
       cmd("🎫", "alm sync", "Sync REQs with Jira / Azure Boards (create, close, drift).") +
       cmd(
@@ -106,6 +113,8 @@ function usage() {
       cmd("📋", "plan", "List requirements that still need a test or implementation.") +
       cmd("📊", "report", "Spec-coverage dashboard as self-contained HTML (CI/Pages artifact).") +
       cmd("✔", "done", "Mark a requirement as Implemented in traceability.md.") +
+      cmd("📝", "req", "Add, link and close requirements without hand-editing the matrix.") +
+      cmd("🔧", "fix", "Apply the fixes validate suggests (--dry-run to preview).") +
       cmd(
         "🔄",
         "change",
@@ -141,6 +150,14 @@ function usage() {
         "Run the plan → agent → verify → done loop for every pending requirement."
       ) +
       cmd("📝", "harness prompt", "Print the prompt the harness would hand an agent for one REQ.") +
+      section("DX COMMANDS") +
+      cmd("⚙", "config init", "Write a starter specops.config.yaml.") +
+      cmd("⌨", "completion", "Print a shell completion script (bash · zsh).") +
+      cmd(
+        "🖼",
+        "studio",
+        "Serve a local, read-only HTML view of the spec tree (--json for agents)."
+      ) +
       section("GLOBAL FLAGS") +
       flag("-h, --help", "Show this help.") +
       flag("-v, --version", "Show CLI version.") +
@@ -337,6 +354,48 @@ function main(): void {
     ensureExecutable(changeScript);
     runNodeScript(changeScript, args.slice(1));
     return;
+  }
+
+  if (command === "req") {
+    ensureExecutable(reqScript);
+    runNodeScript(reqScript, args.slice(1));
+    return;
+  }
+
+  if (command === "status") {
+    ensureExecutable(statusScript);
+    runNodeScript(statusScript, args.slice(1));
+    return;
+  }
+
+  if (command === "fix") {
+    ensureExecutable(fixScript);
+    runNodeScript(fixScript, args.slice(1));
+    return;
+  }
+
+  if (command === "studio") {
+    ensureExecutable(studioScript);
+    runNodeScript(studioScript, args.slice(1));
+    return;
+  }
+
+  if (command === "completion") {
+    ensureExecutable(completionScript);
+    runNodeScript(completionScript, args.slice(1));
+    return;
+  }
+
+  if (command === "config") {
+    const subCommand = args[1];
+    if (subCommand === "init") {
+      ensureExecutable(configInitScript);
+      runNodeScript(configInitScript, args.slice(2));
+      return;
+    }
+    error(`Unknown config sub-command: ${subCommand || "(none)"}. Expected: init`);
+    usage();
+    process.exit(2);
   }
 
   if (command === "pack") {

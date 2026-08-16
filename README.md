@@ -271,6 +271,7 @@ bootstrap step and the harness fit together, see
 
 ## 📚 Learn more
 
+- ⚡ **[Quickstart](docs/quickstart.md)** — one page: the day-to-day loop for someone joining a project that already uses this.
 - 🏛️ **[Architecture overview](docs/specs/architecture.md)** — three repos, three lifecycles; how the pack, the implementation project, the bootstrap prompt and the harness fit together (with diagrams).
 - 🪄 **[Bootstrap prompt](docs/bootstrap-prompt.md)** — the only freeform-AI step, ready to paste into opencode / Claude / Cursor on day one of a project.
 - 🚗 **[End-to-end tutorial](docs/tutorial.md)** — build Smart Parking on the real `parking-management-specops` pack; every command, plus adding new requirements.

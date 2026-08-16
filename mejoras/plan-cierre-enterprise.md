@@ -53,8 +53,8 @@ nada más. Todo lo demás está en `main` o preservado en un tag `archive/*`.
 | `archive/demo-video` | Primer vídeo de demo | Superseded por `scripts/demo/` |
 | `archive/gh-pages-legacy` | Rama `gh-pages` local, nunca en el remoto | El sitio vive en `docs/` y despliega vía `pages.yml` |
 
-**`feature/daily-ux-roadmap` sigue viva, ya triada** (C0-10, §3.3). Se mantiene
-hasta que C0-11 recupere lo aprobado; entonces se archiva como `archive/daily-ux`.
+**Remoto final: solo `main`.** `feature/daily-ux-roadmap` quedó archivada como
+`archive/daily-ux` tras recuperar lo aprobado (C0-11).
 
 **Merge verificado con `git merge-tree`:**
 `main` + `enterprise-adoption` = **limpio**.
@@ -92,7 +92,7 @@ configuración o de sincronía tras la migración a TypeScript.
 |---|---|---|
 | 1 | `mutation:pilot` está muerto: apunta a `.js` que ya no existen. CI no lo detecta porque no lo ejecuta | `stryker.config.mjs:3,9` |
 | 2 | `js-yaml` se usa pero **no está declarado**; resuelve por hoist transitivo de eslint | `packages/vscode-spec-driven/src/{pack-validator,pack-graph}.ts`, `package.json` |
-| 3 | Los tres `packages/*/package.json` apuntan `bin`/`main`/`files` a `src/*.js`, que nunca existe — la salida va al `dist/` de raíz. Publicarlos hoy enviaría paquetes vacíos. `pack-registry` además lista un `templates/` inexistente | `packages/*/package.json` |
+| 3 | Los **cuatro** `packages/*/package.json` apuntan `bin`/`main`/`files` a `src/*.js`, que nunca existe — la salida va al `dist/` de raíz. Publicarlos hoy enviaría paquetes vacíos. `pack-registry` además lista un `templates/` inexistente. El LSP recuperado en C0-11 hereda el mismo defecto | `packages/*/package.json` |
 | 4 | Afirma que shellcheck corre en CI; no existe tal step | `CONTRIBUTING.md:119` |
 | 5 | Los workflows de publish disparan con tags `v*`, pero los tags existentes son `0.1.4` y `0.1.0-beta.1` (sin `v`) → **nunca han disparado** | `.github/workflows/publish-*.yml` |
 | 6 | Los workflows de publish gatean con `npm test` (37 tests E2E), no con `test:all` | idem |
@@ -122,7 +122,7 @@ configuración o de sincronía tras la migración a TypeScript.
 | C0-08 | `[x]` | Decidir `develop` | Eliminada (D5). `ci.yml` ya no la filtra y `CONTRIBUTING.md` §7 describe las pre-releases vía `workflow_dispatch` |
 | C0-09 | `[x]` | **Portar el scaffolding de runtime a TypeScript** | Resultó ser mucho menor de lo previsto: 15 de los 16 ficheros del commit archivado ya estaban en `main` (y mejorados, con el split `.env.*.infra`/`.app` de P1-08). Ver §3.2 |
 | C0-10 | `[x]` | **Triar `feature/daily-ux-roadmap`** | Triaje completo en §3.3. Resultado: 6 comandos y 2 paquetes se recuperan; los dos refactors masivos y las dos implementaciones duplicadas se descartan |
-| C0-11 | `[ ]` | **Recuperar lo aprobado de `daily-ux-roadmap`** | Ver la tabla de §3.3. Coste estimado: 1–2 PD. **Bloquea C4-04, C5-02 y parte de C3-02** — hacerlo antes que esas tareas o se escribe dos veces |
+| C0-11 | `[x]` | **Recuperar lo aprobado de `daily-ux-roadmap`** | 6 comandos + servidor LSP + scaffold IntelliJ + quickstart, sin un solo conflicto. 24 tests nuevos. Ver §3.4 |
 
 ### 3.1 Defectos que llegaron con la rama enterprise
 
@@ -200,6 +200,36 @@ Ninguno de estos ficheros existe en `main`, así que entran sin conflicto.
 | `doctor` de la rama | Duplicado. Gana el de la rama enterprise (A3), que ya está en `main` con un `fix` por hallazgo |
 | Wizard interactivo de `init` | Duplicado. Gana el de la rama enterprise (A2) |
 | `d9715b6` `--json` global | Se escribió contra una superficie sin `change`, `specops contribute` ni `report`. Se usa como referencia al abordar C3-02, no se mergea |
+
+### 3.4 Recuperación de `daily-ux-roadmap` (C0-11)
+
+Ejecutada sin un solo conflicto: ninguno de los ficheros existía en `main`.
+La CLI pasa de 14 a 20 comandos de primer nivel.
+
+El puente entre estilos costó **11 líneas**. Los ficheros nuevos usan `export`
+de ESM y son coherentes entre sí; solo los imports que cruzan hacia módulos
+CommonJS ya existentes de `main` (`./plan`, `./lib/project-root`,
+`./specops/lock`) se reescribieron a `require()`. El refactor de 64 ficheros
+que la rama había hecho para unificar el estilo sigue descartado: la mezcla es
+una inconsistencia cosmética, no un problema funcional — `tsc` con
+`module: commonjs` compila `export` a `exports.x`.
+
+Tres cosas que la rama traía mal y se corrigieron al recuperarlas:
+
+- **`completion` anunciaba una superficie obsoleta.** Se escribió antes de
+  `change`, `adopt`, `alm`, `ci`, `report` y `studio`. Una completion que
+  ofrece comandos inexistentes es peor que no tenerla, así que ahora hay un
+  test (`tests/unit/setup-commands.test.ts`) que compara la lista contra la
+  tabla de dispatch de `bin/` y falla si divergen en cualquier dirección.
+- **`docs/quickstart.md` documentaba `csda validate --fix`**, un flag que no
+  existe ni existió nunca — ni en la rama. El roadmap lo listaba junto a
+  `csda fix`, y solo se implementó el segundo. Corregido a `csda fix --dry-run`.
+- **El quickstart estaba huérfano**, sin enlazar desde ningún sitio. Enlazado
+  desde el índice de documentación del README.
+
+`packages/intellij-spec-driven/` entra como **scaffold declarado**: su propio
+README ya avisa de que necesita JDK 17 y Gradle y de que este CI no lo
+construye. No se le añade job.
 
 **Gate de salida:** ✅ **pasado el 2026-08-16**
 
@@ -321,7 +351,7 @@ Especificación de referencia: `mejoras/openspec-benchmark-plan.md:526-543`.
 |---|---|---|
 | C6-01 | `[ ]` | Arreglar `stryker.config.mjs:3,9` para apuntar a `dist/`, o retirar el pilot. Si se conserva, añadirlo a CI (semanal); si no, dejar de anunciarlo |
 | C6-02 | `[ ]` | Declarar `js-yaml` en `package.json`. Hoy resuelve por accidente vía eslint: una actualización de eslint rompe CI con un `MODULE_NOT_FOUND` incomprensible |
-| C6-03 | `[ ]` | Corregir `bin`/`main`/`files` de los tres `packages/*/package.json`; borrar el `templates/` inexistente de `pack-registry`. **Bloquea C7-07 y C7-08** |
+| C6-03 | `[ ]` | Corregir `bin`/`main`/`files` de los **cuatro** `packages/*/package.json` (incluido `lsp-spec-driven`); borrar el `templates/` inexistente de `pack-registry`. **Bloquea C7-07 y C7-08** |
 | C6-04 | `[ ]` | Windows en CI: subir de `test:unit` a E2E + BDD, o documentar la limitación y corregir `traceability.md` en consecuencia |
 | C6-05 | `[ ]` | Añadir el step de shellcheck que `CONTRIBUTING.md` ya promete (ver C1-09) |
 | C6-06 | `[ ]` | Los workflows de publish gatean con `test:all`, no con `npm test` |
@@ -419,4 +449,5 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | 2026-08-16 | El scaffolding de runtime se porta a TypeScript, no se mergea (D6) | El commit original es pre-ADR-0008: toca `tests/cli.test.js` y scripts `.sh` que ya no existen. Preservado en `archive/runtime-env` |
 | 2026-08-16 | Las ramas muertas se archivan como tags `archive/*` antes de borrarlas | Deja el remoto legible sin perder historia. 6 tags creados |
 | 2026-08-16 | `feature/daily-ux-roadmap` triada (C0-10) | Se recuperan 6 comandos y 2 paquetes; se descartan los dos refactors masivos y las dos implementaciones duplicadas. Detalle en §3.3 |
+| 2026-08-16 | La recuperación (C0-11) puentea estilos en vez de unificarlos | 11 líneas de `require()` en la frontera contra un refactor de 64 ficheros. La mezcla ESM/CommonJS es cosmética: `tsc` con `module: commonjs` compila ambas |
 | 2026-08-16 | Los refactors `import/export` y `strict mode` no se mergean | 96 ficheros entre los dos, todos tocados también por el merge enterprise. Sin valor para el usuario y con coste de conflicto alto. Si se quieren, son tarea propia sobre `main` |

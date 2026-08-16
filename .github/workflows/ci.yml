@@ -68,6 +68,9 @@ jobs:
       - name: Run pack-registry unit tests
         run: npm run test:registry-unit
 
+      - name: Run LSP server unit tests
+        run: npm run test:lsp-unit
+
       - name: Build pack registry
         run: npm run registry:build
 
