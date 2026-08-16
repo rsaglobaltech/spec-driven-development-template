@@ -1,7 +1,7 @@
 {
   "name": "@spec-driven/lsp-server",
   "version": "0.1.0",
-  "description": "Language Server (LSP) for create-spec-driven-app projects. Publishes inline traceability.md diagnostics (the same rules as `validate --strict-tdd`) to any LSP-aware editor \u2014 VS Code, IntelliJ (LSP4IJ), Neovim.",
+  "description": "Language Server (LSP) for create-spec-driven-app projects. Publishes inline traceability.md diagnostics (the same rules as `validate --strict-tdd`) to any LSP-aware editor — VS Code, IntelliJ (LSP4IJ), Neovim.",
   "license": "MIT",
   "type": "commonjs",
   "bin": {
@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/rsaglobaltech/spec-driven-template.git",
+    "url": "git+https://github.com/rsaglobaltech/spec-driven-development-template.git",
     "directory": "packages/lsp-spec-driven"
   },
   "keywords": [
