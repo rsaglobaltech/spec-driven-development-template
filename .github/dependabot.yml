@@ -10,7 +10,17 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     groups:
-      # One PR for the routine bumps; anything major still arrives on its own.
+      # Packages that must move together. `@eslint/js` alone jumping to 10
+      # while `eslint` stayed at 9 produced a peer conflict that broke
+      # `npm ci` — the first thing the new audit job caught.
+      eslint:
+        patterns:
+          - eslint
+          - '@eslint/*'
+          - '@typescript-eslint/*'
+          - typescript-eslint
+      # One PR for the routine bumps. Majors outside the groups above still
+      # arrive on their own, because a major deserves a human reading it.
       dev-minor-and-patch:
         dependency-type: development
         update-types: [minor, patch]
@@ -20,13 +30,21 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    open-pull-requests-limit: 3
+    groups:
+      # Action bumps are almost always mechanical; reviewing fifteen separate
+      # PRs for them is how a team learns to rubber-stamp Dependabot.
+      actions:
+        patterns: ['*']
 
   - package-ecosystem: maven
     directory: /packages/maven-plugin
     schedule:
       interval: monthly
+    open-pull-requests-limit: 3
 
   - package-ecosystem: gradle
     directory: /packages/gradle-plugin
     schedule:
       interval: monthly
+    open-pull-requests-limit: 3
