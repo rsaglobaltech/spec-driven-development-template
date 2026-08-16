@@ -929,3 +929,102 @@ test("harness run --push --pr-cmd publishes green branches (CI mode)", { skip: !
 
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
+
+// ── Runtime environments (C0-09) ──────────────────────────────────────────────
+
+const RUNTIME_BASE_CONFIG = [
+  'PROJECT_NAME="Runtime Probe"',
+  'PROJECT_SLUG="runtime-probe"',
+  'PROJECT_TYPE="backend"',
+  'DOMAIN="runtime testing"',
+  'STACK="Quarkus 3.x, Java 21, PostgreSQL"',
+  'API_STYLE="REST"',
+  'TESTING="JUnit 5"',
+];
+
+/** Generate a project from an inline config and return its directory. */
+function initRuntimeProject(extraLines) {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-runtime-"));
+  const configPath = path.join(tempRoot, "project.config");
+  fs.writeFileSync(configPath, [...RUNTIME_BASE_CONFIG, ...extraLines].join("\n") + "\n", "utf8");
+  const result = runCli(["init", "--config", configPath, "--out", tempRoot, "--force", "--no-git"]);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  return { tempRoot, projectDir: path.join(tempRoot, "runtime-probe") };
+}
+
+test("init generates the full runtime contract by default", () => {
+  const { tempRoot, projectDir } = initRuntimeProject([]);
+
+  for (const rel of [
+    "docker-compose.yml",
+    ".dockerignore",
+    ".devcontainer/devcontainer.json",
+    ".env.example",
+    ".env.dev",
+    ".env.feature",
+    ".env.prod",
+    "docs/specs/runtime-environments.md",
+  ]) {
+    assert.ok(fs.existsSync(path.join(projectDir, rel)), `expected ${rel} to be generated`);
+  }
+
+  const spec = fs.readFileSync(path.join(projectDir, "docs/specs/runtime-environments.md"), "utf8");
+  assert.doesNotMatch(spec, /\{\{/, "runtime spec still has unresolved placeholders");
+  // Every environment gets its own database and its own host port.
+  assert.match(spec, /runtime_probe_dev/);
+  assert.match(spec, /runtime_probe_feature/);
+  assert.match(spec, /runtime_probe_prod/);
+  assert.match(spec, /## Docker/);
+  assert.match(spec, /## Devcontainer/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("DOCKER_SUPPORT=false leaves no orphaned Docker or devcontainer artifacts", () => {
+  const { tempRoot, projectDir } = initRuntimeProject([
+    'DOCKER_SUPPORT="false"',
+    'DEVCONTAINER_SUPPORT="false"',
+  ]);
+
+  // A devcontainer.json here would point at the compose file init just removed.
+  for (const rel of ["docker-compose.yml", ".dockerignore", ".devcontainer"]) {
+    assert.ok(!fs.existsSync(path.join(projectDir, rel)), `${rel} should not survive`);
+  }
+  // The environment contract itself does not depend on Docker.
+  assert.ok(fs.existsSync(path.join(projectDir, ".env.dev")));
+
+  const spec = fs.readFileSync(path.join(projectDir, "docs/specs/runtime-environments.md"), "utf8");
+  assert.match(spec, /Docker support is disabled/);
+  assert.doesNotMatch(spec, /docker compose --env-file/);
+  assert.doesNotMatch(spec, /## Devcontainer/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("DEVCONTAINER_SUPPORT=true without DOCKER_SUPPORT is rejected", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-runtime-"));
+  const configPath = path.join(tempRoot, "project.config");
+  fs.writeFileSync(
+    configPath,
+    [...RUNTIME_BASE_CONFIG, 'DOCKER_SUPPORT="false"', 'DEVCONTAINER_SUPPORT="true"'].join("\n"),
+    "utf8"
+  );
+  const result = runCli(["init", "--config", configPath, "--out", tempRoot, "--force", "--no-git"]);
+  assert.equal(result.status, 2);
+  assert.match(result.stdout + result.stderr, /DEVCONTAINER_SUPPORT requires DOCKER_SUPPORT=true/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("an unsupported DATABASE_ENGINE is rejected with the supported list", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-runtime-"));
+  const configPath = path.join(tempRoot, "project.config");
+  fs.writeFileSync(
+    configPath,
+    [...RUNTIME_BASE_CONFIG, 'DATABASE_ENGINE="mysql"'].join("\n"),
+    "utf8"
+  );
+  const result = runCli(["init", "--config", configPath, "--out", tempRoot, "--force", "--no-git"]);
+  assert.equal(result.status, 2);
+  assert.match(result.stdout + result.stderr, /is not supported.*postgres/s);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});

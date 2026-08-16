@@ -118,7 +118,7 @@ configuración o de sincronía tras la migración a TypeScript.
 | C0-06 | `[x]` | Reconstruir limpio | `rm -rf dist coverage && npm run build` |
 | C0-07 | `[x]` | Podar y archivar ramas | 14 ramas remotas borradas, 6 tags `archive/*` creados y pusheados. El remoto queda con `main` y `feature/daily-ux-roadmap` |
 | C0-08 | `[x]` | Decidir `develop` | Eliminada (D5). `ci.yml` ya no la filtra y `CONTRIBUTING.md` §7 describe las pre-releases vía `workflow_dispatch` |
-| C0-09 | `[ ]` | **Portar el scaffolding de runtime a TypeScript** | El commit `44975df` (preservado en `archive/runtime-env`) añade Docker Compose, devcontainer y `.env.*` multi-entorno a los proyectos generados. Es pre-migración: toca `tests/cli.test.js` y los scripts `.sh` que ADR-0008 eliminó. Hay que reescribirlo sobre el código actual, no mergearlo (D6). Es la base del capítulo 6.1 de `IMPROVEMENTS.md` |
+| C0-09 | `[x]` | **Portar el scaffolding de runtime a TypeScript** | Resultó ser mucho menor de lo previsto: 15 de los 16 ficheros del commit archivado ya estaban en `main` (y mejorados, con el split `.env.*.infra`/`.app` de P1-08). Ver §3.2 |
 | C0-10 | `[ ]` | **Triar `feature/daily-ux-roadmap`** | 10 commits que solapan con fases 3–5: `--json` global (C3-02), `csda completion` (C5-02), `config init` y `csda docs` (C4-04/C4-06), `csda status`, `csda req`, modo estricto de TypeScript, servidor LSP e IntelliJ. Decidir por commit qué se recupera antes de reimplementar nada de esas fases — o se duplica trabajo ya escrito |
 
 ### 3.1 Defectos que llegaron con la rama enterprise
@@ -131,6 +131,30 @@ Su CI nunca corrió en verde. Ambos arreglados dentro del merge `75e45b9`:
   backticks de `String.raw`. El harness ejecuta `--pr-cmd` a través de una shell, que
   leía esos backticks como sustitución de comandos: la ruta se ejecutaba como comando
   y la aserción del propio test no podía cumplirse nunca. La ruta pasa ahora por `argv`.
+
+### 3.2 Qué faltaba de verdad del scaffolding de runtime (C0-09)
+
+Compose, devcontainer, `.dockerignore` y los `.env.*` ya se generaban. Faltaban
+dos cosas, y una era un bug:
+
+- **`docs/specs/runtime-environments.md` no se generaba.** Es el contrato
+  normativo que pide `IMPROVEMENTS.md` §2.4: catálogo de entornos, URLs por
+  entorno e invariantes (una base por entorno, cero credenciales en el repo,
+  cero configuración hardcodeada). Añadido como
+  `templates/base/docs/specs/runtime-environments.md.tpl`.
+- **Bug: `DOCKER_SUPPORT=false` dejaba un devcontainer huérfano.**
+  `applyRuntimeSupportFlags` borraba `docker-compose.yml` y volvía antes de
+  limpiar `.devcontainer/`, así que el proyecto generado conservaba un
+  `devcontainer.json` apuntando a `../docker-compose.yml` — un fichero que
+  acababa de borrar. Reproducido, corregido y cubierto con tests.
+- **Cobertura cero.** No había un solo test sobre el scaffolding de runtime.
+  Añadidos 4 en `tests/cli.test.ts`: contrato completo por defecto, la ruta sin
+  Docker, y las dos validaciones de configuración (`DEVCONTAINER_SUPPORT` sin
+  Docker, y un `DATABASE_ENGINE` no soportado).
+
+El renderizador solo sustituye `{{VAR}}` y no tiene condicionales, así que la
+mitad Docker del spec se calcula en `runtimeDockerSection()` — de otro modo un
+proyecto sin Docker documentaría un compose inexistente.
 
 **Gate de salida:** ✅ **pasado el 2026-08-16**
 

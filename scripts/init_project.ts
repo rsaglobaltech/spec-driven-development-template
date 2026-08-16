@@ -237,6 +237,8 @@ function validateConfig(cfg) {
   cfg.DATABASE_URL_FEATURE = dbUrl(cfg.DATABASE_NAME_FEATURE);
   cfg.DATABASE_URL_PROD = dbUrl(cfg.DATABASE_NAME_PROD);
 
+  cfg.RUNTIME_DOCKER_SECTION = runtimeDockerSection(cfg);
+
   if (!["backend", "frontend"].includes(cfg.PROJECT_TYPE)) {
     logError("PROJECT_TYPE must be backend or frontend");
     process.exit(2);
@@ -248,6 +250,56 @@ function validateConfig(cfg) {
   }
 
   return cfg;
+}
+
+/**
+ * The Docker half of docs/specs/runtime-environments.md.
+ *
+ * The renderer substitutes tokens and nothing else — it has no conditionals —
+ * so a project generated with DOCKER_SUPPORT=false would otherwise ship a spec
+ * documenting a compose file that init just deleted. Building the section here
+ * keeps the generated contract true in both modes.
+ */
+function runtimeDockerSection(cfg) {
+  if (cfg.DOCKER_SUPPORT !== "true") {
+    return [
+      "## Docker",
+      "",
+      "Docker support is disabled for this project (`DOCKER_SUPPORT=false`), so no",
+      "`docker-compose.yml`, `.dockerignore` or `.devcontainer/` is generated. The",
+      "environment contract above still holds: provision the database yourself and",
+      "point `DATABASE_URL` at it.",
+    ].join("\n");
+  }
+
+  const lines = [
+    "## Docker",
+    "",
+    "- Compose file: `docker-compose.yml`",
+    `- Database image: \`${cfg.DATABASE_IMAGE}\``,
+    `- Service name: \`${cfg.DATABASE_HOST}\``,
+    "",
+    "Bring one environment up:",
+    "",
+    "```bash",
+    "APP_ENV=dev docker compose --env-file .env.dev up -d db",
+    "APP_ENV=feature docker compose --env-file .env.feature up -d db",
+    "APP_ENV=prod docker compose --env-file .env.prod up -d db",
+    "```",
+  ];
+
+  if (cfg.DEVCONTAINER_SUPPORT === "true") {
+    lines.push(
+      "",
+      "## Devcontainer",
+      "",
+      "- Configuration: `.devcontainer/devcontainer.json`",
+      "- The devcontainer joins the same Compose network as the database service,",
+      `  so it reaches it at \`${cfg.DATABASE_HOST}:${cfg.DATABASE_CONTAINER_PORT}\`.`
+    );
+  }
+
+  return lines.join("\n");
 }
 
 // ── Template rendering ────────────────────────────────────────────────────────
@@ -300,19 +352,21 @@ function applyRuntimeSupportFlags(projectDir, cfg, dryRun) {
   if (cfg.DOCKER_SUPPORT !== "true") {
     if (dryRun) {
       logInfo("[dry-run] skip Docker artifacts");
-      return;
-    }
-    for (const f of ["docker-compose.yml", ".dockerignore"]) {
-      const p = path.join(projectDir, f);
-      if (fs.existsSync(p)) fs.rmSync(p);
-    }
-    for (const f of fs.readdirSync(projectDir)) {
-      if (/^\.env\.\w+\.(infra|app)$/.test(f)) {
-        fs.rmSync(path.join(projectDir, f));
+    } else {
+      for (const f of ["docker-compose.yml", ".dockerignore"]) {
+        const p = path.join(projectDir, f);
+        if (fs.existsSync(p)) fs.rmSync(p);
+      }
+      for (const f of fs.readdirSync(projectDir)) {
+        if (/^\.env\.\w+\.(infra|app)$/.test(f)) {
+          fs.rmSync(path.join(projectDir, f));
+        }
       }
     }
-    return;
   }
+  // Not an `else`: DEVCONTAINER_SUPPORT is validated to be false whenever
+  // DOCKER_SUPPORT is, and a devcontainer.json left behind would point at the
+  // docker-compose.yml the branch above just removed.
   if (cfg.DEVCONTAINER_SUPPORT !== "true") {
     if (dryRun) {
       logInfo("[dry-run] skip devcontainer artifacts");
