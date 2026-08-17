@@ -300,3 +300,89 @@ test("resolveHarnessSettings exposes promptPrefix from the file config", () => {
   );
   assert.match(merged.promptPrefix, /Lead Architect/);
 });
+
+// ── The plan → prompt seam ───────────────────────────────────────────────────
+//
+// `run.ts` feeds `buildPrompt` by shelling out to `plan --format json` and
+// parsing the result, so the two are coupled through a wire format. When that
+// format was normalised to camelCase, `buildPrompt` kept reading snake_case
+// and every generated prompt silently said "(none declared)" for the scenario,
+// the feature file and both artefacts — a prompt an agent cannot act on.
+//
+// Nothing failed, because the fixture above was written in the old vocabulary
+// and tested a shape `plan` no longer produces. These run the real seam.
+
+const { spawnSync } = require("node:child_process");
+const REPO_ROOT = path.resolve(__dirname, "../../..");
+const CLI = path.join(REPO_ROOT, "bin", "create-spec-driven-app.js");
+
+test("buildPrompt reads the camelCase field names the contract specifies", () => {
+  const dir = tmpProject();
+  try {
+    const prompt = buildPrompt(
+      {
+        requirement: "REQ-042",
+        scenarioId: "SCN-042",
+        featureFile: "features/billing/invoice.feature",
+        technicalArtifact: "src/domain/invoice.ts",
+        testArtifact: "tests/unit/invoice.test.ts",
+        status: "Draft",
+        category: "NEEDS_TEST",
+      },
+      dir
+    );
+    assert.match(prompt, /Scenario ID: SCN-042/);
+    assert.match(prompt, /Feature file: features\/billing\/invoice\.feature/);
+    assert.match(prompt, /test artifact.*tests\/unit\/invoice\.test\.ts/i);
+    assert.match(prompt, /Production artifact: src\/domain\/invoice\.ts/);
+    assert.doesNotMatch(prompt, /\(none declared\)/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("buildPrompt still reads snake_case, so an older plan output is not blanked", () => {
+  const dir = tmpProject();
+  try {
+    const prompt = buildPrompt(sampleReq, dir);
+    assert.match(prompt, /Scenario ID: SCN-001/);
+    assert.match(prompt, /Feature file: features\/capacity\/threshold\.feature/);
+    assert.doesNotMatch(prompt, /\(none declared\)/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a requirement straight out of `plan --format json` produces a usable prompt", () => {
+  // The end-to-end guard: scaffold a project, ask the real CLI for its plan,
+  // and feed the first requirement to the real prompt builder. If the wire
+  // format drifts again, this is what notices.
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "harness-seam-"));
+  try {
+    const init = spawnSync(process.execPath, [CLI, "init", "--yes", "--out", parent, "--no-git"], {
+      encoding: "utf8",
+    });
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(parent, fs.readdirSync(parent)[0]);
+
+    const planned = spawnSync(
+      process.execPath,
+      [CLI, "plan", "--project-dir", projectDir, "--format", "json"],
+      { encoding: "utf8" }
+    );
+    const plan = JSON.parse(planned.stdout);
+    const req = (plan.requirements || [])[0];
+    assert.ok(req, "plan returned no requirements to build a prompt from");
+
+    const prompt = buildPrompt(req, projectDir);
+    assert.match(prompt, new RegExp(`# Implement ${req.requirement}`));
+    // The scaffolded requirement declares a scenario and a feature file, so a
+    // prompt claiming none declared means the seam is broken, not that the
+    // project is empty.
+    assert.doesNotMatch(prompt, /Scenario ID: \(none\)/);
+    assert.doesNotMatch(prompt, /Feature file: \(none declared\)/);
+    assert.match(prompt, /```gherkin/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
