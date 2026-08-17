@@ -1,6 +1,4 @@
-# yaml-language-server: $schema=../../../schemas/pack.schema.json
-schema_version: "1.1.0"
-
+schema_version: "1.3.0"
 metadata:
   name: "Audit Log Backend Domain Pack"
   version: "0.1.0"
@@ -64,6 +62,20 @@ use_cases:
     requirement: REQ-004
     command: ExportAuditArchiveCommand
 
+commands:
+  - id: CMD-001
+    name: RecordAuditEntryCommand
+    use_case: UC-001
+  - id: CMD-002
+    name: VerifyAuditChainCommand
+    use_case: UC-002
+  - id: CMD-003
+    name: QueryAuditLogCommand
+    use_case: UC-003
+  - id: CMD-004
+    name: ExportAuditArchiveCommand
+    use_case: UC-004
+
 aggregates:
   - id: AGG-001
     name: AuditEntry
@@ -83,13 +95,11 @@ events:
     payload: [verifiedAt: datetime, entriesChecked: int, valid: bool]
 
 outputs:
-  features:
-    - features/audit/record_entry.feature
-    - features/audit/verify_chain.feature
-    - features/audit/query_log.feature
-  diagrams: []
+  files:
+    - target: "docs/specs/capabilities/audit-log.md"
+      template: "templates/capability.md.tpl"
 
-rules:
+business_rules:
   - id: RUL-001
     title: "Audit entries cannot be deleted or modified"
     context: BC-001
@@ -99,18 +109,28 @@ rules:
     context: BC-001
     description: "Forms a tamper-evident chain."
 
+rules:
+  traceability:
+    target: "docs/specs/traceability.md"
+    include_existing_rows: true
+    default_status: Draft
+
 scenarios:
-  - id: SCN-001
-    title: "Recording an action emits AuditEntryRecorded"
-    requirement: REQ-001
+  - id: "SCN-001"
+    requirement_id: REQ-001
     use_case: UC-001
-    given: "a state-changing operation completes"
-    when: "the system records the audit entry"
-    then: "AuditEntryRecorded is emitted with actor, action, and prevHash"
-  - id: SCN-002
-    title: "Tampering breaks the chain verification"
-    requirement: REQ-002
+    seed: true
+    target: "features/audit-log/recording_an_action_emits_auditentryrecorded.feature"
+    template: "templates/features/recording_an_action_emits_auditentryrecorded.feature.tpl"
+    feature: "Recording an action emits AuditEntryRecorded"
+    scenario: "Recording an action emits AuditEntryRecorded"
+    status: "Draft"
+  - id: "SCN-002"
+    requirement_id: REQ-002
     use_case: UC-002
-    given: "an audit chain has been tampered with"
-    when: "an auditor runs verification"
-    then: "AuditChainVerified is emitted with valid=false"
+    seed: true
+    target: "features/audit-log/tampering_breaks_the_chain_verification.feature"
+    template: "templates/features/tampering_breaks_the_chain_verification.feature.tpl"
+    feature: "Tampering breaks the chain verification"
+    scenario: "Tampering breaks the chain verification"
+    status: "Draft"

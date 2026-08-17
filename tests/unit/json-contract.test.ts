@@ -39,6 +39,35 @@ const JSON_COMMANDS = [
   ["onboard"],
   ["update", "--dry-run"],
   ["done", "REQ-000"],
+  // `pack lint` needs a pack to lint, and `specops diff` a lockfile, so both
+  // are exercised below against fixtures rather than the bare scaffold.
+];
+
+/** Commands that need more than a scaffolded project to say anything. */
+const CONTEXTUAL = [
+  {
+    label: "pack lint",
+    args: [
+      "pack",
+      "lint",
+      "--pack-root",
+      path.join(ROOT_DIR, "tests/fixtures/domain-packs"),
+      "--pack",
+      "parking-management/backend",
+    ],
+  },
+  {
+    label: "pack lint --graph",
+    args: [
+      "pack",
+      "lint",
+      "--graph",
+      "--pack-root",
+      path.join(ROOT_DIR, "tests/fixtures/domain-packs"),
+      "--pack",
+      "parking-management/backend",
+    ],
+  },
 ];
 
 let projectDir = null;
@@ -107,6 +136,22 @@ for (const args of JSON_COMMANDS) {
     // The envelope is what lets a consumer treat every command alike.
     const doc = JSON.parse(run(args).stdout);
     assert.ok(Array.isArray(doc.status), "missing or non-array `status`");
+  });
+}
+
+for (const { label, args } of CONTEXTUAL) {
+  test(`csda ${label} --json emits camelCase and a status array`, () => {
+    const r = spawnSync(process.execPath, [CLI_PATH, ...args, "--json"], {
+      cwd: scaffold(),
+      encoding: "utf8",
+    });
+    assert.ok(r.stdout.trim().length > 0, `no stdout (stderr: ${r.stderr})`);
+    const doc = JSON.parse(r.stdout);
+    assert.ok(Array.isArray(doc.status), "missing or non-array `status`");
+    const offenders = [...new Set(allKeys(doc))].filter((k) =>
+      /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(k)
+    );
+    assert.deepEqual(offenders, [], `snake_case keys: ${offenders.join(", ")}`);
   });
 }
 

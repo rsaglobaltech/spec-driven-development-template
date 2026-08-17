@@ -9,6 +9,28 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ### ⚠️ Breaking
 
+- **One pack format, with `schemas/pack.schema.json` as its authority**
+  ([ADR-0020](docs/specs/adr/0020-pack-format-standard.md)). The schema, the
+  validator, the installer, `pack init` and every shipped pack had drifted into
+  three descriptions that disagreed, and nothing compared them. The result:
+  **all eleven curated packs failed to install**, `pack init` generated packs
+  the installer refused, and `pack lint` called every one of them clean.
+
+  - `outputs.features` is gone; `outputs.files` is the only output shape.
+  - Domain invariants move from `rules` to a new **`business_rules`**. `rules`
+    keeps its narrow meaning — how the pack renders. Two different ideas were
+    sharing one key, and that collision is what broke installation.
+  - A scenario now requires only what the installer needs: `id`,
+    `requirement_id`, `target`, `template`, `feature`, `scenario`, `status`.
+    `use_case`, `command`, `aggregate`, `events`, `technical_artifacts` and
+    `test_artifact` are optional and validated when present, so a front-end
+    pack no longer has to invent a command to satisfy a validator.
+  - **`contracts` is a supported project type.** It was in the schema and in
+    `pack init` while the installer rejected it outright.
+
+  Packs on the old shape need migrating; the eleven in this repository already
+  are, and `pack lint` now reports precisely what is wrong.
+
 - **`plan --json` and `report --json` now use camelCase inside `requirements`.**
   `0.2.0` announced the camelCase rename as a breaking change and applied it to
   the top-level keys only. The nested `requirements` array — the one array an
@@ -43,6 +65,22 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   `agent:` is left unset too. Which agent runs the loop is the operator's
   choice and their credentials, and a default in a committed file is a default
   somebody pays for by accident.
+
+- **`pack lint` runs the installer's own validation.** "Lint passes" now means
+  "this pack can be installed". It previously checked cross-references only, so
+  a pack that could never be applied reported clean.
+- **`pack init` produces an installable pack**, including the template files
+  its `pack.yaml` declares. It used to write `pack.yaml` alone, so the pack it
+  generated failed at the very next step it told you to run.
+- **`--json` on `pack lint` and `specops diff`**, completing the agent
+  contract. `specops diff` already had `--format json`; it now accepts `--json`
+  and emits camelCase like everything else.
+- **`parseYamlLite` understands inline flow sequences** (`[Invoice, Payment]`).
+  The curated packs used them 54 times, and each one parsed as a literal string
+  and then failed a cross-reference check against an aggregate nobody declared.
+- **A test installs every pack in `packs/` into a scaffolded project.** Nothing
+  exercised those packs before — not CI, not a test — which is why the drift
+  went unnoticed for as long as it did.
 
 - **`csda init --no-sample-req`**, implied by `--from-pack`. `init` seeds
   REQ-000 with a health scenario so a new project has one worked example; a

@@ -220,7 +220,13 @@ test("runLint routes scenario issues to warnings, or to errors under --strict", 
     scenarios: [{ id: "SCN-W", title: "test", given: "x", then: "it works" }],
   };
   const lenient = runLint(weakPack, "/nonexistent", { strict: false });
-  assert.equal(lenient.errors.length, 0);
+  // This fragment is not a whole pack, so runLint also reports that it could
+  // not be installed. That is a different rule; what is asserted here is where
+  // the *scenario-quality* findings land.
+  assert.ok(
+    !lenient.errors.some((e) => e.includes("SCN-W")),
+    "scenario issues must be warnings without --strict"
+  );
   assert.ok(lenient.warnings.some((w) => w.includes("SCN-W")));
 
   const strict = runLint(weakPack, "/nonexistent", { strict: true });

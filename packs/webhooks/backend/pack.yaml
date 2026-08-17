@@ -1,6 +1,4 @@
-# yaml-language-server: $schema=../../../schemas/pack.schema.json
-schema_version: "1.1.0"
-
+schema_version: "1.3.0"
 metadata:
   name: "Webhooks Backend Domain Pack"
   version: "0.1.0"
@@ -81,6 +79,23 @@ use_cases:
     requirement: REQ-005
     command: QueryDeliveryLogCommand
 
+commands:
+  - id: CMD-001
+    name: CreateSubscriptionCommand
+    use_case: UC-001
+  - id: CMD-002
+    name: DispatchEventCommand
+    use_case: UC-002
+  - id: CMD-003
+    name: RetryDeliveryCommand
+    use_case: UC-003
+  - id: CMD-004
+    name: PauseSubscriptionCommand
+    use_case: UC-004
+  - id: CMD-005
+    name: QueryDeliveryLogCommand
+    use_case: UC-005
+
 aggregates:
   - id: AGG-001
     name: Subscription
@@ -144,15 +159,11 @@ events:
       - reason: string
 
 outputs:
-  features:
-    - features/webhooks/subscribe.feature
-    - features/webhooks/dispatch.feature
-    - features/webhooks/retry.feature
-    - features/webhooks/pause.feature
-    - features/webhooks/delivery_log.feature
-  diagrams: []
+  files:
+    - target: "docs/specs/capabilities/webhooks.md"
+      template: "templates/capability.md.tpl"
 
-rules:
+business_rules:
   - id: RUL-001
     title: "Outgoing payloads carry an HMAC-SHA256 signature header"
     context: BC-002
@@ -166,25 +177,37 @@ rules:
     context: BC-002
     description: "Balances diagnostic value against storage cost."
 
+rules:
+  traceability:
+    target: "docs/specs/traceability.md"
+    include_existing_rows: true
+    default_status: Draft
+
 scenarios:
-  - id: SCN-001
-    title: "Creating a subscription emits SubscriptionCreated"
-    requirement: REQ-001
+  - id: "SCN-001"
+    requirement_id: REQ-001
     use_case: UC-001
-    given: "no subscription exists for endpoint 'https://example.com/hook'"
-    when: "a consumer creates a subscription for events ['order.created']"
-    then: "SubscriptionCreated is emitted and the endpoint will receive matching events"
-  - id: SCN-002
-    title: "Successful delivery emits DeliverySucceeded with HMAC verified"
-    requirement: REQ-002
+    seed: true
+    target: "features/webhooks/creating_a_subscription_emits_subscriptioncreated.feature"
+    template: "templates/features/creating_a_subscription_emits_subscriptioncreated.feature.tpl"
+    feature: "Creating a subscription emits SubscriptionCreated"
+    scenario: "Creating a subscription emits SubscriptionCreated"
+    status: "Draft"
+  - id: "SCN-002"
+    requirement_id: REQ-002
     use_case: UC-002
-    given: "an active subscription with secret 's3cr3t'"
-    when: "an event 'order.created' is dispatched and the endpoint returns 200"
-    then: "DeliverySucceeded is emitted with attempts=1"
-  - id: SCN-003
-    title: "After 5 failed retries the subscription is paused"
-    requirement: REQ-004
+    seed: true
+    target: "features/webhooks/successful_delivery_emits_deliverysucceeded_with_hmac_verifi.feature"
+    template: "templates/features/successful_delivery_emits_deliverysucceeded_with_hmac_verifi.feature.tpl"
+    feature: "Successful delivery emits DeliverySucceeded with HMAC verified"
+    scenario: "Successful delivery emits DeliverySucceeded with HMAC verified"
+    status: "Draft"
+  - id: "SCN-003"
+    requirement_id: REQ-004
     use_case: UC-004
-    given: "a subscription with 4 prior consecutive delivery failures"
-    when: "a 5th delivery attempt fails"
-    then: "SubscriptionPaused is emitted and no further deliveries are attempted"
+    seed: true
+    target: "features/webhooks/after_5_failed_retries_the_subscription_is_paused.feature"
+    template: "templates/features/after_5_failed_retries_the_subscription_is_paused.feature.tpl"
+    feature: "After 5 failed retries the subscription is paused"
+    scenario: "After 5 failed retries the subscription is paused"
+    status: "Draft"

@@ -1,6 +1,4 @@
-# yaml-language-server: $schema=../../../schemas/pack.schema.json
-schema_version: "1.1.0"
-
+schema_version: "1.3.0"
 metadata:
   name: "Feature Flags Backend Domain Pack"
   version: "0.1.0"
@@ -69,6 +67,20 @@ use_cases:
     requirement: REQ-004
     command: PublishFlagChangeCommand
 
+commands:
+  - id: CMD-001
+    name: DefineFlagCommand
+    use_case: UC-001
+  - id: CMD-002
+    name: EvaluateFlagCommand
+    use_case: UC-002
+  - id: CMD-003
+    name: ToggleFlagCommand
+    use_case: UC-003
+  - id: CMD-004
+    name: PublishFlagChangeCommand
+    use_case: UC-004
+
 aggregates:
   - id: AGG-001
     name: FeatureFlag
@@ -98,13 +110,11 @@ events:
     payload: [flagId: string, userId: string, env: string, value: bool, evaluatedAt: datetime]
 
 outputs:
-  features:
-    - features/feature-flags/define.feature
-    - features/feature-flags/evaluate.feature
-    - features/feature-flags/toggle.feature
-  diagrams: []
+  files:
+    - target: "docs/specs/capabilities/feature-flags.md"
+      template: "templates/capability.md.tpl"
 
-rules:
+business_rules:
   - id: RUL-001
     title: "Flag identifiers are immutable once published"
     context: BC-001
@@ -114,18 +124,28 @@ rules:
     context: BC-001
     description: "Audit trail must explain operational changes."
 
+rules:
+  traceability:
+    target: "docs/specs/traceability.md"
+    include_existing_rows: true
+    default_status: Draft
+
 scenarios:
-  - id: SCN-001
-    title: "Defining a flag emits FlagDefined"
-    requirement: REQ-001
+  - id: "SCN-001"
+    requirement_id: REQ-001
     use_case: UC-001
-    given: "no flag with id 'new-checkout' exists"
-    when: "an operator defines the flag with default=false"
-    then: "FlagDefined is emitted"
-  - id: SCN-002
-    title: "Evaluation respects rollout percentage"
-    requirement: REQ-002
+    seed: true
+    target: "features/feature-flags/defining_a_flag_emits_flagdefined.feature"
+    template: "templates/features/defining_a_flag_emits_flagdefined.feature.tpl"
+    feature: "Defining a flag emits FlagDefined"
+    scenario: "Defining a flag emits FlagDefined"
+    status: "Draft"
+  - id: "SCN-002"
+    requirement_id: REQ-002
     use_case: UC-002
-    given: "a flag with 50% rollout in production"
-    when: "100 users are evaluated"
-    then: "approximately half receive value=true"
+    seed: true
+    target: "features/feature-flags/evaluation_respects_rollout_percentage.feature"
+    template: "templates/features/evaluation_respects_rollout_percentage.feature.tpl"
+    feature: "Evaluation respects rollout percentage"
+    scenario: "Evaluation respects rollout percentage"
+    status: "Draft"

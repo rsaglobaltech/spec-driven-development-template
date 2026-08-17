@@ -1,6 +1,4 @@
-# yaml-language-server: $schema=../../../schemas/pack.schema.json
-schema_version: "1.1.0"
-
+schema_version: "1.3.0"
 metadata:
   name: "Search Backend Domain Pack"
   version: "0.1.0"
@@ -71,6 +69,20 @@ use_cases:
     requirement: REQ-004
     command: ReindexDatasetCommand
 
+commands:
+  - id: CMD-001
+    name: IndexDocumentCommand
+    use_case: UC-001
+  - id: CMD-002
+    name: ExecuteSearchCommand
+    use_case: UC-002
+  - id: CMD-003
+    name: ApplyFiltersCommand
+    use_case: UC-003
+  - id: CMD-004
+    name: ReindexDatasetCommand
+    use_case: UC-004
+
 aggregates:
   - id: AGG-001
     name: SearchIndex
@@ -121,14 +133,11 @@ events:
       - executedAt: datetime
 
 outputs:
-  features:
-    - features/search/index.feature
-    - features/search/query.feature
-    - features/search/filters.feature
-    - features/search/reindex.feature
-  diagrams: []
+  files:
+    - target: "docs/specs/capabilities/search.md"
+      template: "templates/capability.md.tpl"
 
-rules:
+business_rules:
   - id: RUL-001
     title: "Indexing failures are retried with exponential backoff"
     context: BC-001
@@ -138,25 +147,37 @@ rules:
     context: BC-002
     description: "Search that exceeds this budget triggers paging or pre-aggregation."
 
+rules:
+  traceability:
+    target: "docs/specs/traceability.md"
+    include_existing_rows: true
+    default_status: Draft
+
 scenarios:
-  - id: SCN-001
-    title: "Indexing a new document makes it searchable"
-    requirement: REQ-001
+  - id: "SCN-001"
+    requirement_id: REQ-001
     use_case: UC-001
-    given: "a document is created in the source-of-truth store"
-    when: "the indexer processes the create event"
-    then: "DocumentIndexed is emitted and the document is returned for matching queries"
-  - id: SCN-002
-    title: "Full-text query returns ranked results"
-    requirement: REQ-002
+    seed: true
+    target: "features/search/indexing_a_new_document_makes_it_searchable.feature"
+    template: "templates/features/indexing_a_new_document_makes_it_searchable.feature.tpl"
+    feature: "Indexing a new document makes it searchable"
+    scenario: "Indexing a new document makes it searchable"
+    status: "Draft"
+  - id: "SCN-002"
+    requirement_id: REQ-002
     use_case: UC-002
-    given: "the index contains 10 documents containing 'invoice'"
-    when: "a user searches for 'invoice'"
-    then: "SearchExecuted is emitted and the top 10 results are returned by relevance"
-  - id: SCN-003
-    title: "Reindex restores a corrupted index"
-    requirement: REQ-004
+    seed: true
+    target: "features/search/full_text_query_returns_ranked_results.feature"
+    template: "templates/features/full_text_query_returns_ranked_results.feature.tpl"
+    feature: "Full-text query returns ranked results"
+    scenario: "Full-text query returns ranked results"
+    status: "Draft"
+  - id: "SCN-003"
+    requirement_id: REQ-004
     use_case: UC-004
-    given: "an index has missing documents"
-    when: "an admin triggers a reindex of the source dataset"
-    then: "ReindexCompleted is emitted and all expected documents are searchable"
+    seed: true
+    target: "features/search/reindex_restores_a_corrupted_index.feature"
+    template: "templates/features/reindex_restores_a_corrupted_index.feature.tpl"
+    feature: "Reindex restores a corrupted index"
+    scenario: "Reindex restores a corrupted index"
+    status: "Draft"
