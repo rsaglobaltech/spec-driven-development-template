@@ -9,6 +9,25 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ### ⚠️ Breaking
 
+- **`plan --json` and `report --json` now use camelCase inside `requirements`.**
+  `0.2.0` announced the camelCase rename as a breaking change and applied it to
+  the top-level keys only. The nested `requirements` array — the one array an
+  agent actually iterates — kept `scenario_id`, `feature_file`,
+  `technical_artifact`, `test_artifact`, `feature_exists`, `technical_exists`
+  and `test_exists`. They are now `scenarioId`, `featureFile`,
+  `technicalArtifact`, `testArtifact`, `featureExists`, `technicalExists` and
+  `testExists`.
+
+  Half-applied was the worst of the three options: the contract document said
+  camelCase, the output disagreed, and nothing failed. The row objects keep
+  snake_case internally — that is the matrix's own column vocabulary — so the
+  rename happens at the emit boundary only.
+
+  `summary` and `byCategory` are still keyed by the category enum
+  (`NEEDS_IMPLEMENTATION` and friends). Those are values, not field names.
+
+### Changed
+
 - **One pack format, with `schemas/pack.schema.json` as its authority**
   ([ADR-0020](docs/specs/adr/0020-pack-format-standard.md)). The schema, the
   validator, the installer, `pack init` and every shipped pack had drifted into
@@ -28,25 +47,29 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   - **`contracts` is a supported project type.** It was in the schema and in
     `pack init` while the installer rejected it outright.
 
-  Packs on the old shape need migrating; the eleven in this repository already
-  are, and `pack lint` now reports precisely what is wrong.
+  **No pack that ever installed stops installing.** Every change is a
+  relaxation or an addition: the scenario rules got looser, `business_rules`
+  and `contracts` are new, and `outputs.features` was never implemented by
+  anything. Verified against eight packs authored outside this repository, all
+  on `schema_version` 1.1.0 — every one still installs untouched. What needs
+  migrating is the shape that never worked, and `pack lint` now names exactly
+  what is wrong with it.
 
-- **`plan --json` and `report --json` now use camelCase inside `requirements`.**
-  `0.2.0` announced the camelCase rename as a breaking change and applied it to
-  the top-level keys only. The nested `requirements` array — the one array an
-  agent actually iterates — kept `scenario_id`, `feature_file`,
-  `technical_artifact`, `test_artifact`, `feature_exists`, `technical_exists`
-  and `test_exists`. They are now `scenarioId`, `featureFile`,
-  `technicalArtifact`, `testArtifact`, `featureExists`, `technicalExists` and
-  `testExists`.
 
-  Half-applied was the worst of the three options: the contract document said
-  camelCase, the output disagreed, and nothing failed. The row objects keep
-  snake_case internally — that is the matrix's own column vocabulary — so the
-  rename happens at the emit boundary only.
+- **The CLI is called `csda` in every place it is a command.** The package
+  ships two binaries — `create-spec-driven-app` and the `csda` alias — and the
+  two were used interchangeably, so the same command appeared under different
+  names depending on which guide or which `--help` you landed on. 92
+  occurrences across 38 files now use the alias: usage strings, docblocks,
+  guides, templates and the landing page.
 
-  `summary` and `byCategory` are still keyed by the category enum
-  (`NEEDS_IMPLEMENTATION` and friends). Those are values, not field names.
+  **Nothing about invocation changed.** Both binaries still work, and the
+  bootstrap line is deliberately untouched: `npx create-spec-driven-app@latest`
+  runs before anything is installed, at which point `csda` does not yet exist.
+  npm links, the package name and file paths keep the long name too, as does
+  `completion`, which registers both binaries on purpose.
+
+  A guard scans the docs and sources so it cannot drift back.
 
 ### Added
 
@@ -120,23 +143,6 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   than rejecting it: the caller believes it received a document. Empty matrix
   cells (`-`, `TBD`) now emit as `null` rather than as strings an agent would
   mistake for paths.
-
-### Changed
-
-- **The CLI is called `csda` in every place it is a command.** The package
-  ships two binaries — `create-spec-driven-app` and the `csda` alias — and the
-  two were used interchangeably, so the same command appeared under different
-  names depending on which guide or which `--help` you landed on. 92
-  occurrences across 38 files now use the alias: usage strings, docblocks,
-  guides, templates and the landing page.
-
-  **Nothing about invocation changed.** Both binaries still work, and the
-  bootstrap line is deliberately untouched: `npx create-spec-driven-app@latest`
-  runs before anything is installed, at which point `csda` does not yet exist.
-  npm links, the package name and file paths keep the long name too, as does
-  `completion`, which registers both binaries on purpose.
-
-  A guard scans the docs and sources so it cannot drift back.
 
 ## [0.2.1] — 2026-08-16
 
