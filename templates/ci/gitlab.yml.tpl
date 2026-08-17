@@ -2,7 +2,7 @@
 # Spec-Driven Development gate for GitLab CI. If your project already has a
 # .gitlab-ci.yml, paste the `spec-gate` job into it instead.
 spec-gate:
-  image: node:20
+  image: node:22
   stage: test
   script:
     - npx create-spec-driven-app@{{CSDA_VERSION}} validate . --strict-tdd

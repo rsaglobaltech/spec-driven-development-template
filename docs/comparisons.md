@@ -128,7 +128,7 @@ adopt ours and regret it.
 | **Cursor-only team, no portability concern** | Our CLI duplicates what `.cursorrules` already does for them | Stick with Cursor rules |
 | **Already on GitHub `spec-kit` for 6+ months** | Switching cost > marginal feature gap | Wait for `spec-kit` to add DDD/JSON-Schema; we'll re-publish this page |
 | **Front-end-only project with no domain logic** | DDD vocabulary feels heavy | Use `--type frontend` (lighter) but consider plain templates |
-| **Highly conservative shop, no Node.js allowed** | We require Node ≥ 20 at runtime | Run the published Docker image, or the Maven / Gradle plugin, which launch the CLI for you |
+| **Highly conservative shop, no Node.js allowed** | We require Node ≥ 22 at runtime | Run the published Docker image, or the Maven / Gradle plugin, which launch the CLI for you |
 | **You hate YAML** | Pack format is YAML | We won't ship JSON/TOML packs in 0.x; revisit in 1.0 |
 
 ---

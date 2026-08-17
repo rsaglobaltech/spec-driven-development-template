@@ -9,16 +9,6 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
-    ignore:
-      # Majors blocked on a platform decision, not on the bump itself. Each
-      # entry states what would unblock it; drop the entry when that happens.
-      #
-      # cucumber 13 declares `engines.node: 22 || 24 || >=26`. We declare
-      # `>=20` and the CI matrix runs Node 20, so BDD fails on every runner.
-      # Unblocked by raising the floor to Node 22 — a contributor-facing
-      # change only, since cucumber is a devDependency end users never install.
-      - dependency-name: '@cucumber/cucumber'
-        update-types: [version-update:semver-major]
     groups:
       # Packages that must move together. `@eslint/js` alone jumping to 10
       # while `eslint` stayed at 9 produced a peer conflict that broke

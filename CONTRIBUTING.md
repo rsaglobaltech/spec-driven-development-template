@@ -27,7 +27,7 @@ npm install
 npm run build
 ```
 
-**Prerequisites:** Node.js ≥ 20. Nothing else — the CLI has zero runtime
+**Prerequisites:** Node.js ≥ 22. Nothing else — the CLI has zero runtime
 dependencies. The tests run against the compiled output in `dist/`, so
 `npm run build` (or any `npm test`, which builds first) has to happen before
 you can invoke `bin/create-spec-driven-app.js`.
@@ -126,10 +126,10 @@ Before requesting a review, confirm:
 | Check | What it guards |
 | --- | --- |
 | `Lint and format` | typecheck, ESLint, Prettier, ShellCheck, and the agent-contract staleness check |
-| `Test (<os> / Node <version>)`, six jobs | the full suite — unit, BDD, E2E — across ubuntu, macos and windows on Node 20 and 22. Node 20 is the floor `package.json` declares; windows is where path handling breaks first |
+| `Test (<os> / Node <version>)`, six jobs | the full suite — unit, BDD, E2E — across ubuntu, macos and windows on Node 22 and 24: the floor `package.json` declares and the current LTS. Windows is where path handling breaks first |
 | `Maven plugin` · `Gradle plugin` | the Java surface, which the Node suite never touches |
 | `Package` | `npm pack` produces a usable tarball |
-| `npm audit` · `CodeQL` | a devDependency runs on CI with a publish token in scope |
+| `npm audit` · `CodeQL` · `SBOM and licences` | a devDependency runs on CI with a publish token in scope, and a licence outside the allow-list is a build failure |
 
 An approving review is **not** required, and that is a deliberate consequence of
 having one maintainer rather than a statement that review does not matter — see

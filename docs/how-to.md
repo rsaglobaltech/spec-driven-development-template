@@ -2,7 +2,7 @@
 
 Task-shaped guides, each self-contained. Copy/paste should work end to end.
 
-> Prerequisites: **Node.js ≥ 20**, `git`, a shell. Every command that operates
+> Prerequisites: **Node.js ≥ 22**, `git`, a shell. Every command that operates
 > on a project accepts `--project-dir <path>` and also walks up from the current
 > directory looking for `spec.md`, `.specops.lock` or `specops.config.yaml`.
 

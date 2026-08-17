@@ -35,7 +35,7 @@ npx create-spec-driven-app@latest validate .
 npx create-spec-driven-app@latest init      # interactive wizard
 ```
 
-Requires **Node.js ≥ 20** — or none at all with the Docker image:
+Requires **Node.js ≥ 22** — or none at all with the Docker image:
 
 ```bash
 docker run --rm -v "$PWD:/workspace" ghcr.io/rsaglobaltech/csda validate . --strict-tdd

@@ -38,14 +38,17 @@ Once 1.0 ships, the intent is one supported line at a time plus the previous
 minor for six months. That is intent, not a promise, until it is written here
 without this sentence.
 
-**Node.js.** `package.json` declares `>=20` and CI tests Node 20 and 22 across
-Linux, macOS and Windows. Raising the floor is a **major** bump for the CLI,
-never a minor — an `npx` invocation that used to work and now refuses to run is
-breaking, whatever the changelog calls it.
+**Node.js.** `package.json` declares `>=22` and CI tests Node 22 and 24 across
+Linux, macOS and Windows — the floor and the current LTS, so a break at either
+end shows up. Raising the floor is **breaking** for the CLI, never a quiet
+minor: an `npx` invocation that used to work and now refuses to run is breaking,
+whatever the changelog calls it.
 
-Node 20 left LTS maintenance in April 2026, so the floor will move. Two
-devDependency majors are already parked waiting on it; see §12.7 of the closure
-plan.
+The floor moved from 20 to 22 in August 2026, because Node 20 left LTS
+maintenance that April and testing against an unsupported runtime proves
+nothing. The rule from here: **the floor is a maintained LTS.** When one leaves
+maintenance the floor moves in the next release, and the changelog says so under
+Breaking.
 
 **Docker.** Images are tagged `X.Y.Z` and `latest`, for `linux/amd64` and
 `linux/arm64`. A published tag is never rebuilt in place — `0.2.0` shipped

@@ -13,8 +13,8 @@ pool:
 steps:
   - task: NodeTool@0
     inputs:
-      versionSpec: '20.x'
-    displayName: Use Node.js 20
+      versionSpec: '22.x'
+    displayName: Use Node.js 22
 
   - script: npx create-spec-driven-app@{{CSDA_VERSION}} validate . --strict-tdd
     displayName: Validate specs (strict TDD)
