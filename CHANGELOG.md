@@ -73,6 +73,21 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ### Added
 
+- **`agent_profile` in `harness.config.yaml`**, resolved from
+  `.harness/profiles.yaml`. A team commits the agent commands it uses — local,
+  CI, a different vendor — and each environment picks one by name, instead of
+  committing a single default somebody pays for by accident. An explicit
+  `agent:` wins over a profile.
+
+  It comes from a real pilot that was already configured this way: the file
+  declared `agent_profile: local-claude` with a matching `profiles.yaml`, the
+  CLI read neither, and `harness run` reported "No agent configured" while the
+  config plainly declared one.
+
+- **An unknown key in `harness.config.yaml` is now an error.** That silent
+  shrug is what let the above go unnoticed. A key nobody reads is worse than a
+  missing one, because the file looks configured.
+
 - **`csda harness init`** — scaffolds `harness.config.yaml` and
   `.harness/prompt-prefix.md`. The config was documented in the tutorial and
   named in `harness run`'s own error message long before anything created it,

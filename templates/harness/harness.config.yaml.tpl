@@ -19,6 +19,21 @@ harness_version: 1
 # agent: "cursor-agent -p < {prompt_file}"
 # agent: "aider --yes --message-file {prompt_file}"
 
+# Or name a profile from .harness/profiles.yaml, so the team commits the
+# commands it uses and each environment picks one:
+#
+#   agent_profile: local-claude
+#
+#   # .harness/profiles.yaml
+#   profiles_version: 1
+#   profiles:
+#     local-claude:
+#       agent: "claude -p < {prompt_file}"
+#     ci:
+#       agent: "aider --yes --message-file {prompt_file}"
+#
+# An explicit `agent:` wins over a profile.
+
 # An *additional* gate, on top of the `validate --strict-tdd` the harness always
 # runs. Left commented out when no build file gave it away — an unset key is
 # safe, whereas a placeholder that exits 0 would be a gate that always passes.

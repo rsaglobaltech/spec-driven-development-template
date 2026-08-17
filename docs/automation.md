@@ -69,6 +69,41 @@ Settings:
 
 ---
 
+## Configure the harness
+
+```bash
+csda harness init
+```
+
+Writes `harness.config.yaml` and `.harness/prompt-prefix.md`, detects the gate
+from your build files, and leaves `agent:` unset — which agent runs the loop is
+your choice and your credentials.
+
+Name the agent when you run it:
+
+```bash
+csda harness run --req REQ-001 --agent "claude -p < {prompt_file}"
+```
+
+Or commit the commands your team uses and pick one by name:
+
+```yaml
+# harness.config.yaml
+agent_profile: local-claude
+
+# .harness/profiles.yaml
+profiles_version: 1
+profiles:
+  local-claude:
+    agent: "claude -p < {prompt_file}"
+  ci:
+    agent: "aider --yes --message-file {prompt_file}"
+```
+
+An explicit `agent:` wins over a profile, and an unknown key in
+`harness.config.yaml` is an error rather than a shrug — a key nobody reads is
+worse than a missing one, because the file looks configured.
+
 ## Wire `validate` into a pre-commit hook
 
 **Goal:** block commits that drop a `REQ` without a `.feature` or a `traceability.md` row before they ever leave the developer's machine.
