@@ -5,6 +5,21 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
+## [Unreleased]
+
+### Fixed
+
+- **A failing `harness run` told you nothing you could act on.** The gate's full
+  output — the assertion, the file, the line — was captured and then reduced to
+  its first line by the report, so a failure read `Gate failed at: test command`
+  and stopped there. With the worktree removed by default, there was nothing
+  left to inspect either.
+
+  The report now prints the tail of the gate output, where runners put the
+  actual failure, and names the two flags that give more: `--format json` for
+  everything, `--keep-worktrees` to reproduce it. Found by running REQ-002 and
+  being unable to tell why it had failed.
+
 ## [0.5.0] — 2026-08-17
 
 ### Fixed

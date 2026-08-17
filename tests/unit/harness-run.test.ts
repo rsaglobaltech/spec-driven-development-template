@@ -10,6 +10,7 @@ const {
   parseArgs,
   substituteAgentCommand,
   substituteGateCommand,
+  printReport,
 } = require("../../scripts/harness/run");
 const { buildPrompt } = require("../../scripts/harness/prompt");
 const { readHarnessConfig, resolveHarnessSettings } = require("../../scripts/harness/config");
@@ -549,4 +550,92 @@ test("an anchor in the feature cell is dropped, since it is not a path", () => {
     featureFile: "features/a/b.feature#L12",
   });
   assert.equal(cmd, "run features/a/b.feature");
+});
+
+// ── A failing run has to be diagnosable ──────────────────────────────────────
+//
+// The gate's full output was captured into `error` and then reduced to its
+// first line by the report, so a failure read "Gate failed at: test command"
+// and nothing else. With the worktree removed by default, that left nothing to
+// act on — found by running REQ-002 and being unable to tell why it failed.
+
+function captureReport(results, format = "text") {
+  const written: string[] = [];
+  const original = process.stdout.write;
+  (process.stdout as any).write = (chunk) => {
+    written.push(String(chunk));
+    return true;
+  };
+  try {
+    printReport(results, format);
+  } finally {
+    (process.stdout as any).write = original;
+  }
+  return written.join("");
+}
+
+test("a failing requirement shows the gate output, not just its first line", () => {
+  const out = captureReport([
+    {
+      requirement: "REQ-002",
+      result: "fail",
+      attempts: 2,
+      branch: "harness/REQ-002",
+      error:
+        "Gate failed at: test command\n\n" +
+        "> csda-studio-app@0.1.0 test:e2e\n" +
+        "AssertionError: expected 'Required field id missing' to equal ''\n" +
+        "    at World.<anonymous> (features/step_definitions/validate_schema.steps.ts:31:12)\n" +
+        "1 scenario (1 failed)\n",
+    },
+  ]);
+  assert.match(out, /Gate failed at: test command/);
+  assert.match(out, /AssertionError/, "the actual failure must reach the report");
+  assert.match(out, /validate_schema\.steps\.ts/, "so must the file that failed");
+  assert.match(out, /1 scenario \(1 failed\)/);
+});
+
+test("the failure block points at the flags that give more", () => {
+  const out = captureReport([
+    {
+      requirement: "REQ-002",
+      result: "fail",
+      attempts: 1,
+      branch: "harness/REQ-002",
+      error: "Gate failed at: test command\n\nsomething broke\n",
+    },
+  ]);
+  assert.match(out, /--format json/);
+  assert.match(out, /--keep-worktrees/);
+});
+
+test("a passing requirement prints no failure block", () => {
+  const out = captureReport([
+    { requirement: "REQ-001", result: "pass", attempts: 1, branch: "harness/REQ-001" },
+  ]);
+  assert.doesNotMatch(out, /keep-worktrees/);
+  assert.match(out, /✅ REQ-001/);
+});
+
+test("a single-line error prints without an empty tail or a dangling hint", () => {
+  const out = captureReport([
+    {
+      requirement: "REQ-003",
+      result: "skipped",
+      attempts: 0,
+      branch: "harness/REQ-003",
+      error: "Branch harness/REQ-003 already exists. Re-run with --force to recreate it.",
+    },
+  ]);
+  assert.match(out, /already exists/);
+  assert.doesNotMatch(out, /full output/, "no hint when there is nothing more to show");
+});
+
+test("json keeps the whole error, since that is what a machine reads", () => {
+  const error = "Gate failed at: test command\n\nline one\nline two\n";
+  const out = captureReport(
+    [{ requirement: "REQ-002", result: "fail", attempts: 1, branch: "b", error }],
+    "json"
+  );
+  assert.equal(JSON.parse(out).results[0].error, error);
 });

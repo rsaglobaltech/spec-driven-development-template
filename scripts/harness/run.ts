@@ -463,6 +463,15 @@ function publishBranch(projectDir, branch, req, settings) {
   return published;
 }
 
+/**
+ * How much of a failing gate's output the text report shows.
+ *
+ * Runners put the useful part at the end, so the tail is what a human needs.
+ * Twenty lines is enough for a failing assertion with its stack, and short
+ * enough that ten failed requirements do not bury the summary.
+ */
+const FAILURE_TAIL_LINES = 20;
+
 function printReport(results, format) {
   if (format === "json") {
     const summary = results.reduce((acc, r) => {
@@ -482,8 +491,22 @@ function printReport(results, format) {
       `  ${icon} ${r.requirement}  ${r.result} (${r.attempts} attempt${r.attempts === 1 ? "" : "s"})  → ${r.branch}\n`
     );
     if (r.result !== "pass" && r.error) {
-      const firstLine = String(r.error).split("\n")[0];
-      process.stdout.write(`       ${firstLine}\n`);
+      // The full gate output — the test failure that explains *why* — was
+      // captured and then thrown away here, leaving "Gate failed at: test
+      // command" and nothing to act on. With the worktree removed by default,
+      // that made a failed run undiagnosable. Show the tail, where runners put
+      // the actual failure, and name the two flags that give more.
+      const lines = String(r.error).split("\n");
+      const head = lines[0];
+      const tail = lines
+        .slice(1)
+        .filter((l) => l.trim() !== "")
+        .slice(-FAILURE_TAIL_LINES);
+      process.stdout.write(`       ${head}\n`);
+      for (const line of tail) process.stdout.write(`       │ ${line}\n`);
+      if (tail.length > 0) {
+        process.stdout.write("       └ full output: --format json · reproduce: --keep-worktrees\n");
+      }
     }
     if (r.pushed) {
       process.stdout.write(
