@@ -563,6 +563,31 @@ corren en CI; Dependabot cubre npm, actions, Maven y Gradle.
 | C7-08 | `[-]` | npm: `@spec-driven/mcp-server` |
 | C7-09 | `[-]` | Desplegar el registry en `packs.spec-driven.dev`: dominio + Pages/Cloudflare |
 
+### 10.5 Release 0.4.0 (2026-08-17) — el suelo a Node 22
+
+Un solo cambio, publicado solo. El motivo de no esperar a juntarlo con otra cosa
+es concreto: **0.3.0 declaraba `>=20` en npm y CI había dejado de probar Node
+20**. Eso deja una promesa sin verificar en `latest`, y solo hay dos salidas
+honestas — publicar, o devolver Node 20 a la matriz.
+
+| Artefacto | Estado |
+|---|---|
+| npm `create-spec-driven-app@0.4.0` | `latest`, `engines: >=22`, procedencia SLSA |
+| `ghcr.io/rsaglobaltech/csda:0.4.0` | multi-arch, **Node 22 dentro** de la imagen |
+
+Verificada desde el registro público: `npx` genera y valida un proyecto.
+
+**Lo que casi bloqueó todo sin fallar:** la protección de rama exigía
+`Test (… / Node 20)` tres veces, y esos jobs dejaron de existir al mover la
+matriz. Contextos obligatorios que nunca pueden reportar **congelan** cada PR en
+vez de fallar a la vista. Repuntada a los jobs reales, y de paso
+`SBOM and licences` pasó a obligatorio: llevaba corriendo sin estar exigido.
+
+**Una release de un solo tema sale gratis en atribución.** Es lo contrario de
+0.3.0, que llevaba 34 commits porque acumuló tres meses de retraso.
+
+---
+
 ### 10.4 Release 0.3.0 (2026-08-17)
 
 Publicada con luz verde explícita. 34 commits desde 0.2.1 que nadie tenía.
@@ -1093,6 +1118,7 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | 2026-08-16 | La recuperación (C0-11) puentea estilos en vez de unificarlos | 11 líneas de `require()` en la frontera contra un refactor de 64 ficheros. La mezcla ESM/CommonJS es cosmética: `tsc` con `module: commonjs` compila ambas |
 | 2026-08-16 | Los 10 PRs de Dependabot: 6 mergeados, 4 cerrados con motivo (D7) | 6 verdes tras correr la suite; 2 cerrados por config equivocada (`typescript` y `@eslint/js` fuera de su grupo, arreglado en `dependabot.yml`) y 2 por suelo de plataforma (§12.7). Cero PRs abiertos |
 | 2026-08-16 | `js-yaml` 4 → 5 se mergea pese a ser major (D8) | js-yaml 5 pasa a YAML 1.2, donde `yes`/`no`/`on`/`off` dejan de ser booleanos. Los tres sitios de producción pasan `{ json: true }`, que ya forzaba esquema JSON, así que el cambio no les afecta. Comprobado ejecutando ambas versiones sobre el mismo documento: salida idéntica, y coincide con `parseYamlLite` del propio CLI |
+| 2026-08-17 | Suelo a **Node 22** y **0.4.0 publicada** (D11) | Node 20 salió de LTS en abril, así que la matriz probaba un runtime sin soporte. Se publicó sola y de inmediato porque 0.3.0 declaraba `>=20` mientras CI ya no lo cubría: una promesa sin verificar en `latest`. Desbloquea `cucumber 13`. Política escrita: el suelo es una LTS mantenida |
 | 2026-08-17 | **0.3.0 publicada** (D10) | 34 commits sin publicar desde 0.2.1, con media release ausente del CHANGELOG. npm `latest` = 0.3.0 con procedencia SLSA, `ghcr.io/rsaglobaltech/csda:0.3.0` multi-arch, notas de release escritas. Verificada desde cero con `npx create-spec-driven-app@0.3.0` generando un proyecto móvil |
 | 2026-08-17 | Publicar plugins Maven/Gradle, la extensión de VS Code, el scope npm y el registry queda **aplazado** (D9) | No es prioridad ahora. No bloquea nada: el CLI ya está en npm y la imagen en ghcr, que son las dos vías reales. Marcadas `[-]` con motivo, no descartadas — ver §12.8 |
 | 2026-08-16 | Los refactors `import/export` y `strict mode` no se mergean | 96 ficheros entre los dos, todos tocados también por el merge enterprise. Sin valor para el usuario y con coste de conflicto alto. Si se quieren, son tarea propia sobre `main` |
