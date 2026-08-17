@@ -666,22 +666,25 @@ test(
     );
     assert.match(trace.stdout, /REQ-001 \|.*\| Implemented \|/);
 
-    // The main working tree is untouched *aside from* the audit-log copy of
-    // the agent's prompt under .specops/harness-prompts/ (intentional, see
-    // scripts/harness/run.ts).
+    // The main working tree is untouched — completely. The prompt archive used
+    // to be written here, which left the tree dirty and blocked the next run,
+    // since the harness refuses to start on a dirty tree.
     const status = spawnSync("git", ["-C", projectDir, "status", "--porcelain"], {
       encoding: "utf8",
     }).stdout.trim();
-    const nonAudit = status
-      .split("\n")
-      .filter((l) => l && !l.includes(".specops/"))
-      .join("\n");
-    assert.equal(nonAudit, "");
-    // The prompt was archived for review.
-    const archive = fs.readdirSync(path.join(projectDir, ".specops", "harness-prompts"));
-    assert.ok(
-      archive.some((name) => name.startsWith("REQ-001-")),
-      "prompt should be archived under .specops/harness-prompts/"
+    assert.equal(status, "", "the harness must leave the project tree clean");
+
+    // The prompt is archived in the branch, so it arrives in the diff a
+    // reviewer reads rather than in a directory only the operator sees.
+    const archived = spawnSync(
+      "git",
+      ["-C", projectDir, "ls-tree", "-r", "--name-only", "harness/REQ-001"],
+      { encoding: "utf8" }
+    ).stdout;
+    assert.match(
+      archived,
+      /\.specops\/harness-prompts\/REQ-001-/,
+      "the prompt should be committed on the branch under review"
     );
 
     fs.rmSync(tempRoot, { recursive: true, force: true });
