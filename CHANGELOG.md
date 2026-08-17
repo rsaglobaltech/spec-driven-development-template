@@ -9,6 +9,30 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ### Fixed
 
+- **A failed run destroyed the agent's work.** The gate failing meant `continue`,
+  and the worktree was deleted at the end — so the branch came back identical to
+  its base and there was nothing to review. Diagnosing a failure cost a second
+  full agent run with `--keep-worktrees`, fifteen minutes to recover what the
+  first run already had.
+
+  The attempt is now committed on the branch with a `wip(REQ-NNN): FAILED the
+  gate — do not merge as is` subject. The requirement stays `Draft`, because
+  `csda done` never ran, so nothing about the matrix claims the work is good. A
+  human reads it and decides; git just stops throwing it away. The report says
+  whether the work was preserved, and distinguishes that from an agent that
+  produced no files at all — one is a code problem, the other a prompt or
+  permissions problem.
+
+- **A failing gate did not say which command it ran.** A gate that silently does
+  the wrong thing — running a whole suite because a filter did not apply — fails
+  identically to a real failure. That cost two agent runs to explain on REQ-002,
+  where the work was correct and the gate rejected it.
+
+- **The default `--timeout` is 1200s, up from 600.** Both real runs disproved the
+  old value: the first REQ-001 attempt hit 900s while the agent installed
+  dependencies and worked. A default that times out on ordinary work makes every
+  first attempt a wasted one.
+
 - **A failing `harness run` told you nothing you could act on.** The gate's full
   output — the assertion, the file, the line — was captured and then reduced to
   its first line by the report, so a failure read `Gate failed at: test command`

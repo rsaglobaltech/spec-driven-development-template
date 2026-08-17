@@ -22,7 +22,8 @@ test("parseArgs has sane defaults", () => {
   assert.equal(a.projectDir, ".");
   assert.equal(a.agent, "");
   assert.equal(a.maxAttempts, 0);
-  assert.equal(a.timeout, 600);
+  // Asserted in one place only, below, next to the reason it is 1200.
+  assert.equal(a.timeout, 1200);
   assert.equal(a.format, "text");
   assert.equal(a.dryRun, false);
   assert.deepEqual(a.reqs, []);
@@ -638,4 +639,71 @@ test("json keeps the whole error, since that is what a machine reads", () => {
     "json"
   );
   assert.equal(JSON.parse(out).results[0].error, error);
+});
+
+// ── A failed run has to leave something behind ───────────────────────────────
+
+test("the default timeout reflects what a real agent needs", () => {
+  // 600 was a guess and both real runs disproved it: the first REQ-001 attempt
+  // hit 900s while the agent installed dependencies and worked. A default that
+  // times out on ordinary work makes every first attempt a wasted one.
+  assert.equal(parseArgs([]).timeout, 1200);
+});
+
+test("the report says where a failed attempt was preserved", () => {
+  const out = captureReport([
+    {
+      requirement: "REQ-002",
+      result: "fail",
+      attempts: 2,
+      branch: "harness/REQ-002",
+      error: "Gate failed at: test command\n\nassertion blew up\n",
+      workPreserved: true,
+    },
+  ]);
+  assert.match(out, /committed on harness\/REQ-002/);
+});
+
+test("the report distinguishes a failing agent from an idle one", () => {
+  // "produced no files" and "produced broken files" need different responses:
+  // one is a prompt or permissions problem, the other is a code problem.
+  const out = captureReport([
+    {
+      requirement: "REQ-002",
+      result: "fail",
+      attempts: 1,
+      branch: "harness/REQ-002",
+      error: "Gate failed at: test command\n\nnothing happened\n",
+      workPreserved: false,
+    },
+  ]);
+  assert.match(out, /produced no files/);
+  assert.doesNotMatch(out, /committed on/);
+});
+
+test("a passing requirement says nothing about preservation", () => {
+  const out = captureReport([
+    { requirement: "REQ-001", result: "pass", attempts: 1, branch: "harness/REQ-001" },
+  ]);
+  assert.doesNotMatch(out, /produced no files/);
+  assert.doesNotMatch(out, /committed on/);
+});
+
+test("the failing gate names the command it ran", () => {
+  // A gate that silently does the wrong thing — running the whole suite because
+  // a filter did not apply — fails identically to a real failure. This is what
+  // made REQ-002's false failure take two agent runs to explain.
+  const out = captureReport([
+    {
+      requirement: "REQ-002",
+      result: "fail",
+      attempts: 1,
+      branch: "harness/REQ-002",
+      error:
+        "Gate failed at: test command: npm run test:e2e -- features/pack-browsing/validate_schema.feature\n\n" +
+        "16 scenarios (13 undefined, 3 passed)\n",
+    },
+  ]);
+  assert.match(out, /test:e2e -- features\/pack-browsing\/validate_schema\.feature/);
+  assert.match(out, /16 scenarios/);
 });

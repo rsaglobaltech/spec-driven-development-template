@@ -61,7 +61,7 @@ function usage() {
       "  --req <REQ-NNN>        Limit to specific requirement(s); repeatable.\n" +
       "  --project-dir <path>   Project root (auto-detected from cwd if omitted).\n" +
       "  --base-branch <ref>    Branch/ref each worktree is cut from (default: current HEAD).\n" +
-      "  --timeout <seconds>    Per-agent-invocation timeout (default 600).\n" +
+      "  --timeout <seconds>    Per-agent-invocation timeout (default 1200).\n" +
       "  --keep-worktrees       Do not remove worktrees after each requirement.\n" +
       "  --force                Recreate harness/REQ-NNN branches that already exist.\n" +
       "  --format <text|json>   Report format (default text).\n" +
@@ -84,7 +84,11 @@ function parseArgs(argv) {
     maxAttempts: 0,
     reqs: [] as string[],
     baseBranch: "",
-    timeout: 600,
+    // 600 was the original guess. Both real runs disproved it: the first
+    // REQ-001 attempt hit 900s while the agent installed dependencies and
+    // worked, and 1500 was needed comfortably. A default that times out on
+    // ordinary work turns every first attempt into a wasted one.
+    timeout: 1200,
     keepWorktrees: false,
     force: false,
     format: "text",
@@ -239,11 +243,12 @@ function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
     return { ok: false, stage: "validate --strict-tdd", output: validate.stdout + validate.stderr };
   }
   if (testCmd) {
+    const resolved = substituteGateCommand(testCmd, req);
     // A fresh worktree carries only what git tracks, so a project with
     // dependencies has no node_modules here. Verified the hard way: an agent
     // spent its first attempt installing them and timed out. The gate command
     // is the right place to say so, since only the project knows how.
-    const test = spawnSync(substituteGateCommand(testCmd, req), {
+    const test = spawnSync(resolved, {
       shell: true,
       cwd: worktreeDir,
       encoding: "utf8",
@@ -251,7 +256,15 @@ function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
       maxBuffer: SUBPROCESS_MAX_BUFFER,
     });
     if (test.status !== 0) {
-      return { ok: false, stage: "test command", output: test.stdout + test.stderr };
+      // Name the command. A gate that silently does the wrong thing — running
+      // the whole suite because a filter did not apply, say — produces a
+      // failure indistinguishable from a real one, and the operator has no way
+      // to tell without the command in front of them.
+      return {
+        ok: false,
+        stage: `test command: ${resolved}`,
+        output: test.stdout + test.stderr,
+      };
     }
   }
   return { ok: true };
@@ -357,7 +370,48 @@ function attemptRequirement(req, ctx) {
     return { result: "pass", attempts: attempt };
   }
 
-  return { result: "fail", attempts: settings.maxAttempts, error: previousFailure };
+  // Every attempt is spent. Commit what the agent produced anyway, on the
+  // branch, before the worktree is removed.
+  //
+  // It used to be discarded: `continue` moved to the next attempt and the
+  // worktree was deleted at the end, so a failed requirement left a branch
+  // identical to its base and nothing to look at. Diagnosing a failure then
+  // cost a second full agent run with --keep-worktrees purely to see what had
+  // been written — fifteen minutes to recover information the first run had.
+  //
+  // The commit subject says it failed, and `csda done` never ran, so the
+  // requirement is still Draft in the matrix. A human decides whether the work
+  // is worth keeping; git decides nothing.
+  const preserved = preserveFailedAttempt(worktreeDir, req, previousFailure);
+
+  return {
+    result: "fail",
+    attempts: settings.maxAttempts,
+    error: previousFailure,
+    workPreserved: preserved,
+  };
+}
+
+/**
+ * Commit a failed attempt so the branch carries what the agent wrote.
+ *
+ * Returns false when there was nothing to commit — an agent that produced no
+ * files at all, which is itself worth knowing and is reported as such.
+ */
+function preserveFailedAttempt(worktreeDir, req, failure) {
+  if (isGitClean(worktreeDir)) return false;
+
+  git(worktreeDir, ["add", "-A"]);
+  const firstLine = String(failure || "").split("\n")[0] || "gate failed";
+  const commit = git(worktreeDir, [
+    "commit",
+    "-m",
+    `wip(${req.requirement}): FAILED the gate — do not merge as is\n\n` +
+      `${firstLine}\n\n` +
+      "Committed by `csda harness run` so the attempt is reviewable rather than\n" +
+      "discarded. The requirement is still Draft: `csda done` never ran.",
+  ]);
+  return commit.status === 0;
 }
 
 function processRequirement(req, ctx) {
@@ -506,6 +560,11 @@ function printReport(results, format) {
       for (const line of tail) process.stdout.write(`       │ ${line}\n`);
       if (tail.length > 0) {
         process.stdout.write("       └ full output: --format json · reproduce: --keep-worktrees\n");
+      }
+      if (r.workPreserved) {
+        process.stdout.write(`       ↳ the attempt is committed on ${r.branch} — review it\n`);
+      } else if (r.result === "fail") {
+        process.stdout.write("       ↳ the agent produced no files\n");
       }
     }
     if (r.pushed) {
