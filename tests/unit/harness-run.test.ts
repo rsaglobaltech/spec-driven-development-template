@@ -6,7 +6,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { parseArgs, substituteAgentCommand } = require("../../scripts/harness/run");
+const {
+  parseArgs,
+  substituteAgentCommand,
+  substituteGateCommand,
+} = require("../../scripts/harness/run");
 const { buildPrompt } = require("../../scripts/harness/prompt");
 const { readHarnessConfig, resolveHarnessSettings } = require("../../scripts/harness/config");
 
@@ -492,4 +496,57 @@ test("every key `harness init` generates is a key the reader accepts", () => {
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
   }
+});
+
+// ── The gate has to be able to run the scenario under test ───────────────────
+//
+// `test_cmd` was a fixed string, and the gate runs *before* `csda done`, so the
+// requirement is still Draft and `validate --strict-tdd` does not demand its
+// test either. Between the two, the loop could mark a requirement Implemented
+// with its scenario never executed — the one outcome this tool exists to
+// prevent. Substitution is what lets a project close that.
+
+test("the gate command substitutes the requirement under test", () => {
+  const cmd = substituteGateCommand(
+    "npm run verify && npm run test:e2e -- {feature_file} --tags @{req} # {scenario}",
+    {
+      requirement: "REQ-007",
+      scenarioId: "SCN-007",
+      featureFile: "`features/billing/refund.feature`",
+    }
+  );
+  // Backticks come from the matrix cell and are not part of the path.
+  assert.match(cmd, /test:e2e -- features\/billing\/refund\.feature/);
+  assert.match(cmd, /--tags @REQ-007/);
+  assert.match(cmd, /# SCN-007/);
+  assert.doesNotMatch(cmd, /`/);
+});
+
+test("the gate command accepts the matrix's snake_case spelling too", () => {
+  // Same seam as buildPrompt: `plan --format json` used snake_case before the
+  // contract was normalised, and a hand-piped older document should still work.
+  const cmd = substituteGateCommand("run {feature_file} for {scenario}", {
+    requirement: "REQ-001",
+    scenario_id: "SCN-001",
+    feature_file: "features/core/health.feature",
+  });
+  assert.equal(cmd, "run features/core/health.feature for SCN-001");
+});
+
+test("a gate command with no placeholders is passed through untouched", () => {
+  assert.equal(substituteGateCommand("mvn -B test", { requirement: "REQ-002" }), "mvn -B test");
+});
+
+test("a missing feature file substitutes empty rather than the word undefined", () => {
+  // `npm test -- undefined` would run, and fail for a reason that reads like a
+  // bug in the project rather than a gap in its matrix.
+  const cmd = substituteGateCommand("npm test -- {feature_file}", { requirement: "REQ-003" });
+  assert.equal(cmd, "npm test -- ");
+});
+
+test("an anchor in the feature cell is dropped, since it is not a path", () => {
+  const cmd = substituteGateCommand("run {feature_file}", {
+    featureFile: "features/a/b.feature#L12",
+  });
+  assert.equal(cmd, "run features/a/b.feature");
 });

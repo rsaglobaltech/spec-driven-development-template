@@ -55,6 +55,8 @@ function usage() {
       "  --agent <cmd>          Agent command; must contain the {prompt_file} placeholder.\n" +
       '                         e.g. --agent "claude -p < {prompt_file}"\n' +
       "  --test-cmd <cmd>       Project test command run as part of the gate (optional).\n" +
+      "                         Substitutes {req}, {scenario} and {feature_file}, so the\n" +
+      "                         gate can run the scenario under test.\n" +
       "  --max-attempts <n>     Retries per requirement, feeding back the failure (default 3).\n" +
       "  --req <REQ-NNN>        Limit to specific requirement(s); repeatable.\n" +
       "  --project-dir <path>   Project root (auto-detected from cwd if omitted).\n" +
@@ -200,7 +202,34 @@ function runPlan(projectDir) {
 const SUBPROCESS_MAX_BUFFER = 64 * 1024 * 1024;
 
 /** Run the gate (validate --strict-tdd, then the optional test command). */
-function runGate(worktreeDir, testCmd, timeoutMs) {
+/**
+ * Fill the placeholders a gate command may use.
+ *
+ * Without this, `test_cmd` was a fixed string, so a project could not run the
+ * scenario belonging to the requirement under test — and the gate runs *before*
+ * `done`, so the requirement is still Draft and `validate --strict-tdd` does not
+ * demand its test either. The loop could therefore mark a requirement
+ * Implemented without ever executing its scenario, which is the one thing this
+ * whole tool exists to prevent.
+ *
+ * `{feature_file}` is the useful one in practice: most runners accept a path and
+ * will run exactly that feature's scenarios.
+ */
+function substituteGateCommand(template, req) {
+  const featureFile = String(req.featureFile || req.feature_file || "")
+    .replace(/^`|`$/g, "")
+    .split("#")[0]
+    .trim();
+  return template
+    .split("{req}")
+    .join(req.requirement || "")
+    .split("{scenario}")
+    .join(req.scenarioId || req.scenario_id || "")
+    .split("{feature_file}")
+    .join(featureFile);
+}
+
+function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
   const validate = spawnSync(process.execPath, [VALIDATE_SCRIPT, worktreeDir, "--strict-tdd"], {
     encoding: "utf8",
     timeout: timeoutMs,
@@ -210,7 +239,11 @@ function runGate(worktreeDir, testCmd, timeoutMs) {
     return { ok: false, stage: "validate --strict-tdd", output: validate.stdout + validate.stderr };
   }
   if (testCmd) {
-    const test = spawnSync(testCmd, {
+    // A fresh worktree carries only what git tracks, so a project with
+    // dependencies has no node_modules here. Verified the hard way: an agent
+    // spent its first attempt installing them and timed out. The gate command
+    // is the right place to say so, since only the project knows how.
+    const test = spawnSync(substituteGateCommand(testCmd, req), {
       shell: true,
       cwd: worktreeDir,
       encoding: "utf8",
@@ -283,7 +316,7 @@ function attemptRequirement(req, ctx) {
       fs.rmSync(promptFile, { force: true });
     }
 
-    const gate = runGate(worktreeDir, settings.testCmd, timeoutMs);
+    const gate = runGate(worktreeDir, settings.testCmd, timeoutMs, req);
     if (!gate.ok) {
       previousFailure = `Gate failed at: ${gate.stage}\n\n${gate.output}`;
       warn(`${req.requirement}: gate failed at ${gate.stage}`);
@@ -549,4 +582,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, substituteAgentCommand, printReport };
+module.exports = { parseArgs, substituteAgentCommand, substituteGateCommand, printReport };
