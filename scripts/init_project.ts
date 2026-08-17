@@ -7,6 +7,7 @@
  *
  * Usage (via dispatcher):
  *   csda init --engine=node --config <path> --out <dir> [--force] [--dry-run] [--no-git]
+ *                                                        [--no-sample-req]
  *
  * Can also be run directly:
  *   node scripts/init_project.js --config <path> --out <dir>
@@ -36,7 +37,8 @@ function logError(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda init [--config <path>] [--out <directory>] [--yes] [--force] [--dry-run] [--no-git]\n\n" +
+      "  csda init [--config <path>] [--out <directory>] [--yes] [--force] [--dry-run]\n" +
+      "                 [--no-git] [--no-sample-req]\n\n" +
       "Options:\n" +
       "  --config <path>   Configuration file. Accepts a YAML mapping (.yaml/.yml)\n" +
       '                    or the legacy KEY="value" format (.config). When omitted,\n' +
@@ -45,12 +47,23 @@ function usage() {
       "  --yes, -y         Skip the wizard and accept every default (non-interactive)\n" +
       "  --force           Overwrite target directory if it already exists\n" +
       "  --dry-run         Print actions without writing files\n" +
-      "  --no-git          Skip git initialization\n"
+      "  --no-git          Skip git initialization\n" +
+      "  --no-sample-req   Omit the starter REQ-000 health requirement. Use when a\n" +
+      "                    domain pack will supply the real ones (implied by\n" +
+      "                    --from-pack).\n"
   );
 }
 
 function parseArgs(argv) {
-  const opts = { config: null, out: null, yes: false, force: false, dryRun: false, noGit: false };
+  const opts = {
+    config: null,
+    out: null,
+    yes: false,
+    force: false,
+    dryRun: false,
+    noGit: false,
+    noSampleReq: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--config" && argv[i + 1]) {
@@ -65,6 +78,8 @@ function parseArgs(argv) {
       opts.dryRun = true;
     } else if (a === "--no-git") {
       opts.noGit = true;
+    } else if (a === "--no-sample-req") {
+      opts.noSampleReq = true;
     } else if (a === "--help" || a === "-h") {
       usage();
       process.exit(0);
@@ -522,6 +537,41 @@ function applyRuntimeSupportFlags(projectDir, cfg, dryRun) {
   }
 }
 
+// ── Sample requirement ────────────────────────────────────────────────────────
+
+/**
+ * Drop the starter requirement the base template seeds.
+ *
+ * `init` scaffolds REQ-000 with a health scenario so a new project has one
+ * working example end to end. When a domain pack is about to be installed the
+ * pack brings its own requirements — often including its own health one — and
+ * the starter becomes a duplicate nobody asked for. `init --from-pack` knows
+ * that in advance; a plain `init` does not, which is why `doctor` reports the
+ * leftover afterwards rather than this being the only remedy.
+ *
+ * Removes the row and the feature file it points at. Leaves `features/`
+ * itself in place: the pack renders into it.
+ */
+function removeSampleRequirement(projectDir, dryRun) {
+  const traceFile = path.join(projectDir, "docs/specs/traceability.md");
+  if (fs.existsSync(traceFile)) {
+    const content = fs.readFileSync(traceFile, "utf8");
+    const kept = content
+      .split("\n")
+      .filter((line) => !/^\|\s*REQ-000\s*\|/.test(line))
+      .join("\n");
+    if (kept !== content && !dryRun) fs.writeFileSync(traceFile, kept, "utf8");
+  }
+
+  const healthFeature = path.join(projectDir, "features", "core", "health.feature");
+  if (fs.existsSync(healthFeature) && !dryRun) {
+    fs.rmSync(healthFeature);
+    const coreDir = path.dirname(healthFeature);
+    // Only if nothing else landed there — a module template may have.
+    if (fs.existsSync(coreDir) && fs.readdirSync(coreDir).length === 0) fs.rmdirSync(coreDir);
+  }
+}
+
 // ── Traceability coverage ─────────────────────────────────────────────────────
 
 function featureTitleFromPath(rel) {
@@ -626,12 +676,23 @@ async function main() {
     cfg,
     opts.dryRun
   );
-  renderTree(
-    path.join(TEMPLATES_DIR, cfg.PROJECT_TYPE, "features"),
-    path.join(projectDir, "features"),
-    cfg,
-    opts.dryRun
-  );
+  if (opts.noSampleReq) {
+    // A domain pack is about to supply the real requirements, so the starter
+    // one would be a second health requirement sitting next to the pack's own
+    // — which is what `init` + `specops add` used to produce.
+    logInfo("🧩 Skipping the sample requirement (--no-sample-req)");
+    // `features/` still has to exist: it is required structure, and the pack
+    // renders into it a moment later.
+    if (!opts.dryRun) fs.mkdirSync(path.join(projectDir, "features"), { recursive: true });
+    removeSampleRequirement(projectDir, opts.dryRun);
+  } else {
+    renderTree(
+      path.join(TEMPLATES_DIR, cfg.PROJECT_TYPE, "features"),
+      path.join(projectDir, "features"),
+      cfg,
+      opts.dryRun
+    );
+  }
 
   if (cfg.MODULES) {
     for (let mod of cfg.MODULES.split(",")) {
