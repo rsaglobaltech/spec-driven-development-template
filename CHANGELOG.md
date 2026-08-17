@@ -5,6 +5,36 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
+## [Unreleased]
+
+### Fixed
+
+- **The gate could not run the scenario it was gating.** `test_cmd` was a fixed
+  string with no substitution, and the gate runs *before* `csda done` — so the
+  requirement is still Draft and `validate --strict-tdd` does not demand its
+  test either. Between them, `harness run` could mark a requirement Implemented
+  with its scenario never executed.
+
+  Verified rather than argued, with a requirement left unimplemented:
+  `validate --strict-tdd` passed, the project's `verify` passed, and the
+  scenario was undefined. Both gate steps green on work nobody did.
+
+  The gate command now substitutes `{req}`, `{scenario}` and `{feature_file}`,
+  so a project can write
+  `test_cmd: "npm ci && npm run verify && npm run test:e2e -- {feature_file}"`.
+  With that, the same no-op agent fails at the requirement's own scenario.
+
+- **The harness blocked its own second run.** It archived each prompt into the
+  *project* directory, which left untracked files behind — and the harness
+  refuses to start on a dirty tree. The archive now goes in the worktree, where
+  `git add -A` commits it with the work, so the prompt arrives in the branch
+  under review. That is what an audit copy was for.
+
+- **A fresh worktree has no `node_modules`**, because it carries only what git
+  tracks. Not a code change but the generated `harness.config.yaml` now says so
+  and shows `npm ci &&` in front of the gate: the first real run lost an attempt
+  to a 900-second timeout while the agent installed dependencies.
+
 ## [0.4.0] — 2026-08-17
 
 ### ⚠️ Breaking

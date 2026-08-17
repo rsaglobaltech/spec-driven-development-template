@@ -276,11 +276,18 @@ function attemptRequirement(req, ctx) {
       `csda-harness-prompt-${req.requirement}-${crypto.randomBytes(4).toString("hex")}.md`
     );
     fs.writeFileSync(promptFile, prompt, "utf8");
-    // Audit copy alongside the project so reviewers can see exactly what
-    // the agent received for each attempt. Best-effort: never fail the run
-    // because of a bookkeeping write.
+    // Audit copy so a reviewer can see exactly what the agent received for
+    // each attempt. It goes in the *worktree*, not the project: `git add -A`
+    // below commits it with the work, so it arrives in the branch under review
+    // — which is the whole point — and the main tree stays clean.
+    //
+    // It used to write to the project directory, which dirtied it. The harness
+    // refuses to start on a dirty tree, so the second run was blocked by the
+    // droppings of the first.
+    //
+    // Best-effort: never fail the run because of a bookkeeping write.
     try {
-      const archiveDir = path.join(ctx.projectDir, ".specops", "harness-prompts");
+      const archiveDir = path.join(worktreeDir, ".specops", "harness-prompts");
       fs.mkdirSync(archiveDir, { recursive: true });
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
       fs.writeFileSync(
