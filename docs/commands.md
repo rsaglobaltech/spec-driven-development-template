@@ -44,7 +44,7 @@ Each command takes `--json`. See [the agent contract](specs/agent-contract.md).
 
 | Command | What it does |
 | --- | --- |
-| `csda pack init \| lint \| infer \| bundle` | Scaffold, lint (`--strict`, `--graph`), infer from a `.feature`, or export as a git bundle for air-gapped use. |
+| `csda pack init \| lint \| infer \| bundle` | Scaffold (`--type backend\|frontend\|mobile\|contracts`), lint (`--strict`, `--graph`, `--json`), infer from a `.feature`, or export as a git bundle for air-gapped use. Lint runs the installer's own validation, so passing means installable. |
 | `csda specops add \| remove` | Install or drop a pack. Writes `.specops.lock`. |
 | `csda specops sync` | Re-render locked packs, three-way merging your edits. |
 | `csda specops diff [--as-change]` | Preview a version bump — as files, or as a reviewable change proposal. |

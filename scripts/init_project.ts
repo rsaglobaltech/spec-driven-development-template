@@ -22,6 +22,14 @@ const { runInitWizard, defaultAnswers, renderConfigYaml } = require("./wizard");
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const TEMPLATES_DIR = path.join(ROOT_DIR, "templates");
 
+/**
+ * Project types `init` can scaffold. One list, because the wizard, the
+ * validator and `templates/<type>/` all have to agree — `mobile` existed as a
+ * real use case long before it was accepted here, so people declared
+ * `frontend` and the type in spec.md was simply untrue.
+ */
+const PROJECT_TYPES = ["backend", "frontend", "mobile"];
+
 function logInfo(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
 }
@@ -272,8 +280,8 @@ function validateConfig(cfg) {
   cfg.COMPOSE_DEPENDS_ON = composeDependsOn(cfg);
   cfg.COMPOSE_DB_SERVICE = composeDbService(cfg);
 
-  if (!["backend", "frontend"].includes(cfg.PROJECT_TYPE)) {
-    logError("PROJECT_TYPE must be backend or frontend");
+  if (!PROJECT_TYPES.includes(cfg.PROJECT_TYPE)) {
+    logError(`PROJECT_TYPE must be one of ${PROJECT_TYPES.join(", ")}`);
     process.exit(2);
   }
 

@@ -903,10 +903,38 @@ falla es el vocabulario y la honestidad del tipo declarado.
 
 | ID | | Tarea | Detalle |
 |---|---|---|---|
-| C75-01 | `[ ]` | `mobile` en el enum de `PROJECT_TYPE` | `scripts/init_project.ts`. Hoy solo acepta `backend\|frontend`, así que el tipo declarado en `spec.md` miente |
-| C75-02 | `[ ]` | `templates/mobile/` con su propio `AI_RULES.md.tpl` | El de frontend habla vocabulario web: *responsive behavior*, *componentization*. Lo que necesita un equipo móvil: offline-first, paridad iOS/Android, ciclo background/foreground, deep links, permisos, y que una release pasa por revisión de store — lo cual cambia qué significa «hecho». `templates/frontend/` son 2 ficheros; este será igual de pequeño |
-| C75-03 | `[ ]` | `mobile` en `schemas/pack.schema.json` y en `pack init --type` | Para que existan packs de dominio móvil |
-| C75-04 | `[ ]` | Escenario base móvil en vez del `health.feature` web | Un smoke de arranque de app, no un endpoint HTTP |
+| C75-01 | `[x]` | `mobile` en el enum de `PROJECT_TYPE` | `scripts/init_project.ts`. Hoy solo acepta `backend\|frontend`, así que el tipo declarado en `spec.md` miente |
+| C75-02 | `[x]` | `templates/mobile/` con su propio `AI_RULES.md.tpl` | El de frontend habla vocabulario web: *responsive behavior*, *componentization*. Lo que necesita un equipo móvil: offline-first, paridad iOS/Android, ciclo background/foreground, deep links, permisos, y que una release pasa por revisión de store — lo cual cambia qué significa «hecho». `templates/frontend/` son 2 ficheros; este será igual de pequeño |
+| C75-03 | `[x]` | `mobile` en `schemas/pack.schema.json` y en `pack init --type` | Para que existan packs de dominio móvil |
+| C75-04 | `[x]` | Escenario base móvil en vez del `health.feature` web | Un smoke de arranque de app, no un endpoint HTTP |
+
+**Cerrada el 2026-08-17.** `mobile` es tipo de primera clase en las cuatro
+puertas: el enum de `init`, las opciones del wizard, `pack init --type` y el
+enum del `schemas/pack.schema.json` (más el validador, que ya se alineó con el
+esquema en ADR-0020).
+
+`templates/mobile/AI_RULES.md.tpl` **no es una copia del de frontend**. Lo que
+cambia es lo que un equipo móvil se juega, y cada punto es criterio de
+aceptación, no consejo: offline como estado y no como error, que el SO puede
+matar el proceso en cualquier momento, paridad iOS/Android declarada en vez de
+supuesta, permisos como flujo **con rama de denegación**, deep links como
+puntos de entrada en frío, y que **la revisión de store es parte de «hecho»**.
+
+El escenario base pasa de «navego a la ruta `/`» a un arranque en frío que no
+requiere red.
+
+**Hay un test que fija los cuatro sitios juntos.** Un tipo aceptado por uno y
+rechazado por otro es exactamente cómo `contracts` acabó siendo generable e
+imposible de instalar; ahora eso rompe CI.
+
+**Dos tests existentes usaban `mobile` como ejemplo de tipo inválido.** Fallaron,
+con razón, y se actualizaron a `desktop`. Vale la pena notarlo: la suite tenía
+escrito «móvil no se soporta» como aserción.
+
+**No hice un cambio que parecía tocar:** el `docker-compose.yml` que se genera
+es el contenedor de *devcontainer*, no un servidor de aplicación, así que es
+legítimo para un proyecto móvil y lo controla `DOCKER_SUPPORT`. Arreglar algo
+que no está roto también es un defecto.
 
 **Ya resuelto por adelantado (fase 5):** el contrato de runtime documentaba
 Postgres para todo proyecto, incluido frontend web. Ahora hay `DATASTORE`

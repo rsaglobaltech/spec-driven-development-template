@@ -42,7 +42,8 @@ test("pack init fails without --out and without --dry-run", () => {
 });
 
 test("pack init fails with invalid --type", () => {
-  const r = cli("pack", "init", "--name", "Bad Type", "--type", "mobile", "--dry-run");
+  // `mobile` was the invalid example until it became a pack flavour.
+  const r = cli("pack", "init", "--name", "Bad Type", "--type", "desktop", "--dry-run");
   assert.notEqual(r.status, 0);
   assert.ok((r.stderr + r.stdout).includes("frontend") || (r.stderr + r.stdout).includes("type"));
 });

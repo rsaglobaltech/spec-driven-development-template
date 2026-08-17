@@ -242,7 +242,7 @@ function fail(message) {
 const PACK_SCHEMA_VERSION = "1.3.0";
 
 /** Project types a pack may target. Mirrors the enum in schemas/pack.schema.json. */
-const PACK_PROJECT_TYPES = ["backend", "frontend", "contracts"];
+const PACK_PROJECT_TYPES = ["backend", "frontend", "mobile", "contracts"];
 
 /**
  * Numeric SemVer comparison for schema versions — `a > b`.

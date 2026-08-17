@@ -39,7 +39,7 @@ const WIZARD_FIELDS = [
   {
     key: "PROJECT_TYPE",
     question: "Project type",
-    choices: ["backend", "frontend"],
+    choices: ["backend", "frontend", "mobile"],
     def: () => "backend",
   },
   {

@@ -123,7 +123,7 @@ cat > smart-parking.yaml <<'EOF'
 # Required
 PROJECT_NAME: Smart Parking
 PROJECT_SLUG: smart-parking
-PROJECT_TYPE: backend # backend | frontend
+PROJECT_TYPE: backend # backend | frontend | mobile
 DOMAIN: parking operations
 STACK: Quarkus 3.x, Java 21, PostgreSQL, RESTEasy Reactive, Maven
 API_STYLE: REST with DTO boundaries
