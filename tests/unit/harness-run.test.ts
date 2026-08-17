@@ -11,6 +11,7 @@ const {
   substituteAgentCommand,
   substituteGateCommand,
   printReport,
+  filterHint,
 } = require("../../scripts/harness/run");
 const { buildPrompt } = require("../../scripts/harness/prompt");
 const { readHarnessConfig, resolveHarnessSettings } = require("../../scripts/harness/config");
@@ -706,4 +707,52 @@ test("the failing gate names the command it ran", () => {
   ]);
   assert.match(out, /test:e2e -- features\/pack-browsing\/validate_schema\.feature/);
   assert.match(out, /16 scenarios/);
+});
+
+// ── A gate that silently ran the wrong thing ─────────────────────────────────
+
+test("filterHint fires when one feature was asked for and many ran", () => {
+  // The REQ-002 false failure: the scenario passed, the gate ran the whole
+  // suite because a `paths` key in the base branch overrode the argument, and
+  // the failure was indistinguishable from broken code.
+  const hint = filterHint(
+    "npm run test:e2e -- {feature_file}",
+    { featureFile: "features/pack-browsing/validate_schema.feature" },
+    "16 scenarios (13 undefined, 3 passed)\n"
+  );
+  assert.match(hint, /asked for one feature/);
+  assert.match(hint, /validate_schema\.feature/);
+  assert.match(hint, /16 scenarios/);
+  assert.match(hint, /base branch/, "the fix is on the base, not only on main");
+});
+
+test("filterHint stays quiet when the gate never asked to filter", () => {
+  assert.equal(filterHint("npm test", { featureFile: "a.feature" }, "16 scenarios (1 failed)"), "");
+});
+
+test("filterHint stays quiet on a genuine single-scenario failure", () => {
+  // The common case must not be second-guessed into looking like a config bug.
+  assert.equal(
+    filterHint(
+      "npm run test:e2e -- {feature_file}",
+      { featureFile: "a.feature" },
+      "1 scenario (1 failed)"
+    ),
+    ""
+  );
+});
+
+test("filterHint recognises the counts other runners print", () => {
+  for (const [out, word] of [
+    ["42 tests, 3 failures", "tests"],
+    ["7 examples, 1 failure", "examples"],
+    ["9 specs completed", "specs"],
+  ]) {
+    const hint = filterHint("run {feature_file}", { featureFile: "a.feature" }, out);
+    assert.match(hint, new RegExp(word), `should recognise "${word}"`);
+  }
+});
+
+test("filterHint needs a feature file to reason about", () => {
+  assert.equal(filterHint("run {feature_file}", {}, "16 scenarios (1 failed)"), "");
 });

@@ -22,3 +22,7 @@ packages/maven-plugin/target/
 # IDE
 .idea/
 sbom.cyclonedx.json
+# Book project — local only, never committed
+BOOK_PLAN.md
+GEMINI_BOOK_PROMPT.md
+book/

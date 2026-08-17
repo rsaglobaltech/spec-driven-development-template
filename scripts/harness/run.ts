@@ -233,6 +233,36 @@ function substituteGateCommand(template, req) {
     .join(featureFile);
 }
 
+/**
+ * Warn when a gate that asked to be filtered plainly was not.
+ *
+ * REQ-002 cost two agent runs to explain: the requirement's scenario passed, the
+ * gate ran the whole suite anyway — a `paths` key in the base branch's cucumber
+ * config silently overrode the CLI argument — and the failure was
+ * indistinguishable from the agent having written broken code.
+ *
+ * The harness cannot know how many tests *should* run. What it can notice is a
+ * command that substituted one feature file against output that talks about
+ * many, which is the shape of that mistake. A hint, not a verdict: a legitimate
+ * failure must not be second-guessed into passing.
+ */
+function filterHint(template, req, output) {
+  if (!String(template).includes("{feature_file}")) return "";
+  const featureFile = substituteGateCommand("{feature_file}", req);
+  if (!featureFile) return "";
+
+  // "16 scenarios", "42 tests", "7 examples" — the common shapes.
+  const counted = /(\d+)\s+(scenarios|tests|examples|specs)\b/i.exec(output);
+  if (!counted || Number(counted[1]) <= 1) return "";
+
+  return (
+    `The gate asked for one feature (${featureFile}) and the run reported ` +
+    `${counted[1]} ${counted[2].toLowerCase()}. The filter may not be applying — ` +
+    "a runner config that pins its own paths can override the argument. Check " +
+    "that config on the base branch, not only on main."
+  );
+}
+
 function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
   const validate = spawnSync(process.execPath, [VALIDATE_SCRIPT, worktreeDir, "--strict-tdd"], {
     encoding: "utf8",
@@ -240,7 +270,12 @@ function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
     maxBuffer: SUBPROCESS_MAX_BUFFER,
   });
   if (validate.status !== 0) {
-    return { ok: false, stage: "validate --strict-tdd", output: validate.stdout + validate.stderr };
+    return {
+      ok: false,
+      stage: "validate --strict-tdd",
+      output: validate.stdout + validate.stderr,
+      hint: "",
+    };
   }
   if (testCmd) {
     const resolved = substituteGateCommand(testCmd, req);
@@ -267,7 +302,7 @@ function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
       };
     }
   }
-  return { ok: true };
+  return { ok: true, stage: "", output: "", hint: "" };
 }
 
 function attemptRequirement(req, ctx) {
@@ -338,8 +373,10 @@ function attemptRequirement(req, ctx) {
 
     const gate = runGate(worktreeDir, settings.testCmd, timeoutMs, req);
     if (!gate.ok) {
-      previousFailure = `Gate failed at: ${gate.stage}\n\n${gate.output}`;
+      previousFailure =
+        `Gate failed at: ${gate.stage}\n\n` + (gate.hint ? `⚠ ${gate.hint}\n\n` : "") + gate.output;
       warn(`${req.requirement}: gate failed at ${gate.stage}`);
+      if (gate.hint) warn(gate.hint);
       continue;
     }
 
@@ -671,4 +708,10 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, substituteAgentCommand, substituteGateCommand, printReport };
+module.exports = {
+  parseArgs,
+  substituteAgentCommand,
+  substituteGateCommand,
+  filterHint,
+  printReport,
+};
