@@ -104,6 +104,68 @@ An explicit `agent:` wins over a profile, and an unknown key in
 `harness.config.yaml` is an error rather than a shrug — a key nobody reads is
 worse than a missing one, because the file looks configured.
 
+## Run the gate without Node on the build agent
+
+The generated CI configs call `npx`, which needs Node. Plenty of build agents
+do not have it — a Java shop's Jenkins agent, a locked-down runner — and that
+is the whole reason the Docker image and the Maven and Gradle plugins exist.
+
+**Docker.** Mount the workspace and run the gate:
+
+```bash
+docker run --rm -v "$PWD:/workspace" \
+  ghcr.io/rsaglobaltech/csda:0.2.1 validate . --strict-tdd
+```
+
+Pin the version. `latest` is a convenience for a laptop, not for a pipeline —
+a gate that changes under you is not a gate. The image is published for
+`linux/amd64` and `linux/arm64`, so ARM runners work unchanged.
+
+In GitLab CI, that is the whole job:
+
+```yaml
+spec-gate:
+  image: ghcr.io/rsaglobaltech/csda:0.2.1
+  stage: test
+  script:
+    - csda validate . --strict-tdd
+```
+
+In Jenkins:
+
+```groovy
+stage('Spec gate') {
+    agent { docker { image 'ghcr.io/rsaglobaltech/csda:0.2.1' } }
+    steps { sh 'csda validate . --strict-tdd' }
+}
+```
+
+**Maven or Gradle.** If the build already runs one of those, bind the gate to a
+phase instead of adding a container:
+
+```xml
+<plugin>
+  <groupId>com.rsaglobaltech</groupId>
+  <artifactId>csda-maven-plugin</artifactId>
+  <executions>
+    <execution>
+      <goals><goal>validate</goal></goals>
+    </execution>
+  </executions>
+</plugin>
+```
+
+`validate` binds to the `verify` phase by default, so `mvn verify` runs the
+gate without further wiring. `plan` and `doctor` are goals too.
+
+**Not published yet.** The plugin builds and its tests run in CI, but it is not
+on Maven Central — that needs an OSSRH account and a signing key. Until then,
+`mvn -f packages/maven-plugin install` from a clone puts it in your local
+repository. The Docker path above needs nothing.
+
+The plugins target **Java 11** deliberately: a corporate build agent is exactly
+where you cannot choose the JDK.
+
 ## Wire `validate` into a pre-commit hook
 
 **Goal:** block commits that drop a `REQ` without a `.feature` or a `traceability.md` row before they ever leave the developer's machine.
