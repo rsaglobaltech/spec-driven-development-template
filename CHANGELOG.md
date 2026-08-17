@@ -5,7 +5,7 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
-## [Unreleased]
+## [0.3.0] — 2026-08-17
 
 ### ⚠️ Breaking
 
@@ -106,6 +106,47 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   shrug is what let the above go unnoticed. A key nobody reads is worse than a
   missing one, because the file looks configured.
 
+- **Supply-chain documentation and a licence gate.** `docs/supply-chain.md`
+  covers pack pinning, the content digest that catches a moved tag, GPG
+  signing, and both air-gapped paths — `CSDA_OFFLINE=1` against the cache and
+  `pack bundle` for a network that has never seen the pack. `CSDA_OFFLINE`
+  appeared in no guide before, so a feature built for closed networks was
+  invisible to anyone on one.
+
+  A CycloneDX SBOM is generated on every push and retained 90 days, and
+  `scripts/license_check.ts` fails the build on a licence outside an allow-list
+  of permissive terms. Both come from `npm sbom` rather than a third-party
+  generator — adding a dependency to document having none would be a poor trade.
+  Available locally as `npm run sbom` and `npm run licenses`.
+
+- **Pack drift is checked by default in generated CI.** `csda ci init` emits
+  `validate --against-lock` for GitHub, GitLab, Azure and Jenkins, guarded on
+  `.specops.lock` existing so a project without packs is unaffected.
+
+  Signature verification stays opt-in. `require_signed_packs: true` as a default
+  would fail every project installing a pack whose tags are unsigned, and a
+  default that fails on correct usage teaches people to switch the check off.
+
+- **Compatibility windows are enforced, not just described.** `pack.yaml`'s
+  `schema_version` and `.specops.lock`'s `specops_version` were both written by
+  the CLI and read by nothing, so a file from a newer version was accepted and
+  then misread field by field. Both now fail up front, naming the versions and
+  the upgrade command. Older files still load — only *newer than this CLI* is
+  refused.
+
+- **`SECURITY.md`, `MAINTAINERS.md` and `CODEOWNERS`**, with private
+  vulnerability reporting enabled so the policy points at a channel that
+  exists. `main` is protected with required checks. Approving reviews are
+  deliberately off while there is one maintainer — requiring one would make
+  `main` unmergeable — and that exception is written down rather than left to
+  look like an oversight.
+
+- **Running the gate with no Node on the build agent** is documented in
+  `docs/automation.md`: a pinned `ghcr.io/rsaglobaltech/csda` image as a GitLab
+  job image or Jenkins docker agent, and the Maven plugin bound to the `verify`
+  phase. The generated configs all call `npx`, which a Java shop's agent does
+  not have — the reason the image and the plugins exist in the first place.
+
 - **`csda harness init`** — scaffolds `harness.config.yaml` and
   `.harness/prompt-prefix.md`. The config was documented in the tutorial and
   named in `harness run`'s own error message long before anything created it,
@@ -171,6 +212,13 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
   It went unnoticed because the builder's unit fixture was written in the old
   vocabulary and pinned a shape `plan` no longer produces.
+
+- **`init` plus a domain pack produced two requirements for the same thing.**
+  The scaffold seeds REQ-000 with a health scenario; a pack installed afterwards
+  brings its own, and `include_existing_rows` carried the starter forward beside
+  it. `--from-pack` now skips the starter, and `doctor` reports the leftover for
+  the plain `init` path — staying quiet when no pack is installed, and when the
+  row has been filled in.
 
 - **`req list --json` printed the human table and ignored the flag.** Worse
   than rejecting it: the caller believes it received a document. Empty matrix
