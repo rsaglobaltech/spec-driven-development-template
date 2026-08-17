@@ -82,8 +82,20 @@ your choice and your credentials.
 Name the agent when you run it:
 
 ```bash
-csda harness run --req REQ-001 --agent "claude -p < {prompt_file}"
+csda harness run --req REQ-001 \
+  --agent "claude -p --allowedTools Read Write Edit Glob Grep 'Bash(npm:*)' < {prompt_file}"
 ```
+
+**The tool allowances matter.** An agent in non-interactive mode has no way to
+ask permission, so without them it reads the prompt, cannot write a file, and
+the attempt is wasted. Scope them rather than reaching for
+`--dangerously-skip-permissions`: the agent needs `Bash` to run the project's
+build, and `Bash(npm:*)` is enough for a Node project. It works in a throwaway
+git worktree, which is the whole reason the harness uses one.
+
+Other agents take the prompt differently — `aider --yes --message-file
+{prompt_file}`, `opencode run "$(cat {prompt_file})"`. The harness only requires
+that the command contain `{prompt_file}`.
 
 Or commit the commands your team uses and pick one by name:
 
@@ -103,6 +115,32 @@ profiles:
 An explicit `agent:` wins over a profile, and an unknown key in
 `harness.config.yaml` is an error rather than a shrug — a key nobody reads is
 worse than a missing one, because the file looks configured.
+
+### When a run fails
+
+The report prints the tail of the gate output and names the command that
+failed — a gate that runs the whole suite because a filter did not apply looks
+identical to a real failure otherwise.
+
+The attempt is **committed on the branch** with a `wip(REQ-NNN): FAILED the
+gate` subject, so the agent's work is there to read instead of discarded. The
+requirement stays `Draft`, because `csda done` never ran.
+
+```bash
+csda harness run --req REQ-002 --format json      # the whole gate output
+csda harness run --req REQ-002 --keep-worktrees   # reproduce it in place
+```
+
+**A requirement that builds on another needs its branch as the base:**
+
+```bash
+csda harness run --req REQ-002 --base-branch harness/REQ-001
+```
+
+That branch also supplies the project configuration for the run, so a fix
+committed to `main` does not apply to a stacked run until the base has it. A
+false failure from that is indistinguishable from a real one — check the gate
+command the report prints.
 
 ## Run the gate without Node on the build agent
 

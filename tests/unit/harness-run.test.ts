@@ -10,6 +10,8 @@ const {
   parseArgs,
   substituteAgentCommand,
   substituteGateCommand,
+  printReport,
+  filterHint,
 } = require("../../scripts/harness/run");
 const { buildPrompt } = require("../../scripts/harness/prompt");
 const { readHarnessConfig, resolveHarnessSettings } = require("../../scripts/harness/config");
@@ -21,7 +23,8 @@ test("parseArgs has sane defaults", () => {
   assert.equal(a.projectDir, ".");
   assert.equal(a.agent, "");
   assert.equal(a.maxAttempts, 0);
-  assert.equal(a.timeout, 600);
+  // Asserted in one place only, below, next to the reason it is 1200.
+  assert.equal(a.timeout, 1200);
   assert.equal(a.format, "text");
   assert.equal(a.dryRun, false);
   assert.deepEqual(a.reqs, []);
@@ -549,4 +552,207 @@ test("an anchor in the feature cell is dropped, since it is not a path", () => {
     featureFile: "features/a/b.feature#L12",
   });
   assert.equal(cmd, "run features/a/b.feature");
+});
+
+// ── A failing run has to be diagnosable ──────────────────────────────────────
+//
+// The gate's full output was captured into `error` and then reduced to its
+// first line by the report, so a failure read "Gate failed at: test command"
+// and nothing else. With the worktree removed by default, that left nothing to
+// act on — found by running REQ-002 and being unable to tell why it failed.
+
+function captureReport(results, format = "text") {
+  const written: string[] = [];
+  const original = process.stdout.write;
+  (process.stdout as any).write = (chunk) => {
+    written.push(String(chunk));
+    return true;
+  };
+  try {
+    printReport(results, format);
+  } finally {
+    (process.stdout as any).write = original;
+  }
+  return written.join("");
+}
+
+test("a failing requirement shows the gate output, not just its first line", () => {
+  const out = captureReport([
+    {
+      requirement: "REQ-002",
+      result: "fail",
+      attempts: 2,
+      branch: "harness/REQ-002",
+      error:
+        "Gate failed at: test command\n\n" +
+        "> csda-studio-app@0.1.0 test:e2e\n" +
+        "AssertionError: expected 'Required field id missing' to equal ''\n" +
+        "    at World.<anonymous> (features/step_definitions/validate_schema.steps.ts:31:12)\n" +
+        "1 scenario (1 failed)\n",
+    },
+  ]);
+  assert.match(out, /Gate failed at: test command/);
+  assert.match(out, /AssertionError/, "the actual failure must reach the report");
+  assert.match(out, /validate_schema\.steps\.ts/, "so must the file that failed");
+  assert.match(out, /1 scenario \(1 failed\)/);
+});
+
+test("the failure block points at the flags that give more", () => {
+  const out = captureReport([
+    {
+      requirement: "REQ-002",
+      result: "fail",
+      attempts: 1,
+      branch: "harness/REQ-002",
+      error: "Gate failed at: test command\n\nsomething broke\n",
+    },
+  ]);
+  assert.match(out, /--format json/);
+  assert.match(out, /--keep-worktrees/);
+});
+
+test("a passing requirement prints no failure block", () => {
+  const out = captureReport([
+    { requirement: "REQ-001", result: "pass", attempts: 1, branch: "harness/REQ-001" },
+  ]);
+  assert.doesNotMatch(out, /keep-worktrees/);
+  assert.match(out, /✅ REQ-001/);
+});
+
+test("a single-line error prints without an empty tail or a dangling hint", () => {
+  const out = captureReport([
+    {
+      requirement: "REQ-003",
+      result: "skipped",
+      attempts: 0,
+      branch: "harness/REQ-003",
+      error: "Branch harness/REQ-003 already exists. Re-run with --force to recreate it.",
+    },
+  ]);
+  assert.match(out, /already exists/);
+  assert.doesNotMatch(out, /full output/, "no hint when there is nothing more to show");
+});
+
+test("json keeps the whole error, since that is what a machine reads", () => {
+  const error = "Gate failed at: test command\n\nline one\nline two\n";
+  const out = captureReport(
+    [{ requirement: "REQ-002", result: "fail", attempts: 1, branch: "b", error }],
+    "json"
+  );
+  assert.equal(JSON.parse(out).results[0].error, error);
+});
+
+// ── A failed run has to leave something behind ───────────────────────────────
+
+test("the default timeout reflects what a real agent needs", () => {
+  // 600 was a guess and both real runs disproved it: the first REQ-001 attempt
+  // hit 900s while the agent installed dependencies and worked. A default that
+  // times out on ordinary work makes every first attempt a wasted one.
+  assert.equal(parseArgs([]).timeout, 1200);
+});
+
+test("the report says where a failed attempt was preserved", () => {
+  const out = captureReport([
+    {
+      requirement: "REQ-002",
+      result: "fail",
+      attempts: 2,
+      branch: "harness/REQ-002",
+      error: "Gate failed at: test command\n\nassertion blew up\n",
+      workPreserved: true,
+    },
+  ]);
+  assert.match(out, /committed on harness\/REQ-002/);
+});
+
+test("the report distinguishes a failing agent from an idle one", () => {
+  // "produced no files" and "produced broken files" need different responses:
+  // one is a prompt or permissions problem, the other is a code problem.
+  const out = captureReport([
+    {
+      requirement: "REQ-002",
+      result: "fail",
+      attempts: 1,
+      branch: "harness/REQ-002",
+      error: "Gate failed at: test command\n\nnothing happened\n",
+      workPreserved: false,
+    },
+  ]);
+  assert.match(out, /produced no files/);
+  assert.doesNotMatch(out, /committed on/);
+});
+
+test("a passing requirement says nothing about preservation", () => {
+  const out = captureReport([
+    { requirement: "REQ-001", result: "pass", attempts: 1, branch: "harness/REQ-001" },
+  ]);
+  assert.doesNotMatch(out, /produced no files/);
+  assert.doesNotMatch(out, /committed on/);
+});
+
+test("the failing gate names the command it ran", () => {
+  // A gate that silently does the wrong thing — running the whole suite because
+  // a filter did not apply — fails identically to a real failure. This is what
+  // made REQ-002's false failure take two agent runs to explain.
+  const out = captureReport([
+    {
+      requirement: "REQ-002",
+      result: "fail",
+      attempts: 1,
+      branch: "harness/REQ-002",
+      error:
+        "Gate failed at: test command: npm run test:e2e -- features/pack-browsing/validate_schema.feature\n\n" +
+        "16 scenarios (13 undefined, 3 passed)\n",
+    },
+  ]);
+  assert.match(out, /test:e2e -- features\/pack-browsing\/validate_schema\.feature/);
+  assert.match(out, /16 scenarios/);
+});
+
+// ── A gate that silently ran the wrong thing ─────────────────────────────────
+
+test("filterHint fires when one feature was asked for and many ran", () => {
+  // The REQ-002 false failure: the scenario passed, the gate ran the whole
+  // suite because a `paths` key in the base branch overrode the argument, and
+  // the failure was indistinguishable from broken code.
+  const hint = filterHint(
+    "npm run test:e2e -- {feature_file}",
+    { featureFile: "features/pack-browsing/validate_schema.feature" },
+    "16 scenarios (13 undefined, 3 passed)\n"
+  );
+  assert.match(hint, /asked for one feature/);
+  assert.match(hint, /validate_schema\.feature/);
+  assert.match(hint, /16 scenarios/);
+  assert.match(hint, /base branch/, "the fix is on the base, not only on main");
+});
+
+test("filterHint stays quiet when the gate never asked to filter", () => {
+  assert.equal(filterHint("npm test", { featureFile: "a.feature" }, "16 scenarios (1 failed)"), "");
+});
+
+test("filterHint stays quiet on a genuine single-scenario failure", () => {
+  // The common case must not be second-guessed into looking like a config bug.
+  assert.equal(
+    filterHint(
+      "npm run test:e2e -- {feature_file}",
+      { featureFile: "a.feature" },
+      "1 scenario (1 failed)"
+    ),
+    ""
+  );
+});
+
+test("filterHint recognises the counts other runners print", () => {
+  for (const [out, word] of [
+    ["42 tests, 3 failures", "tests"],
+    ["7 examples, 1 failure", "examples"],
+    ["9 specs completed", "specs"],
+  ]) {
+    const hint = filterHint("run {feature_file}", { featureFile: "a.feature" }, out);
+    assert.match(hint, new RegExp(word), `should recognise "${word}"`);
+  }
+});
+
+test("filterHint needs a feature file to reason about", () => {
+  assert.equal(filterHint("run {feature_file}", {}, "16 scenarios (1 failed)"), "");
 });

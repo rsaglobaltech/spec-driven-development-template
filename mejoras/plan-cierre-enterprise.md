@@ -1167,6 +1167,62 @@ tranquilas y un usuario real** de distancia.
 
 ---
 
+## 12.11 El harness en producción — defectos encontrados ejecutándolo
+
+*Abierto el 2026-08-17. Dos ejecuciones reales con Claude como agente, sobre
+REQ-001 y REQ-002 de `csda-studio-app`. Nada de esto se veía leyendo el código.*
+
+**Regla que sale de aquí:** el harness solo revela sus defectos cuando corre con
+un agente de verdad. Ninguna revisión estática los habría encontrado, y cada uno
+habría llegado al 1.0.
+
+### Cerrados
+
+| # | Defecto | Por qué importaba |
+|---|---|---|
+| H1 | **El gate no ejecutaba el escenario que supervisaba.** `test_cmd` no admitía sustitución, y el gate corre *antes* de `csda done`, así que el requisito sigue `Draft` y `--strict-tdd` tampoco exige su test | El bucle podía declarar «Implemented» sin ejecutar el escenario. Que REQ-001 saliera bien fue el agente, no el gate. **Es la negación del producto** |
+| H2 | **El harness se bloqueaba a sí mismo**: archivaba prompts en el directorio del proyecto, y se niega a arrancar con el árbol sucio | La segunda ejecución fallaba por la basura de la primera |
+| H3 | **Un test tapaba H2**, filtrando `.specops/` de su comprobación de árbol limpio para poder pasar | Una aserción debilitada para pasar es peor que ninguna |
+| H4 | **El reporte tiraba el diagnóstico que ya tenía.** La salida completa del gate se capturaba y se reducía a `split("\n")[0]` | Un fallo decía `Gate failed at: test command` y nada más. Costó una segunda ejecución de 15 min de agente para ver lo que la primera ya sabía |
+| H5 | **El trabajo del agente se destruía al fallar el gate.** Sin commit y worktree borrado: la rama quedaba idéntica a su base | Un fallo no dejaba nada que revisar. Ahora se comitea con asunto `wip(REQ-NNN): FAILED the gate` y el requisito sigue `Draft` |
+| H6 | **El gate no decía qué comando había corrido** | Un gate que hace lo incorrecto en silencio falla igual que uno legítimo. Es lo que hizo que el fallo falso de REQ-002 costara dos ejecuciones |
+| H7 | **Timeout por defecto de 600 s** | Desmentido por las dos ejecuciones: el primer intento de REQ-001 llegó a 900 s instalando dependencias y trabajando. Un default que caduca con trabajo normal convierte todo primer intento en desperdicio. Ahora 1200 |
+| H8 | **Un worktree nuevo no tiene `node_modules`** — solo lleva lo que git rastrea | No es cambio de código: la plantilla generada ahora lo dice y pone `npm ci &&` delante del gate |
+| H10 | **Nada avisaba de un gate mal configurado.** Si el filtro no filtra, el gate corre la suite entera y rechaza trabajo correcto | El harness no puede saber cuántos tests *debería* haber, pero sí nota un comando que pidió **un** feature contra una salida que habla de muchos. Avisa, no dictamina — un fallo legítimo no debe convertirse en «será config» |
+| H11 | **El agente no podía escribir** en modo no interactivo, y no había dónde enterarse | Un agente con `-p` no puede pedir permiso: sin `--allowedTools` lee el prompt, no puede escribir, y el intento se pierde. Documentado en `docs/automation.md` con alcance (`Bash(npm:*)`) en vez de saltarse permisos |
+
+### Los arreglos se probaron solos, en producción
+
+La tercera ejecución de REQ-002 falló por algo que no era ni el harness ni el
+agente: **la cuenta de Claude agotó su límite mensual de gasto**. Y ahí se vio
+el valor de H4 y H5 sin necesidad de inventar un caso:
+
+```
+❌ REQ-002  fail (2 attempts)  → harness/REQ-002
+     Agent exited 1.
+     │ You've hit your monthly spend limit · raise it at claude.ai/settings/usage
+     └ full output: --format json · reproduce: --keep-worktrees
+     ↳ the attempt is committed on harness/REQ-002 — review it
+```
+
+Antes de los arreglos, eso habría sido `Agent exited 1` a secas, y **861 líneas
+que el agente sí escribió** se habrían borrado con el worktree. Ahora la causa
+está en pantalla y el trabajo está en la rama.
+
+**Una advertencia metodológica, por honestidad:** reconstruí `dist/` mientras
+dos de estas ejecuciones estaban en marcha, así que sus procesos posteriores
+recogieron código nuevo a media ejecución. No invalida los hallazgos —cada uno
+se reprodujo después— pero es una forma sucia de medir y no debería repetirse.
+
+### Abiertos
+
+| # | Problema | Nota |
+|---|---|---|
+| H9 | **`--base-branch` hereda la configuración de la base, no la de `main`.** Un arreglo en `main` no aplica a una ejecución apilada | Es correcto —así funciona git— pero se paga caro: el fallo falso de REQ-002 fue exactamente esto. El harness podría avisar cuando la base va por detrás de `main` |
+| H12 | **Requisitos dependientes no se expresan.** REQ-002 se apoya en REQ-001 y hay que saberlo y pasar `--base-branch` a mano | El pack declara `requirement_id` por escenario pero no dependencias entre requisitos. Sin esto, `harness run` sin `--req` procesa en orden de matriz y falla en cascada |
+
+---
+
 ## 13. Backlog aparcado
 
 Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el motivo.

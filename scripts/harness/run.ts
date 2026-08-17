@@ -61,7 +61,7 @@ function usage() {
       "  --req <REQ-NNN>        Limit to specific requirement(s); repeatable.\n" +
       "  --project-dir <path>   Project root (auto-detected from cwd if omitted).\n" +
       "  --base-branch <ref>    Branch/ref each worktree is cut from (default: current HEAD).\n" +
-      "  --timeout <seconds>    Per-agent-invocation timeout (default 600).\n" +
+      "  --timeout <seconds>    Per-agent-invocation timeout (default 1200).\n" +
       "  --keep-worktrees       Do not remove worktrees after each requirement.\n" +
       "  --force                Recreate harness/REQ-NNN branches that already exist.\n" +
       "  --format <text|json>   Report format (default text).\n" +
@@ -84,7 +84,11 @@ function parseArgs(argv) {
     maxAttempts: 0,
     reqs: [] as string[],
     baseBranch: "",
-    timeout: 600,
+    // 600 was the original guess. Both real runs disproved it: the first
+    // REQ-001 attempt hit 900s while the agent installed dependencies and
+    // worked, and 1500 was needed comfortably. A default that times out on
+    // ordinary work turns every first attempt into a wasted one.
+    timeout: 1200,
     keepWorktrees: false,
     force: false,
     format: "text",
@@ -229,6 +233,36 @@ function substituteGateCommand(template, req) {
     .join(featureFile);
 }
 
+/**
+ * Warn when a gate that asked to be filtered plainly was not.
+ *
+ * REQ-002 cost two agent runs to explain: the requirement's scenario passed, the
+ * gate ran the whole suite anyway — a `paths` key in the base branch's cucumber
+ * config silently overrode the CLI argument — and the failure was
+ * indistinguishable from the agent having written broken code.
+ *
+ * The harness cannot know how many tests *should* run. What it can notice is a
+ * command that substituted one feature file against output that talks about
+ * many, which is the shape of that mistake. A hint, not a verdict: a legitimate
+ * failure must not be second-guessed into passing.
+ */
+function filterHint(template, req, output) {
+  if (!String(template).includes("{feature_file}")) return "";
+  const featureFile = substituteGateCommand("{feature_file}", req);
+  if (!featureFile) return "";
+
+  // "16 scenarios", "42 tests", "7 examples" — the common shapes.
+  const counted = /(\d+)\s+(scenarios|tests|examples|specs)\b/i.exec(output);
+  if (!counted || Number(counted[1]) <= 1) return "";
+
+  return (
+    `The gate asked for one feature (${featureFile}) and the run reported ` +
+    `${counted[1]} ${counted[2].toLowerCase()}. The filter may not be applying — ` +
+    "a runner config that pins its own paths can override the argument. Check " +
+    "that config on the base branch, not only on main."
+  );
+}
+
 function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
   const validate = spawnSync(process.execPath, [VALIDATE_SCRIPT, worktreeDir, "--strict-tdd"], {
     encoding: "utf8",
@@ -236,14 +270,20 @@ function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
     maxBuffer: SUBPROCESS_MAX_BUFFER,
   });
   if (validate.status !== 0) {
-    return { ok: false, stage: "validate --strict-tdd", output: validate.stdout + validate.stderr };
+    return {
+      ok: false,
+      stage: "validate --strict-tdd",
+      output: validate.stdout + validate.stderr,
+      hint: "",
+    };
   }
   if (testCmd) {
+    const resolved = substituteGateCommand(testCmd, req);
     // A fresh worktree carries only what git tracks, so a project with
     // dependencies has no node_modules here. Verified the hard way: an agent
     // spent its first attempt installing them and timed out. The gate command
     // is the right place to say so, since only the project knows how.
-    const test = spawnSync(substituteGateCommand(testCmd, req), {
+    const test = spawnSync(resolved, {
       shell: true,
       cwd: worktreeDir,
       encoding: "utf8",
@@ -251,10 +291,18 @@ function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
       maxBuffer: SUBPROCESS_MAX_BUFFER,
     });
     if (test.status !== 0) {
-      return { ok: false, stage: "test command", output: test.stdout + test.stderr };
+      // Name the command. A gate that silently does the wrong thing — running
+      // the whole suite because a filter did not apply, say — produces a
+      // failure indistinguishable from a real one, and the operator has no way
+      // to tell without the command in front of them.
+      return {
+        ok: false,
+        stage: `test command: ${resolved}`,
+        output: test.stdout + test.stderr,
+      };
     }
   }
-  return { ok: true };
+  return { ok: true, stage: "", output: "", hint: "" };
 }
 
 function attemptRequirement(req, ctx) {
@@ -325,8 +373,10 @@ function attemptRequirement(req, ctx) {
 
     const gate = runGate(worktreeDir, settings.testCmd, timeoutMs, req);
     if (!gate.ok) {
-      previousFailure = `Gate failed at: ${gate.stage}\n\n${gate.output}`;
+      previousFailure =
+        `Gate failed at: ${gate.stage}\n\n` + (gate.hint ? `⚠ ${gate.hint}\n\n` : "") + gate.output;
       warn(`${req.requirement}: gate failed at ${gate.stage}`);
+      if (gate.hint) warn(gate.hint);
       continue;
     }
 
@@ -357,7 +407,48 @@ function attemptRequirement(req, ctx) {
     return { result: "pass", attempts: attempt };
   }
 
-  return { result: "fail", attempts: settings.maxAttempts, error: previousFailure };
+  // Every attempt is spent. Commit what the agent produced anyway, on the
+  // branch, before the worktree is removed.
+  //
+  // It used to be discarded: `continue` moved to the next attempt and the
+  // worktree was deleted at the end, so a failed requirement left a branch
+  // identical to its base and nothing to look at. Diagnosing a failure then
+  // cost a second full agent run with --keep-worktrees purely to see what had
+  // been written — fifteen minutes to recover information the first run had.
+  //
+  // The commit subject says it failed, and `csda done` never ran, so the
+  // requirement is still Draft in the matrix. A human decides whether the work
+  // is worth keeping; git decides nothing.
+  const preserved = preserveFailedAttempt(worktreeDir, req, previousFailure);
+
+  return {
+    result: "fail",
+    attempts: settings.maxAttempts,
+    error: previousFailure,
+    workPreserved: preserved,
+  };
+}
+
+/**
+ * Commit a failed attempt so the branch carries what the agent wrote.
+ *
+ * Returns false when there was nothing to commit — an agent that produced no
+ * files at all, which is itself worth knowing and is reported as such.
+ */
+function preserveFailedAttempt(worktreeDir, req, failure) {
+  if (isGitClean(worktreeDir)) return false;
+
+  git(worktreeDir, ["add", "-A"]);
+  const firstLine = String(failure || "").split("\n")[0] || "gate failed";
+  const commit = git(worktreeDir, [
+    "commit",
+    "-m",
+    `wip(${req.requirement}): FAILED the gate — do not merge as is\n\n` +
+      `${firstLine}\n\n` +
+      "Committed by `csda harness run` so the attempt is reviewable rather than\n" +
+      "discarded. The requirement is still Draft: `csda done` never ran.",
+  ]);
+  return commit.status === 0;
 }
 
 function processRequirement(req, ctx) {
@@ -463,6 +554,15 @@ function publishBranch(projectDir, branch, req, settings) {
   return published;
 }
 
+/**
+ * How much of a failing gate's output the text report shows.
+ *
+ * Runners put the useful part at the end, so the tail is what a human needs.
+ * Twenty lines is enough for a failing assertion with its stack, and short
+ * enough that ten failed requirements do not bury the summary.
+ */
+const FAILURE_TAIL_LINES = 20;
+
 function printReport(results, format) {
   if (format === "json") {
     const summary = results.reduce((acc, r) => {
@@ -482,8 +582,27 @@ function printReport(results, format) {
       `  ${icon} ${r.requirement}  ${r.result} (${r.attempts} attempt${r.attempts === 1 ? "" : "s"})  → ${r.branch}\n`
     );
     if (r.result !== "pass" && r.error) {
-      const firstLine = String(r.error).split("\n")[0];
-      process.stdout.write(`       ${firstLine}\n`);
+      // The full gate output — the test failure that explains *why* — was
+      // captured and then thrown away here, leaving "Gate failed at: test
+      // command" and nothing to act on. With the worktree removed by default,
+      // that made a failed run undiagnosable. Show the tail, where runners put
+      // the actual failure, and name the two flags that give more.
+      const lines = String(r.error).split("\n");
+      const head = lines[0];
+      const tail = lines
+        .slice(1)
+        .filter((l) => l.trim() !== "")
+        .slice(-FAILURE_TAIL_LINES);
+      process.stdout.write(`       ${head}\n`);
+      for (const line of tail) process.stdout.write(`       │ ${line}\n`);
+      if (tail.length > 0) {
+        process.stdout.write("       └ full output: --format json · reproduce: --keep-worktrees\n");
+      }
+      if (r.workPreserved) {
+        process.stdout.write(`       ↳ the attempt is committed on ${r.branch} — review it\n`);
+      } else if (r.result === "fail") {
+        process.stdout.write("       ↳ the agent produced no files\n");
+      }
     }
     if (r.pushed) {
       process.stdout.write(
@@ -589,4 +708,10 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, substituteAgentCommand, substituteGateCommand, printReport };
+module.exports = {
+  parseArgs,
+  substituteAgentCommand,
+  substituteGateCommand,
+  filterHint,
+  printReport,
+};
