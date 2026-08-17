@@ -44,6 +44,19 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   choice and their credentials, and a default in a committed file is a default
   somebody pays for by accident.
 
+- **`csda init --no-sample-req`**, implied by `--from-pack`. `init` seeds
+  REQ-000 with a health scenario so a new project has one worked example; a
+  domain pack installed afterwards brings its own requirements, often including
+  its own health one, and `include_existing_rows` carries the starter forward
+  beside them. The result was two requirements describing the same thing —
+  found by dogfooding, where the studio app ended up with REQ-000 and the
+  pack's REQ-015 both about deployment health.
+
+  `--from-pack` knows a pack is coming and skips the starter. A plain `init`
+  cannot know, so **`doctor` now reports the leftover** with the row to delete.
+  It stays quiet when no pack is installed, and when the row has been filled in
+  — an adapted REQ-000 belongs to the project, not to the scaffold.
+
 - **`--json` on `report`, `fix` and `req list`.** Twelve commands now honour
   the agent contract, which is the figure `docs/agents.md` had been claiming.
   `report --json` is shorthand for `--format json --stdout`; `fix --json`

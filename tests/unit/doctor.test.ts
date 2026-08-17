@@ -131,3 +131,76 @@ test("doctor flags a corrupt .specops.lock", () => {
     assert.match(r.stdout, /💡 Fix: Restore it from git history/);
   });
 });
+
+// ── The scaffold's starter requirement, after a pack lands ───────────────────
+//
+// `init` seeds REQ-000 with a health scenario; a pack installed afterwards
+// brings its own requirements, often including its own health one. The two sit
+// side by side because `include_existing_rows` carries the old row forward.
+// csda-studio-app hit exactly this: REQ-000 and the pack's REQ-015 both
+// describing deployment health.
+
+/**
+ * A healthy project that also carries the scaffold's starter requirement.
+ * Built on makeHealthyProject because `doctor` stops at the first structural
+ * error — a minimal fixture never reaches this check.
+ */
+function withSampleReq(fn, opts?: { row?: string; lock?: boolean }) {
+  return withProject((dir) => {
+    fs.mkdirSync(path.join(dir, "features", "core"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "features", "core", "health.feature"),
+      "Feature: Health\n  Scenario: ok\n    Given up\n    Then 200\n",
+      "utf8"
+    );
+    const row =
+      opts?.row ??
+      "| REQ-000 | SCN-000 | `features/core/health.feature` | UC-000 Health baseline | QRY-000 | - | - | `API /health` | TBD | Draft |";
+    const tracePath = path.join(dir, "docs", "specs", "traceability.md");
+    fs.appendFileSync(tracePath, row + "\n", "utf8");
+    if (opts?.lock !== false) {
+      fs.writeFileSync(
+        path.join(dir, ".specops.lock"),
+        JSON.stringify({
+          specops_version: 1,
+          packs: [{ repo: "r", pack_id: "backend", version: "v1" }],
+        }),
+        "utf8"
+      );
+    }
+    return fn(dir);
+  });
+}
+
+test("doctor flags the starter requirement once a pack is installed", () => {
+  withSampleReq((dir) => {
+    const r = cli("doctor", "--project-dir", dir);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /sample requirement/);
+    assert.match(out, /--no-sample-req/, "the fix must name the flag that prevents it");
+  });
+});
+
+test("doctor says nothing about it when no pack is installed", () => {
+  // Without a pack the starter requirement is the point, not a leftover.
+  withSampleReq(
+    (dir) => {
+      const r = cli("doctor", "--project-dir", dir);
+      assert.doesNotMatch(r.stdout + r.stderr, /REQ-000 is the scaffold/);
+    },
+    { lock: false }
+  );
+});
+
+test("doctor leaves an adapted REQ-000 alone", () => {
+  // Someone who filled the row in has adopted it; it is theirs now.
+  withSampleReq(
+    (dir) => {
+      const r = cli("doctor", "--project-dir", dir);
+      assert.doesNotMatch(r.stdout + r.stderr, /REQ-000 is the scaffold/);
+    },
+    {
+      row: "| REQ-000 | SCN-000 | `features/core/health.feature` | UC-000 Invoicing | CMD-001 | AGG-001 | EVT-001 | src/invoice.ts | tests/invoice.test.ts | Implemented |",
+    }
+  );
+});

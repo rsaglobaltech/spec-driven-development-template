@@ -109,7 +109,10 @@ function main(argv) {
     ]);
   }
 
-  const init = run(["init", ...initArgs]);
+  // The pack supplies the real requirements, so suppress the starter one.
+  // Without this the project ends up with the scaffold's health requirement
+  // sitting next to the pack's own — two requirements for the same thing.
+  const init = run(["init", "--no-sample-req", ...initArgs]);
   if (init.status !== 0) {
     io.fail(NULL_SHAPE, [
       error("init_failed", "Scaffolding failed; the pack was not installed.", {

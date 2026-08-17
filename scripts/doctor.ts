@@ -345,6 +345,44 @@ function checkPlaceholders(dir) {
   }
 }
 
+/**
+ * The scaffold's starter requirement, still present after a pack landed.
+ *
+ * `csda init` seeds REQ-000 with a health scenario so a new project has one
+ * example that works end to end. Install a domain pack afterwards and the pack
+ * brings its own requirements — frequently including its own health one — so
+ * REQ-000 becomes a second requirement for the same thing, carried forward by
+ * `include_existing_rows`. Found by dogfooding: csda-studio-app ended up with
+ * REQ-000 and the pack's REQ-015 both describing deployment health.
+ *
+ * Only fires when the row still looks untouched. A REQ-000 someone has adopted
+ * and filled in is theirs, not a leftover.
+ */
+function checkSampleRequirement(dir) {
+  if (!fs.existsSync(path.join(dir, ".specops.lock"))) return;
+  const traceRaw = readIfExists(path.join(dir, "docs/specs/traceability.md"));
+  if (traceRaw === null) return;
+
+  const row = traceRaw.split("\n").find((line) => /^\|\s*REQ-000\s*\|/.test(line));
+  if (!row) return;
+
+  // The template's own wording. Edited cells mean the project adopted it.
+  const untouched = row.includes("features/core/health.feature") && /\bDraft\b/.test(row);
+  if (!untouched) {
+    ok("sample requirement", "REQ-000 has been adapted — treating it as yours");
+    return;
+  }
+
+  warn(
+    "sample requirement",
+    "REQ-000 is the scaffold's starter requirement and a domain pack is installed — " +
+      "the pack's own requirements now cover this",
+    "Remove the REQ-000 row from docs/specs/traceability.md and delete " +
+      "features/core/health.feature, unless you meant to keep it. " +
+      "New projects can skip it with `csda init --no-sample-req` (implied by --from-pack)."
+  );
+}
+
 function checkSpecops(dir) {
   const lockPath = path.join(dir, ".specops.lock");
   const lockRaw = readIfExists(lockPath);
@@ -414,6 +452,7 @@ function main() {
     checkChanges(dir);
     checkPlaceholders(dir);
     checkSpecops(dir);
+    checkSampleRequirement(dir);
   }
 
   const errors = findings.filter((f) => f.level === "error").length;
