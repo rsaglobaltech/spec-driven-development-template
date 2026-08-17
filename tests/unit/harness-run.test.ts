@@ -386,3 +386,110 @@ test("a requirement straight out of `plan --format json` produces a usable promp
     fs.rmSync(parent, { recursive: true, force: true });
   }
 });
+
+// ── Agent profiles ───────────────────────────────────────────────────────────
+//
+// `agent_profile` names an entry in .harness/profiles.yaml, so a team can
+// commit the agent commands it uses and pick one by name rather than commit a
+// single default somebody pays for by accident.
+//
+// It exists because the HIE pilot was already configured this way — the file
+// declared `agent_profile: local-claude` and a matching profiles.yaml, the CLI
+// read neither, and `harness run` reported "No agent configured" while the
+// config plainly declared one.
+
+function projectWithProfiles(config, profiles?) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-profiles-"));
+  fs.writeFileSync(path.join(dir, "harness.config.yaml"), config, "utf8");
+  if (profiles !== undefined) {
+    fs.mkdirSync(path.join(dir, ".harness"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".harness", "profiles.yaml"), profiles, "utf8");
+  }
+  return dir;
+}
+
+test("agent_profile resolves to the profile's agent command", () => {
+  const dir = projectWithProfiles(
+    "harness_version: 1\nagent_profile: local-claude\n",
+    'profiles_version: 1\nprofiles:\n  local-claude:\n    agent: "claude -p < {prompt_file}"\n'
+  );
+  try {
+    assert.equal(readHarnessConfig(dir).agent, "claude -p < {prompt_file}");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an explicit agent wins over a profile", () => {
+  // The narrower statement beats the indirection.
+  const dir = projectWithProfiles(
+    'harness_version: 1\nagent: "direct {prompt_file}"\nagent_profile: local-claude\n',
+    'profiles_version: 1\nprofiles:\n  local-claude:\n    agent: "profile {prompt_file}"\n'
+  );
+  try {
+    assert.equal(readHarnessConfig(dir).agent, "direct {prompt_file}");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a profile that does not exist names the ones that do", () => {
+  const dir = projectWithProfiles(
+    "harness_version: 1\nagent_profile: nope\n",
+    'profiles_version: 1\nprofiles:\n  ci:\n    agent: "a {prompt_file}"\n  local:\n    agent: "b {prompt_file}"\n'
+  );
+  try {
+    assert.throws(
+      () => readHarnessConfig(dir),
+      (err) => /no profile 'nope'/.test(err.message) && /ci, local/.test(err.message)
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("agent_profile without a profiles.yaml says so, and offers the alternative", () => {
+  const dir = projectWithProfiles("harness_version: 1\nagent_profile: local\n");
+  try {
+    assert.throws(
+      () => readHarnessConfig(dir),
+      (err) => /profiles\.yaml/.test(err.message) && /agent:/.test(err.message)
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an unknown key is rejected rather than ignored", () => {
+  // Silently ignoring one is how a pilot ends up configured against a feature
+  // that does not exist.
+  const dir = projectWithProfiles('harness_version: 1\nagnet: "typo {prompt_file}"\n');
+  try {
+    assert.throws(
+      () => readHarnessConfig(dir),
+      (err) => /unknown key\(s\): agnet/.test(err.message) && /Known keys:/.test(err.message)
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("every key `harness init` generates is a key the reader accepts", () => {
+  // The two ends of the same contract: what the scaffolder writes must be what
+  // the reader understands, or the strict check above turns into a trap.
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "harness-roundtrip-"));
+  try {
+    const init = spawnSync(process.execPath, [CLI, "init", "--yes", "--out", parent, "--no-git"], {
+      encoding: "utf8",
+    });
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(parent, fs.readdirSync(parent)[0]);
+    const gen = spawnSync(process.execPath, [CLI, "harness", "init", "--project-dir", projectDir], {
+      encoding: "utf8",
+    });
+    assert.equal(gen.status, 0, gen.stdout + gen.stderr);
+    assert.doesNotThrow(() => readHarnessConfig(projectDir));
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
