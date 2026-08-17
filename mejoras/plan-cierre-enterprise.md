@@ -1112,10 +1112,30 @@ superficie estable**, y las dos últimas salieron de encontrar defectos reales
 —la bifurcación del formato de packs, el camelCase aplicado a medias—. Ese ritmo
 tiene que caer a cero por sí solo, no por dejar de mirar.
 
-**G2 · El bucle del harness completado de punta a punta al menos una vez.** El
-nivel L4 es la promesa titular y **nunca se ha ejecutado con un agente real**.
-Un 1.0 que anuncia entrega dirigida por agentes sin haberla hecho ni una vez es
-una afirmación sin verificar.
+**G2 · El bucle del harness completado de punta a punta al menos una vez.**
+✅ **Hecho el 2026-08-17** con Claude como agente, sobre REQ-001 de
+`csda-studio-app`. El agente escribió 18 ficheros respetando las capas
+hexagonales, sin tocar `features/**/*.feature` ni `docs/specs/**`. Escenario
+verde, sin regresiones, verificado a mano. Rama `harness/REQ-001` en PR #1 del
+repo del studio, sin mergear — el harness nunca mergea.
+
+**Y fue la tarea más rentable del plan.** Una sola ejecución destapó tres
+defectos que no se veían leyendo el código, todos en 0.5.0:
+
+1. **El gate no ejecutaba el escenario que supervisaba.** `test_cmd` no admitía
+   sustitución, y el gate corre *antes* de `csda done`, así que el requisito
+   sigue en `Draft` y `--strict-tdd` tampoco exige su test. El bucle podía
+   declarar «Implemented» sin haber ejecutado el escenario nunca. Que REQ-001
+   saliera bien fue el agente haciéndolo bien, no el gate comprobándolo.
+2. **El harness se bloqueaba a sí mismo**: archivaba los prompts en el
+   directorio del proyecto, ensuciando el árbol, y se niega a arrancar con el
+   árbol sucio.
+3. **Un test tapaba el segundo**, filtrando `.specops/` de su comprobación de
+   árbol limpio para poder pasar.
+
+Lección para el resto del plan: los defectos de este tipo solo aparecen
+ejecutando. Si una ejecución encontró tres, catorce encontrarán más — que es
+precisamente el argumento de G1.
 
 **G3 · Un equipo de fuera adopta en L1–L2 y reporta.** Es C9-08. La estabilidad
 de una API no se decide leyéndola; nadie ajeno a este repo la ha usado todavía.
@@ -1183,6 +1203,7 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | 2026-08-16 | Los 10 PRs de Dependabot: 6 mergeados, 4 cerrados con motivo (D7) | 6 verdes tras correr la suite; 2 cerrados por config equivocada (`typescript` y `@eslint/js` fuera de su grupo, arreglado en `dependabot.yml`) y 2 por suelo de plataforma (§12.7). Cero PRs abiertos |
 | 2026-08-16 | `js-yaml` 4 → 5 se mergea pese a ser major (D8) | js-yaml 5 pasa a YAML 1.2, donde `yes`/`no`/`on`/`off` dejan de ser booleanos. Los tres sitios de producción pasan `{ json: true }`, que ya forzaba esquema JSON, así que el cambio no les afecta. Comprobado ejecutando ambas versiones sobre el mismo documento: salida idéntica, y coincide con `parseYamlLite` del propio CLI |
 | 2026-08-17 | Publicar plugins Maven/Gradle, extensión y registry se mueve a **v2** (D12) | No entra en el alcance de 1.0. 1.0 estabiliza el CLI y el formato de packs; los canales de distribución adicionales son otro producto con otras credenciales y otro ciclo. Ya estaban `[-]` en §12.8 |
+| 2026-08-17 | **G2 cumplido y 0.5.0 publicada** (D13) | El bucle se ejecutó con Claude sobre REQ-001 y encontró tres defectos reales, todos arreglados en 0.5.0 — la primera release desde 0.2.1 que no rompe nada, o sea media condición G1. 1.0 sigue a dos ejecuciones limpias y un usuario real |
 | 2026-08-17 | Suelo a **Node 22** y **0.4.0 publicada** (D11) | Node 20 salió de LTS en abril, así que la matriz probaba un runtime sin soporte. Se publicó sola y de inmediato porque 0.3.0 declaraba `>=20` mientras CI ya no lo cubría: una promesa sin verificar en `latest`. Desbloquea `cucumber 13`. Política escrita: el suelo es una LTS mantenida |
 | 2026-08-17 | **0.3.0 publicada** (D10) | 34 commits sin publicar desde 0.2.1, con media release ausente del CHANGELOG. npm `latest` = 0.3.0 con procedencia SLSA, `ghcr.io/rsaglobaltech/csda:0.3.0` multi-arch, notas de release escritas. Verificada desde cero con `npx create-spec-driven-app@0.3.0` generando un proyecto móvil |
 | 2026-08-17 | Publicar plugins Maven/Gradle, la extensión de VS Code, el scope npm y el registry queda **aplazado** (D9) | No es prioridad ahora. No bloquea nada: el CLI ya está en npm y la imagen en ghcr, que son las dos vías reales. Marcadas `[-]` con motivo, no descartadas — ver §12.8 |
