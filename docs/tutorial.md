@@ -835,6 +835,18 @@ review and merge `harness/*` yourself.
 
 ### 12.1 Configure it — using **opencode** as the agent, with a project-wide prompt prefix
 
+Start by generating the two files rather than copying them out of this page:
+
+```bash
+csda harness init
+```
+
+It writes `harness.config.yaml` and `.harness/prompt-prefix.md`, detects your
+gate from the build files it finds (`mvn -B test` here, from `pom.xml`), and
+deliberately leaves `agent:` unset — which agent runs this is your choice and
+your credentials. Read the prefix it generates and make it sound like your
+team; the rest of this section is what a filled-in version looks like.
+
 If you drive your editor with [opencode](https://opencode.ai), point the
 harness at it. The harness writes each prompt to a temp file and substitutes
 its path for `{prompt_file}`; `opencode run` takes a prompt string, so read

@@ -26,6 +26,7 @@ const specopsAddScript = path.join(distScripts, "specops", "add.js");
 const specopsRemoveScript = path.join(distScripts, "specops", "remove.js");
 const specopsContributeScript = path.join(distScripts, "specops", "contribute.js");
 const harnessRunScript = path.join(distScripts, "harness", "run.js");
+const harnessInitScript = path.join(distScripts, "harness", "init.js");
 const planScript = path.join(distScripts, "plan.js");
 const reportScript = path.join(distScripts, "report.js");
 const doneScript = path.join(distScripts, "done.js");
@@ -216,6 +217,7 @@ function usageFull() {
         "Run the plan → agent → verify → done loop for every pending requirement."
       ) +
       cmd("📝", "harness prompt", "Print the prompt the harness would hand an agent for one REQ.") +
+      cmd("🧰", "harness init", "Scaffold harness.config.yaml and the prompt prefix.") +
       section("DX COMMANDS") +
       cmd("⚙", "config", "Project preferences: `config init`, `config set profile full`.") +
       cmd("🤖", "agents init", "Wire the loop into Claude, Cursor, Copilot, Aider and more.") +
@@ -544,6 +546,11 @@ function main(): void {
 
   if (command === "harness") {
     const subCommand = args[1];
+    if (subCommand === "init") {
+      ensureExecutable(harnessInitScript);
+      runNodeScript(harnessInitScript, args.slice(2));
+      return;
+    }
     if (subCommand === "run") {
       ensureExecutable(harnessRunScript);
       runNodeScript(harnessRunScript, args.slice(2));
@@ -563,7 +570,7 @@ function main(): void {
       runNodeScript(harnessRunScript, ["--dry-run", "--req", reqId, ...args.slice(3)]);
       return;
     }
-    error(`Unknown harness sub-command: ${subCommand || "(none)"}. Expected: run, prompt`);
+    error(`Unknown harness sub-command: ${subCommand || "(none)"}. Expected: init, run, prompt`);
     usage();
     process.exit(2);
   }

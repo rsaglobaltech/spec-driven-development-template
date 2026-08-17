@@ -57,6 +57,7 @@ Each command takes `--json`. See [the agent contract](specs/agent-contract.md).
 
 | Command | What it does |
 | --- | --- |
+| `csda harness init` | Scaffold `harness.config.yaml` and `.harness/prompt-prefix.md`. Detects the gate from your build files; leaves the agent unset on purpose. |
 | `csda harness run` | The plan → agent → verify → done loop, one git worktree per requirement. Never merges. |
 | `csda harness prompt <REQ>` | Print the prompt the harness would hand an agent, before paying for tokens. |
 | `csda ci init` | Generate the spec gate for GitHub, GitLab, Azure or Jenkins. |
