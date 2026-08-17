@@ -1041,13 +1041,16 @@ desbloquea. Se quita la entrada de `ignore` cuando se decida.
 
 | PR | Bump | Por qué rompe | Qué lo desbloquea |
 |---|---|---|---|
-| #45 | `@cucumber/cucumber` 12 → 13 | Declara `engines.node: 22 \|\| 24 \|\| >=26`. Nosotros declaramos `>=20` y la matriz de CI corre Node 20, así que `Run BDD tests` falla en los tres runners. En local pasa entero porque ahí hay Node 24 | Subir el suelo a Node 22. **Cucumber es devDependency**, así que solo afecta a quien contribuye y a CI: ningún usuario final lo instala |
+| #45 | `@cucumber/cucumber` 12 → 13 | **Resuelto el 2026-08-17**: el suelo subió a Node 22 y la major entró. La suite BDD pasa sin tocar nada | — |
 | #36 | `org.junit:junit-bom` 5 → 6 | JUnit 6 publica solo variante Java 17. El plugin de Gradle compila a Java 11 a propósito, así que Gradle ni resuelve: *«No matching variant … this component declares a component, compatible with Java 17 and the consumer needed a component, compatible with Java 11»* | Subir el objetivo del plugin a Java 17 |
 
-**Dato que pesa en la primera:** Node 20 salió de mantenimiento LTS en abril de
-2026. Hoy la matriz prueba contra un runtime sin soporte. Eso no fuerza la
-decisión —hay empresas ancladas en Node 20, y ese es justamente nuestro
-público— pero conviene decidirlo a la vista, no por inercia.
+**La primera está resuelta.** Node 20 salió de mantenimiento LTS en abril de
+2026, así que la matriz probaba contra un runtime sin soporte. El 2026-08-17 el
+suelo subió a **Node 22** (matriz 22 y 24), `cucumber 13` entró, y la política
+quedó escrita: *el suelo es una LTS mantenida; cuando una sale de
+mantenimiento, el suelo se mueve en la siguiente release*. Hay un test que
+sujeta las doce declaraciones de versión juntas — habían derivado antes, con los
+paquetes publicables diciendo `>=18` mientras el CLI exigía 20.
 
 **La segunda tiene menos margen:** Java 11 en los plugins de Maven y Gradle es
 la razón de que existan. Un agente de build corporativo es exactamente el sitio

@@ -3,7 +3,7 @@
 // If your project already has a Jenkinsfile, paste the 'Spec gate' stage in.
 pipeline {
     agent {
-        docker { image 'node:20' }
+        docker { image 'node:22' }
     }
     stages {
         stage('Spec gate') {

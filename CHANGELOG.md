@@ -5,6 +5,42 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
+## [Unreleased]
+
+### ⚠️ Breaking
+
+- **The Node floor is 22.** `package.json` declares `>=22`, and CI tests 22 and
+  24 across Linux, macOS and Windows — the floor and the current LTS, so a break
+  at either end shows up.
+
+  Node 20 left LTS maintenance in April 2026, so the matrix was testing against
+  an unsupported runtime and proving nothing. An `npx` invocation that used to
+  work and now refuses to run is breaking, whatever else this were called.
+
+  Raised everywhere at once rather than only where it was noticed: the root
+  `engines`, the three publishable packages (which still said `>=18`), every
+  workflow's `setup-node`, the Docker image, the CI templates handed to users,
+  and the prose in the README and the guides.
+
+  **The policy is now written down**: the floor is a maintained LTS, and when
+  one leaves maintenance the floor moves in the next release. See
+  `docs/release-process.md`.
+
+### Changed
+
+- **`@cucumber/cucumber` 13.** It had been parked for a release because its
+  `engines` wanted Node 22 while ours said 20 — the concrete cost of a stale
+  floor. The BDD suite passes unchanged.
+
+### Added
+
+- **A test holds the floor in one piece.** It checks the root `engines`, every
+  publishable package, each workflow, the CI matrix covering the floor itself,
+  the Dockerfile, the templates generated for users, the prose in four guides,
+  and that cucumber's own requirement is satisfied. Those had drifted before —
+  the packages said 18 while the CLI needed 20 — and a floor only some places
+  agree on is not a floor.
+
 ## [0.3.0] — 2026-08-17
 
 ### ⚠️ Breaking

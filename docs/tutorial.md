@@ -82,7 +82,7 @@ folder. After that, you `cd` into it and stay there.
 
 ## 1. Prerequisites
 
-- **Node.js ≥ 20** and **git** on your `PATH`.
+- **Node.js ≥ 22** and **git** on your `PATH`.
 - Network access the first time you run `specops add` — it clones the pack
   repo into a per-user cache (`~/.cache/csda/packs/…`). After that it is
   offline.

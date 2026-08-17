@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Validate specs (strict TDD)
         run: npx create-spec-driven-app@{{CSDA_VERSION}} validate . --strict-tdd
       # Supply-chain gate: fails when the rendered pack content no longer

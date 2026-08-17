@@ -6,7 +6,7 @@
 
 ## 0. Prerequisites
 
-- **Node.js ≥ 20**.
+- **Node.js ≥ 22**.
 - Run everything below with `csda` (installed via `npx create-spec-driven-app`
   or a global install). All commands auto-detect the project root from your
   current directory — no `--project-dir` needed once you're inside the repo.

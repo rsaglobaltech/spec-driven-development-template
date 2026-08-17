@@ -27,7 +27,7 @@ npm install
 npm run build
 ```
 
-**Prerequisites:** Node.js ≥ 20. Nothing else — the CLI has zero runtime
+**Prerequisites:** Node.js ≥ 22. Nothing else — the CLI has zero runtime
 dependencies. The tests run against the compiled output in `dist/`, so
 `npm run build` (or any `npm test`, which builds first) has to happen before
 you can invoke `bin/create-spec-driven-app.js`.

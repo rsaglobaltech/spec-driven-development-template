@@ -18,7 +18,7 @@
     "CHANGELOG.md"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "repository": {
     "type": "git",
@@ -76,7 +76,7 @@
     "provenance": true
   },
   "devDependencies": {
-    "@cucumber/cucumber": "^12.8.3",
+    "@cucumber/cucumber": "^13.2.1",
     "@eslint/js": "^9.39.4",
     "@stryker-mutator/core": "^9.6.1",
     "@types/cucumber": "^7.0.3",
