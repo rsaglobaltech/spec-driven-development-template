@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const bookDir = path.join(__dirname, '../book');
 const chaptersDir = path.join(bookDir, 'chapters');
@@ -146,9 +146,13 @@ console.log('Markdown book generated at:', outMd);
 // 4. Try to convert to PDF using md-to-pdf
 console.log('Attempting to generate PDF via md-to-pdf (this may take a minute to download Chromium on first run)...');
 try {
-  // Using npx with yes flag to auto-install md-to-pdf
-  // passing stylesheet
-  execSync(`npx -y md-to-pdf --stylesheet ${cssFile} ${outMd}`, { stdio: 'inherit' });
+  // execFileSync with an argument array, not execSync with an interpolated
+  // string: these paths derive from __dirname, so a checkout under a directory
+  // with a space — or anything a shell treats as syntax — would break the
+  // command or run something else. No shell, no quoting to get wrong.
+  execFileSync('npx', ['-y', 'md-to-pdf', '--stylesheet', cssFile, outMd], {
+    stdio: 'inherit',
+  });
   console.log('PDF successfully generated at:', outPdf);
 } catch (e) {
   console.error('Error generating PDF:', e.message);
