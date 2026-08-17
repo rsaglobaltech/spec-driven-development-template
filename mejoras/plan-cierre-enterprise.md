@@ -557,11 +557,11 @@ corren en CI; Dependabot cubre npm, actions, Maven y Gradle.
 | C7-02 | `[x]` | Preparar la release **0.2.0**: tres meses de features sin publicar — ciclo `change`, `specops contribute`, `diff --as-change`, F1B, más todo lo que entra en C0-05 |
 | C7-03 | `[x]` | **`0.2.1` en `latest`**, con provenance. Verificada con `npm install create-spec-driven-app` en un proyecto limpio: `init` + `validate` de punta a punta. La página de npmjs.com ya renderiza el README actual |
 | C7-04 | `[x]` | Docker publicado. `ghcr.io/rsaglobaltech/csda:0.2.1` vive en el registry con `amd64` y `arm64` (verificado con `docker manifest inspect`). Uso en pipelines documentado en `docs/automation.md` — que era la mitad que faltaba y la razón de existir de la imagen |
-| C7-05 | `[ ]` | Maven: publicar `packages/maven-plugin`. Requiere groupId, firma GPG y cuenta OSSRH — o Nexus/Artifactory interno |
-| C7-06 | `[ ]` | Gradle: publicar `packages/gradle-plugin` en el Gradle Plugin Portal o repo interno |
-| C7-07 | `[ ]` | VS Code Marketplace: cuenta de publisher + `vsce publish`. El `.vsix` 0.1.0 ya está construido en `releases/` |
-| C7-08 | `[ ]` | npm: `@spec-driven/mcp-server` |
-| C7-09 | `[ ]` | Desplegar el registry en `packs.spec-driven.dev`: dominio + Pages/Cloudflare |
+| C7-05 | `[-]` | Maven: publicar `packages/maven-plugin`. Requiere groupId, firma GPG y cuenta OSSRH — o Nexus/Artifactory interno |
+| C7-06 | `[-]` | Gradle: publicar `packages/gradle-plugin` en el Gradle Plugin Portal o repo interno |
+| C7-07 | `[-]` | VS Code Marketplace: cuenta de publisher + `vsce publish`. El `.vsix` 0.1.0 ya está construido en `releases/` |
+| C7-08 | `[-]` | npm: `@spec-driven/mcp-server` |
+| C7-09 | `[-]` | Desplegar el registry en `packs.spec-driven.dev`: dominio + Pages/Cloudflare |
 
 ### 10.1 Estado de la publicación (2026-08-16)
 
@@ -979,13 +979,20 @@ que ninguna.
 
 ---
 
-## 12.8 Decisión pendiente — destinos de distribución bloqueados por credenciales
+## 12.8 Aplazado por decisión — publicar plugins y registry (D9)
 
-*Abierta desde el 2026-08-16. No la decido yo: cada uno necesita una cuenta o
-un secreto que solo tú puedes crear.*
+> **Decidido el 2026-08-17: aplazado, no descartado.** Publicar los plugins,
+> la extensión y el registry no es una prioridad ahora. Las tareas quedan
+> marcadas `[-]` con este motivo, y las credenciales siguen siendo el único
+> bloqueo técnico cuando se retomen.
 
-Para cada uno puedo dejar el workflow y el paso a paso listos, de modo que solo
-haya que añadir el secreto y lanzarlo. Ninguno está empezado.
+Nada de esto está empezado, y nada de esto bloquea al resto del proyecto: el
+CLI se publica en npm y la imagen en ghcr, que son las dos vías que un equipo
+usa de verdad hoy. Los plugins de Maven y Gradle **se construyen y sus tests
+corren en CI**; lo único que falta es empujarlos a un registro.
+
+Cuando se retome, para cada destino puedo dejar el workflow y el paso a paso
+listos, de modo que solo haya que añadir el secreto y lanzarlo.
 
 | ID | Destino | Qué hace falta |
 |---|---|---|
@@ -1060,4 +1067,5 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | 2026-08-16 | La recuperación (C0-11) puentea estilos en vez de unificarlos | 11 líneas de `require()` en la frontera contra un refactor de 64 ficheros. La mezcla ESM/CommonJS es cosmética: `tsc` con `module: commonjs` compila ambas |
 | 2026-08-16 | Los 10 PRs de Dependabot: 6 mergeados, 4 cerrados con motivo (D7) | 6 verdes tras correr la suite; 2 cerrados por config equivocada (`typescript` y `@eslint/js` fuera de su grupo, arreglado en `dependabot.yml`) y 2 por suelo de plataforma (§12.7). Cero PRs abiertos |
 | 2026-08-16 | `js-yaml` 4 → 5 se mergea pese a ser major (D8) | js-yaml 5 pasa a YAML 1.2, donde `yes`/`no`/`on`/`off` dejan de ser booleanos. Los tres sitios de producción pasan `{ json: true }`, que ya forzaba esquema JSON, así que el cambio no les afecta. Comprobado ejecutando ambas versiones sobre el mismo documento: salida idéntica, y coincide con `parseYamlLite` del propio CLI |
+| 2026-08-17 | Publicar plugins Maven/Gradle, la extensión de VS Code, el scope npm y el registry queda **aplazado** (D9) | No es prioridad ahora. No bloquea nada: el CLI ya está en npm y la imagen en ghcr, que son las dos vías reales. Marcadas `[-]` con motivo, no descartadas — ver §12.8 |
 | 2026-08-16 | Los refactors `import/export` y `strict mode` no se mergean | 96 ficheros entre los dos, todos tocados también por el merge enterprise. Sin valor para el usuario y con coste de conflicto alto. Si se quieren, son tarea propia sobre `main` |
