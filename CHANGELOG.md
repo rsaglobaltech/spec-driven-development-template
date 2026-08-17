@@ -70,6 +70,23 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   cells (`-`, `TBD`) now emit as `null` rather than as strings an agent would
   mistake for paths.
 
+### Changed
+
+- **The CLI is called `csda` in every place it is a command.** The package
+  ships two binaries — `create-spec-driven-app` and the `csda` alias — and the
+  two were used interchangeably, so the same command appeared under different
+  names depending on which guide or which `--help` you landed on. 92
+  occurrences across 38 files now use the alias: usage strings, docblocks,
+  guides, templates and the landing page.
+
+  **Nothing about invocation changed.** Both binaries still work, and the
+  bootstrap line is deliberately untouched: `npx create-spec-driven-app@latest`
+  runs before anything is installed, at which point `csda` does not yet exist.
+  npm links, the package name and file paths keep the long name too, as does
+  `completion`, which registers both binaries on purpose.
+
+  A guard scans the docs and sources so it cannot drift back.
+
 ## [0.2.1] — 2026-08-16
 
 ### Fixed
