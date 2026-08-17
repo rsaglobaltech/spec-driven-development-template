@@ -233,7 +233,10 @@ test("user-facing text invokes the CLI as `csda`, not by its package name", () =
     const walk = (d: string) => {
       for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
         const full = path.join(d, entry.name);
-        const rel = path.relative(ROOT_DIR, full);
+        // POSIX separators: `path.relative` yields backslashes on Windows,
+        // so a skip pattern written with `/` would silently match nothing
+        // there and the guard would scan the very files it exempts.
+        const rel = path.relative(ROOT_DIR, full).split(path.sep).join("/");
         if (skip.test(rel)) continue;
         if (entry.isDirectory()) walk(full);
         else if (exts.some((e) => entry.name.endsWith(e))) out.push(full);
@@ -261,7 +264,8 @@ test("user-facing text invokes the CLI as `csda`, not by its package name", () =
       // `completion` registers both binary names on purpose.
       if (/complete\s+-[FcC]|compdef/.test(line)) return;
       if (bareInvocation.test(line)) {
-        offenders.push(`${path.relative(ROOT_DIR, file)}:${i + 1}: ${line.trim().slice(0, 90)}`);
+        const rel = path.relative(ROOT_DIR, file).split(path.sep).join("/");
+        offenders.push(`${rel}:${i + 1}: ${line.trim().slice(0, 90)}`);
       }
     });
   }
