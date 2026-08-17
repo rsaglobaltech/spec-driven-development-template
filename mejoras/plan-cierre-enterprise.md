@@ -1083,6 +1083,70 @@ donde no puedes elegir la JDK. Subir a 17 se lleva por delante ese caso de uso.
 
 ---
 
+## 12.10 Camino a 1.0 — el gate, no una fecha
+
+*Escrito el 2026-08-17, con los números medidos, no recordados.*
+
+**Lo que 1.0 significa aquí:** que el formato de packs y el contrato de agente
+son estables, y que la política de soporte deja de decir «intención» y pasa a
+decir «promesa». Eso es lo que compra un equipo cuando ve un 1.0.
+
+### Lo que ya está listo
+
+| | Medido |
+|---|---|
+| Tests | 658, 0 fallos |
+| Cobertura | 77,24 líneas · 73,62 ramas · 83,22 funciones |
+| Checks obligatorios | 13, sobre matriz 3 SO × 2 Node |
+| Superficie visible | 9 comandos; 32 en total tras `--help --all` |
+| Packs curados | 11, y **un test instala cada uno** |
+| ADRs | 20 |
+| Distribución | npm con procedencia SLSA + imagen multi-arch, verificadas desde cero |
+| Gobierno | `SECURITY.md`, `CODEOWNERS`, `MAINTAINERS.md`, SBOM, puerta de licencias, `main` protegida |
+
+### Lo que falta, y es medible
+
+**G1 · Dos releases de features seguidas sin breaking.** Hoy no se cumple:
+0.2.0 tuvo 2, 0.3.0 tuvo 1 y 0.4.0 tuvo 1. **Una por release no es una
+superficie estable**, y las dos últimas salieron de encontrar defectos reales
+—la bifurcación del formato de packs, el camelCase aplicado a medias—. Ese ritmo
+tiene que caer a cero por sí solo, no por dejar de mirar.
+
+**G2 · El bucle del harness completado de punta a punta al menos una vez.** El
+nivel L4 es la promesa titular y **nunca se ha ejecutado con un agente real**.
+Un 1.0 que anuncia entrega dirigida por agentes sin haberla hecho ni una vez es
+una afirmación sin verificar.
+
+**G3 · Un equipo de fuera adopta en L1–L2 y reporta.** Es C9-08. La estabilidad
+de una API no se decide leyéndola; nadie ajeno a este repo la ha usado todavía.
+
+**G4 · El gate de cobertura sube a lo que ya es.** ✅ **Hecho el 2026-08-17**:
+declaraba 74/70/80 con la realidad en 77/73/83, así que la cobertura podía caer
+tres puntos sin que nada protestara. Ahora 76/72/82 — un punto de holgura, para
+que un refactor ajeno no lo dispare pero una regresión real sí.
+
+**G5 · La política de soporte se escribe sin la frase que la anula.**
+`docs/release-process.md` dice hoy *«esa es la intención, no una promesa, hasta
+que esté escrito aquí sin esta frase»*. En 1.0 se borra esa frase — y con ella
+se acepta mantener una línea más el minor anterior seis meses.
+
+### Fuera del alcance de 1.0
+
+Publicar los plugins de Maven y Gradle, la extensión de VS Code, el scope npm y
+el registry (D12). Son otro producto, con otras credenciales y otro ciclo. Van a
+**v2**.
+
+### Lectura honesta del calendario
+
+G1 depende de que pase el tiempo sin romper nada, así que **no se puede
+acelerar**. G2 y G3 dependen de gente y de un agente. Ninguno de los cinco
+depende de escribir más código, salvo G4, que es una línea.
+
+Dicho de otro modo: 1.0 no está a X tareas de distancia, está a **dos releases
+tranquilas y un usuario real** de distancia.
+
+---
+
 ## 13. Backlog aparcado
 
 Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el motivo.
@@ -1118,6 +1182,7 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | 2026-08-16 | La recuperación (C0-11) puentea estilos en vez de unificarlos | 11 líneas de `require()` en la frontera contra un refactor de 64 ficheros. La mezcla ESM/CommonJS es cosmética: `tsc` con `module: commonjs` compila ambas |
 | 2026-08-16 | Los 10 PRs de Dependabot: 6 mergeados, 4 cerrados con motivo (D7) | 6 verdes tras correr la suite; 2 cerrados por config equivocada (`typescript` y `@eslint/js` fuera de su grupo, arreglado en `dependabot.yml`) y 2 por suelo de plataforma (§12.7). Cero PRs abiertos |
 | 2026-08-16 | `js-yaml` 4 → 5 se mergea pese a ser major (D8) | js-yaml 5 pasa a YAML 1.2, donde `yes`/`no`/`on`/`off` dejan de ser booleanos. Los tres sitios de producción pasan `{ json: true }`, que ya forzaba esquema JSON, así que el cambio no les afecta. Comprobado ejecutando ambas versiones sobre el mismo documento: salida idéntica, y coincide con `parseYamlLite` del propio CLI |
+| 2026-08-17 | Publicar plugins Maven/Gradle, extensión y registry se mueve a **v2** (D12) | No entra en el alcance de 1.0. 1.0 estabiliza el CLI y el formato de packs; los canales de distribución adicionales son otro producto con otras credenciales y otro ciclo. Ya estaban `[-]` en §12.8 |
 | 2026-08-17 | Suelo a **Node 22** y **0.4.0 publicada** (D11) | Node 20 salió de LTS en abril, así que la matriz probaba un runtime sin soporte. Se publicó sola y de inmediato porque 0.3.0 declaraba `>=20` mientras CI ya no lo cubría: una promesa sin verificar en `latest`. Desbloquea `cucumber 13`. Política escrita: el suelo es una LTS mantenida |
 | 2026-08-17 | **0.3.0 publicada** (D10) | 34 commits sin publicar desde 0.2.1, con media release ausente del CHANGELOG. npm `latest` = 0.3.0 con procedencia SLSA, `ghcr.io/rsaglobaltech/csda:0.3.0` multi-arch, notas de release escritas. Verificada desde cero con `npx create-spec-driven-app@0.3.0` generando un proyecto móvil |
 | 2026-08-17 | Publicar plugins Maven/Gradle, la extensión de VS Code, el scope npm y el registry queda **aplazado** (D9) | No es prioridad ahora. No bloquea nada: el CLI ya está en npm y la imagen en ghcr, que son las dos vías reales. Marcadas `[-]` con motivo, no descartadas — ver §12.8 |
