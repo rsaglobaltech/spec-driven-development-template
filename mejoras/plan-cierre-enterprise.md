@@ -630,7 +630,7 @@ y el goal `csda:validate` de Maven sobre un proyecto Java real.
 | ID | | Tarea |
 |---|---|---|
 | C8-01 | `[~]` | CsdaStudioApp: **fases 5, 6 y 7 hechas** el 2026-08-17 — scaffold hexagonal con REQ-015 verde (`bef5de4`) y harness cableado (`5d98aa3`). Quedan 8–10: `harness run` REQ-001..014, review de ramas, tag y deploy. Cablear el harness **destapó una regresión viva en el CLI** — ver §11.2. Estado vivo en `mejoras/csda-studio-handoff.md` |
-| C8-02 | `[ ]` | Piloto HIE. Los repos existen (`~/sandbox/projects/healthcare-hie-specops`, `hie-his-platform`) pero **`mejoras/hie-pilot-runbook.md` no existe ni está en el historial de git** — era local y se perdió. Hay que reconstruir el estado leyendo los dos repos antes de continuar |
+| C8-02 | `[~]` | Piloto HIE. **Estado reconstruido y runbook reescrito** el 2026-08-17 (`mejoras/hie-pilot-runbook.md`, ahora sí versionado). Brownfield real: Spring Boot 3.3 / Java 21 + HAPI FHIR, pack `healthcare-hie/backend` v0.1.0 con 16 requisitos, adoptado a L1–L2, `validate` pasa. Falta conducir la implementación. Reconstruirlo destapó los perfiles de agente — ver §11.3 |
 | C8-03 | `[ ]` | Case studies 2 y 3. Solo existe `docs/case-studies/case-1.md` |
 | C8-04 | `[ ]` | Vídeo demo de 90 s (P1-12, pendiente desde la fase 1) + vídeo del bucle bidireccional F1B — *ese vídeo no lo puede grabar ningún competidor* |
 | C8-05 | `[x]` | Métricas §9 medidas contra el disco, no estimadas. **3 de 5 cumplidas, 1 fallada, 1 no medible por máquina.** Medir destapó dos defectos reales — ver §11.1 |
@@ -717,6 +717,38 @@ lo pasa al constructor real. Ese sí lo habría cazado.
 **Lo que esto dice del proyecto:** el dogfood no es ceremonia. Es el único
 sitio donde apareció, porque es el único que atraviesa la costura entre dos
 comandos.
+
+---
+
+### 11.3 El piloto estaba configurado contra algo que no existía (C8-02)
+
+Al reconstruir el estado del piloto HIE apareció esto en su
+`harness.config.yaml`:
+
+```yaml
+agent_profile: local-claude
+```
+
+Y un `.harness/profiles.yaml` con el comando del agente. **El CLI no leía
+ninguna de las dos claves.** `harness run` respondía «No agent configured»
+mientras el fichero declaraba uno perfectamente.
+
+El diseño era bueno —por eso alguien lo escribió— y además resuelve la tensión
+que apareció al cablear el harness del studio: o comiteas un agente por defecto
+que alguien acaba pagando sin querer, o reescribes el comando en cada
+ejecución. Un perfil con nombre es la tercera opción. Así que se implementó en
+vez de borrarse.
+
+**Lo importante es la otra mitad:** una clave desconocida en
+`harness.config.yaml` ahora es error, con la lista de las que sí se leen.
+Ignorarla en silencio es exactamente cómo un piloto acaba configurado contra
+nada, y el fallo es invisible hasta que alguien ejecuta el bucle y no se cree
+el mensaje de error.
+
+Hay un test que fija los dos extremos del contrato: **toda clave que
+`harness init` escribe es una clave que el lector acepta.** Sin eso, la
+comprobación estricta se convierte en una trampa que tiende el propio
+scaffolder.
 
 ---
 
