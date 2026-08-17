@@ -1,6 +1,6 @@
 {
   "name": "create-spec-driven-app",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "CLI to scaffold Spec-Driven Development project templates.",
   "license": "MIT",
   "type": "commonjs",
