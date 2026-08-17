@@ -246,7 +246,7 @@ function main() {
   if (!fs.existsSync(targetDir) || !fs.statSync(targetDir).isDirectory()) {
     fail("project_dir_not_found", `Directory not found: ${targetDir}`, EXIT.USAGE, [
       "Check the path for typos, or scaffold a new project first:",
-      "  create-spec-driven-app init",
+      "  csda init",
     ]);
   }
 
@@ -260,7 +260,7 @@ function main() {
     if (!fs.existsSync(path.join(targetDir, d))) {
       fail("missing_required_dir", `Missing required directory: ${d}`, 1, [
         `Create it: mkdir -p ${d}`,
-        "Or scaffold the full SDD structure with `create-spec-driven-app init` / `specops add`.",
+        "Or scaffold the full SDD structure with `csda init` / `specops add`.",
       ]);
     }
   }
@@ -280,7 +280,7 @@ function main() {
     if (!fs.existsSync(path.join(targetDir, f))) {
       fail("missing_required_file", `Missing required file: ${f}`, 1, [
         FILE_FIXES[f] || `Create ${f}.`,
-        "Generated projects include every required file — compare with `create-spec-driven-app init --yes --out <tmp>`.",
+        "Generated projects include every required file — compare with `csda init --yes --out <tmp>`.",
       ]);
     }
   }
@@ -291,7 +291,7 @@ function main() {
   if (featureFiles.length < 1) {
     fail("no_feature_files", "No .feature files were found in features/", 1, [
       "Write at least one Gherkin scenario, e.g. features/<area>/<name>.feature,",
-      "or pull scenarios from a domain pack: create-spec-driven-app specops add --pack-repo <url> …",
+      "or pull scenarios from a domain pack: csda specops add --pack-repo <url> …",
     ]);
   }
   const featureCount = featureFiles.length;
@@ -314,7 +314,7 @@ function main() {
     const varList = [...tokens].map((t) => String(t).replace(/[{}]/g, "")).join(", ");
     logFix([
       `Replace the tokens with real values, or re-expand the pack passing each variable:`,
-      `  create-spec-driven-app specops sync --project-dir . (after adding the missing vars to .specops.lock)`,
+      `  csda specops sync --project-dir . (after adding the missing vars to .specops.lock)`,
       `Missing variables: ${varList}`,
     ]);
     process.exit(1);
@@ -387,7 +387,7 @@ function main() {
     if (status && !ALLOWED_STATUS.has(status)) {
       fail("invalid_status", `Invalid status in traceability.md: ${status}`, 1, [
         `Allowed statuses: ${[...ALLOWED_STATUS].join(" · ")}`,
-        "Use `create-spec-driven-app done <REQ-id>` to flip a row to Implemented safely.",
+        "Use `csda done <REQ-id>` to flip a row to Implemented safely.",
       ]);
     }
 
@@ -428,7 +428,7 @@ function main() {
     "TDD-2":
       "Give the row a Scenario ID that matches a scenario in its feature file (e.g. SCN-001).",
     "TDD-3":
-      "Add a traceability row for the requirement — run `create-spec-driven-app plan` to list what each REQ still needs.",
+      "Add a traceability row for the requirement — run `csda plan` to list what each REQ still needs.",
   };
 
   if (strictTddViolations.length > 0) {

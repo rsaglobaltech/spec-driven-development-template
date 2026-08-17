@@ -23,4 +23,4 @@ jobs:
         run: npm install -g create-spec-driven-app@latest
 
       - name: Validate spec tree
-        run: create-spec-driven-app validate .
+        run: csda validate .

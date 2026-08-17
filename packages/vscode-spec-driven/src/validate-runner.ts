@@ -2,7 +2,7 @@
 
 /**
  * Pure module — no vscode dependency.
- * Spawns `create-spec-driven-app validate <projectDir>` and returns raw output.
+ * Spawns `csda validate <projectDir>` and returns raw output.
  */
 
 const { spawnSync } = require("node:child_process");

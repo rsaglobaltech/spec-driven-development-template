@@ -23,7 +23,7 @@ When you save any file inside a spec-driven project (detected by the presence
 of `spec.md`), the extension automatically runs:
 
 ```
-create-spec-driven-app validate <projectRoot>
+csda validate <projectRoot>
 ```
 
 Results appear in the Problems panel anchored to `spec.md`. A status-bar

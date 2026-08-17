@@ -392,7 +392,7 @@ function usage() {
   process.stdout.write(
     `\n  📊 report — spec-coverage dashboard\n\n` +
       `  USAGE\n` +
-      `    create-spec-driven-app report [--project-dir <path>] [--format html|json]\n` +
+      `    csda report [--project-dir <path>] [--format html|json]\n` +
       `                                  [--out <file>] [--stdout] [--record]\n\n` +
       `  OPTIONS\n` +
       `    --project-dir <path>  Project root (default: cwd).\n` +

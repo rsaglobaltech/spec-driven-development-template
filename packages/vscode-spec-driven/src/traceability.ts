@@ -49,7 +49,7 @@ function findIdInTraceability(traceContent, id) {
 }
 
 /**
- * Parse the stdout/stderr of `create-spec-driven-app validate <dir>`.
+ * Parse the stdout/stderr of `csda validate <dir>`.
  * Returns an array of diagnostic-like objects.
  * @param {string} stdout
  * @param {string} stderr

@@ -1,7 +1,7 @@
 # @spec-driven/pack-registry
 
 Static-site generator for the Spec-Driven domain pack registry. Reads packs
-from a directory, runs schema + lint checks via `create-spec-driven-app pack lint`,
+from a directory, runs schema + lint checks via `csda pack lint`,
 and emits a single-page HTML index plus a JSON manifest.
 
 ## Usage
@@ -50,7 +50,7 @@ also produce JSON, RSS, sitemap, etc. without changes.
 ## Adding a new pack
 
 1. Create `packs/<your-domain>/<type>/pack.yaml` (use
-   `create-spec-driven-app pack init` to scaffold).
+   `csda pack init` to scaffold).
 2. Run `node bin/create-spec-driven-app.js pack lint --pack-root packs --pack <your-domain>/<type>`
    until it passes.
 3. Open a PR. CI will run the registry build to verify nothing else broke.

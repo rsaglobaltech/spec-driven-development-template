@@ -181,3 +181,98 @@ test("every command the CLI dispatches is documented somewhere", () => {
     `commands with no mention in README.md or docs/*.md:\n  ${undocumented.join("\n  ")}`
   );
 });
+
+/**
+ * Guard: one name for the command in user-facing text.
+ *
+ * The CLI ships two binaries — `create-spec-driven-app` and the `csda` alias —
+ * and for a while the docs and the help strings used them interchangeably, so
+ * the same command appeared under two names depending on which page you landed
+ * on. `csda` is the one to type; the long name is the *package*, and stays in
+ * the `npx create-spec-driven-app@latest` bootstrap line, in npm links, and in
+ * file paths.
+ *
+ * This checks the difference: a bare invocation followed by a real
+ * sub-command must use the alias.
+ */
+test("user-facing text invokes the CLI as `csda`, not by its package name", () => {
+  const SUBCOMMANDS = [
+    "init",
+    "adopt",
+    "onboard",
+    "doctor",
+    "status",
+    "plan",
+    "req",
+    "change",
+    "validate",
+    "done",
+    "fix",
+    "report",
+    "pack",
+    "specops",
+    "harness",
+    "ci",
+    "alm",
+    "config",
+    "agents",
+    "update",
+    "schema",
+    "completion",
+    "studio",
+    "expand",
+  ];
+  // Not preceded by `npx `, by a path separator, or by `@` — those are the
+  // package, not the command.
+  const bareInvocation = new RegExp(
+    `(?<!npx )(?<![\\w/@.-])create-spec-driven-app (?:${SUBCOMMANDS.join("|")})\\b`
+  );
+
+  const collect = (dir: string, exts: string[], skip: RegExp) => {
+    const out: string[] = [];
+    const walk = (d: string) => {
+      for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+        const full = path.join(d, entry.name);
+        // POSIX separators: `path.relative` yields backslashes on Windows,
+        // so a skip pattern written with `/` would silently match nothing
+        // there and the guard would scan the very files it exempts.
+        const rel = path.relative(ROOT_DIR, full).split(path.sep).join("/");
+        if (skip.test(rel)) continue;
+        if (entry.isDirectory()) walk(full);
+        else if (exts.some((e) => entry.name.endsWith(e))) out.push(full);
+      }
+    };
+    walk(path.join(ROOT_DIR, dir));
+    return out;
+  };
+
+  // ADRs are dated records of decisions; they are not rewritten to match a
+  // later naming convention. dist/ is build output.
+  const skip = /(^|\/)(dist|node_modules)(\/|$)|docs\/specs\/adr\//;
+  const files = [
+    ...collect("scripts", [".ts"], skip),
+    ...collect("docs", [".md", ".html"], skip),
+    ...collect("templates", [".tpl", ".md"], skip),
+    path.join(ROOT_DIR, "README.md"),
+    path.join(ROOT_DIR, "CONTRIBUTING.md"),
+  ];
+
+  const offenders: string[] = [];
+  for (const file of files) {
+    const content = fs.readFileSync(file, "utf8");
+    content.split("\n").forEach((line, i) => {
+      // `completion` registers both binary names on purpose.
+      if (/complete\s+-[FcC]|compdef/.test(line)) return;
+      if (bareInvocation.test(line)) {
+        const rel = path.relative(ROOT_DIR, file).split(path.sep).join("/");
+        offenders.push(`${rel}:${i + 1}: ${line.trim().slice(0, 90)}`);
+      }
+    });
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `invoke the CLI as \`csda\` in user-facing text:\n  ${offenders.join("\n  ")}`
+  );
+});

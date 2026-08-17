@@ -40,7 +40,7 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}✔ done${c.reset}  ${c.dim}— close the loop on a requirement${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}create-spec-driven-app done${c.reset} <REQ-id> [--status <Status>] [--project-dir <path>] [--check]\n\n` +
+      `    ${c.cyan}csda done${c.reset} <REQ-id> [--status <Status>] [--project-dir <path>] [--check]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--status <Status>${c.reset}    ${c.dim}New status (default: Implemented).${c.reset}\n` +
       `                         ${c.dim}One of: ${ALLOWED_STATUSES.join(", ")}.${c.reset}\n` +

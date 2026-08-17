@@ -5,7 +5,7 @@
  * pack lint — semantic validation of a pack.yaml beyond JSON Schema.
  *
  * Usage:
- *   create-spec-driven-app pack lint --pack-root <path> --pack <domain/type>
+ *   csda pack lint --pack-root <path> --pack <domain/type>
  */
 
 const fs = require("node:fs");
@@ -25,8 +25,8 @@ function logError(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app pack lint --pack-root <path> --pack <domain/type> [--strict]\n" +
-      "  create-spec-driven-app pack lint --pack-root <path> --pack <domain/type> --graph [--graph-format mermaid|dot]\n\n" +
+      "  csda pack lint --pack-root <path> --pack <domain/type> [--strict]\n" +
+      "  csda pack lint --pack-root <path> --pack <domain/type> --graph [--graph-format mermaid|dot]\n\n" +
       "Options:\n" +
       "  --pack-root      Root directory containing domain packs (required)\n" +
       "  --pack           Pack identifier, e.g. parking-management/backend (required)\n" +
