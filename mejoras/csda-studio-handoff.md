@@ -41,9 +41,9 @@ Stretch list explicitly NOT in v0.1.0.
 | 2   | `csda pack lint --pack-root . --pack csdastudioapp/frontend --strict` + `--graph` clean                                                                                                                             | `csda-studio-specops` repo    | ✅      |
 | 3   | Tag the pack `v0.1.0` and push                                                                                                                                                                                      | `csda-studio-specops` repo    | ✅      |
 | 4   | `csda init` + `csda specops add` against the tagged pack                                                                                                                                                            | `csda-studio-app` repo        | ✅      |
-| 5   | **Phase 1 bootstrap** — paste `docs/bootstrap-prompt.md` (from this repo) into opencode; produce Vite/React/TS scaffold + Vitest + Playwright + Cucumber wired, hex skeleton, **REQ-015 (health)** green end-to-end | `csda-studio-app` repo        | ⏳ NEXT |
-| 6   | Commit Phase 1 result                                                                                                                                                                                               | `csda-studio-app` repo        | ⏳      |
-| 7   | Add `harness.config.yaml` with `prompt_prefix_file: ./.harness/prompt-prefix.md` (Role / Active Project Boundary / Execution Policy)                                                                                | `csda-studio-app` repo        | ⏳      |
+| 5   | **Phase 1 bootstrap** — Vite/React/TS scaffold + Vitest + Cucumber wired, hex skeleton, **REQ-015 (health)** green end-to-end | `csda-studio-app` repo        | ✅      |
+| 6   | Commit Phase 1 result — `bef5de4`, pushed to `main`                                                                                                                                                                 | `csda-studio-app` repo        | ✅      |
+| 7   | Add `harness.config.yaml` with `prompt_prefix_file: ./.harness/prompt-prefix.md` (Role / Active Project Boundary / Execution Policy)                                                                                | `csda-studio-app` repo        | ⏳ NEXT |
 | 8   | `csda harness run --req REQ-001` … `REQ-014` (REQ-015 already done in Phase 1)                                                                                                                                      | `csda-studio-app` repo        | ⏳      |
 | 9   | Review + merge each `harness/REQ-NNN` branch                                                                                                                                                                        | `csda-studio-app` repo        | ⏳      |
 | 10  | Tag the app `v0.1.0`, deploy as static site                                                                                                                                                                         | `csda-studio-app` repo        | ⏳      |
@@ -52,38 +52,32 @@ Stretch list explicitly NOT in v0.1.0.
 
 ## Immediate next action
 
-**Phase 5 — Phase 1 bootstrap inside `csda-studio-app`.** The agent
-doing this should, from inside a fresh clone of `csda-studio-app` at
-the commit just pushed in Phase 4:
+**Phase 7 — wire the harness inside `csda-studio-app`.** Phases 5 and 6 are
+done: the scaffold is committed at `bef5de4` and REQ-015 is green end to end.
 
-1. Read `docs/bootstrap-prompt.md` from this repo
-   (`create-spec-driven-app`) and adapt it: the stack section reads
-   "Vite + React 18 + TypeScript 5 + Tailwind + Vitest + Playwright +
-   Cucumber-JS", the project name reads "Csda Studio", the slug reads
-   "csda-studio-app". Confirm `AI_RULES.md` already carries the same
-   stack via the pack render — it should.
-2. Paste the adapted bootstrap prompt into **opencode** (or Claude /
-   Aider — whichever the harness will use). The goal is a minimal
-   working scaffold:
-   - `package.json` + `vite.config.ts` + `tsconfig.json` +
-     `tailwind.config.js` + `postcss.config.js`.
-   - `src/domain/`, `src/application/`, `src/adapters/`, `src/ui/`
-     directories created with a placeholder file each (so the
-     hex-lite layout is visible from day one).
-   - Vitest configured (`vitest.config.ts`) with one passing dummy
-     unit test.
-   - Playwright + Cucumber-JS wired (`playwright.config.ts`,
-     `tests/e2e/` with one step-definition file).
-   - `npm run dev`, `npm run test`, `npm run test:e2e` and
-     `npm run build` all succeed.
-   - **REQ-015 (health) green end-to-end**: `dist/health.json`
-     present with `{"status":"UP"}`; the e2e scenario in
-     `features/studio-shell/health_endpoint.feature` passes against
-     the built output served by any static server.
-3. Bump REQ-015 to `Implemented` in `docs/specs/traceability.md`.
-4. Commit (`feat: phase 1 bootstrap — scaffold + REQ-015 green`).
-5. Update this file: flip Phase 5 + Phase 6 to ✅, promote Phase 7
-   (harness.config.yaml with prompt_prefix_file) to NEXT.
+From a clone of `csda-studio-app` at `main`:
+
+1. Add `harness.config.yaml` with `prompt_prefix_file: ./.harness/prompt-prefix.md`.
+2. Write `.harness/prompt-prefix.md` with Role, Active Project Boundary and
+   Execution Policy. The boundary matters here: the agent must not touch
+   `features/**` or `docs/specs/**` — those come from the pack, and editing
+   them turns a spec-driven run into an ordinary one.
+3. Check the prompt before paying for tokens: `csda harness prompt REQ-001`.
+4. Then Phase 8: `csda harness run --req REQ-001` … `REQ-014`.
+
+What the agent inherits, and should not re-derive:
+
+- The layering rules are in `AI_RULES.md` and are already enforced by the
+  scaffold — `src/domain` and `src/application` have no React import, and
+  `vitest.config.ts` has no React plugin, so a violation shows up as a build
+  failure rather than as a review comment.
+- `src/main.tsx` is the composition root and the only file that names a
+  concrete adapter. New adapters get injected there.
+- The pattern to copy for each requirement is REQ-015: domain type + pure
+  function, port interface, use case, adapter, component, unit tests on the
+  pure parts, and a Cucumber scenario that exercises the real artefact.
+- `npm run verify` must stay green. `npm run test:e2e` goes from 14 undefined
+  scenarios to 13, then 12, and so on — that countdown is the progress bar.
 
 ### Reference — how Phase 4 was done
 
@@ -185,3 +179,8 @@ the whole conversation history.
 | 2026-05-15 | Handoff doc created. Next concrete action: author the pack in `csda-studio-specops` per the brief.                                                                    | this file                      |
 | 2026-05-15 | Phases 1-3 complete. Pack authored, lint --strict + --graph clean, tagged `v0.1.0` and pushed. Pack contains 15 REQs / 15 UCs / 10 CMDs / 5 QRYs / 4 AGGs / 15 EVTs / 15 SCNs. README at `csda-studio-specops` documents the authoring recipe.    | https://github.com/rsaglobaltech/csda-studio-specops tag v0.1.0 |
 | 2026-05-15 | Phase 4 complete. `csda init` + `csda specops add --pack-repo csda-studio-specops --pack-version v0.1.0 --pack csdastudioapp/frontend` ran against the cloned repo. 15 feature files rendered, traceability matrix populated with REQ-001..REQ-015 rows, `.specops.lock` pins commit bafd153, `.specops/baseline/` snapshot in place. Pushed to main. | https://github.com/rsaglobaltech/csda-studio-app `main` |
+| 2026-08-17 | **Phases 5 and 6 complete.** Hexagonal scaffold committed as `bef5de4`: Vite + React 18 + TS 5, Vitest on the pure layers, Cucumber on the scenarios. **REQ-015 green end to end** — the scenario builds the app, serves the real `dist/` over a deliberately plain static file server and requests `/health.json`. `csda validate` passes; `csda status` reports 1 done of 16. | https://github.com/rsaglobaltech/csda-studio-app `bef5de4` |
+| 2026-08-17 | **Playwright and Tailwind deliberately not installed yet.** The brief freezes them into the stack, but REQ-015 is an HTTP request against a static asset — no browser, no styling. They arrive with the first requirement that needs them rather than sitting unused in `package.json`. | app `README.md` |
+| 2026-08-17 | **Vitest gets its own config file.** Vitest bundles its own copy of Vite, so a shared `vite.config.ts` makes `tsc` compare two different `Plugin` types and fail. Welcome side effect: the unit config has no React plugin, so the unit suite cannot quietly reach into `src/ui`. | `vitest.config.ts` |
+| 2026-08-17 | **`npm run test:e2e` is red by design and stays red.** It runs all 16 scenarios; 14 have no step definitions because REQ-001..REQ-014 are unbuilt, and undefined steps are failures. That is the gate working. `npm run verify` (typecheck + unit + build) is the green signal until the harness fills them in. | app `README.md` |
+| 2026-08-17 | **Dogfood finding: `init` + a pack produce two health requirements.** `csda init` seeds REQ-000 with `features/core/health.feature`; the pack then adds REQ-015 for the same purpose. Left in place — deleting a requirement is a spec decision, not a cleanup — but worth fixing in the CLI or in the pack. | `docs/specs/traceability.md` |

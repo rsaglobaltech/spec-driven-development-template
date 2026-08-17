@@ -629,8 +629,8 @@ y el goal `csda:validate` de Maven sobre un proyecto Java real.
 
 | ID | | Tarea |
 |---|---|---|
-| C8-01 | `[ ]` | CsdaStudioApp fases 5–10 (`mejoras/csda-studio-handoff.md`): bootstrap fase 1 + REQ-015 verde, `harness run` para REQ-001..014, review y merge de las 14 ramas, tag y deploy. Parado desde 2026-05-15 |
-| C8-02 | `[ ]` | Piloto HIE (`mejoras/hie-pilot-runbook.md`; los repos viven en `~/sandbox/projects/`, fuera de este árbol) |
+| C8-01 | `[~]` | CsdaStudioApp: **fases 5 y 6 hechas** el 2026-08-17 (`bef5de4`) — scaffold hexagonal y REQ-015 verde de punta a punta. Quedan 7–10: harness, `harness run` REQ-001..014, review de ramas, tag y deploy. Estado vivo en `mejoras/csda-studio-handoff.md` |
+| C8-02 | `[ ]` | Piloto HIE. Los repos existen (`~/sandbox/projects/healthcare-hie-specops`, `hie-his-platform`) pero **`mejoras/hie-pilot-runbook.md` no existe ni está en el historial de git** — era local y se perdió. Hay que reconstruir el estado leyendo los dos repos antes de continuar |
 | C8-03 | `[ ]` | Case studies 2 y 3. Solo existe `docs/case-studies/case-1.md` |
 | C8-04 | `[ ]` | Vídeo demo de 90 s (P1-12, pendiente desde la fase 1) + vídeo del bucle bidireccional F1B — *ese vídeo no lo puede grabar ningún competidor* |
 | C8-05 | `[x]` | Métricas §9 medidas contra el disco, no estimadas. **3 de 5 cumplidas, 1 fallada, 1 no medible por máquina.** Medir destapó dos defectos reales — ver §11.1 |
