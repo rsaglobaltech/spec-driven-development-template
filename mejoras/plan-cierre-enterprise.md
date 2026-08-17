@@ -556,7 +556,7 @@ corren en CI; Dependabot cubre npm, actions, Maven y Gradle.
 | C7-01 | `[x]` | `CHANGELOG.md` **escrito** en la fase 5, con el cambio incompatible de camelCase registrado mientras estaba fresco. Falta changesets |
 | C7-02 | `[x]` | Preparar la release **0.2.0**: tres meses de features sin publicar — ciclo `change`, `specops contribute`, `diff --as-change`, F1B, más todo lo que entra en C0-05 |
 | C7-03 | `[x]` | **`0.2.1` en `latest`**, con provenance. Verificada con `npm install create-spec-driven-app` en un proyecto limpio: `init` + `validate` de punta a punta. La página de npmjs.com ya renderiza el README actual |
-| C7-04 | `[ ]` | Docker: primer push a ghcr.io con `Dockerfile.cli` + `publish-docker.yml` (llegan en C0-05). Documentar el uso en pipelines de cliente |
+| C7-04 | `[x]` | Docker publicado. `ghcr.io/rsaglobaltech/csda:0.2.1` vive en el registry con `amd64` y `arm64` (verificado con `docker manifest inspect`). Uso en pipelines documentado en `docs/automation.md` — que era la mitad que faltaba y la razón de existir de la imagen |
 | C7-05 | `[ ]` | Maven: publicar `packages/maven-plugin`. Requiere groupId, firma GPG y cuenta OSSRH — o Nexus/Artifactory interno |
 | C7-06 | `[ ]` | Gradle: publicar `packages/gradle-plugin` en el Gradle Plugin Portal o repo interno |
 | C7-07 | `[ ]` | VS Code Marketplace: cuenta de publisher + `vsce publish`. El `.vsix` 0.1.0 ya está construido en `releases/` |
