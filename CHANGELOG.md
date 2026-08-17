@@ -73,6 +73,24 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ### Added
 
+- **`mobile` is a first-class `PROJECT_TYPE`**, and a pack flavour. Building a
+  mobile app previously meant declaring `frontend` and setting the stack, so the
+  type recorded in the generated project was untrue and the AI rules it
+  inherited talked about responsive behaviour and route navigation.
+
+  `templates/mobile/AI_RULES.md.tpl` is not a copy of the front-end one. It
+  states as acceptance criteria the things a mobile app actually gets wrong:
+  offline is a state rather than an error, the OS can kill the process at any
+  moment, iOS/Android divergence is declared rather than assumed, a permission
+  is a flow with a denial branch, deep links are cold entry points, and passing
+  store review is part of done. The baseline scenario is a cold start that needs
+  no network, not a request to `/`.
+
+  A test pins all four places that list project types — `init`, the wizard,
+  `pack init` and the JSON Schema enum — because a type accepted by one and
+  refused by another is how `contracts` became scaffoldable and impossible to
+  install.
+
 - **`agent_profile` in `harness.config.yaml`**, resolved from
   `.harness/profiles.yaml`. A team commits the agent commands it uses — local,
   CI, a different vendor — and each environment picks one by name, instead of

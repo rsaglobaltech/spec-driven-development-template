@@ -78,9 +78,12 @@ test("validateAnswer rejects a bad slug with an actionable message", () => {
 });
 
 test("validateAnswer rejects an unknown project type", () => {
+  // `mobile` used to be the example of an invalid type here. It is a supported
+  // one now, which is why this assertion had to change rather than the code.
   const typeField = WIZARD_FIELDS.find((f) => f.key === "PROJECT_TYPE");
-  assert.match(validateAnswer(typeField, "mobile"), /backend, frontend/);
+  assert.match(validateAnswer(typeField, "desktop"), /backend, frontend, mobile/);
   assert.equal(validateAnswer(typeField, "frontend"), null);
+  assert.equal(validateAnswer(typeField, "mobile"), null);
 });
 
 // ── renderConfigYaml ──────────────────────────────────────────────────────────
