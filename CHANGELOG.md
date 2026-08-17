@@ -28,6 +28,22 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ### Added
 
+- **`csda harness init`** — scaffolds `harness.config.yaml` and
+  `.harness/prompt-prefix.md`. The config was documented in the tutorial and
+  named in `harness run`'s own error message long before anything created it,
+  so every project hand-copied it out of a guide.
+
+  It detects the gate from whichever build file is present (`package.json`,
+  `pom.xml`, Gradle, Cargo, Go, Python) and **leaves `test_cmd` commented out
+  when it cannot tell**. That absence is the point: `test_cmd` is an extra gate
+  on top of the `validate --strict-tdd` the harness always runs, so an unset
+  key is safe, while a placeholder like `echo "set this"` exits 0 and would let
+  the harness mark requirements done without running a single test.
+
+  `agent:` is left unset too. Which agent runs the loop is the operator's
+  choice and their credentials, and a default in a committed file is a default
+  somebody pays for by accident.
+
 - **`--json` on `report`, `fix` and `req list`.** Twelve commands now honour
   the agent contract, which is the figure `docs/agents.md` had been claiming.
   `report --json` is shorthand for `--format json --stdout`; `fix --json`
@@ -38,6 +54,16 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   array, and no snake_case field names at any depth.
 
 ### Fixed
+
+- **Every harness prompt read "(none declared)".** `harness run` feeds the
+  prompt builder by shelling out to `plan --format json`, so the camelCase
+  rename above landed on one side of that seam only: the scenario, feature
+  file and both artefacts came out blank, and no Gherkin was inlined. The
+  builder now accepts both spellings, and a test scaffolds a project, asks the
+  real CLI for its plan and feeds the first requirement to the real builder.
+
+  It went unnoticed because the builder's unit fixture was written in the old
+  vocabulary and pinned a shape `plan` no longer produces.
 
 - **`req list --json` printed the human table and ignored the flag.** Worse
   than rejecting it: the caller believes it received a document. Empty matrix
