@@ -5,7 +5,7 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
-## [Unreleased]
+## [0.5.0] — 2026-08-17
 
 ### Fixed
 
