@@ -8,7 +8,7 @@
  * overwriting a file that already exists and without touching source code.
  *
  * Usage:
- *   create-spec-driven-app adopt [--project-dir <dir>] [--dry-run] [--var KEY=VALUE]...
+ *   csda adopt [--project-dir <dir>] [--dry-run] [--var KEY=VALUE]...
  */
 
 const fs = require("node:fs");
@@ -36,7 +36,7 @@ function fail(msg, exitCode = 1) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app adopt [--project-dir <dir>] [--dry-run] [--var KEY=VALUE]...\n\n" +
+      "  csda adopt [--project-dir <dir>] [--dry-run] [--var KEY=VALUE]...\n\n" +
       "Installs Spec-Driven Development on an existing repository:\n" +
       "- detects the stack from pom.xml / build.gradle / package.json / go.mod\n" +
       "- generates spec.md, AI_RULES.md, features/adoption/baseline.feature,\n" +
@@ -193,7 +193,7 @@ function main() {
   if (fs.existsSync(path.join(dir, "spec.md"))) {
     fail(
       `${path.join(dir, "spec.md")} already exists — this repository looks spec-driven already.\n` +
-        "Run `create-spec-driven-app validate .` to check it, or remove spec.md to re-adopt.",
+        "Run `csda validate .` to check it, or remove spec.md to re-adopt.",
       2
     );
   }
@@ -254,9 +254,9 @@ function main() {
   logInfo(`- Files written: ${written}${opts.dryRun ? " (dry-run, nothing on disk)" : ""}`);
   logInfo(`- Files skipped (already present): ${skipped}`);
   logInfo("✅ Adoption completed. Next steps:");
-  logInfo("  1. create-spec-driven-app validate .          # should pass right now");
+  logInfo("  1. csda validate .          # should pass right now");
   logInfo("  2. Retro-fill real requirements in spec.md (one REQ per behaviour you rely on)");
-  logInfo("  3. create-spec-driven-app plan                # see what each REQ still needs");
+  logInfo("  3. csda plan                # see what each REQ still needs");
   logInfo("  4. Add `validate --strict-tdd` to CI to lock the gate in");
   process.exit(0);
 }

@@ -178,7 +178,7 @@ function spawnCli(cliPath, argv, options) {
 // ── Tool: lint_pack ────────────────────────────────────────────────────────────────
 
 /**
- * Run `create-spec-driven-app pack lint` against a pack and return parsed output.
+ * Run `csda pack lint` against a pack and return parsed output.
  * @param {{ packRoot: string, packId: string, cliPath?: string }} args
  * @returns {{ exitCode, errors, warnings, raw }}
  */
@@ -211,7 +211,7 @@ function lintPack(args) {
 // ── Tool: validate_project ─────────────────────────────────────────────────────────
 
 /**
- * Run `create-spec-driven-app validate <projectDir>` and return parsed output.
+ * Run `csda validate <projectDir>` and return parsed output.
  * @param {{ projectDir: string, cliPath?: string }} args
  * @returns {{ exitCode, passed, errors, warnings, raw }}
  */
@@ -239,7 +239,7 @@ function validateProject(args) {
 // ── Tool: plan ────────────────────────────────────────────────────────────────────
 
 /**
- * Run `create-spec-driven-app plan --format json` and return the parsed structure.
+ * Run `csda plan --format json` and return the parsed structure.
  * Lets AI agents discover requirements that still need a test, code, or status
  * update — without parsing the human-friendly text output.
  *
@@ -266,7 +266,7 @@ function plan(args) {
 // ── Tool: mark_requirement_done ───────────────────────────────────────────────────
 
 /**
- * Run `create-spec-driven-app done <REQ-id>` to set Status="Implemented"
+ * Run `csda done <REQ-id>` to set Status="Implemented"
  * (or another terminal state) on the matching traceability row.
  *
  * @param {{ projectDir, requirement, status?, check? }} args

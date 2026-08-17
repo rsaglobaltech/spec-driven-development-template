@@ -6,7 +6,7 @@
  * 'init' command. Accepts the same flags and produces identical output.
  *
  * Usage (via dispatcher):
- *   create-spec-driven-app init --engine=node --config <path> --out <dir> [--force] [--dry-run] [--no-git]
+ *   csda init --engine=node --config <path> --out <dir> [--force] [--dry-run] [--no-git]
  *
  * Can also be run directly:
  *   node scripts/init_project.js --config <path> --out <dir>
@@ -36,7 +36,7 @@ function logError(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app init [--config <path>] [--out <directory>] [--yes] [--force] [--dry-run] [--no-git]\n\n" +
+      "  csda init [--config <path>] [--out <directory>] [--yes] [--force] [--dry-run] [--no-git]\n\n" +
       "Options:\n" +
       "  --config <path>   Configuration file. Accepts a YAML mapping (.yaml/.yml)\n" +
       '                    or the legacy KEY="value" format (.config). When omitted,\n' +
@@ -592,7 +592,7 @@ async function main() {
     cfg = validateConfig({ ...wizardAnswers });
   } else {
     logError("--config is required when not running in a terminal.");
-    logInfo("Fix: run `create-spec-driven-app init` in a terminal for the interactive wizard,");
+    logInfo("Fix: run `csda init` in a terminal for the interactive wizard,");
     logInfo("     pass --yes to scaffold with defaults, or provide --config <path>.");
     process.exit(2);
   }

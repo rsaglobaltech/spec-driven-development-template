@@ -11,7 +11,7 @@
  * scaffolder's job.
  *
  * Usage:
- *   create-spec-driven-app harness init [--project-dir <dir>] [--test-cmd <cmd>]
+ *   csda harness init [--project-dir <dir>] [--test-cmd <cmd>]
  *                                       [--force] [--stdout] [--json]
  */
 
@@ -80,7 +80,7 @@ function usage() {
   process.stdout.write(
     "\n  🤖 harness init — scaffold the harness configuration\n\n" +
       "  USAGE\n" +
-      "    create-spec-driven-app harness init [options]\n\n" +
+      "    csda harness init [options]\n\n" +
       "  WRITES\n" +
       `    ${CONFIG_FILE}        agent, gate, retries, CI mode\n` +
       `    ${PREFIX_FILE}   Role / Active Project Boundary / Execution Policy\n\n` +

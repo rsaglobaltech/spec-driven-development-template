@@ -38,7 +38,7 @@ function error(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--var KEY=VALUE]... [--format text|json] [--plan]\n\n" +
+      "  csda specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--var KEY=VALUE]... [--format text|json] [--plan]\n\n" +
       "Reports files that would be added or modified if `specops sync` ran at\n" +
       "the chosen version. Writes nothing to the project directory.\n\n" +
       "  --as-change       Derive the bump as a reviewable change: compares the\n" +

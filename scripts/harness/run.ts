@@ -50,7 +50,7 @@ function error(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app harness run [options]\n\n" +
+      "  csda harness run [options]\n\n" +
       "Runs the plan → agent → verify → done loop for every pending requirement.\n\n" +
       "  --agent <cmd>          Agent command; must contain the {prompt_file} placeholder.\n" +
       '                         e.g. --agent "claude -p < {prompt_file}"\n' +

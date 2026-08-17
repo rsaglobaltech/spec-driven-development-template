@@ -8,7 +8,7 @@
  * problem — it is the "why is my setup broken?" command.
  *
  * Usage:
- *   create-spec-driven-app doctor [--project-dir <dir>]
+ *   csda doctor [--project-dir <dir>]
  *
  * Exit codes: 0 = no errors (warnings allowed), 1 = at least one error.
  */
@@ -102,7 +102,7 @@ function checkStructure(dir) {
       error(
         "SDD structure",
         `missing required file: ${f}`,
-        "Run `create-spec-driven-app adopt` (brownfield) to generate missing skeleton files without overwriting anything."
+        "Run `csda adopt` (brownfield) to generate missing skeleton files without overwriting anything."
       );
     }
   }
@@ -187,7 +187,7 @@ function checkTraceability(dir) {
         warn(
           "requirement coverage",
           `${req} is in spec.md but has no traceability row`,
-          "Add a row for it — `create-spec-driven-app plan` lists what each REQ still needs."
+          "Add a row for it — `csda plan` lists what each REQ still needs."
         );
       }
     }
@@ -386,7 +386,7 @@ function main() {
     else if (argv[i] === "--json") continue;
     else if (argv[i] === "--help" || argv[i] === "-h") {
       process.stdout.write(
-        "Usage:\n  create-spec-driven-app doctor [--project-dir <dir>] [--json]\n\n" +
+        "Usage:\n  csda doctor [--project-dir <dir>] [--json]\n\n" +
           "Runs every diagnostic (environment, structure, traceability in both\n" +
           "directions, placeholders, specops lockfile) and prints a fix per finding.\n"
       );
@@ -405,7 +405,7 @@ function main() {
     error(
       "project",
       "spec.md not found — this directory is not spec-driven yet",
-      "Run `create-spec-driven-app adopt` here (existing code) or `init` (new project)."
+      "Run `csda adopt` here (existing code) or `init` (new project)."
     );
   } else {
     checkStructure(dir);

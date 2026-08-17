@@ -6,7 +6,7 @@
  * provider your organisation actually uses (enterprise rarely means GitHub).
  *
  * Usage:
- *   create-spec-driven-app ci init --provider github|gitlab|azure|jenkins
+ *   csda ci init --provider github|gitlab|azure|jenkins
  *                                   [--project-dir <dir>] [--stdout] [--force]
  *
  * The generated job runs `validate --strict-tdd`, runs `validate
@@ -43,7 +43,7 @@ function logFix(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app ci init --provider <provider> [options]\n\n" +
+      "  csda ci init --provider <provider> [options]\n\n" +
       `Providers: ${Object.keys(PROVIDERS).join(" | ")}\n\n` +
       "Options:\n" +
       "  --provider <name>    CI provider (required)\n" +

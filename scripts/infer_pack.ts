@@ -16,7 +16,7 @@
  * follow-up behind a `--llm` flag.
  *
  * Usage:
- *   create-spec-driven-app pack infer --from <feature-file> [--format yaml|json]
+ *   csda pack infer --from <feature-file> [--format yaml|json]
  */
 
 const fs = require("node:fs");
@@ -28,7 +28,7 @@ function logError(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app pack infer --from <feature-file> [--format yaml|json]\n\n" +
+      "  csda pack infer --from <feature-file> [--format yaml|json]\n\n" +
       "Reads a Gherkin .feature file and prints a proposed pack.yaml fragment\n" +
       "(requirements, use_cases, commands, events, scenarios) to stdout. The\n" +
       "output is a heuristic skeleton — review every TODO before merging.\n\n" +

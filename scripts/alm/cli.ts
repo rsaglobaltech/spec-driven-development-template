@@ -6,9 +6,9 @@
  * (Jira / Azure Boards) in sync.
  *
  * Usage:
- *   create-spec-driven-app alm sync   [--project-dir <dir>] [--dry-run]
- *   create-spec-driven-app alm link   <REQ-id> <issue-key> [--project-dir <dir>]
- *   create-spec-driven-app alm status [--project-dir <dir>]
+ *   csda alm sync   [--project-dir <dir>] [--dry-run]
+ *   csda alm link   <REQ-id> <issue-key> [--project-dir <dir>]
+ *   csda alm status [--project-dir <dir>]
  */
 
 const { resolveProjectDir } = require("../lib/project-root");
@@ -34,9 +34,9 @@ function logError(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app alm sync   [--project-dir <dir>] [--dry-run]\n" +
-      "  create-spec-driven-app alm link   <REQ-id> <issue-key> [--project-dir <dir>]\n" +
-      "  create-spec-driven-app alm status [--project-dir <dir>]\n\n" +
+      "  csda alm sync   [--project-dir <dir>] [--dry-run]\n" +
+      "  csda alm link   <REQ-id> <issue-key> [--project-dir <dir>]\n" +
+      "  csda alm status [--project-dir <dir>]\n\n" +
       "sync   Creates an ALM issue for every unlinked REQ, closes issues whose REQ\n" +
       "       is Implemented, and reports drift (issue done, REQ still open).\n" +
       "link   Manually map an existing issue to a requirement.\n" +

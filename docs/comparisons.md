@@ -164,7 +164,7 @@ not want this tool.
 
 ### From `.cursorrules` → `create-spec-driven-app`
 
-1. Generate a project with `create-spec-driven-app init`.
+1. Generate a project with `csda init`.
 2. Move your Cursor rules into `AGENTS.md` and `AI_RULES.md` (we generate both).
 3. Reference the generated traceability matrix from your rules so Cursor
    reads them on every prompt.

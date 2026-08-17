@@ -7,7 +7,7 @@
  * clone source: `specops add --pack-repo /path/to/pack.bundle …`.
  *
  * Usage:
- *   create-spec-driven-app pack bundle --repo <url> --out <file.bundle>
+ *   csda pack bundle --repo <url> --out <file.bundle>
  */
 
 const { createPackBundle } = require("./domain-pack/remote");
@@ -22,7 +22,7 @@ function logError(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  create-spec-driven-app pack bundle --repo <url> --out <file.bundle>\n\n" +
+      "  csda pack bundle --repo <url> --out <file.bundle>\n\n" +
       "Creates a git bundle with every branch and tag of the pack repository.\n" +
       "Copy the file into the air-gapped environment and consume it with:\n" +
       "  specops add --pack-repo /path/to/file.bundle --pack-version <tag> …\n"
@@ -56,9 +56,7 @@ function main() {
     logInfo(`write ${result.out}`);
     logInfo(`refs included: ${result.refs.join(", ") || "(none)"}`);
     logInfo("✅ Bundle created. Air-gapped usage:");
-    logInfo(
-      `  create-spec-driven-app specops add --pack-repo ${result.out} --pack-version <tag> …`
-    );
+    logInfo(`  csda specops add --pack-repo ${result.out} --pack-version <tag> …`);
     process.exit(0);
   } catch (err) {
     logError(err && err.message ? err.message : String(err));

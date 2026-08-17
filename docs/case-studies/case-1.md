@@ -139,7 +139,7 @@ that prose requirements rarely achieve.
 
 ### The validate gate as a quality ratchet
 
-Integrating `create-spec-driven-app validate` into the CI pipeline created a ratchet effect:
+Integrating `csda validate` into the CI pipeline created a ratchet effect:
 once a feature file was added to the traceability matrix, it could not be removed without a
 deliberate `git revert`. The team described this as "spec debt becoming visible in the same
 way technical debt becomes visible via coverage thresholds."

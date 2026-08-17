@@ -36,7 +36,7 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}📋 plan${c.reset}  ${c.dim}— what still needs implementation${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}create-spec-driven-app plan${c.reset} [--project-dir <path>] [--json]\n\n` +
+      `    ${c.cyan}csda plan${c.reset} [--project-dir <path>] [--json]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--project-dir <path>${c.reset}  ${c.dim}Project root (default: cwd).${c.reset}\n` +
       `    ${c.green}--format <text|json>${c.reset}  ${c.dim}Output format. JSON is machine-readable for AI agents.${c.reset}\n` +

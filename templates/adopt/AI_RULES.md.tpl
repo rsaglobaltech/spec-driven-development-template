@@ -23,5 +23,5 @@ Rules for any AI coding agent (and any human) working on this repository.
 
 1. The scenario(s) for the requirement pass.
 2. `{{TEST_CMD}}` passes.
-3. `create-spec-driven-app validate . --strict-tdd` passes.
-4. The traceability row is updated via `create-spec-driven-app done REQ-NNN`.
+3. `csda validate . --strict-tdd` passes.
+4. The traceability row is updated via `csda done REQ-NNN`.
