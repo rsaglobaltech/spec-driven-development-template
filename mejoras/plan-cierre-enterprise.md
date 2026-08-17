@@ -629,7 +629,7 @@ y el goal `csda:validate` de Maven sobre un proyecto Java real.
 
 | ID | | Tarea |
 |---|---|---|
-| C8-01 | `[~]` | CsdaStudioApp: **fases 5 y 6 hechas** el 2026-08-17 (`bef5de4`) — scaffold hexagonal y REQ-015 verde de punta a punta. Quedan 7–10: harness, `harness run` REQ-001..014, review de ramas, tag y deploy. Estado vivo en `mejoras/csda-studio-handoff.md` |
+| C8-01 | `[~]` | CsdaStudioApp: **fases 5, 6 y 7 hechas** el 2026-08-17 — scaffold hexagonal con REQ-015 verde (`bef5de4`) y harness cableado (`5d98aa3`). Quedan 8–10: `harness run` REQ-001..014, review de ramas, tag y deploy. Cablear el harness **destapó una regresión viva en el CLI** — ver §11.2. Estado vivo en `mejoras/csda-studio-handoff.md` |
 | C8-02 | `[ ]` | Piloto HIE. Los repos existen (`~/sandbox/projects/healthcare-hie-specops`, `hie-his-platform`) pero **`mejoras/hie-pilot-runbook.md` no existe ni está en el historial de git** — era local y se perdió. Hay que reconstruir el estado leyendo los dos repos antes de continuar |
 | C8-03 | `[ ]` | Case studies 2 y 3. Solo existe `docs/case-studies/case-1.md` |
 | C8-04 | `[ ]` | Vídeo demo de 90 s (P1-12, pendiente desde la fase 1) + vídeo del bucle bidireccional F1B — *ese vídeo no lo puede grabar ningún competidor* |
@@ -682,6 +682,43 @@ array `status`, y cero claves snake_case a cualquier profundidad.
 **Pendientes:** `pack lint` y `specops diff` siguen sin `--json`. Son cirugía
 mayor —imprimen hallazgos y diffs, no un modelo— y hacerlos a medias habría
 sido peor que dejarlos anotados.
+
+### 11.2 El dogfood cazó una regresión que la suite no vio (C8-01)
+
+Al cablear el harness en `csda-studio-app`, `csda harness prompt REQ-001`
+devolvió esto:
+
+```text
+- Scenario ID: (none)
+- Feature file: (none declared)
+- Test artifact (write this first — TDD): (none declared)
+- Production artifact: (none declared)
+```
+
+Y ningún Gherkin inline. Un prompt así no le sirve a ningún agente: le pides
+que implemente un requisito y no le dices contra qué.
+
+La fila de REQ-001 en la matriz estaba **completa**. El fallo era mío, de la
+PR #63: `harness/run.ts` alimenta al constructor de prompts invocando
+`plan --format json` y parseando el resultado, así que los dos están acoplados
+por un formato de cable. Renombré las claves a camelCase en un lado y no en el
+otro.
+
+**Por qué no falló ningún test.** El fixture de `harness-run.test.ts` estaba
+escrito en snake_case y nunca se actualizó, así que fijaba una forma que `plan`
+ya no produce. Un fixture a la deriva se lee como cobertura hasta el día en que
+importa.
+
+Arreglado en la PR #65: el constructor acepta ambas grafías —la del contrato
+primero, la columna de la matriz como respaldo— y hay tres tests nuevos. El que
+vale es el de la costura: genera un proyecto, le pide el plan al CLI real y se
+lo pasa al constructor real. Ese sí lo habría cazado.
+
+**Lo que esto dice del proyecto:** el dogfood no es ceremonia. Es el único
+sitio donde apareció, porque es el único que atraviesa la costura entre dos
+comandos.
+
+---
 
 ---
 

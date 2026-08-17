@@ -43,8 +43,8 @@ Stretch list explicitly NOT in v0.1.0.
 | 4   | `csda init` + `csda specops add` against the tagged pack                                                                                                                                                            | `csda-studio-app` repo        | ✅      |
 | 5   | **Phase 1 bootstrap** — Vite/React/TS scaffold + Vitest + Cucumber wired, hex skeleton, **REQ-015 (health)** green end-to-end | `csda-studio-app` repo        | ✅      |
 | 6   | Commit Phase 1 result — `bef5de4`, pushed to `main`                                                                                                                                                                 | `csda-studio-app` repo        | ✅      |
-| 7   | Add `harness.config.yaml` with `prompt_prefix_file: ./.harness/prompt-prefix.md` (Role / Active Project Boundary / Execution Policy)                                                                                | `csda-studio-app` repo        | ⏳ NEXT |
-| 8   | `csda harness run --req REQ-001` … `REQ-014` (REQ-015 already done in Phase 1)                                                                                                                                      | `csda-studio-app` repo        | ⏳      |
+| 7   | Add `harness.config.yaml` with `prompt_prefix_file: ./.harness/prompt-prefix.md` (Role / Active Project Boundary / Execution Policy) — `5d98aa3`                                                                    | `csda-studio-app` repo        | ✅      |
+| 8   | `csda harness run --req REQ-001` … `REQ-014` (REQ-015 already done in Phase 1)                                                                                                                                      | `csda-studio-app` repo        | ⏳ NEXT |
 | 9   | Review + merge each `harness/REQ-NNN` branch                                                                                                                                                                        | `csda-studio-app` repo        | ⏳      |
 | 10  | Tag the app `v0.1.0`, deploy as static site                                                                                                                                                                         | `csda-studio-app` repo        | ⏳      |
 
@@ -52,32 +52,35 @@ Stretch list explicitly NOT in v0.1.0.
 
 ## Immediate next action
 
-**Phase 7 — wire the harness inside `csda-studio-app`.** Phases 5 and 6 are
-done: the scaffold is committed at `bef5de4` and REQ-015 is green end to end.
+**Phase 8 — run the loop.** Phases 5, 6 and 7 are done: the scaffold is in,
+REQ-015 is green end to end, and the harness is wired (`5d98aa3`, `083e579`).
 
 From a clone of `csda-studio-app` at `main`:
 
-1. Add `harness.config.yaml` with `prompt_prefix_file: ./.harness/prompt-prefix.md`.
-2. Write `.harness/prompt-prefix.md` with Role, Active Project Boundary and
-   Execution Policy. The boundary matters here: the agent must not touch
-   `features/**` or `docs/specs/**` — those come from the pack, and editing
-   them turns a spec-driven run into an ordinary one.
-3. Check the prompt before paying for tokens: `csda harness prompt REQ-001`.
-4. Then Phase 8: `csda harness run --req REQ-001` … `REQ-014`.
+```bash
+csda harness prompt REQ-001                 # read it before paying for it
+csda harness run --req REQ-001 --dry-run
+csda harness run --req REQ-001 --agent "<your agent> < {prompt_file}"
+```
 
-What the agent inherits, and should not re-derive:
+The agent command is deliberately not set in `harness.config.yaml` — that is
+the operator's choice and their credentials.
 
-- The layering rules are in `AI_RULES.md` and are already enforced by the
-  scaffold — `src/domain` and `src/application` have no React import, and
-  `vitest.config.ts` has no React plugin, so a violation shows up as a build
-  failure rather than as a review comment.
-- `src/main.tsx` is the composition root and the only file that names a
-  concrete adapter. New adapters get injected there.
-- The pattern to copy for each requirement is REQ-015: domain type + pure
-  function, port interface, use case, adapter, component, unit tests on the
-  pure parts, and a Cucumber scenario that exercises the real artefact.
-- `npm run verify` must stay green. `npm run test:e2e` goes from 14 undefined
-  scenarios to 13, then 12, and so on — that countdown is the progress bar.
+Work one requirement at a time and review each `harness/REQ-NNN` branch before
+moving on. REQ-001 (load a pack from disk) and REQ-002 (validate it) are the
+foundation the other twelve build on; if those two come out wrong, fix the
+prompt prefix before running the rest rather than reviewing twelve bad
+branches.
+
+**Progress signal.** `npm run test:e2e` counts down from fourteen undefined
+scenarios. `npm run verify` must stay green throughout — that is the gate the
+harness enforces.
+
+**What the agent must not do**, restated because it is the only failure mode
+that voids the experiment: it must not edit `features/**/*.feature` or
+`docs/specs/**`. Those come from the pack. A scenario edited to fit the code
+turns a spec-driven run into an ordinary one. The prompt prefix says so; check
+the diffs anyway.
 
 ### Reference — how Phase 4 was done
 
@@ -184,3 +187,5 @@ the whole conversation history.
 | 2026-08-17 | **Vitest gets its own config file.** Vitest bundles its own copy of Vite, so a shared `vite.config.ts` makes `tsc` compare two different `Plugin` types and fail. Welcome side effect: the unit config has no React plugin, so the unit suite cannot quietly reach into `src/ui`. | `vitest.config.ts` |
 | 2026-08-17 | **`npm run test:e2e` is red by design and stays red.** It runs all 16 scenarios; 14 have no step definitions because REQ-001..REQ-014 are unbuilt, and undefined steps are failures. That is the gate working. `npm run verify` (typecheck + unit + build) is the green signal until the harness fills them in. | app `README.md` |
 | 2026-08-17 | **Dogfood finding: `init` + a pack produce two health requirements.** `csda init` seeds REQ-000 with `features/core/health.feature`; the pack then adds REQ-015 for the same purpose. Left in place — deleting a requirement is a spec decision, not a cleanup — but worth fixing in the CLI or in the pack. | `docs/specs/traceability.md` |
+| 2026-08-17 | **Phase 7 complete.** `harness.config.yaml` + `.harness/prompt-prefix.md` committed (`5d98aa3`, README in `083e579`). Gate is `npm run verify`, not `test:e2e` — the latter runs all sixteen scenarios and stays red until the last requirement lands, so each requirement's own scenario is run by name. The agent command is deliberately **not** defaulted: a default in a committed file is a default somebody pays for by accident. | https://github.com/rsaglobaltech/csda-studio-app `5d98aa3` |
+| 2026-08-17 | **Dogfood caught a live regression in the CLI.** `csda harness prompt REQ-001` returned `(none declared)` for the scenario, feature file and both artefacts, and inlined no Gherkin — an unusable prompt. Cause: the camelCase normalisation in PR #63 renamed the keys `plan --format json` emits, and `harness/prompt.ts` still read the snake_case names. Its unit fixture was written in the old vocabulary, so nothing failed. Fixed in PR #65, which also adds a seam test that scaffolds a project, asks the real CLI for its plan and feeds the first requirement to the real prompt builder. | PR #65 |
