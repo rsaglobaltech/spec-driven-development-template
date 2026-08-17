@@ -1,6 +1,4 @@
-# yaml-language-server: $schema=../../../schemas/pack.schema.json
-schema_version: "1.1.0"
-
+schema_version: "1.3.0"
 metadata:
   name: "Authentication Backend Domain Pack"
   version: "0.1.0"
@@ -79,6 +77,23 @@ use_cases:
     requirement: REQ-005
     command: RevokeSessionCommand
 
+commands:
+  - id: CMD-001
+    name: RegisterAccountCommand
+    use_case: UC-001
+  - id: CMD-002
+    name: AuthenticateUserCommand
+    use_case: UC-002
+  - id: CMD-003
+    name: LockAccountCommand
+    use_case: UC-003
+  - id: CMD-004
+    name: RequestPasswordResetCommand
+    use_case: UC-004
+  - id: CMD-005
+    name: RevokeSessionCommand
+    use_case: UC-005
+
 aggregates:
   - id: AGG-001
     name: User
@@ -116,15 +131,11 @@ events:
     payload: [sessionId: string, revokedAt: datetime, revokedBy: string]
 
 outputs:
-  features:
-    - features/auth/register.feature
-    - features/auth/login.feature
-    - features/auth/lockout.feature
-    - features/auth/password_reset.feature
-    - features/auth/revoke_session.feature
-  diagrams: []
+  files:
+    - target: "docs/specs/capabilities/auth.md"
+      template: "templates/capability.md.tpl"
 
-rules:
+business_rules:
   - id: RUL-001
     title: "Passwords must use a slow, salted hash (bcrypt/argon2)"
     context: BC-001
@@ -134,25 +145,37 @@ rules:
     context: BC-001
     description: "After threshold the account is locked for 30 minutes."
 
+rules:
+  traceability:
+    target: "docs/specs/traceability.md"
+    include_existing_rows: true
+    default_status: Draft
+
 scenarios:
-  - id: SCN-001
-    title: "Successful registration creates an account"
-    requirement: REQ-001
+  - id: "SCN-001"
+    requirement_id: REQ-001
     use_case: UC-001
-    given: "no account exists for the email"
-    when: "the user submits valid registration data"
-    then: "the account is created and AccountRegistered is emitted"
-  - id: SCN-002
-    title: "Successful login starts a session"
-    requirement: REQ-002
+    seed: true
+    target: "features/auth/successful_registration_creates_an_account.feature"
+    template: "templates/features/successful_registration_creates_an_account.feature.tpl"
+    feature: "Successful registration creates an account"
+    scenario: "Successful registration creates an account"
+    status: "Draft"
+  - id: "SCN-002"
+    requirement_id: REQ-002
     use_case: UC-002
-    given: "an unlocked account with valid credentials"
-    when: "the user submits the correct password"
-    then: "a Session is created and SessionStarted is emitted"
-  - id: SCN-003
-    title: "Five failed logins lock the account"
-    requirement: REQ-003
+    seed: true
+    target: "features/auth/successful_login_starts_a_session.feature"
+    template: "templates/features/successful_login_starts_a_session.feature.tpl"
+    feature: "Successful login starts a session"
+    scenario: "Successful login starts a session"
+    status: "Draft"
+  - id: "SCN-003"
+    requirement_id: REQ-003
     use_case: UC-003
-    given: "an account has 4 prior failed attempts in the last 15 minutes"
-    when: "a 5th invalid login is attempted"
-    then: "the account is locked and AccountLocked is emitted"
+    seed: true
+    target: "features/auth/five_failed_logins_lock_the_account.feature"
+    template: "templates/features/five_failed_logins_lock_the_account.feature.tpl"
+    feature: "Five failed logins lock the account"
+    scenario: "Five failed logins lock the account"
+    status: "Draft"

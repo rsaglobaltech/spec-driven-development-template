@@ -1,6 +1,4 @@
-# yaml-language-server: $schema=../../../schemas/pack.schema.json
-schema_version: "1.1.0"
-
+schema_version: "1.3.0"
 metadata:
   name: "Notifications Backend Domain Pack"
   version: "0.1.0"
@@ -69,6 +67,20 @@ use_cases:
     requirement: REQ-004
     command: RecordDeliveryStatusCommand
 
+commands:
+  - id: CMD-001
+    name: SendNotificationCommand
+    use_case: UC-001
+  - id: CMD-002
+    name: UpdatePreferencesCommand
+    use_case: UC-002
+  - id: CMD-003
+    name: RetryDeliveryCommand
+    use_case: UC-003
+  - id: CMD-004
+    name: RecordDeliveryStatusCommand
+    use_case: UC-004
+
 aggregates:
   - id: AGG-001
     name: Notification
@@ -102,13 +114,11 @@ events:
     payload: [userId: string, updatedAt: datetime]
 
 outputs:
-  features:
-    - features/notifications/send.feature
-    - features/notifications/preferences.feature
-    - features/notifications/retry.feature
-  diagrams: []
+  files:
+    - target: "docs/specs/capabilities/notifications.md"
+      template: "templates/capability.md.tpl"
 
-rules:
+business_rules:
   - id: RUL-001
     title: "Honour user opt-outs before queueing"
     context: BC-001
@@ -118,18 +128,28 @@ rules:
     context: BC-001
     description: "After 5 failed attempts the notification is marked permanently failed."
 
+rules:
+  traceability:
+    target: "docs/specs/traceability.md"
+    include_existing_rows: true
+    default_status: Draft
+
 scenarios:
-  - id: SCN-001
-    title: "Sending a notification to an opted-in user succeeds"
-    requirement: REQ-001
+  - id: "SCN-001"
+    requirement_id: REQ-001
     use_case: UC-001
-    given: "a user is opted in to email notifications"
-    when: "the system sends a notification"
-    then: "NotificationQueued is emitted and the email provider is invoked"
-  - id: SCN-002
-    title: "Opt-out blocks future notifications in that channel"
-    requirement: REQ-002
+    seed: true
+    target: "features/notifications/sending_a_notification_to_an_opted_in_user_succeeds.feature"
+    template: "templates/features/sending_a_notification_to_an_opted_in_user_succeeds.feature.tpl"
+    feature: "Sending a notification to an opted-in user succeeds"
+    scenario: "Sending a notification to an opted-in user succeeds"
+    status: "Draft"
+  - id: "SCN-002"
+    requirement_id: REQ-002
     use_case: UC-002
-    given: "a user opts out of marketing email"
-    when: "the system attempts to send a marketing email"
-    then: "the notification is not queued"
+    seed: true
+    target: "features/notifications/opt_out_blocks_future_notifications_in_that_channel.feature"
+    template: "templates/features/opt_out_blocks_future_notifications_in_that_channel.feature.tpl"
+    feature: "Opt-out blocks future notifications in that channel"
+    scenario: "Opt-out blocks future notifications in that channel"
+    status: "Draft"

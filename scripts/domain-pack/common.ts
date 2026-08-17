@@ -68,6 +68,16 @@ function parseScalar(raw) {
     return text.slice(1, -1);
   }
 
+  // Inline flow sequences: `aggregates: [Invoice, Payment]`. Ordinary YAML, and
+  // what a pack author writes for a short list — the curated packs are full of
+  // them, and without this they parsed as the literal string "[Invoice]" and
+  // then failed cross-reference checks against an aggregate nobody declared.
+  if (text.startsWith("[") && text.endsWith("]")) {
+    const inner = text.slice(1, -1).trim();
+    if (inner === "") return [];
+    return inner.split(",").map((part) => parseScalar(part.trim()));
+  }
+
   if (text === "true") return true;
   if (text === "false") return false;
   if (text === "null") return null;
@@ -229,7 +239,10 @@ function fail(message) {
  * that adds a field to `schemas/pack.schema.json`, or packs authored against
  * the new field will be rejected by a CLI that in fact understands them.
  */
-const PACK_SCHEMA_VERSION = "1.2.0";
+const PACK_SCHEMA_VERSION = "1.3.0";
+
+/** Project types a pack may target. Mirrors the enum in schemas/pack.schema.json. */
+const PACK_PROJECT_TYPES = ["backend", "frontend", "contracts"];
 
 /**
  * Numeric SemVer comparison for schema versions — `a > b`.
@@ -420,9 +433,13 @@ function validatePackModel(pack, packRoot) {
     }
   }
 
-  if (!["backend", "frontend"].includes(metadata.project_type)) {
+  // Kept in step with the enum in schemas/pack.schema.json — the schema is the
+  // authority, and the two disagreeing is what made `contracts` packs
+  // scaffoldable but impossible to install.
+  if (!PACK_PROJECT_TYPES.includes(metadata.project_type)) {
     fail(
-      `metadata.project_type must be 'backend' or 'frontend'. Found '${metadata.project_type}'.`
+      `metadata.project_type must be one of ${PACK_PROJECT_TYPES.join(", ")}. ` +
+        `Found '${metadata.project_type}'.`
     );
   }
 
@@ -454,6 +471,7 @@ function validatePackModel(pack, packRoot) {
     aggregates: new Map(),
     events: new Map(),
     value_objects: new Map(),
+    business_rules: new Map(),
   };
 
   function remember(collectionName, item, label) {
@@ -583,6 +601,16 @@ function validatePackModel(pack, packRoot) {
     remember("bounded_contexts", item, "bounded context");
   }
 
+  // Invariants the domain imposes, independent of any implementation. They
+  // live under `business_rules` because `rules` is render configuration —
+  // conflating the two is what left every curated pack unable to install.
+  for (const item of Array.isArray(pack.business_rules) ? pack.business_rules : []) {
+    remember("business_rules", item, "business rule");
+    if (!item.title || typeof item.title !== "string") {
+      fail(`Business rule '${item.id}' requires a title.`);
+    }
+  }
+
   for (const item of Array.isArray(pack.commands) ? pack.commands : []) {
     remember("commands", item, "command");
   }
@@ -628,7 +656,18 @@ function validatePackModel(pack, packRoot) {
       fail("scenarios entries must be objects.");
     }
 
-    const requiredScenarioFields = ["id", "target", "template", "feature", "scenario"];
+    // The installer's minimum: enough to render the feature file and write the
+    // traceability row. Domain linkage (use_case, command, aggregate, events)
+    // is optional, so a pack for a domain without CQRS is not forced to invent
+    // one — but it is validated below when present.
+    const requiredScenarioFields = [
+      "id",
+      "requirement_id",
+      "target",
+      "template",
+      "feature",
+      "scenario",
+    ];
 
     for (const field of requiredScenarioFields) {
       if (!scenario[field] || typeof scenario[field] !== "string") {
@@ -641,8 +680,23 @@ function validatePackModel(pack, packRoot) {
     }
     scenarioIds.add(scenario.id);
 
-    if (!scenario.technical_artifact && !Array.isArray(scenario.technical_artifacts)) {
-      fail(`Scenario '${scenario.id}' requires technical_artifact or technical_artifacts.`);
+    // Optional by design: a pack author describes the domain, not the caller's
+    // implementation. Absent, the matrix renders TBD in that column — which is
+    // exactly the gap `plan` reads as NEEDS_IMPLEMENTATION. Validated when it
+    // is there, so a typo does not become a silent empty cell.
+    if (scenario.technical_artifacts !== undefined) {
+      if (
+        !Array.isArray(scenario.technical_artifacts) ||
+        scenario.technical_artifacts.length === 0
+      ) {
+        fail(`Scenario '${scenario.id}' has an empty or malformed technical_artifacts.`);
+      }
+    }
+    if (
+      scenario.technical_artifact !== undefined &&
+      typeof scenario.technical_artifact !== "string"
+    ) {
+      fail(`Scenario '${scenario.id}' has a malformed technical_artifact.`);
     }
 
     if (scenario.seed !== undefined && typeof scenario.seed !== "boolean") {
@@ -859,6 +913,7 @@ function buildTraceabilityMarkdown(rows, mode = "legacy") {
 module.exports = {
   ALLOWED_STATUSES,
   PACK_SCHEMA_VERSION,
+  PACK_PROJECT_TYPES,
   isNewerThan,
   asArray,
   buildTraceabilityMarkdown,

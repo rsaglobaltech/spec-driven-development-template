@@ -38,7 +38,7 @@ function error(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--var KEY=VALUE]... [--format text|json] [--plan]\n\n" +
+      "  csda specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--var KEY=VALUE]... [--format text|json] [--json]\n\n" +
       "Reports files that would be added or modified if `specops sync` ran at\n" +
       "the chosen version. Writes nothing to the project directory.\n\n" +
       "  --as-change       Derive the bump as a reviewable change: compares the\n" +
@@ -48,7 +48,7 @@ function usage() {
       "  --var KEY=VALUE   Extra template variable (repeatable). Use it when a\n" +
       "                    newer pack version requires a variable the lockfile\n" +
       "                    predates.\n" +
-      "With --format json (or its alias --plan), emits a machine-readable\n" +
+      "With --json (or --format json; --plan is the older spelling), emits a machine-readable\n" +
       "structure suitable for AI agents and editor integrations.\n"
   );
 }
@@ -93,7 +93,9 @@ function parseArgs(argv) {
       args.format = argv[++i] || "";
       continue;
     }
-    if (token === "--plan") {
+    if (token === "--plan" || token === "--json") {
+      // `--json` is the contract spelling (ADR-0017); `--plan` predates it and
+      // keeps working rather than breaking pipelines that already use it.
       args.format = "json";
       continue;
     }
@@ -256,9 +258,9 @@ function runAsChange(args, projectDir, lock) {
 
     if (!derived.markdown) {
       results.push({
-        pack_id: entry.pack_id,
-        current_version: entry.version,
-        target_version: targetVersion,
+        packId: entry.pack_id,
+        currentVersion: entry.version,
+        targetVersion: targetVersion,
         change: null,
         summary: derived.summary,
         message: "No requirement changed; nothing to review.",
@@ -270,9 +272,9 @@ function runAsChange(args, projectDir, lock) {
       dryRun: args.dryRun,
     });
     results.push({
-      pack_id: entry.pack_id,
-      current_version: entry.version,
-      target_version: targetVersion,
+      packId: entry.pack_id,
+      currentVersion: entry.version,
+      targetVersion: targetVersion,
       change: written.changeId,
       files: written.files,
       summary: derived.summary,
@@ -286,7 +288,7 @@ function runAsChange(args, projectDir, lock) {
 
   if (args.format === "json") {
     process.stdout.write(
-      JSON.stringify({ schemaVersion: 1, projectDir, changes: results }, null, 2) + "\n"
+      JSON.stringify({ schemaVersion: 1, projectDir, changes: results, status: [] }, null, 2) + "\n"
     );
     return;
   }
@@ -338,8 +340,10 @@ function main() {
     }
 
     const jsonOut = {
+      schemaVersion: 1,
       projectDir,
       diffs: [] as any[],
+      status: [] as any[],
     };
     let matched = 0;
     for (const entry of lock.packs) {
@@ -356,9 +360,9 @@ function main() {
         if (result.status !== 0) {
           if (args.format === "json") {
             jsonOut.diffs.push({
-              pack_id: entry.pack_id,
-              current_version: entry.version,
-              target_version: version,
+              packId: entry.pack_id,
+              currentVersion: entry.version,
+              targetVersion: version,
               error: result.stderr || result.stdout || "expand failed",
             });
           } else {
@@ -369,12 +373,12 @@ function main() {
         const changes = diffDirs(projectDir, tmpDir);
         if (args.format === "json") {
           jsonOut.diffs.push({
-            pack_id: entry.pack_id,
-            current_version: entry.version,
-            target_version: version,
+            packId: entry.pack_id,
+            currentVersion: entry.version,
+            targetVersion: version,
             added: changes.added,
             modified: changes.modified,
-            unchanged_count: changes.unchanged.length,
+            unchangedCount: changes.unchanged.length,
           });
         } else {
           printChanges(entry, version, changes);

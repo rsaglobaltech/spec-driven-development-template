@@ -10,7 +10,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { loadPack, asArray } = require("./domain-pack/common");
+const { loadPack, asArray, validatePackModel } = require("./domain-pack/common");
 
 function logInfo(msg) {
   process.stdout.write(`ℹ️  [INFO] ${msg}\n`);
@@ -47,6 +47,7 @@ function parseArgs(argv) {
     strict: false,
     graph: false,
     graphFormat: "mermaid",
+    json: wantsJson(argv),
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -60,6 +61,11 @@ function parseArgs(argv) {
       opts.graph = true;
     } else if (a === "--graph-format" && argv[i + 1]) {
       opts.graphFormat = argv[++i];
+    } else if (a === "--json") {
+      opts.json = true;
+    } else if (a === "--format" && argv[i + 1] === "json") {
+      opts.json = true;
+      i++;
     } else if (a === "--help" || a === "-h") {
       usage();
       process.exit(0);
@@ -71,6 +77,12 @@ function parseArgs(argv) {
   }
   return opts;
 }
+
+const { agentIo, wantsJson } = require("./lib/agent");
+const { error: diagError, warning: diagWarning } = require("./lib/diagnostics");
+
+/** The document shape when lint cannot run at all. */
+const NULL_SHAPE = { pack: null, packRoot: null, graph: null };
 
 // ── Semantic lint rules ───────────────────────────────────────────────────────
 
@@ -373,11 +385,33 @@ function lintScenarioQuality(pack, packRoot, errors, scenarioIssues) {
 
 // ── Runner ────────────────────────────────────────────────────────────────────
 
+/**
+ * The structural contract `expand` enforces: `outputs.files` with real
+ * templates, and `rules.traceability.target`.
+ *
+ * Lint used to check cross-references only, so a pack could pass every rule
+ * here and still be impossible to install — which is exactly what happened to
+ * the curated packs in `packs/`: all eleven lint clean and all eleven fail
+ * `expand` with "outputs.files must contain at least one file definition".
+ * A lint that says yes to a pack nobody can install is worse than no lint.
+ */
+function lintInstallable(pack, packRoot, errors, _warnings) {
+  try {
+    validatePackModel(pack, packRoot);
+  } catch (err) {
+    errors.push(
+      `Pack cannot be installed: ${err.message} ` +
+        "(`expand` enforces this, so lint has to as well)"
+    );
+  }
+}
+
 function runLint(pack, packRoot, opts: any = {}) {
   const errors = [];
   const warnings = [];
   const scenarioIssues = [];
 
+  lintInstallable(pack, packRoot, errors, warnings);
   lintTodos(pack, errors, warnings);
   lintIdUniqueness(pack, errors, warnings);
   lintVariables(pack, errors, warnings);
@@ -603,45 +637,85 @@ function emitGraph(pack, opts) {
 function main() {
   const args = process.argv.slice(3); // strip "node <script>" + "pack" sub-verb
   const opts = parseArgs(args);
+  const io = agentIo(opts.json);
 
   if (!opts.packRoot || !opts.packId) {
-    logError("--pack-root and --pack are required.");
-    usage();
-    process.exit(2);
+    if (!io.json) usage();
+    io.usage(NULL_SHAPE, [
+      diagError("pack_args_required", "--pack-root and --pack are required.", {
+        fix: "csda pack lint --pack-root <path> --pack <domain/type>",
+      }),
+    ]);
+    return;
   }
 
   let loadResult;
   try {
     loadResult = loadPack(opts.packRoot, opts.packId);
   } catch (err) {
-    logError(`Failed to load pack: ${err.message}`);
-    process.exit(1);
+    io.fail({ ...NULL_SHAPE, pack: opts.packId }, [
+      diagError("pack_load_failed", `Failed to load pack: ${err.message}`, {
+        target: opts.packId,
+        fix: "Check --pack-root points at the directory that contains the pack, and --pack at its id.",
+      }),
+    ]);
+    return;
   }
 
   const { pack, packRoot } = loadResult;
 
   if (opts.graph) {
+    if (io.json) {
+      // The graph is a rendered document, not a model: emitting it as a string
+      // keeps one JSON document on stdout rather than two payload shapes. The
+      // dangling-reference gate is preserved — `emitGraph` exits 1 on those,
+      // and JSON mode must not be the lenient one.
+      const graph = buildPackGraph(pack);
+      const rendered = opts.graphFormat === "dot" ? renderDot(graph) : renderMermaid(graph);
+      io.emitAndGate({
+        pack: opts.packId,
+        packRoot,
+        format: opts.graphFormat,
+        graph: rendered,
+        status: graph.broken.map((b) =>
+          diagError(
+            "pack_graph_dangling_reference",
+            `${b.from} references unknown ${b.kind}: ${b.ref}`,
+            {
+              target: b.from,
+              fix: `Define ${b.ref}, or remove the reference from ${b.from}.`,
+            }
+          )
+        ),
+      });
+      return;
+    }
     emitGraph(pack, opts);
     return;
   }
 
   const { errors, warnings } = runLint(pack, packRoot, { strict: opts.strict });
 
-  for (const w of warnings) {
-    logWarn(w);
-  }
-  for (const e of errors) {
-    logError(e);
-  }
+  // The rules produce prose, not codes. Rather than invent a per-rule code
+  // that nothing else would agree with, the severity carries the meaning and
+  // the message is the finding — the same text the human output prints.
+  const status = [
+    ...warnings.map((w) => diagWarning("pack_lint_warning", w, { target: opts.packId })),
+    ...errors.map((e) => diagError("pack_lint_error", e, { target: opts.packId })),
+  ];
 
-  if (errors.length === 0 && warnings.length === 0) {
-    logInfo(`Pack '${opts.packId}' passed all lint checks.`);
-  } else if (errors.length === 0) {
-    logInfo(`Pack '${opts.packId}' has ${warnings.length} warning(s) but no errors.`);
-  } else {
-    logError(`Pack '${opts.packId}' failed lint with ${errors.length} error(s).`);
-    process.exit(1);
-  }
+  io.emitAndGate({ pack: opts.packId, packRoot, graph: null, status }, () => {
+    for (const w of warnings) logWarn(w);
+    for (const e of errors) logError(e);
+
+    if (errors.length === 0 && warnings.length === 0) {
+      logInfo(`Pack '${opts.packId}' passed all lint checks.`);
+    } else if (errors.length === 0) {
+      logInfo(`Pack '${opts.packId}' has ${warnings.length} warning(s) but no errors.`);
+    } else {
+      logError(`Pack '${opts.packId}' failed lint with ${errors.length} error(s).`);
+    }
+  });
 
   process.exit(0);
 }

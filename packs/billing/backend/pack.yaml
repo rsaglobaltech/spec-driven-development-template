@@ -1,6 +1,4 @@
-# yaml-language-server: $schema=../../../schemas/pack.schema.json
-schema_version: "1.1.0"
-
+schema_version: "1.3.0"
 metadata:
   name: "Billing Backend Domain Pack"
   version: "0.1.0"
@@ -69,6 +67,20 @@ use_cases:
     requirement: REQ-004
     command: CalculateTaxCommand
 
+commands:
+  - id: CMD-001
+    name: IssueInvoiceCommand
+    use_case: UC-001
+  - id: CMD-002
+    name: ProcessPaymentCommand
+    use_case: UC-002
+  - id: CMD-003
+    name: IssueRefundCommand
+    use_case: UC-003
+  - id: CMD-004
+    name: CalculateTaxCommand
+    use_case: UC-004
+
 aggregates:
   - id: AGG-001
     name: Invoice
@@ -102,13 +114,11 @@ events:
     payload: [invoiceId: string, paidAt: datetime]
 
 outputs:
-  features:
-    - features/billing/issue_invoice.feature
-    - features/billing/process_payment.feature
-    - features/billing/refund.feature
-  diagrams: []
+  files:
+    - target: "docs/specs/capabilities/billing.md"
+      template: "templates/capability.md.tpl"
 
-rules:
+business_rules:
   - id: RUL-001
     title: "Invoices are immutable once issued"
     context: BC-001
@@ -118,25 +128,37 @@ rules:
     context: BC-002
     description: "Partial refunds accumulate to at most the paid amount."
 
+rules:
+  traceability:
+    target: "docs/specs/traceability.md"
+    include_existing_rows: true
+    default_status: Draft
+
 scenarios:
-  - id: SCN-001
-    title: "Issuing an invoice emits InvoiceIssued"
-    requirement: REQ-001
+  - id: "SCN-001"
+    requirement_id: REQ-001
     use_case: UC-001
-    given: "a customer has billable line items"
-    when: "the system issues an invoice"
-    then: "InvoiceIssued is emitted with the correct total"
-  - id: SCN-002
-    title: "Paid invoices transition to Paid status"
-    requirement: REQ-002
+    seed: true
+    target: "features/billing/issuing_an_invoice_emits_invoiceissued.feature"
+    template: "templates/features/issuing_an_invoice_emits_invoiceissued.feature.tpl"
+    feature: "Issuing an invoice emits InvoiceIssued"
+    scenario: "Issuing an invoice emits InvoiceIssued"
+    status: "Draft"
+  - id: "SCN-002"
+    requirement_id: REQ-002
     use_case: UC-002
-    given: "an outstanding invoice"
-    when: "a successful payment is processed"
-    then: "the invoice transitions to Paid and InvoicePaid is emitted"
-  - id: SCN-003
-    title: "Refunds cannot exceed the original payment"
-    requirement: REQ-003
+    seed: true
+    target: "features/billing/paid_invoices_transition_to_paid_status.feature"
+    template: "templates/features/paid_invoices_transition_to_paid_status.feature.tpl"
+    feature: "Paid invoices transition to Paid status"
+    scenario: "Paid invoices transition to Paid status"
+    status: "Draft"
+  - id: "SCN-003"
+    requirement_id: REQ-003
     use_case: UC-003
-    given: "a payment of 100 has been settled"
-    when: "an operator attempts a refund of 150"
-    then: "the refund is rejected"
+    seed: true
+    target: "features/billing/refunds_cannot_exceed_the_original_payment.feature"
+    template: "templates/features/refunds_cannot_exceed_the_original_payment.feature.tpl"
+    feature: "Refunds cannot exceed the original payment"
+    scenario: "Refunds cannot exceed the original payment"
+    status: "Draft"

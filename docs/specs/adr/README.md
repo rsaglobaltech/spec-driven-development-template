@@ -27,6 +27,7 @@ for the policy on when and how to write an ADR.
 | [0017](0017-agent-json-contract.md)            | The agent JSON contract                                 | Accepted               | 2026-08-15 |
 | [0018](0018-artifact-schemas.md)               | Artifact schemas — a dependency graph, not a phase gate | Accepted               | 2026-08-15 |
 | [0019](0019-studio-surface.md)                 | One studio surface — `csda studio`, not a standalone app | Accepted              | 2026-08-16 |
+| [0020](0020-pack-format-standard.md)           | One pack format, with the JSON Schema as its authority   | Accepted               | 2026-08-17 |
 
 ## Template
 

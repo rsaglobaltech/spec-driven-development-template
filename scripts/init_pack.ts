@@ -144,23 +144,31 @@ events:
       - createdAt: datetime
 
 outputs:
-  features: []
-  diagrams: []
+  files:
+    - target: "AI_RULES.md"
+      template: "templates/AI_RULES.md.tpl"
+    - target: "spec.md"
+      template: "templates/spec.md.tpl"
 
 rules:
-  - id: RUL-001
-    title: "TODO: first business rule"
-    context: BC-001
-    description: "TODO: define the invariant."
+  traceability:
+    target: "docs/specs/traceability.md"
+    include_existing_rows: true
+    default_status: Draft
 
 scenarios:
-  - id: SCN-001
-    title: "TODO: first scenario title"
-    requirement: REQ-001
+  - id: "SCN-001"
+    requirement_id: REQ-001
     use_case: UC-001
-    given: "TODO: precondition"
-    when: "TODO: action"
-    then: "TODO: outcome"
+    seed: true
+    target: "features/core/example.feature"
+    template: "templates/features/example.feature.tpl"
+    feature: "TODO: feature name"
+    scenario: "TODO: first scenario title"
+    technical_artifacts:
+      - "TODO: the component this scenario exercises"
+    test_artifact: "TODO: the test that proves it"
+    status: "Draft"
 `;
 }
 
@@ -220,8 +228,49 @@ breaking_change_rules:
 outputs:
   files:
     - target: "contracts/openapi/provider-v1.yaml"
+      template: "templates/provider-v1.yaml.tpl"
     - target: "docs/specs/test-strategy.md"
+      template: "templates/test-strategy.md.tpl"
+
+rules:
+  traceability:
+    target: "docs/specs/traceability.md"
+    include_existing_rows: true
+    default_status: Draft
 `;
+}
+
+/**
+ * The template files a generated `pack.yaml` declares in `outputs.files`.
+ *
+ * `pack init` used to write pack.yaml alone, so the pack it produced could not
+ * be expanded: `outputs.files` named templates that did not exist, and
+ * validation rejects a missing template. A scaffolder whose output does not
+ * survive its own next step is not a scaffolder.
+ *
+ * Deliberately thin. They exist so `expand` succeeds on a fresh pack; the
+ * author replaces them.
+ */
+function templatesFor(type) {
+  if (type === "contracts") {
+    return {
+      "templates/provider-v1.yaml.tpl":
+        "openapi: 3.1.0\ninfo:\n  title: {{PROJECT_NAME}} provider API\n  version: 1.0.0\npaths: {}\n",
+      "templates/test-strategy.md.tpl":
+        "# Test strategy — {{PROJECT_NAME}}\n\nTODO: describe the consumer-driven contract tests this pack expects.\n",
+    };
+  }
+  return {
+    "templates/features/example.feature.tpl":
+      "Feature: TODO: feature name\n" +
+      "  Scenario: TODO: first scenario title\n" +
+      "    GIVEN a precondition\n" +
+      "    WHEN something happens\n" +
+      "    THEN an outcome is observable\n",
+    "templates/AI_RULES.md.tpl":
+      "# AI_RULES — {{PROJECT_NAME}}\n\nTODO: the execution contract for agents working in the {{DOMAIN}} domain.\n",
+    "templates/spec.md.tpl": "# {{PROJECT_NAME}}\n\nTODO: the business manifesto for {{DOMAIN}}.\n",
+  };
 }
 
 async function prompt(question) {
@@ -282,6 +331,15 @@ async function main() {
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(packFile, yaml, "utf8");
   logSuccess(`Created ${c.bold}${packFile}${c.reset}`);
+
+  // Without these the pack declares templates that do not exist, and both
+  // `pack lint` and `expand` reject it.
+  for (const [rel, body] of Object.entries(templatesFor(opts.type))) {
+    const abs = path.join(packDir, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, body, "utf8");
+    logSuccess(`Created ${c.bold}${abs}${c.reset}`);
+  }
   process.stdout.write(
     `\n  ${c.bold}Next steps${c.reset}\n` +
       `    1. Replace every ${c.yellow}TODO${c.reset} in the file.\n` +

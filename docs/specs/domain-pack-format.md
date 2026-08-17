@@ -32,8 +32,9 @@ commands: [...] # required, min 1
 aggregates: [...] # required, min 1
 value_objects: [...] # optional
 events: [...] # required, min 1
+business_rules: [...] # optional — domain invariants
 outputs: { ... } # required
-rules: { ... } # required
+rules: { ... } # required — render config, NOT domain rules
 scenarios: [...] # required, min 1
 ```
 
@@ -298,9 +299,35 @@ outputs:
 
 ---
 
+### 3.11b `business_rules`
+
+Invariants the domain imposes, independent of any implementation.
+
+**Not to be confused with `rules`.** `rules` configures how the pack renders;
+`business_rules` is domain content. The two shared one key until ADR-0020, and
+that collision is what made every curated pack impossible to install.
+
+| Field         | Type   | Required | Notes                                        |
+| ------------- | ------ | -------- | -------------------------------------------- |
+| `id`          | string | yes      | `RUL-{NNN}`.                                 |
+| `title`       | string | yes      | The invariant, stated as a rule.             |
+| `context`     | string | no       | The bounded context it belongs to (`BC-NNN`). |
+| `description` | string | no       | Why it holds, and what violating it costs.   |
+
+```yaml
+business_rules:
+  - id: RUL-001
+    title: "Invoices are immutable once issued"
+    context: BC-001
+    description: "Corrections require credit notes, not edits."
+```
+
+---
+
 ### 3.12 `rules`
 
-Instructs the CLI on how to update cross-cutting artefacts.
+Instructs the CLI on how to update cross-cutting artefacts. This is **render
+configuration**, not domain rules — those are `business_rules` above.
 
 | Field                                | Type    | Required | Notes                                                         |
 | ------------------------------------ | ------- | -------- | ------------------------------------------------------------- |
@@ -322,22 +349,28 @@ rules:
 
 Links each business requirement to an executable Gherkin scenario.
 
+**Required is what the installer needs** to render the feature file and write
+the traceability row. The domain-linkage fields are optional so a pack for a
+domain without CQRS is not forced to invent a command it does not have — but
+they are validated when present, so a typo does not become a silent empty cell.
+See [ADR-0020](adr/0020-pack-format-standard.md).
+
 | Field                 | Type     | Required | Notes                                                                     |
 | --------------------- | -------- | -------- | ------------------------------------------------------------------------- |
-| `id`                  | string   | yes      | `SCN-{NNN}`. Unique. Must appear in at least one `use_cases[].scenarios`. |
+| `id`                  | string   | yes      | `SCN-{NNN}`. Unique.                                                      |
 | `requirement_id`      | string   | yes      | ID of the requirement being verified.                                     |
-| `use_case`            | string   | yes      | ID of the use case.                                                       |
-| `seed`                | boolean  | yes      | If `true`, the CLI writes an example Gherkin file at `target`.            |
 | `target`              | string   | yes      | Output path for the `.feature` file (relative to project root).           |
 | `template`            | string   | yes      | Template path relative to the pack root.                                  |
 | `feature`             | string   | yes      | Name of the Gherkin Feature block.                                        |
 | `scenario`            | string   | yes      | Name of the primary Gherkin Scenario.                                     |
-| `command`             | string   | yes      | Command name exercised in the scenario.                                   |
-| `aggregate`           | string   | yes      | Aggregate under test.                                                     |
-| `events`              | string[] | yes      | Events asserted in the Then clause.                                       |
-| `technical_artifacts` | string[] | yes      | Artefacts (service, handler, etc.) to be built to satisfy the scenario.   |
-| `test_artifact`       | string   | yes      | Name of the step-definition file.                                         |
 | `status`              | string   | yes      | Same allowed values as `requirements[].status`.                           |
+| `use_case`            | string   | no       | ID of the use case.                                                       |
+| `seed`                | boolean  | no       | If `true`, the CLI writes an example Gherkin file at `target`.            |
+| `command`             | string   | no       | Command name exercised in the scenario.                                   |
+| `aggregate`           | string   | no       | Aggregate under test.                                                     |
+| `events`              | string[] | no       | Events asserted in the Then clause.                                       |
+| `technical_artifacts` | string[] | no       | Artefacts to build. Absent, the matrix renders `TBD` — which is what `plan` reads as work still to do. |
+| `test_artifact`       | string   | no       | Name of the step-definition file.                                         |
 
 ```yaml
 scenarios:
