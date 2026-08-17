@@ -37,6 +37,25 @@ harness_version: 1
 # An *additional* gate, on top of the `validate --strict-tdd` the harness always
 # runs. Left commented out when no build file gave it away — an unset key is
 # safe, whereas a placeholder that exits 0 would be a gate that always passes.
+#
+# Three placeholders are substituted per requirement, so the gate can run the
+# scenario belonging to the requirement under test:
+#
+#   {req}           REQ-007
+#   {scenario}      SCN-007
+#   {feature_file}  features/billing/refund.feature
+#
+# Worth using. The gate runs before `csda done`, so the requirement is still
+# Draft and `validate --strict-tdd` does not yet demand its test — without one
+# of these, a requirement can be marked Implemented with its scenario never run:
+#
+#   test_cmd: "npm run verify && npm run test:e2e -- {feature_file}"
+#
+# The harness runs each requirement in a fresh git worktree, which contains only
+# what git tracks — so there is no node_modules. Install first if your gate
+# needs one, or the agent will spend its attempt doing it:
+#
+#   test_cmd: "npm ci && npm run verify && npm run test:e2e -- {feature_file}"
 {{TEST_CMD_LINE}}
 
 # Retries per requirement, each one fed the previous failure. Past three, the
