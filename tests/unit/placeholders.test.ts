@@ -16,6 +16,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 
 const {
   findUnresolvedPlaceholders,
@@ -93,4 +94,81 @@ test("generated report output is not scanned", () => {
   });
   assert.deepEqual(findUnresolvedPlaceholders(dir), []);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// ── Gitignored output is not the project's specs ─────────────────────────────
+//
+// SKIP_DIRS is a fixed list and cannot know what a given project ignores. This
+// repository generates a gitignored `book/` full of `{{VAR}}` — it documents
+// the placeholder syntax — and `validate` reported every one as unresolved.
+// The project's own ignore file already states what is not source.
+
+function repoWithIgnored(ignoreLine, files) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "csda-ignored-"));
+  spawnSync("git", ["-C", dir, "init", "--quiet"], { encoding: "utf8" });
+  fs.writeFileSync(path.join(dir, ".gitignore"), `${ignoreLine}\n`, "utf8");
+  for (const [rel, body] of Object.entries(files)) {
+    const full = path.join(dir, rel);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, body, "utf8");
+  }
+  return dir;
+}
+
+test("a gitignored directory is not scanned", () => {
+  const dir = repoWithIgnored("book/", {
+    "book/generated.md": "A doc explaining {{PROJECT_NAME}} syntax.\n",
+    "spec.md": "# Spec\n",
+  });
+  try {
+    const findings = findUnresolvedPlaceholders(dir);
+    assert.deepEqual(
+      findings,
+      [],
+      `gitignored output must not be scanned:\n${JSON.stringify(findings)}`
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a tracked file with the same placeholder is still reported", () => {
+  // The fix must narrow the scan, not weaken it.
+  const dir = repoWithIgnored("book/", {
+    "book/generated.md": "{{PROJECT_NAME}}\n",
+    "docs/real.md": "This one is source: {{PROJECT_NAME}}\n",
+  });
+  try {
+    const findings = findUnresolvedPlaceholders(dir);
+    assert.equal(findings.length, 1, JSON.stringify(findings));
+    assert.match(String(findings[0]), /real\.md$/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a gitignored file nested inside a tracked directory is skipped too", () => {
+  const dir = repoWithIgnored("docs/build/", {
+    "docs/build/out.md": "{{PROJECT_NAME}}\n",
+    "docs/keep.md": "{{PROJECT_NAME}}\n",
+  });
+  try {
+    const findings = findUnresolvedPlaceholders(dir);
+    assert.equal(findings.length, 1, JSON.stringify(findings));
+    assert.match(String(findings[0]), /keep\.md$/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a directory that is not a git repository still scans", () => {
+  // No git, no repository, or a git that errors must not disable the check.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "csda-nogit-"));
+  try {
+    fs.writeFileSync(path.join(dir, "spec.md"), "{{PROJECT_NAME}}\n", "utf8");
+    const findings = findUnresolvedPlaceholders(dir);
+    assert.equal(findings.length, 1, "the scan must not depend on git being present");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

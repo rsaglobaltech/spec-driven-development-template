@@ -14,6 +14,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 
 const PLACEHOLDER_RE = /\{\{[A-Z_][A-Z0-9_]*\}\}/;
 
@@ -47,7 +48,44 @@ const SKIP_DIRS = new Set([
   ".specops",
 ]);
 
-function walk(dir) {
+/**
+ * Paths git is told to ignore, asked of git itself.
+ *
+ * SKIP_DIRS is a fixed list and cannot know what a given project ignores. This
+ * repository generates a `book/` directory that is gitignored and full of
+ * `{{VAR}}` — because it documents the placeholder syntax — and `validate`
+ * reported every one of them as an unresolved placeholder. A project's own
+ * ignore file already states what is not source; asking it is more honest than
+ * growing the list one report at a time.
+ *
+ * Best-effort: no git, no repository, or a git that errors means an empty set
+ * and the fixed list alone. A scan that refuses to run without git would be a
+ * worse failure than the one it prevents.
+ */
+function gitIgnoredNames(dir) {
+  const ignored = new Set();
+  try {
+    const r = spawnSync(
+      "git",
+      ["-C", dir, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory"],
+      {
+        encoding: "utf8",
+        maxBuffer: 8 * 1024 * 1024,
+      }
+    );
+    if (r.status !== 0 || !r.stdout) return ignored;
+    for (const line of r.stdout.split("\n")) {
+      const trimmed = line.trim().replace(/\/$/, "");
+      if (trimmed) ignored.add(path.resolve(dir, trimmed));
+    }
+  } catch {
+    // git is optional here — see the docblock.
+  }
+  return ignored;
+}
+
+function walk(dir, ignored = null) {
+  const skipIgnored = ignored || gitIgnoredNames(dir);
   const out = [];
   let entries;
   try {
@@ -58,7 +96,8 @@ function walk(dir) {
   for (const entry of entries) {
     if (entry.isDirectory() && SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...walk(full));
+    if (skipIgnored.has(path.resolve(full))) continue;
+    if (entry.isDirectory()) out.push(...walk(full, skipIgnored));
     else out.push(full);
   }
   return out;

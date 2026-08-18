@@ -1,3 +1,4 @@
+<!-- csda:allow-placeholders — release notes quote the {{VAR}} template syntax. -->
 # Changelog
 
 Notable changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/)
@@ -5,7 +6,7 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
-## [Unreleased]
+## [0.6.0] — 2026-08-18
 
 ### Fixed
 
@@ -22,6 +23,14 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   whether the work was preserved, and distinguishes that from an agent that
   produced no files at all — one is a code problem, the other a prompt or
   permissions problem.
+
+- **A gate that ran the whole suite instead of one scenario now says so.** If
+  a filter silently fails to apply — a runner config pinning its own paths will
+  override the CLI argument — the gate rejects correct work and the failure is
+  indistinguishable from broken code. It cost two agent runs to explain the
+  first time. The harness cannot know how many tests *should* run, but it can
+  notice a command that asked for one feature against output reporting many, and
+  warn. A hint, not a verdict: a genuine failure must not be explained away.
 
 - **A failing gate did not say which command it ran.** A gate that silently does
   the wrong thing — running a whole suite because a filter did not apply — fails
@@ -46,7 +55,17 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ## [Unreleased]
 
-### Fixed
+- **`validate` scanned gitignored files.** The skip list is fixed and cannot
+  know what a given project ignores, so a gitignored build directory containing
+  `{{VAR}}` — documentation of the placeholder syntax, in this case — failed the
+  gate with findings the project had already declared were not source.
+
+  The scan now asks git what it ignores, and skips that as well as the fixed
+  list. Best-effort: no git, no repository, or a git that errors falls back to
+  the fixed list rather than refusing to scan, because a check that needs git
+  to run is a worse failure than the one it prevents. A tracked file with the
+  same placeholder is still reported — the fix narrows the scan, it does not
+  weaken it.
 
 - **`csda doctor` now names the installation it is running from**, and its
   version and path.
