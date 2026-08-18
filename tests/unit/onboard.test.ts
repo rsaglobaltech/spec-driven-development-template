@@ -177,3 +177,92 @@ test("onboard writes nothing", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a Gradle module is read through src/main/java, past its build output (H17)", () => {
+  // `lixy-api/domain` proposed nothing at all: the single-child descent stopped
+  // at `src` (two children, `main` and `test`), and `src`/`main`/`java` are all
+  // in NOT_DOMAIN, so the filter emptied the list. A compiled `build/` made it
+  // stop even earlier. 299 files of hexagonal Java read as an empty layout.
+  const dir = repo({
+    "domain/src/main/java/com/lixy/domain/booking/Booking.java": "class Booking {}",
+    "domain/src/main/java/com/lixy/domain/booking/Slot.java": "class Slot {}",
+    "domain/src/main/java/com/lixy/domain/wallet/Wallet.java": "class Wallet {}",
+    "domain/src/test/java/com/lixy/domain/booking/BookingTest.java": "class BookingTest {}",
+    "domain/build/classes/java/main/Booking.class": "binary",
+    "build.gradle.kts": "plugins { java }",
+  });
+  try {
+    const caps = proposeCapabilities(dir);
+    assert.deepEqual(caps.map((c) => c.id).sort(), ["booking", "wallet"]);
+    assert.equal(caps[0].evidence, "domain/src/main/java/com/lixy/domain/booking");
+    // The proposal must not change once someone runs a build.
+    assert.ok(!caps.some((c) => c.id === "build" || c.id === "classes"));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("capability weight counts the code inside a JVM package (H14)", () => {
+  // countFiles used to prune every NOT_DOMAIN name, `src`/`main`/`java`
+  // included, so a JVM module never got descended into and every capability
+  // weighed ~0. On `lakebase-platform` a 38-file module reported 1 — and since
+  // the list is sorted by weight, the ranking came out inverted.
+  const dir = repo({
+    "services/platform/src/main/java/com/acme/A.java": "//",
+    "services/platform/src/main/java/com/acme/B.java": "//",
+    "services/platform/src/main/java/com/acme/C.java": "//",
+    "services/catalog/src/main/java/com/acme/D.java": "//",
+    "build.gradle": "apply plugin: 'java'",
+  });
+  try {
+    const caps = proposeCapabilities(dir);
+    assert.equal(caps[0].id, "platform", "the bigger module is proposed first");
+    assert.equal(caps[0].files, 3);
+    assert.equal(caps[1].files, 1);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("onboard reads the directory it was given, not an adopted ancestor (H16)", () => {
+  // Standing in a Java sub-project, onboard answered with the parent repo's
+  // TypeScript — different stack, different capabilities, and "already
+  // adopted". Analysing a different codebase in silence is worse than failing.
+  const dir = repo({
+    "spec.md": "# Parent spec\n",
+    "package.json": JSON.stringify({ name: "parent", dependencies: { next: "15" } }),
+    "domain/legacy-a/x.ts": "//",
+    "domain/legacy-b/y.ts": "//",
+    "api/src/main/java/com/acme/billing/Invoice.java": "class Invoice {}",
+    "api/src/main/java/com/acme/catalog/Item.java": "class Item {}",
+    "api/pom.xml": "<project/>",
+  });
+  try {
+    const sub = path.join(dir, "api");
+    const doc = JSON.parse(cli("onboard", "--project-dir", sub, "--json").stdout);
+
+    assert.equal(doc.onboarding.adopted, false, "the sub-project is not adopted");
+    assert.match(doc.onboarding.stack.name, /Java/, "its own stack, not the parent's");
+    assert.deepEqual(doc.onboarding.capabilities.map((c) => c.id).sort(), ["billing", "catalog"]);
+
+    // The ancestor is reported, never substituted.
+    assert.equal(doc.onboarding.adoptedAncestor, fs.realpathSync(dir));
+    const advisory = doc.status.find((d) => d.code === "adopted_ancestor");
+    assert.ok(advisory, "the parent project is worth mentioning");
+    assert.ok(advisory.fix.includes("--project-dir"));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a plain adopted project reports no ancestor (H16)", () => {
+  const dir = repo({ "spec.md": "# Spec\n", "domain/a/x.ts": "//", "domain/b/y.ts": "//" });
+  try {
+    const doc = JSON.parse(cli("onboard", "--project-dir", dir, "--json").stdout);
+    assert.equal(doc.onboarding.adopted, true);
+    assert.equal(doc.onboarding.adoptedAncestor, null);
+    assert.ok(!doc.status.some((d) => d.code === "adopted_ancestor"));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

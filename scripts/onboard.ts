@@ -18,7 +18,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { resolveProjectDir } = require("./lib/project-root");
 const { error, info } = require("./lib/diagnostics");
 const { agentIo, wantsJson, EXIT } = require("./lib/agent");
 const { detectStack } = require("./adopt_project");
@@ -32,6 +31,28 @@ const c = {
   green: COLOR ? "\x1b[32m" : "",
   cyan: COLOR ? "\x1b[36m" : "",
 };
+
+/**
+ * Build output and tooling directories. Unlike the rest of `NOT_DOMAIN` these
+ * are not merely uninteresting: they are *noise on disk*, present or absent
+ * depending on whether anyone ran a build. Anything that walks the tree has to
+ * ignore them or its answer changes after `./gradlew build`.
+ */
+const BUILD_OUTPUT = new Set([
+  "node_modules",
+  "dist",
+  "build",
+  "out",
+  "target",
+  "coverage",
+  "vendor",
+  ".gradle",
+  ".next",
+  ".git",
+]);
+
+/** The wrapper a JVM project puts between the module root and its packages. */
+const JVM_SOURCE_ROOTS = ["src/main/java", "src/main/kotlin", "src/main/scala", "src/main/groovy"];
 
 /** Directories that describe the build, not the domain. */
 const NOT_DOMAIN = new Set([
@@ -127,18 +148,45 @@ function subdirectories(dir) {
  */
 function descendThroughWrappers(root) {
   let current = root;
+
+  // A Maven/Gradle module is `<module>/src/{main,test}/java/...`. The `main` and
+  // `test` split means the single-child descent below stops dead at `src`, and
+  // both names are in NOT_DOMAIN, so the module reads as empty. Jumping the
+  // whole known wrapper is the only way past it. Found on `lixy-api`, where a
+  // 299-file hexagonal project proposed nothing at all (H17).
+  for (const wrapper of JVM_SOURCE_ROOTS) {
+    const candidate = path.join(current, ...wrapper.split("/"));
+    if (fs.existsSync(candidate)) {
+      current = candidate;
+      break;
+    }
+  }
+
   // Descend while there is exactly one child: a directory with a single
   // subdirectory is a wrapper, not a choice. Stopping at the first *meaningful*
   // name instead proposed the organisation — `com/acme` yields `acme`, not the
   // packages under it.
-  for (let depth = 0; depth < 6; depth++) {
-    const children = subdirectories(current);
+  //
+  // Build output does not count as a child: whether `build/` exists depends on
+  // whether someone compiled, and the proposal must not.
+  for (let depth = 0; depth < 8; depth++) {
+    const children = subdirectories(current).filter((n) => !BUILD_OUTPUT.has(n.toLowerCase()));
     if (children.length !== 1) return current;
     current = path.join(current, children[0]);
   }
   return current;
 }
 
+/**
+ * How much code sits under a capability. Only build output is skipped.
+ *
+ * It used to skip everything in NOT_DOMAIN, which is the right list for *naming*
+ * a capability and the wrong one for measuring it: `src`, `main` and `java` are
+ * on it, so no JVM layout was ever descended into and every module counted as
+ * near zero. Measured on `lakebase-platform`, a 38-file module reported 1 — and
+ * since the proposals are sorted by this number, the ranking came out inverted
+ * (H14).
+ */
 function countFiles(dir) {
   let total = 0;
   const stack = [dir];
@@ -152,7 +200,10 @@ function countFiles(dir) {
     }
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        if (!NOT_DOMAIN.has(entry.name.toLowerCase())) stack.push(path.join(next, entry.name));
+        const name = entry.name.toLowerCase();
+        if (!BUILD_OUTPUT.has(name) && !name.startsWith(".")) {
+          stack.push(path.join(next, entry.name));
+        }
       } else total++;
     }
   }
@@ -200,6 +251,35 @@ function isAdopted(projectDir) {
   return fs.existsSync(path.join(projectDir, "spec.md"));
 }
 
+/**
+ * Resolve symlinks so paths compare equal downstream — macOS `/tmp` is
+ * `/private/tmp`, and the JSON contract should not leak that difference.
+ * `resolveProjectDir` did this before H16 removed it from onboard's path.
+ */
+function canonical(p) {
+  try {
+    return fs.realpathSync(path.resolve(p));
+  } catch {
+    return path.resolve(p);
+  }
+}
+
+/**
+ * The nearest *ancestor* that is already spec-driven, or null.
+ *
+ * Reported, never substituted: standing in one project and being told about
+ * another is how H16 hid an entire Java backend behind its parent repository.
+ */
+function findAdoptedAncestor(projectDir) {
+  let dir = path.dirname(canonical(projectDir));
+  const { root } = path.parse(dir);
+  while (true) {
+    if (isAdopted(dir)) return dir;
+    if (dir === root) return null;
+    dir = path.dirname(dir);
+  }
+}
+
 function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}🧭 onboard${c.reset}  ${c.dim}— the guided tour for an existing repository${c.reset}\n\n` +
@@ -222,13 +302,14 @@ function main(argv) {
   const requested = dirFlag !== -1 ? argv[dirFlag + 1] : ".";
 
   // Unlike every other command, onboard runs on repositories that are not
-  // spec-driven yet — that is the whole point — so a failed resolve is normal.
-  let projectDir;
-  try {
-    projectDir = resolveProjectDir(requested);
-  } catch {
-    projectDir = path.resolve(requested);
-  }
+  // spec-driven yet — that is the whole point — so the usual "walk up until you
+  // find spec.md" resolution is actively wrong here: from an un-adopted
+  // sub-project it lands on the adopted ancestor and silently reports a
+  // *different* codebase. On `lixi-platform/lixy-api` it answered with the
+  // parent's dead TypeScript, stack and all (H16). Take the directory asked
+  // for, and mention the ancestor rather than substituting it.
+  const projectDir = canonical(requested);
+  const adoptedAncestor = findAdoptedAncestor(projectDir);
 
   if (!fs.existsSync(projectDir)) {
     io.usage(NULL_SHAPE, [
@@ -263,12 +344,25 @@ function main(argv) {
       })
     );
   }
+  if (adoptedAncestor && !adopted) {
+    diagnostics.push(
+      info(
+        "adopted_ancestor",
+        `This directory sits inside a spec-driven project at ${adoptedAncestor}, which was NOT onboarded.`,
+        {
+          target: adoptedAncestor,
+          fix: `Onboarding ${projectDir}. To read the parent instead: csda onboard --project-dir ${adoptedAncestor}`,
+        }
+      )
+    );
+  }
 
   io.emit(
     {
       onboarding: {
         projectDir,
         adopted,
+        adoptedAncestor,
         stack: {
           name: stack.STACK,
           testing: stack.TESTING,
@@ -280,14 +374,19 @@ function main(argv) {
       },
       status: diagnostics,
     },
-    () => renderHuman({ projectDir, adopted, stack, capabilities, nextCommand })
+    () => renderHuman({ projectDir, adopted, adoptedAncestor, stack, capabilities, nextCommand })
   );
   process.exit(EXIT.OK);
 }
 
-function renderHuman({ projectDir, adopted, stack, capabilities, nextCommand }) {
+function renderHuman({ projectDir, adopted, adoptedAncestor, stack, capabilities, nextCommand }) {
   const out = [];
   out.push(`\n  ${c.bold}${c.cyan}🧭 onboarding${c.reset}  ${c.dim}${projectDir}${c.reset}\n`);
+  if (adoptedAncestor && !adopted) {
+    out.push(
+      `  ${c.dim}inside a spec-driven project at ${adoptedAncestor} — reading this directory, not that one${c.reset}\n`
+    );
+  }
 
   out.push(`  ${c.bold}1. What this is${c.reset}`);
   out.push(`     stack:  ${stack.STACK}`);
@@ -327,4 +426,12 @@ function renderHuman({ projectDir, adopted, stack, capabilities, nextCommand }) 
 
 if (require.main === module) main(process.argv.slice(2));
 
-module.exports = { main, proposeCapabilities, descendThroughWrappers, titleCase, NOT_DOMAIN };
+module.exports = {
+  main,
+  proposeCapabilities,
+  descendThroughWrappers,
+  findAdoptedAncestor,
+  titleCase,
+  NOT_DOMAIN,
+  BUILD_OUTPUT,
+};
