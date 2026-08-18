@@ -1,3 +1,4 @@
+<!-- csda:allow-placeholders — release notes quote the {{VAR}} template syntax. -->
 # Changelog
 
 Notable changes, newest first. Follows [Keep a Changelog](https://keepachangelog.com/)
