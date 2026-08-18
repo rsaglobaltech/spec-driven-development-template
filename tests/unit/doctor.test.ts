@@ -204,3 +204,83 @@ test("doctor leaves an adapted REQ-000 alone", () => {
     }
   );
 });
+
+// ── Which installation am I running? ─────────────────────────────────────────
+//
+// A user installed "the latest" and `-v` kept printing 0.1.2. The tool was
+// right — it *was* 0.1.2, from a global install made months earlier. `npx
+// create-spec-driven-app@latest` runs a temporary copy and never touches a
+// global one, so the two answer different questions and nothing said so.
+//
+// Naming the installation is the whole fix. No network call: which version is
+// newest is not doctor's business, and a lookup would break the offline and
+// air-gapped modes the tool promises.
+
+function installLayout(relative) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "csda-layout-"));
+  const pkgDir = path.join(root, ...relative.split("/"));
+  fs.mkdirSync(path.join(pkgDir, "bin"), { recursive: true });
+  fs.mkdirSync(path.join(pkgDir, "dist", "bin"), { recursive: true });
+  fs.mkdirSync(path.join(pkgDir, "dist", "scripts"), { recursive: true });
+  fs.writeFileSync(
+    path.join(pkgDir, "package.json"),
+    JSON.stringify({ name: "create-spec-driven-app", version: "9.9.9", engines: { node: ">=22" } })
+  );
+  fs.cpSync(path.join(ROOT_DIR, "dist", "bin"), path.join(pkgDir, "dist", "bin"), {
+    recursive: true,
+  });
+  fs.cpSync(path.join(ROOT_DIR, "dist", "scripts"), path.join(pkgDir, "dist", "scripts"), {
+    recursive: true,
+  });
+  fs.cpSync(path.join(ROOT_DIR, "bin"), path.join(pkgDir, "bin"), { recursive: true });
+  return { root, cli: path.join(pkgDir, "bin", "create-spec-driven-app.js") };
+}
+
+const LAYOUTS = [
+  ["usr/local/lib/node_modules/create-spec-driven-app", "global install"],
+  ["proj/node_modules/create-spec-driven-app", "project dependency"],
+  [".npm/_npx/deadbeef/node_modules/create-spec-driven-app", "npx cache"],
+];
+
+for (const [relative, expected] of LAYOUTS) {
+  test(`doctor names the installation it runs from: ${expected}`, () => {
+    const { root, cli } = installLayout(relative);
+    try {
+      const r = spawnSync(process.execPath, [cli, "doctor", "--project-dir", ROOT_DIR], {
+        encoding: "utf8",
+      });
+      const out = r.stdout + r.stderr;
+      assert.match(out, /csda: v9\.9\.9/, "the version it is actually running");
+      assert.ok(out.includes(expected), `expected "${expected}" in:\n${out.slice(0, 300)}`);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
+
+test("doctor prints the path, so a stale install is identifiable", () => {
+  // The version alone does not tell you which copy to upgrade.
+  const { root, cli } = installLayout("usr/local/lib/node_modules/create-spec-driven-app");
+  try {
+    const r = spawnSync(process.execPath, [cli, "doctor", "--project-dir", ROOT_DIR], {
+      encoding: "utf8",
+    });
+    assert.match(r.stdout + r.stderr, /usr\/local\/lib\/node_modules/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("doctor reads the Node floor rather than repeating it", () => {
+  // This check said ">= 20" for a whole release after the floor moved to 22.
+  const engines = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf8")).engines
+    .node;
+  const floor = Number(String(engines).replace(/[^0-9]/g, ""));
+  const doctorSrc = fs.readFileSync(path.join(ROOT_DIR, "scripts", "doctor.ts"), "utf8");
+  assert.doesNotMatch(
+    doctorSrc,
+    new RegExp(`major >= ${floor === 22 ? 20 : 22}\\b`),
+    "the floor must not be hard-coded to a stale value"
+  );
+  assert.match(doctorSrc, /nodeFloor\(\)/, "the floor comes from package.json");
+});
