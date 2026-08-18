@@ -1246,6 +1246,49 @@ callarse después.
 Tests: `tests/unit/onboard.test.ts` (H14, H16, H17) y `tests/unit/adopt.test.ts`
 (H15), cada uno con el repo real que lo destapó citado en el comentario.
 
+### El corpus, o por qué H14/H17 no bastaban (2026-08-18)
+
+Arreglar `onboard` contra Lakebase y Lixi lo dejaba ajustado a **dos** repos. La
+comprobación honesta era medirlo contra repositorios que nadie de aquí ha tocado,
+así que se reconstruyeron los árboles reales de dieciséis proyectos públicos
+(`git/trees?recursive=1`, sin descargar contenido) y se le preguntó a cada uno.
+
+**Resultado inicial: acertaba en 5 de 16.** Nueve no proponían nada y dos
+proponían basura — a `ripgrep` le dijo que sus capacidades eran `pkg/brew` y
+`pkg/windows`, dos directorios de empaquetado. Ese es el modo de fallo que el
+propio comando declara inaceptable: *«a confident wrong answer is worse than
+silence»*.
+
+El error era estructural, no de lista: **el repositorio casi siempre declara sus
+módulos y nosotros adivinábamos en vez de leerlos.** Un directorio con su propio
+manifiesto de build es un módulo por definición del equipo, y una sola regla
+cubre Maven, Gradle, workspaces de npm/pnpm, miembros de Cargo, módulos de Go,
+gemas de Ruby, proyectos .NET y paquetes de Composer — sin un parser por
+ecosistema.
+
+Cinco reglas más, cada una nacida de un repo concreto:
+
+| Regla | La destapó |
+|---|---|
+| Puntuar los candidatos por código, no coger el primero de la lista | `ripgrep` |
+| Pesar solo ficheros de código | `nest` — sus apps de ejemplo pesaban más que los paquetes que ilustran |
+| Los módulos en capas se descienden, no se proponen | `lixy-api` — cuatro vistas de un producto no son cuatro capacidades |
+| Un reparto donde un hijo se lo lleva casi todo es un envoltorio | `django` — la raíz leía `django` (929) y `js_tests` (11) |
+| Un repo puede tener subproyectos y aun así **ser** un proyecto | `loki` — no es su operador de Kubernetes |
+| `test/`, `sample/`, `examples/` y `build-logic/` nunca son módulos | `serilog` (cuatro ensamblados de test) y `flask` (tres apps de ejemplo) |
+
+**Ahora responde en 14 de 16, y los otros dos callan a propósito** — `cobra` y
+`express` son librerías planas y cualquier estructura sería inventada.
+
+El corpus quedó como suite: `tests/unit/onboard-corpus.test.ts`, un fixture por
+forma de layout con el proyecto real que lo motiva citado en el nombre. Incluye
+la propiedad que más importa en CI: **la propuesta no cambia después de que
+alguien compile.**
+
+> Lección que vale más que el arreglo: dos repos de ejemplo no son evidencia, son
+> anécdota. El corpus costó una tarde y encontró once fallos que ninguno de los
+> dos pilotos habría enseñado nunca.
+
 ### Abiertos
 
 | # | Problema | Nota |
