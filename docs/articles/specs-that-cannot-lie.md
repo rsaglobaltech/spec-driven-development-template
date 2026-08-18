@@ -13,7 +13,7 @@
 
 # Specs That Cannot Lie
 
-## We built the spec-driven pipeline everyone is describing. Then we ran it, and it told us something uncomfortable.
+## Domain-Driven Design, BDD and TDD as one checkable artefact — and what happened when we pointed a real agent at it.
 
 There is broad agreement now that the bottleneck in software has moved. When an
 agent can produce a thousand lines in ten minutes, the scarce resource stops
@@ -26,12 +26,21 @@ will pull ahead.
 I agree with all of it. It is also, as written, entirely theory.
 
 What that article does not contain — what almost none of the writing on
-spec-driven development contains — is an account of what happens when you
-actually run the loop. We built the pipeline. We pointed a real agent at it.
-Within three runs it produced **ten defects in our own machinery**, and one of
-them invalidated the premise of the whole product.
+spec-driven development contains — is two things.
 
-This is that account, and the design decisions that came out of it.
+The first is what a specification has to **be** for an agent to build from it
+safely. "Write good specs" is not an answer. What follows is a concrete one:
+a Domain-Driven Design model with resolvable references, executable examples in
+Gherkin, and a test discipline enforced mechanically rather than culturally —
+joined into a single artefact that continuous integration can check.
+
+The second is what happens when you actually run the loop. We built the
+pipeline. We pointed a real agent at it. Within three runs it produced **ten
+defects in our own machinery**, and one of them invalidated the premise of the
+whole product.
+
+Both halves are below. The second is the one I would read first if I were
+evaluating anybody's tool, including ours.
 
 ---
 
@@ -51,7 +60,205 @@ at least loud.
 
 ---
 
-## Decision 1: model dependencies, not phases
+## What is actually in a specification
+
+Most spec-driven tooling treats a specification as prose with headings. That is
+why so much of it rots: prose has no referents, so nothing can check it.
+
+A specification here is a **domain model**, in the Domain-Driven Design sense,
+and it is structured enough to cross-check.
+
+```mermaid
+graph TD
+  BC["<b>Bounded context</b><br/>BC-001 Invoicing"]
+  AGG["<b>Aggregate</b><br/>AGG-001 Invoice<br/><i>owns its invariants</i>"]
+  CMD["<b>Command</b><br/>CMD-001 IssueInvoiceCommand"]
+  QRY["<b>Query</b><br/>QRY-002 GetInvoiceQuery"]
+  EVT["<b>Event</b><br/>EVT-001 InvoiceIssued"]
+  UC["<b>Use case</b><br/>UC-001 Issue Invoice<br/><i>actor: Billing clerk</i>"]
+  REQ["<b>Requirement</b><br/>REQ-001"]
+  RUL["<b>Business rule</b><br/>RUL-001 Invoices are<br/>immutable once issued"]
+
+  REQ --> UC
+  UC --> CMD
+  UC --> QRY
+  CMD --> AGG
+  AGG --> EVT
+  BC --> AGG
+  RUL --> BC
+
+  classDef strat fill:#fff9db,stroke:#f08c00,color:#5c3d00;
+  classDef tact fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d61;
+  classDef ev fill:#fff0f6,stroke:#c2255c,color:#611;
+  class BC,RUL strat;
+  class AGG,CMD,QRY,UC,REQ tact;
+  class EVT ev;
+```
+
+Every box has an identifier. Every arrow is a reference the tool resolves.
+
+That is the whole trick. Once the model has referents, a linter can ask
+questions that prose cannot answer:
+
+- Does every requirement have a use case that implements it?
+- Does every use case name an **actor**? (A use case without an actor is a
+  function, and you have skipped the question of who wants this.)
+- Does every bounded context reference aggregates that exist?
+- Does every event belong to an aggregate that exists?
+- Does every business rule reference a context that exists?
+- Does every scenario reference a requirement and a use case that exist?
+- Are all identifiers unique?
+
+`csda pack lint` runs eleven such rules. A dangling reference — an event
+emitted by an aggregate nobody declared — fails the check. This is a compiler
+for a domain model, and it catches the same category of mistake a compiler
+catches: not "is this a good design", but "does this design refer to things
+that are there".
+
+You can also render the spine and look at it:
+
+```bash
+csda pack lint --pack-root ./packs --pack billing/backend --graph
+```
+
+which emits Mermaid — the REQ → UC → CMD/AGG/EVT graph — so an architecture
+review can look at the domain rather than at a document about the domain.
+
+---
+
+## The chain that makes it checkable
+
+Here is the part I would put on a slide if I only had one.
+
+Domain-Driven Design gives you a model. Behaviour-Driven Development gives you
+executable examples. Test-Driven Development gives you a discipline. Everyone
+agrees these are good. In practice they live in three different places, drift
+apart, and nobody notices until a release goes wrong.
+
+The traceability matrix makes them **one chain, in one row**:
+
+```mermaid
+graph LR
+  R["REQ-001<br/><i>requirement</i>"] --> S["SCN-001<br/><i>scenario id</i>"]
+  S --> F["load_pack.feature<br/><i>Gherkin, BDD</i>"]
+  F --> U["UC-001<br/><i>use case</i>"]
+  U --> C["CMD-001<br/><i>command / query</i>"]
+  C --> A["AGG-001<br/><i>aggregate, DDD</i>"]
+  A --> E["EVT-001<br/><i>event</i>"]
+  E --> T["src/…<br/><i>technical artefact</i>"]
+  T --> X["…steps.ts<br/><i>test artefact, TDD</i>"]
+  X --> ST["Status<br/><i>Draft → Implemented</i>"]
+
+  classDef c fill:#ebfbee,stroke:#2f9e44,color:#143;
+  class R,S,F,U,C,A,E,T,X,ST c;
+```
+
+Ten columns, one requirement per row. Read left to right it is a sentence:
+*this requirement is demonstrated by this scenario, written in this feature
+file, realised by this use case, which dispatches this command against this
+aggregate, emitting this event, implemented here, proven by this test, and it
+is currently in this state.*
+
+Break any link and the build fails.
+
+That is what makes DDD, BDD and TDD stop being three practices a team is
+supposed to remember, and start being one artefact CI can check. The value is
+not the vocabulary. It is that **the vocabulary is load-bearing**.
+
+Which link is checked, and how:
+
+```mermaid
+graph TD
+  A[Requirement REQ-007] --> B{Has a Gherkin scenario?}
+  B -- no --> F[❌ build fails]
+  B -- yes --> C{Scenario file exists on disk?}
+  C -- no --> F
+  C -- yes --> D{Has a test artefact?}
+  D -- no --> G{Status past Draft?}
+  G -- yes --> F
+  G -- no --> P[✅ passes, still Draft]
+  D -- yes --> P
+
+  classDef bad fill:#ffe3e3,stroke:#c92a2a,color:#611;
+  classDef good fill:#ebfbee,stroke:#2f9e44,color:#143;
+  class F bad;
+  class P,G good;
+```
+
+`csda validate --strict-tdd` fails your pull request when a requirement has no
+scenario, when the scenario file it names does not exist, or when a requirement
+has moved past `Draft` without a test. A guard test additionally asserts that
+every path named in the matrix resolves on disk.
+
+This is what makes drift expensive instead of invisible. A specification cannot
+quietly become false, because the moment it does, CI goes red.
+
+It is also, incidentally, the gap the InfoQ piece names as unsolved in current
+tooling — *"undefined specification-to-implementation alignment validation"*.
+It is solvable. It just has to be a gate rather than a document.
+
+---
+
+## BDD, and treating scenario quality as a lint rule
+
+A Gherkin scenario is only worth having if it is falsifiable. In practice most
+teams accumulate scenarios like this:
+
+```gherkin
+Scenario: Test login
+  Given the system is ready
+  When something happens
+  Then it works
+```
+
+That passes review because it is syntactically a scenario. It is worthless: it
+cannot fail for an interesting reason, and an agent handed it will produce
+something that technically satisfies it.
+
+So scenario quality is a lint rule, not a style preference. `pack lint` flags:
+
+- **Generic titles** — "test login", "happy path"
+- **Missing When** — a scenario with no action is an assertion, not a behaviour
+- **Missing Then** — a scenario with no outcome cannot fail
+- **Vague steps** — "something happens", "it works", "the system is ready"
+- **Title drift** — the scenario named in the model no longer matches the title
+  in the feature file
+
+Under `--strict`, these become errors and fail CI.
+
+This matters much more in an agent workflow than it did in a human one. A
+developer reading "then it works" asks a colleague what that means. An agent
+does not ask. It picks an interpretation, implements it confidently, and the
+scenario goes green.
+
+---
+
+## TDD as a gate rather than a discipline
+
+Test-Driven Development has always had an enforcement problem. Everyone agrees
+with it; nobody can tell from the outside whether it happened.
+
+The matrix has a **Test artifact** column and a **Status** column, and the rule
+that connects them is mechanical:
+
+> A requirement may sit in `Draft` with no test. The moment its status moves
+> past `Draft`, it must name a test artefact — or `validate --strict-tdd` fails
+> the build.
+
+That is deliberately permissive at the start and unforgiving at the end. You
+are allowed to think out loud in `Draft`. You are not allowed to call something
+`In Dev` or `Implemented` while nothing proves it.
+
+The agent prompt carries the same ordering, explicitly — *"Test artifact (write
+this first — TDD)"* — and the gate the harness runs targets the scenario
+belonging to the requirement under test, so the loop cannot mark work done
+without executing the example that defines it.
+
+We learned that last clause the hard way, which is the next section.
+
+---
+
+## Modelling dependencies rather than phases
 
 The natural way to structure spec-driven work is as phases: discover, then
 design, then tasks. It reads well on a slide. It is also how spec-driven
@@ -84,48 +291,7 @@ with real work gets satisfied with fiction.
 
 ---
 
-## Decision 2: the matrix is the gate
-
-Every requirement occupies one row in a ten-column traceability matrix:
-
-| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |
-|---|---|---|---|---|---|---|---|---|---|
-
-That table is not documentation. **It is a build gate.**
-
-```mermaid
-graph TD
-  A[Requirement REQ-007] --> B{Has a Gherkin scenario?}
-  B -- no --> F[❌ build fails]
-  B -- yes --> C{Scenario file exists on disk?}
-  C -- no --> F
-  C -- yes --> D{Has a test artefact?}
-  D -- no --> G{Status past Draft?}
-  G -- yes --> F
-  G -- no --> P[✅ passes, still Draft]
-  D -- yes --> P
-
-  classDef bad fill:#ffe3e3,stroke:#c92a2a,color:#611;
-  classDef good fill:#ebfbee,stroke:#2f9e44,color:#143;
-  class F bad;
-  class P,G good;
-```
-
-`csda validate --strict-tdd` fails your pull request when a requirement has no
-scenario, when the scenario file it names does not exist, or when a requirement
-has moved past `Draft` without a test. A guard test additionally asserts that
-every path named in the matrix resolves on disk.
-
-This is the piece that makes drift expensive instead of invisible. A spec cannot
-quietly become false, because the moment it does, CI goes red.
-
-It is also, incidentally, the gap the InfoQ piece names as unsolved in current
-tooling — *"undefined specification-to-implementation alignment validation"*.
-It is solvable. It just has to be a gate rather than a document.
-
----
-
-## Decision 3: domain knowledge is a versioned dependency
+## Domain knowledge as a versioned dependency
 
 Enterprises do not have one authentication requirement. They have the same
 authentication requirements in eleven services, subtly diverging.
@@ -173,7 +339,7 @@ command rather than described as a virtue.
 
 ---
 
-## Decision 4: the loop, and the fact that it never merges
+## The loop, and the fact that it never merges
 
 At the top adoption level an agent drives the work. One requirement at a time,
 each in its own git worktree:
