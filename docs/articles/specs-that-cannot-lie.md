@@ -13,50 +13,47 @@
 
 # Specs That Cannot Lie
 
-## Domain-Driven Design, BDD and TDD as one checkable artefact — and what happened when we pointed a real agent at it.
+## Prose rots quietly. Here is what a specification looks like when your build can check it — and what broke when we let an AI agent build from one.
 
-There is broad agreement now that the bottleneck in software has moved. When an
-agent can produce a thousand lines in ten minutes, the scarce resource stops
-being typing speed and becomes **the ability to say precisely what you want**.
-InfoQ [made this case well for enterprises](https://www.infoq.com/articles/enterprise-spec-driven-development/):
-specifications become the interface between humans and agents, and the
-organisations that treat that as a cultural change rather than a tool rollout
-will pull ahead.
+A requirement in your repository says the system rejects expired tokens.
 
-I agree with all of it. It is also, as written, entirely theory.
+It stopped doing that in March. Nobody noticed, because nothing was watching:
+the document has no referents, so there is nothing to check it against. It sits
+there, confident and wrong, and it will still be sitting there next quarter.
 
-What that article does not contain — what almost none of the writing on
-spec-driven development contains — is two things.
+For years that was tolerable. A developer reading it would frown, ask a
+colleague, and find out the truth in ninety seconds. The document was a hint,
+and humans are good at discounting hints.
 
-The first is what a specification has to **be** for an agent to build from it
-safely. "Write good specs" is not an answer. What follows is a concrete one:
-a Domain-Driven Design model with resolvable references, executable examples in
-Gherkin, and a test discipline enforced mechanically rather than culturally —
-joined into a single artefact that continuous integration can check.
+An agent does not frown. It reads the requirement as ground truth, builds three
+features on top of it, and writes tests that assert the wrong behaviour
+convincingly. You have not automated engineering. You have automated the
+propagation of stale documentation, at machine speed, with a plausible commit
+message attached.
 
-The second is what happens when you actually run the loop. We built the
-pipeline. We pointed a real agent at it. Within three runs it produced **ten
-defects in our own machinery**, and one of them invalidated the premise of the
-whole product.
+This is the failure mode that matters now, and "write better specs" is not a
+plan for avoiding it. A plan has to answer a harder question: **what does a
+specification have to be, structurally, for a machine to build from it without
+quietly inheriting a lie?**
 
-Both halves are below. The second is the one I would read first if I were
-evaluating anybody's tool, including ours.
+Our answer is that it stops being a document and becomes a model — a
+Domain-Driven Design model with resolvable references, executable examples in
+Gherkin, and a test discipline enforced by the build rather than by good
+intentions. Three practices most teams already believe in, joined into one
+artefact that continuous integration can verify link by link.
 
----
+That is the first half of this article.
 
-## The failure mode nobody writes about
+The second half is what happened when we stopped designing it and ran it. We
+pointed a real coding agent at the loop, three times. It surfaced **ten defects
+in our own machinery** — including a gate that approved work it had never
+verified, which is the precise failure the entire tool exists to prevent.
 
-Spec-driven development has an obvious failure mode, and it is not that people
-refuse to write specs. It is that **specifications drift into fiction**.
-
-A requirement says the system does X. The code stopped doing X two sprints ago.
-The document is still there, still confident, still wrong — and now an agent
-reads it as ground truth and builds on a lie. You have not automated
-engineering. You have automated the propagation of stale documentation at
-machine speed.
-
-Every design decision below exists to make that specific failure impossible, or
-at least loud.
+I have put that second half in as much detail as the first, because it is the
+part I would want to read if I were evaluating anybody's tooling, including
+ours. The strategic case for spec-driven development is already made, and
+[made well](https://www.infoq.com/articles/enterprise-spec-driven-development/).
+What is missing everywhere is an account of somebody actually running the thing.
 
 ---
 
@@ -334,7 +331,7 @@ nobody reads.
 
 **Learning flows back.** `specops contribute` sends a local change upstream to
 the pack, so what one team discovers becomes context for every other team. This
-is the InfoQ article's "each gap strengthens the harness", implemented as a
+is the InfoQ article's "each gap identified strengthens the harness", implemented as a
 command rather than described as a virtue.
 
 ---
