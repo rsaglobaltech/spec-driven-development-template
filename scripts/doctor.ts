@@ -62,15 +62,65 @@ function readIfExists(p) {
 
 // ── Checks ────────────────────────────────────────────────────────────────────
 
+/**
+ * Where this CLI is running from, and what version it is.
+ *
+ * A real user reported `-v` printing 0.1.2 after installing "the latest". The
+ * tool was right — it *was* 0.1.2, from a global install made months earlier.
+ * `npx create-spec-driven-app@latest` runs a temporary copy and never touches a
+ * global one, so the two answer different questions and nothing said so.
+ *
+ * No network call: which version is newest is not doctor's business, and a
+ * lookup here would break the offline and air-gapped modes the tool promises.
+ * Naming the installation is enough — a stale global becomes obvious the moment
+ * you can see you are running one.
+ */
+function describeInstall() {
+  const rootDir = path.resolve(__dirname, "..", "..");
+  let version = "unknown";
+  try {
+    version = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf8")).version;
+  } catch {
+    // A package.json we cannot read is reported as such rather than guessed at.
+  }
+
+  const posix = rootDir.split(path.sep).join("/");
+  let kind = "local checkout";
+  if (/\/(_npx|\.npm\/_npx)\//.test(posix)) kind = "npx cache — temporary, not installed";
+  else if (/\/lib\/node_modules\//.test(posix)) kind = "global install";
+  else if (/\/node_modules\//.test(posix)) kind = "project dependency";
+
+  return { version, rootDir, kind };
+}
+
+function nodeFloor() {
+  // Read the floor rather than repeat it. This check said ">= 20" for a release
+  // after the floor moved to 22, which is the same drift the floor guard exists
+  // to prevent.
+  try {
+    const engines = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, "..", "..", "package.json"), "utf8")
+    ).engines;
+    const n = Number(String(engines.node).replace(/[^0-9]/g, ""));
+    return Number.isFinite(n) && n > 0 ? n : 22;
+  } catch {
+    return 22;
+  }
+}
+
 function checkEnvironment() {
+  const install = describeInstall();
+  ok("csda", `v${install.version} — ${install.kind}\n     ${install.rootDir}`);
+
+  const floor = nodeFloor();
   const major = Number(process.versions.node.split(".")[0]);
-  if (major >= 20) {
+  if (major >= floor) {
     ok("Node.js", `v${process.versions.node}`);
   } else {
     error(
       "Node.js",
       `v${process.versions.node} is below the required minimum`,
-      "Install Node.js >= 20 (https://nodejs.org) or use nvm/fnm to switch."
+      `Install Node.js >= ${floor} (https://nodejs.org) or use nvm/fnm to switch.`
     );
   }
 

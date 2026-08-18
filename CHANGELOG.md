@@ -44,6 +44,29 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   everything, `--keep-worktrees` to reproduce it. Found by running REQ-002 and
   being unable to tell why it had failed.
 
+## [Unreleased]
+
+### Fixed
+
+- **`csda doctor` now names the installation it is running from**, and its
+  version and path.
+
+  Reported by a user whose `csda -v` kept printing 0.1.2 after installing "the
+  latest". The tool was right — it *was* 0.1.2, from a global install made
+  months earlier. `npx create-spec-driven-app@latest` runs a temporary copy and
+  never touches a global one, so the two answer different questions and nothing
+  said so. Three minor versions behind, with no way to notice.
+
+  Doctor distinguishes a global install, a project dependency, an npx cache copy
+  and a local checkout, and prints the path. No network call: which version is
+  newest is not doctor's business, and a lookup would break the offline and
+  air-gapped modes the tool promises.
+
+- **Doctor's Node check read `>= 20`** for a release after the floor moved to
+  22. It now reads the floor from `package.json` rather than repeating it — the
+  same drift the floor guard exists to prevent, in the one file the guard did
+  not cover.
+
 ## [0.5.0] — 2026-08-17
 
 ### Fixed
