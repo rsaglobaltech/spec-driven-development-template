@@ -1218,6 +1218,7 @@ se reprodujo después— pero es una forma sucia de medir y no debería repetirs
 
 | # | Problema | Nota |
 |---|---|---|
+| H13 | **El JSON Schema no lo aplica nadie.** ADR-0020 lo declaró «única autoridad», pero el CLI no valida contra él: es una pista `$schema` para el editor y un test contra un fixture. Los once packs curados **fallarían** el esquema — sus `aggregates` usan `bounded_context`/`responsibilities` donde el esquema exige `context`/`invariants`, y `additionalProperties: false` prohíbe los extras. Lo que sí se comprueba es `validatePackModel` + las once reglas de `pack lint`, que son reales y sustanciales | Descubierto al documentar el modelo DDD para el artículo. Dos salidas: aplicar el esquema de verdad (y migrar los packs), o rebajar ADR-0020 y dejar el esquema como ayuda de edición. **La actual es la peor: afirma autoridad que no ejerce** |
 | H9 | **`--base-branch` hereda la configuración de la base, no la de `main`.** Un arreglo en `main` no aplica a una ejecución apilada | Es correcto —así funciona git— pero se paga caro: el fallo falso de REQ-002 fue exactamente esto. El harness podría avisar cuando la base va por detrás de `main` |
 | H12 | **Requisitos dependientes no se expresan.** REQ-002 se apoya en REQ-001 y hay que saberlo y pasar `--base-branch` a mano | El pack declara `requirement_id` por escenario pero no dependencias entre requisitos. Sin esto, `harness run` sin `--req` procesa en orden de matriz y falla en cascada |
 
