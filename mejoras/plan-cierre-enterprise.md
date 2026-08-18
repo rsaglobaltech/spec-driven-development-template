@@ -1106,11 +1106,14 @@ decir «promesa». Eso es lo que compra un equipo cuando ve un 1.0.
 
 ### Lo que falta, y es medible
 
-**G1 · Dos releases de features seguidas sin breaking.** Hoy no se cumple:
-0.2.0 tuvo 2, 0.3.0 tuvo 1 y 0.4.0 tuvo 1. **Una por release no es una
-superficie estable**, y las dos últimas salieron de encontrar defectos reales
-—la bifurcación del formato de packs, el camelCase aplicado a medias—. Ese ritmo
-tiene que caer a cero por sí solo, no por dejar de mirar.
+**G1 · Dos releases de features seguidas sin breaking.** ✅ **Cumplido el
+2026-08-18.** 0.5.0 y 0.6.0, ambas con cero breaking. El histórico: 0.2.0 tuvo
+2, 0.3.0 tuvo 1, 0.4.0 tuvo 1 (el suelo de Node), y luego dos limpias.
+
+Matiz honesto: las dos limpias son **releases de arreglos**, no de features
+nuevas. Son siete y ocho entradas de `Fixed` salidas de ejecutar el harness. Que
+no rompan nada era casi inevitable — arreglar no suele romper contrato. La
+prueba de verdad llega con la siguiente release que **añada** algo.
 
 **G2 · El bucle del harness completado de punta a punta al menos una vez.**
 ✅ **Hecho el 2026-08-17** con Claude como agente, sobre REQ-001 de
@@ -1221,6 +1224,30 @@ se reprodujo después— pero es una forma sucia de medir y no debería repetirs
 | H13 | **El JSON Schema no lo aplica nadie.** ADR-0020 lo declaró «única autoridad», pero el CLI no valida contra él: es una pista `$schema` para el editor y un test contra un fixture. Los once packs curados **fallarían** el esquema — sus `aggregates` usan `bounded_context`/`responsibilities` donde el esquema exige `context`/`invariants`, y `additionalProperties: false` prohíbe los extras. Lo que sí se comprueba es `validatePackModel` + las once reglas de `pack lint`, que son reales y sustanciales | Descubierto al documentar el modelo DDD para el artículo. Dos salidas: aplicar el esquema de verdad (y migrar los packs), o rebajar ADR-0020 y dejar el esquema como ayuda de edición. **La actual es la peor: afirma autoridad que no ejerce** |
 | H9 | **`--base-branch` hereda la configuración de la base, no la de `main`.** Un arreglo en `main` no aplica a una ejecución apilada | Es correcto —así funciona git— pero se paga caro: el fallo falso de REQ-002 fue exactamente esto. El harness podría avisar cuando la base va por detrás de `main` |
 | H12 | **Requisitos dependientes no se expresan.** REQ-002 se apoya en REQ-001 y hay que saberlo y pasar `--base-branch` a mano | El pack declara `requirement_id` por escenario pero no dependencias entre requisitos. Sin esto, `harness run` sin `--req` procesa en orden de matriz y falla en cascada |
+
+---
+
+## 12.12 Huecos de producto que el artículo obligó a nombrar
+
+*Anotados el 2026-08-18. Salieron al escribir para un lector de fuera, que es un
+ejercicio distinto a escribir para nosotros: hay que decir qué **no** hace.*
+
+La primera versión del artículo los declaraba abiertamente en una sección
+«Where it does not work yet». La reescritura narrativa **eliminó esa sección**,
+así que quedaron sin sitio. Aquí tienen sitio.
+
+| ID | Hueco | Estado y coste |
+|---|---|---|
+| **P1** | **Orquestación multi-repositorio.** Una spec no se descompone en trabajo across varios repos. La unidad es el proyecto | **Abierto, v2.** No es una función: implica un identificador por encima del repo, correlación de estados y una matriz federada. Es cambio de modelo. Mientras, `alm sync` usa el issue de Jira/Azure como identificador supra-repo — feo y barato |
+| **P2** | **Superficie de lectura para quien no abre PRs.** Las specs viven en git a propósito, porque es lo que permite que CI verifique algo; pero un product owner no entra ahí | **Abierto, barato.** `csda studio` (HTML local de solo lectura) y `csda report` (dashboard autocontenido) ya existen. Falta publicarlos — Pages ya funciona en este repo. Es la crítica más certera del artículo de InfoQ y la que menos cuesta atacar |
+
+**Por qué importan para 1.0:** ninguno bloquea. P1 está explícitamente fuera de
+alcance (D12 movió la distribución a v2 por la misma lógica). P2 es una tarde de
+trabajo y mejora la adopción real, así que es buen candidato para la primera
+release después del 1.0.
+
+**Lo que sí bloquea sigue siendo G3:** nadie de fuera lo ha usado. P2 lo hace
+más probable, pero no lo sustituye.
 
 ---
 

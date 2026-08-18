@@ -53,8 +53,6 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   everything, `--keep-worktrees` to reproduce it. Found by running REQ-002 and
   being unable to tell why it had failed.
 
-## [Unreleased]
-
 - **`validate` scanned gitignored files.** The skip list is fixed and cannot
   know what a given project ignores, so a gitignored build directory containing
   `{{VAR}}` — documentation of the placeholder syntax, in this case — failed the
