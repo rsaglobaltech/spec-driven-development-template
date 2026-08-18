@@ -265,7 +265,11 @@ test("doctor prints the path, so a stale install is identifiable", () => {
     const r = spawnSync(process.execPath, [cli, "doctor", "--project-dir", ROOT_DIR], {
       encoding: "utf8",
     });
-    assert.match(r.stdout + r.stderr, /usr\/local\/lib\/node_modules/);
+    // Separator-agnostic: the report prints a native path, which is right for
+    // the reader and backslashed on Windows. Asserting POSIX here is how this
+    // test failed on two runners and nowhere else.
+    const out = (r.stdout + r.stderr).split(path.sep).join("/");
+    assert.match(out, /usr\/local\/lib\/node_modules/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
