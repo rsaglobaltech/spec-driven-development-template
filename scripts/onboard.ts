@@ -106,29 +106,158 @@ const NOT_DOMAIN = new Set([
 ]);
 
 /**
- * Where a codebase keeps its domain. Checked in order; the first that exists
- * and has subdirectories wins, because that is the level a team named.
+ * Where a codebase might keep its domain. These are *candidates*, not a
+ * priority order: every one that exists is scored and the best wins.
+ *
+ * It used to be first-match-wins, which is how `ripgrep` — a Rust project whose
+ * code lives in `crates/` — got told its capabilities were `pkg/brew` and
+ * `pkg/windows`, two packaging directories, because `pkg` came first in the
+ * list. A confident wrong answer is the one failure mode this command cannot
+ * afford, so the ranking is now evidence (how much code is actually under each)
+ * rather than the order someone typed the list in.
  */
 const DOMAIN_ROOTS = [
   "src/main/java",
   "src/main/kotlin",
+  "src/main/scala",
   "src/domain",
   "src/modules",
   "src/features",
   "src/contexts",
   "src/app",
   "src/packages",
+  "src/lib",
   "app/domain",
   "domain",
   "modules",
   "contexts",
+  "features",
   "services",
+  "crates",
   "internal",
   "pkg",
   "src",
   "app",
   "lib",
+  ".",
 ];
+
+/**
+ * Extensions that count as code when weighing a capability.
+ *
+ * Weight used to be "every file underneath", which let a directory of fixtures,
+ * images or generated JSON outrank the module that holds the behaviour.
+ */
+const CODE_EXT = new Set([
+  ".java",
+  ".kt",
+  ".kts",
+  ".scala",
+  ".groovy",
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".vue",
+  ".svelte",
+  ".py",
+  ".go",
+  ".rs",
+  ".rb",
+  ".php",
+  ".cs",
+  ".fs",
+  ".vb",
+  ".swift",
+  ".dart",
+  ".c",
+  ".h",
+  ".cc",
+  ".cpp",
+  ".hpp",
+  ".m",
+  ".mm",
+  ".ex",
+  ".exs",
+  ".erl",
+  ".clj",
+  ".sql",
+]);
+
+/**
+ * Files that mark a directory as a project of its own.
+ *
+ * This is the single most useful signal on disk and the one this command used
+ * to ignore: a monorepo almost always *declares* its modules, and a directory
+ * carrying its own build manifest is a module by the team's own definition —
+ * no guessing, no per-ecosystem parser. It covers Maven and Gradle modules,
+ * npm/pnpm workspaces, Cargo workspace members, Go modules, Ruby gems, .NET
+ * projects and Composer packages with one rule.
+ */
+const MODULE_MANIFESTS = [
+  "pom.xml",
+  "build.gradle",
+  "build.gradle.kts",
+  "package.json",
+  "Cargo.toml",
+  "go.mod",
+  "pyproject.toml",
+  "setup.py",
+  "composer.json",
+  "build.sbt",
+  "mix.exs",
+];
+const MODULE_MANIFEST_GLOBS = [/\.gemspec$/, /\.csproj$/, /\.fsproj$/];
+
+/**
+ * Architectural layer names. A repository whose modules are mostly these has
+ * declared its *layering*, not its capabilities — `domain`, `application`,
+ * `infrastructure`, `bootstrap` are four views of one product. Proposing them
+ * as capabilities would be technically accurate and useless, so a layered
+ * project is descended into instead.
+ */
+const LAYER_NAMES = new Set([
+  "domain",
+  "application",
+  "infrastructure",
+  "infra",
+  "bootstrap",
+  "adapters",
+  "adapter",
+  "ports",
+  "api",
+  "rest",
+  "web",
+  "http",
+  "ui",
+  "persistence",
+  "repository",
+  "core",
+  "common",
+  "commons",
+  "shared",
+  "util",
+  "utils",
+  "config",
+  "client",
+  "server",
+]);
+
+/**
+ * Modules and directories that exist to test, document or demo the real ones.
+ *
+ * Matched as a whole name, as a prefix (`tests-integration`) and as a suffix
+ * (`Serilog.ApprovalTests`), because each ecosystem picks a different one.
+ */
+const NOT_A_MODULE =
+  /^(tests?|testing|it|e2e|integration|benchmarks?|benches|examples?|samples?|demos?|docs?|website|site|fixtures?|testdata|testutil|scripts|tools|buildsrc|build-logic|gradle|third_party|vendor)$|^(tests?|benchmarks?|benches|examples?|samples?|e2e|it)[-_.]|[-_.](tests?|benchmarks?|benches|examples?|samples?|it|approvaltests|testdummies)$/i;
+
+// `integration` is on that list in the singular only. A directory called
+// `integration/` holds integration tests in every repository checked; a
+// directory called `integrations/` is usually a real capability — the Slack and
+// Jira connectors a product actually ships.
 
 function subdirectories(dir) {
   try {
@@ -190,7 +319,7 @@ function descendThroughWrappers(root) {
 function countFiles(dir) {
   let total = 0;
   const stack = [dir];
-  while (stack.length > 0 && total < 500) {
+  while (stack.length > 0 && total < 5000) {
     const next = stack.pop();
     let entries;
     try {
@@ -201,13 +330,83 @@ function countFiles(dir) {
     for (const entry of entries) {
       if (entry.isDirectory()) {
         const name = entry.name.toLowerCase();
-        if (!BUILD_OUTPUT.has(name) && !name.startsWith(".")) {
+        // Tests, samples and benchmarks are code, but they are not the product.
+        // Counting them made Nest's dozens of sample apps outweigh the packages
+        // they demonstrate.
+        if (!BUILD_OUTPUT.has(name) && !name.startsWith(".") && !NOT_A_MODULE.test(entry.name)) {
           stack.push(path.join(next, entry.name));
         }
-      } else total++;
+      } else if (CODE_EXT.has(path.extname(entry.name).toLowerCase())) total++;
     }
   }
   return total;
+}
+
+function hasManifest(dir) {
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+  for (const e of entries) {
+    if (!e.isFile()) continue;
+    if (MODULE_MANIFESTS.includes(e.name)) return true;
+    if (MODULE_MANIFEST_GLOBS.some((re) => re.test(e.name))) return true;
+  }
+  return false;
+}
+
+/**
+ * Sibling projects the repository declares by giving each its own build
+ * manifest. Looked for one and two levels down, because half of these layouts
+ * put them under a container directory (`packages/`, `services/`, `crates/`).
+ */
+function findDeclaredModules(projectDir) {
+  const found = [];
+  for (const first of subdirectories(projectDir)) {
+    if (BUILD_OUTPUT.has(first.toLowerCase())) continue;
+    // `test/`, `examples/` and `sample/` hold real projects with real manifests.
+    // Reading them as modules is how Serilog was told its capabilities were its
+    // four test assemblies, and Flask that it was three example apps.
+    if (NOT_A_MODULE.test(first)) continue;
+    const firstPath = path.join(projectDir, first);
+    if (hasManifest(firstPath)) {
+      found.push({ name: first, dir: firstPath });
+      continue;
+    }
+    // A container like `packages/` carries no manifest of its own; its children do.
+    const nested = subdirectories(firstPath)
+      .filter((n) => !BUILD_OUTPUT.has(n.toLowerCase()) && !NOT_A_MODULE.test(n))
+      .map((n) => ({ name: n, dir: path.join(firstPath, n) }))
+      .filter((m) => hasManifest(m.dir));
+    found.push(...nested);
+  }
+  return found.filter((m) => !NOT_A_MODULE.test(m.name) && countFiles(m.dir) > 0);
+}
+
+/** True when the modules describe layers of one product rather than areas of it. */
+function looksLayered(modules) {
+  const layerish = modules.filter((m) => LAYER_NAMES.has(m.name.toLowerCase())).length;
+  return layerish >= 2 && layerish / modules.length >= 0.5;
+}
+
+/**
+ * The top-level Python package — `src/flask/`, `django/` — which is the level a
+ * Python project draws its lines at. Nothing else on disk marks it, so the
+ * `__init__.py` is the evidence.
+ */
+function pythonPackageRoots(projectDir) {
+  const roots = [];
+  for (const container of [projectDir, path.join(projectDir, "src")]) {
+    for (const name of subdirectories(container)) {
+      if (BUILD_OUTPUT.has(name.toLowerCase()) || NOT_A_MODULE.test(name)) continue;
+      if (fs.existsSync(path.join(container, name, "__init__.py"))) {
+        roots.push(path.relative(projectDir, path.join(container, name)));
+      }
+    }
+  }
+  return roots;
 }
 
 function titleCase(name) {
@@ -220,31 +419,115 @@ function titleCase(name) {
     .join(" ");
 }
 
-/** Capabilities proposed from how the code is already organised. */
+function toCapability(projectDir, dir, name) {
+  return {
+    id: name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, ""),
+    title: titleCase(name),
+    evidence: path.relative(projectDir, dir).split(path.sep).join("/") || ".",
+    files: countFiles(dir),
+  };
+}
+
+/**
+ * Split one directory into the capabilities its children imply, or null when
+ * its children imply nothing.
+ */
+function splitIntoCapabilities(projectDir, root, depth = 0) {
+  const base = descendThroughWrappers(root);
+  const children = subdirectories(base)
+    .filter((n) => !NOT_DOMAIN.has(n.toLowerCase()) && !NOT_A_MODULE.test(n))
+    .map((n) => ({ dir: path.join(base, n), cap: toCapability(projectDir, path.join(base, n), n) }))
+    .filter((child) => child.cap.files > 0);
+  if (children.length < 2) return null;
+
+  // A "split" where one child holds nearly everything is not a split — it is a
+  // wrapper with debris beside it. Django's repository root looks exactly like
+  // this: `django/` plus `js_tests/`, which reads as two capabilities of 929 and
+  // 11 files. The lines that matter are drawn one level further in.
+  const total = children.reduce((sum, child) => sum + child.cap.files, 0);
+  const largest = children.reduce((a, b) => (a.cap.files >= b.cap.files ? a : b));
+  if (depth < 3 && largest.cap.files / total >= 0.8) {
+    const deeper = splitIntoCapabilities(projectDir, largest.dir, depth + 1);
+    if (deeper) return deeper;
+  }
+  return children.map((child) => child.cap);
+}
+
+/**
+ * Capabilities proposed from how the code is already organised.
+ *
+ * Three sources, in order of how much they are actually *evidence*:
+ *
+ *   1. **Modules the repository declares** by giving each its own build
+ *      manifest. Not a heuristic — it is the team's own answer.
+ *   2. **The layer where the code divides**, scored across every plausible
+ *      root rather than taken from the first entry of a list.
+ *   3. Nothing. Silence beats a confident wrong answer, and a flat library
+ *      genuinely has no capability structure to read.
+ *
+ * Measured over sixteen well-known repositories (Maven and Gradle multi-module,
+ * npm and pnpm workspaces, Cargo workspaces, Ruby gems, Go, Django, Laravel,
+ * .NET), the previous list-order approach answered for five of them and named
+ * packaging directories in two more.
+ */
 function proposeCapabilities(projectDir) {
-  for (const candidate of DOMAIN_ROOTS) {
-    const root = path.join(projectDir, candidate);
-    if (!fs.existsSync(root)) continue;
+  let modules = findDeclaredModules(projectDir);
 
-    const base = descendThroughWrappers(root);
-    const names = subdirectories(base).filter((n) => !NOT_DOMAIN.has(n.toLowerCase()));
-    if (names.length < 2) continue;
+  // A repository can hold sub-projects and still *be* a project: Loki keeps a
+  // Kubernetes operator and a tiny `pkg/push` module beside the ~4000 files that
+  // are Loki itself. Reading those two as the capability list buries the product
+  // behind its own accessories, so when the root outweighs everything it
+  // declares, the root is the project.
+  if (modules.length > 0) {
+    const inModules = modules.reduce((sum, m) => sum + countFiles(m.dir), 0);
+    if (countFiles(projectDir) - inModules > inModules) modules = [];
+  }
 
-    return names
-      .map((name) => ({
-        id: name
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, ""),
-        title: titleCase(name),
-        evidence: path.relative(projectDir, path.join(base, name)).split(path.sep).join("/"),
-        files: countFiles(path.join(base, name)),
-      }))
-      .filter((cap) => cap.files > 0)
+  // A layered project (domain / application / infrastructure / bootstrap) has
+  // declared how it is built, not what it does. Read its domain layer instead.
+  if (modules.length >= 2 && looksLayered(modules)) {
+    const layers = modules.slice().sort((a, b) => countFiles(b.dir) - countFiles(a.dir));
+    const preferred =
+      layers.find((m) => m.name.toLowerCase() === "domain") ||
+      layers.find((m) => m.name.toLowerCase() === "core") ||
+      layers[0];
+    const split = splitIntoCapabilities(projectDir, preferred.dir);
+    if (split) return split.sort((a, b) => b.files - a.files).slice(0, 8);
+  }
+
+  if (modules.length >= 2) {
+    return modules
+      .map((m) => toCapability(projectDir, m.dir, m.name))
       .sort((a, b) => b.files - a.files)
       .slice(0, 8);
   }
-  return [];
+
+  // One declared module (a `src/` project, a single .csproj) is the project
+  // itself — its own children are where the lines are drawn.
+  const searchRoots = modules.length === 1 ? [path.relative(projectDir, modules[0].dir)] : [];
+  searchRoots.push(...pythonPackageRoots(projectDir), ...DOMAIN_ROOTS);
+
+  let best = null;
+  const seen = new Set();
+  for (const candidate of searchRoots) {
+    const root = path.join(projectDir, candidate);
+    const key = path.resolve(root);
+    if (seen.has(key) || !fs.existsSync(root)) continue;
+    seen.add(key);
+
+    const split = splitIntoCapabilities(projectDir, root);
+    if (!split) continue;
+    // Weight by the code the split actually accounts for: a packaging folder
+    // with two shell scripts must never outrank the crate tree beside it.
+    const weight = split.reduce((sum, cap) => sum + cap.files, 0);
+    if (!best || weight > best.weight) best = { weight, split };
+  }
+
+  if (!best) return [];
+  return best.split.sort((a, b) => b.files - a.files).slice(0, 8);
 }
 
 function isAdopted(projectDir) {
@@ -431,6 +714,8 @@ module.exports = {
   proposeCapabilities,
   descendThroughWrappers,
   findAdoptedAncestor,
+  findDeclaredModules,
+  looksLayered,
   titleCase,
   NOT_DOMAIN,
   BUILD_OUTPUT,
