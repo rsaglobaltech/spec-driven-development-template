@@ -174,3 +174,48 @@ test("adopt with no build manifest warns but still validates", () => {
     assert.equal(v.status, 0, v.stdout + v.stderr);
   });
 });
+
+test("a fresh adoption passes validate, but says it certifies nothing (H15)", () => {
+  // `adopt` writes a baseline scenario so day-one validation passes — that is
+  // deliberate. What it must not do is stay silent afterwards: `lixi-platform`
+  // sat on the untouched skeleton for months while CI reported a clean gate.
+  withTmp((tmp) => {
+    const dir = makeMavenProject(tmp);
+    assert.equal(cli(["adopt", "--project-dir", dir]).status, 0);
+
+    const v = cli(["validate", dir]);
+    assert.equal(v.status, 0, "an un-retro-filled adoption still passes");
+    assert.match(v.stdout, /Adoption never retro-filled/);
+
+    const doc = JSON.parse(cli(["validate", dir, "--json"]).stdout);
+    assert.equal(doc.validation.passed, true);
+    assert.equal(doc.validation.adoptionRetrofilled, false);
+    assert.ok(doc.status.some((d) => d.code === "adoption_not_retrofilled"));
+  });
+});
+
+test("the warning goes away as soon as one real scenario exists (H15)", () => {
+  withTmp((tmp) => {
+    const dir = makeMavenProject(tmp);
+    cli(["adopt", "--project-dir", dir]);
+    fs.mkdirSync(path.join(dir, "features", "patient"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "features", "patient", "lookup.feature"),
+      "Feature: Patient lookup\n  Scenario: found\n    Given a patient\n    When looked up\n    Then it is returned\n",
+      "utf8"
+    );
+    const matrix = path.join(dir, "docs", "specs", "traceability.md");
+    fs.appendFileSync(
+      matrix,
+      "| REQ-002 | SCN-002 | `features/patient/lookup.feature` | UC-002 | - | - | - | src | test | Draft |\n",
+      "utf8"
+    );
+
+    const v = cli(["validate", dir]);
+    assert.equal(v.status, 0, v.stdout + v.stderr);
+    assert.doesNotMatch(v.stdout, /Adoption never retro-filled/);
+
+    const doc = JSON.parse(cli(["validate", dir, "--json"]).stdout);
+    assert.equal(doc.validation.adoptionRetrofilled, true);
+  });
+});

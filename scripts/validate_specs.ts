@@ -23,6 +23,28 @@ function logInfo(msg) {
 function logError(msg) {
   process.stderr.write(`❌ [ERROR] ${msg}\n`);
 }
+function logWarn(msg) {
+  const stream = IO && IO.json ? process.stderr : process.stdout;
+  stream.write(`⚠️ [WARN] ${msg}\n`);
+}
+
+/**
+ * True when the only Gherkin in the project is the placeholder `adopt` writes.
+ *
+ * `adopt` installs a skeleton and a baseline scenario so that `validate` passes
+ * on day one — deliberately, because a gate that rejects a fresh adoption is a
+ * gate nobody installs. The cost is that a project which never retro-filled a
+ * single requirement is indistinguishable from a healthy one at the only place
+ * most people look: the CI gate. Seen on `lixi-platform`, adopted months ago,
+ * still one placeholder requirement against 297 real tests (H15).
+ *
+ * So: still a pass, never an error — but it says so.
+ */
+function isAdoptionSkeletonOnly(targetDir, featureFiles) {
+  if (featureFiles.length !== 1) return false;
+  const rel = path.relative(targetDir, featureFiles[0]).split(path.sep).join("/");
+  return rel === "features/adoption/baseline.feature";
+}
 
 function usage() {
   process.stdout.write(
@@ -563,6 +585,20 @@ function main() {
     lockAdvisories = rest;
   }
 
+  const skeletonOnly = isAdoptionSkeletonOnly(targetDir, featureFiles);
+  const advisories = skeletonOnly
+    ? lockAdvisories.concat([
+        {
+          severity: "warning",
+          code: "adoption_not_retrofilled",
+          message:
+            "The only scenario in this project is the adoption baseline. Nothing the codebase actually does is specified yet.",
+          target: "features/adoption/baseline.feature",
+          fix: "Retro-fill one requirement you already rely on: csda onboard, then csda req add \"<behaviour>\" and csda req link.",
+        },
+      ])
+    : lockAdvisories;
+
   if (IO.json) {
     IO.emit({
       validation: {
@@ -574,8 +610,9 @@ function main() {
         strictTdd,
         againstLock,
         packsChecked: lockChecked,
+        adoptionRetrofilled: !skeletonOnly,
       },
-      status: lockAdvisories,
+      status: advisories,
     });
     process.exit(EXIT.OK);
   }
@@ -594,6 +631,15 @@ function main() {
   logInfo("- Base SDD structure: complete");
   logInfo(`- Traceability mode: ${traceMode}`);
   if (strictTdd) logInfo("- Strict TDD gate: passed");
+  if (skeletonOnly) {
+    logWarn("Adoption never retro-filled — the only scenario is the adoption baseline.");
+    logFix([
+      "This passes, but it certifies the skeleton, not the code.",
+      "  csda onboard                     # what this codebase already implies",
+      '  csda req add "<behaviour>"        # one requirement you already rely on',
+      "  csda req link REQ-NNN --code <path> --test <path>",
+    ]);
+  }
   process.exit(0);
 }
 
