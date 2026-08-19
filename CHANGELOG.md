@@ -6,6 +6,62 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
+## [Unreleased]
+
+Brownfield onboarding, measured against repositories nobody here wrote. Running
+the CLI over two real Java platforms and then over sixteen well-known public
+projects found the entry point answering for 5 of 16, and naming packaging
+directories in two more.
+
+### Added
+
+- **`adopt` seeds one proposed requirement per capability.** `onboard` read the
+  layout and `adopt` then threw the answer away and wrote a single placeholder,
+  so adoption died at the skeleton: one real repository sat on `REQ-001` for
+  months while carrying 297 tests. Each seeded requirement is labelled a
+  proposal, names the directory and file count it came from, and starts `Draft`
+  with a `TBD` test — nothing claims to be specified or verified. Opt out with
+  `--no-capabilities`.
+
+- **`adopt --monorepo`** adopts every module the repository declares and writes
+  the `specops.config.yaml` that puts `validate` into monorepo mode. That mode
+  existed; nothing generated its config, so the documented path was to
+  hand-write a `projects:` list and run `adopt` once per module.
+
+- **`onboard` reads the modules a repository declares.** A directory carrying
+  its own build manifest is a module by the team's own definition, which covers
+  Maven and Gradle modules, npm and pnpm workspaces, Cargo members, Go modules,
+  Ruby gems, .NET projects and Composer packages without a parser per
+  ecosystem. Fourteen of the sixteen corpus projects now answer; the other two
+  are flat libraries and stay deliberately silent.
+
+### Fixed
+
+- **`onboard` reported the wrong project entirely.** It resolved its directory
+  by walking up for `spec.md`, so from an un-adopted sub-project it answered
+  with the adopted ancestor — its path, its stack, its capabilities, and
+  "already adopted". It now reads the directory it was given and reports the
+  ancestor as an advisory instead of substituting it.
+
+- **`onboard` proposed nothing at all on JVM layouts.** The descent stopped at
+  the first directory with two children, which for a Gradle module is `src` and
+  a compiled `build/`; `src`, `main` and `java` are all filtered names, so the
+  list came out empty. 299 files of hexagonal Java read as an empty repository.
+
+- **Capability weights were inverted on JVM layouts**, for the same reason one
+  level down: a 38-file module reported 1, and the list is sorted by weight.
+
+- **Weight now counts source files only**, so a directory of fixtures or a
+  folder of sample apps cannot outrank the module it demonstrates.
+
+- **The proposal no longer changes after a build runs.** Compiled output was
+  counted as repository structure.
+
+- **`validate` said nothing about an adoption that was never retro-filled.** It
+  still passes — a gate that rejects a fresh adoption is a gate nobody installs
+  — but a project whose only scenario is the generated baseline now says so,
+  and `--json` carries `validation.adoptionRetrofilled`.
+
 ## [0.6.0] — 2026-08-18
 
 ### Fixed

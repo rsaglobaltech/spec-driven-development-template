@@ -14,8 +14,8 @@ Each command takes `--json`. See [the agent contract](specs/agent-contract.md).
 | --- | --- |
 | `csda init` | Scaffold a new project. Interactive wizard when no `--config`. |
 | `csda init --from-pack <repo>@<tag> --pack <id>` | Scaffold **and** install a pinned domain pack in one step. An unpinned reference is refused. |
-| `csda adopt` | Install SDD on an existing repository. Never overwrites a file, never touches source. |
-| `csda onboard` | Read an existing repository and propose the capabilities its layout implies, with the evidence for each. Writes nothing. |
+| `csda adopt` | Install SDD on an existing repository, seeding one proposed requirement per capability the layout implies. `--monorepo` adopts every declared module; `--no-capabilities` writes the skeleton only. Never overwrites a file, never touches source. |
+| `csda onboard` | Read an existing repository and propose its capabilities — the modules its build declares, or the level at which its code divides — with the evidence for each. Writes nothing. |
 
 ## Every day
 
