@@ -20,3 +20,4 @@
 The adopted codebase keeps working: the full test suite passes on every
 change. This requirement anchors the traceability matrix until real
 requirements are retro-filled from the existing code and tests.
+{{PROPOSED_REQUIREMENTS}}
