@@ -1289,6 +1289,36 @@ alguien compile.**
 > anécdota. El corpus costó una tarde y encontró once fallos que ninguno de los
 > dos pilotos habría enseñado nunca.
 
+### La costura que perdía la adopción entera (2026-08-19)
+
+Al preguntar «qué falta» apareció algo que no estaba anotado y que era más grave
+que cualquiera de los defectos anteriores: **`adopt` nunca llamaba a
+`proposeCapabilities`.** Los dos comandos no se hablaban.
+
+```
+csda onboard   → 8 capacidades, con evidencia y recuento
+csda adopt     → spec.md con «REQ-001 Existing behaviour is preserved»
+```
+
+Le sacábamos al repositorio su estructura real y acto seguido la tirábamos. Ahí
+es exactamente donde murió la adopción de Lixi, y ningún arreglo de `onboard` lo
+habría salvado: el comando acertaba y su respuesta no llegaba a ningún sitio.
+
+`adopt` ahora siembra un requisito por capacidad. Cada uno dice **«Proposed, not
+specified»**, nombra el directorio y el recuento de donde salió, y entra como
+`Draft` con test `TBD` — pasa `--strict-tdd` sin afirmar nada. `--no-capabilities`
+lo desactiva.
+
+Medido en Lakebase: `status` pasa de «1 requisito pendiente» a «8 requirement(s)
+missing a .feature». De página en blanco a lista de tareas.
+
+**Y el aviso de H15 sigue saltando**, que es lo correcto: sembrar propuestas no es
+especificar. La puerta solo se calla cuando hay un escenario de verdad.
+
+> Lección: los defectos de un comando se ven ejecutándolo; los defectos **entre**
+> comandos solo se ven preguntando qué falta. `onboard` y `adopt` tenían sus tests
+> verdes cada uno por su lado mientras el producto se caía por la junta.
+
 ### Abiertos
 
 | # | Problema | Nota |
@@ -1551,7 +1581,7 @@ P5 más barata que existe. De aquí salen además **H15** y **P7**.
 | ID | Hueco | Estado y coste |
 |---|---|---|
 | **P5** | **No se pueden inferir specs desde código existente.** `onboard` propone capacidades; nadie propone requisitos, escenarios ni enlaces. Un `spec.md` vacío sigue siendo el punto donde se atasca la adopción | **Abierto, la apuesta grande post-1.0.** Etapa 2 determinista ~2-3 PD; etapas 3-4 ~5-8 PD, y el gate es la parte cara. **La etapa 2 se puede entregar sola y antes**: es un cosechador de nombres de test, sin LLM ni proveedor |
-| **P6** | **`adopt` no sabe de monorepos.** El modo monorepo de `validate` (B8) exige un `specops.config.yaml` con `projects:` escrito a mano y un `adopt` por módulo | **Abierto, barato.** `adopt --monorepo` que detecte los módulos (`settings.gradle`, workspaces de npm, `go.work`) y genere el `projects:`. Lakebase lo pide de entrada, y con él aparece L3: un requisito transversal no tiene dónde vivir — que es **P1 dentro de un mismo repo** |
+| ~~**P6**~~ | ~~**`adopt` no sabe de monorepos.**~~ **Cerrado el 2026-08-19.** `adopt --monorepo` adopta cada módulo declarado y escribe el `specops.config.yaml` que `validate` ya sabía leer | Salió casi gratis: `findDeclaredModules` se había construido para arreglar `onboard` y la lista de módulos era la misma. Medido en Lakebase: 8 módulos adoptados, `validate .` da 8/8. **Sigue abierto L3** — un requisito transversal no tiene dónde vivir, que es **P1** dentro de un mismo repo |
 | **P7** | **Las reglas de agente son de raíz y pisan la convención del repo.** `adopt` escribe `AI_RULES.md` sin mirar si ya hay `AGENTS.md` o `CLAUDE.md` — en `lixi-platform` dejó un tercer fichero de reglas huérfano junto a dos que sí se leen. Y de fondo: **sus reglas son por ruta y las nuestras no**. Un repo con dos backends bajo reglas opuestas («nunca bloquees el event loop» vale en `lixy-api/` y no significa nada en la raíz) no puede describirse con un `AI_RULES.md` único | **Abierto, barato.** Dos piezas separables: (a) `adopt` detecta `AGENTS.md`/`CLAUDE.md` y se integra en vez de añadir un tercero — `csda agents init` ya escribe `AGENTS.md`, así que la mitad existe; (b) reglas por ruta, que es la misma forma que pide P6. Bluefield lo necesita por definición |
 
 **Prioridad frente a 1.0, revisada con Lixi encima de la mesa:** el argumento de
@@ -1566,8 +1596,9 @@ proveedor. Lo que sí sube de prioridad es lo que no necesita agente:
   `fix/brownfield-onboarding-java`. Eran la puerta de entrada entera sobre Java: o
   te mandaba al proyecto equivocado, o callaba sobre 299 ficheros, o ordenaba al
   revés, o certificaba una adopción vacía. Detalle y medidas en §12.11.
-- **Etapa 2** (cosecha de nombres de test) y **P6** (`adopt --monorepo`) — sin LLM,
-  sin proveedor, sin decisión de modelo.
+- ~~**P6**~~ (`adopt --monorepo`) — **cerrado el 2026-08-19**.
+- **Etapa 2** (cosecha de nombres de test) — sin LLM, sin proveedor, sin decisión de
+  modelo. Es lo siguiente.
 - **P7 (a)** — detectar `AGENTS.md` en vez de dejar un fichero huérfano. Es una
   comprobación de existencia.
 
