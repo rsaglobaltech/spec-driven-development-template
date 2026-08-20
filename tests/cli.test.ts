@@ -812,6 +812,123 @@ test("a parallel run records itself once, not once per worker", { skip: !hasGit(
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
 
+test("a reviewer advises the next step and can never reach the gate", { skip: !hasGit() }, () => {
+  // The roles ladder: attempt 1 implements, attempt 2 runs an advisory
+  // reviewer and then implements again with its findings. The reviewer here
+  // deliberately misbehaves — it writes a file — because "advisory" has to be
+  // enforced, not trusted.
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-roles-"));
+  const projectDir = makeHarnessProject(tempRoot);
+  const marker = path.join(tempRoot, "attempts.txt");
+
+  // Agents as files rather than `node -e` one-liners: the quoting needed to
+  // survive a shell, a YAML string and a JS literal is its own bug farm.
+  const implPath = path.join(tempRoot, "impl.js");
+  fs.writeFileSync(
+    implPath,
+    [
+      "const fs = require('node:fs');",
+      `const marker = ${JSON.stringify(marker)};`,
+      "const n = fs.existsSync(marker) ? Number(fs.readFileSync(marker, 'utf8')) : 0;",
+      "fs.writeFileSync(marker, String(n + 1));",
+      "const prompt = fs.readFileSync(process.argv[2], 'utf8');",
+      "if (n === 0) process.exit(3);",
+      "fs.writeFileSync('agent-ran.txt', /Reviewer findings/.test(prompt) ? 'saw-findings' : 'no-findings');",
+    ].join("\n"),
+    "utf8"
+  );
+  const reviewPath = path.join(tempRoot, "review.js");
+  fs.writeFileSync(
+    reviewPath,
+    [
+      "require('node:fs').writeFileSync('reviewer-sneaked-this-in.txt', 'x');",
+      "console.log('FINDING: missing null check.');",
+    ].join("\n"),
+    "utf8"
+  );
+
+  fs.mkdirSync(path.join(projectDir, ".harness"), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectDir, ".harness", "profiles.yaml"),
+    [
+      "profiles:",
+      "  implementer:",
+      `    agent: "node ${implPath} {prompt_file}"`,
+      "  reviewer:",
+      `    agent: "node ${reviewPath} {prompt_file}"`,
+      "    advisory: true",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(projectDir, "harness.config.yaml"),
+    [
+      "harness_version: 1",
+      "attempt_profiles:",
+      "  - implementer",
+      "  - implementer",
+      "review_profile: reviewer",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+  gitInTest(["add", "-A"], { cwd: projectDir });
+  gitInTest(["commit", "--quiet", "-m", "roles"], { cwd: projectDir });
+
+  const result = runCli(["harness", "run", "--project-dir", projectDir, "--req", "REQ-001"]);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.match(result.stdout, /REQ-001\s+pass/);
+
+  // The findings reached the implementing step of the *same* attempt. Built
+  // once per attempt instead of once per step, they would only ever have
+  // arrived one attempt late.
+  const ran = spawnSync("git", ["-C", projectDir, "show", "harness/REQ-001:agent-ran.txt"], {
+    encoding: "utf8",
+  });
+  assert.equal(ran.stdout.trim(), "saw-findings");
+
+  const tree = spawnSync(
+    "git",
+    ["-C", projectDir, "ls-tree", "-r", "--name-only", "harness/REQ-001"],
+    { encoding: "utf8" }
+  ).stdout;
+
+  // Advisory means advisory: whatever the reviewer wrote is gone.
+  assert.doesNotMatch(tree, /reviewer-sneaked-this-in/);
+
+  // ...but the evidence of what it was asked and what it said survives. The
+  // discard is `git clean`, which deleted the untracked archive until it was
+  // told not to.
+  assert.match(tree, /attempt-1-implementer\.md/);
+  assert.match(tree, /attempt-2-reviewer\.md/);
+  assert.match(tree, /attempt-2-implementer\.md/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("a review profile must declare itself advisory", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-adv-"));
+  const projectDir = makeHarnessProject(tempRoot);
+  fs.mkdirSync(path.join(projectDir, ".harness"), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectDir, ".harness", "profiles.yaml"),
+    'profiles:\n  reviewer:\n    agent: "node -e \\"\\" {prompt_file}"\n',
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(projectDir, "harness.config.yaml"),
+    "harness_version: 1\nreview_profile: reviewer\n",
+    "utf8"
+  );
+
+  const result = runCli(["harness", "run", "--project-dir", projectDir]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /does not declare `advisory: true`/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
 // ── pack lint --graph (visual reference graph, M-visual Phase 1) ─────────
 
 test("pack lint --graph renders the reference graph as Mermaid", () => {

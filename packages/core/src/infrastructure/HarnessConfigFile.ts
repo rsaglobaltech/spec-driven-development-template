@@ -50,6 +50,8 @@ const KNOWN_KEYS = new Set([
   "pr_cmd",
   "prompt_prefix",
   "prompt_prefix_file",
+  "attempt_profiles",
+  "review_profile",
 ]);
 
 export function readHarnessConfig(projectDir) {
@@ -110,6 +112,33 @@ export function readHarnessConfig(projectDir) {
   // An explicit `agent:` wins: the narrower statement beats the indirection.
   if (config.agent === undefined && parsed.agent_profile !== undefined) {
     config.agent = resolveProfileAgent(projectDir, String(parsed.agent_profile));
+  }
+
+  // The roles ladder: a profile per attempt, and an advisory reviewer that runs
+  // before each retry. Resolved to commands here, once, so a worker process
+  // cannot resolve a profile differently from the parent that dispatched it.
+  if (parsed.attempt_profiles !== undefined) {
+    const names = asStringList(parsed.attempt_profiles, "attempt_profiles");
+    config.attemptProfiles = names;
+    config.profileAgents = { ...(config.profileAgents || {}) };
+    for (const name of names) {
+      config.profileAgents[name] = resolveProfileAgent(projectDir, name);
+    }
+  }
+
+  if (parsed.review_profile !== undefined) {
+    const name = String(parsed.review_profile);
+    const agent = resolveProfileAgent(projectDir, name);
+    if (!isAdvisoryProfile(projectDir, name)) {
+      throw new Error(
+        `.harness/profiles.yaml: profile '${name}' is used as review_profile but does not ` +
+          "declare `advisory: true`.\n" +
+          "Fix: add `advisory: true` to it. A reviewer that is not marked advisory would have " +
+          "its work gated and committed, which is not what a reviewer is for."
+      );
+    }
+    config.reviewProfile = name;
+    config.profileAgents = { ...(config.profileAgents || {}), [name]: agent };
   }
 
   // Anything left is a key nobody reads. Silently ignoring it is how the HIE
@@ -174,5 +203,29 @@ export function resolveHarnessSettings(
     push: cliArgs.push || file.push || false,
     remote: cliArgs.remote || file.remote || "origin",
     prCmd: cliArgs.prCmd || file.prCmd || "",
+    // Roles come from the file only: a ladder is a team decision that belongs
+    // in the repository, not a flag somebody types differently each run.
+    attemptProfiles: file.attemptProfiles || [],
+    reviewProfile: file.reviewProfile || "",
+    profileAgents: file.profileAgents || {},
   };
+}
+
+/** A YAML value that must be a list of names. */
+function asStringList(value, key: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `${HARNESS_CONFIG_FILE}: ${key} must be a list of profile names.\n` +
+        "Fix: write it as a YAML sequence, one profile per line."
+    );
+  }
+  return value.map((v) => String(v));
+}
+
+/** Does this profile declare itself advisory? */
+function isAdvisoryProfile(projectDir, profileName): boolean {
+  const profilesPath = path.join(projectDir, ".harness", "profiles.yaml");
+  const doc = parseYamlLite(fs.readFileSync(profilesPath, "utf8")) || {};
+  const profile = ((doc.profiles || {}) as Record<string, any>)[profileName];
+  return Boolean(profile && profile.advisory === true);
 }

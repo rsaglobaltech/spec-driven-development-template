@@ -7,6 +7,12 @@ export interface HarnessSettings {
   push: boolean;
   remote: string;
   prCmd: string;
+  /** Profile per attempt; the last rung repeats. Empty means one agent throughout. */
+  attemptProfiles: string[];
+  /** Advisory profile run before each retry, or "" for none. */
+  reviewProfile: string;
+  /** Profile name to the shell command it resolves to. */
+  profileAgents: Record<string, string>;
 }
 
 export class HarnessConfig {
@@ -20,6 +26,9 @@ export class HarnessConfig {
     push: false,
     remote: "origin",
     prCmd: "",
+    attemptProfiles: [],
+    reviewProfile: "",
+    profileAgents: {},
   };
 
   public constructor(public readonly settings: HarnessSettings) {}
@@ -46,6 +55,9 @@ export class HarnessConfig {
             : HarnessConfig.DEFAULT_SETTINGS.push,
       remote: cliArgs.remote || file.remote || HarnessConfig.DEFAULT_SETTINGS.remote,
       prCmd: cliArgs.prCmd || file.prCmd || HarnessConfig.DEFAULT_SETTINGS.prCmd,
+      attemptProfiles: file.attemptProfiles || HarnessConfig.DEFAULT_SETTINGS.attemptProfiles,
+      reviewProfile: file.reviewProfile || HarnessConfig.DEFAULT_SETTINGS.reviewProfile,
+      profileAgents: file.profileAgents || HarnessConfig.DEFAULT_SETTINGS.profileAgents,
     });
   }
 }

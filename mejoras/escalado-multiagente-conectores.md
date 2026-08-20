@@ -813,6 +813,55 @@ Tres notas de método que conviene repetir en `E0-02`:
 Efecto lateral que sí es producto: `bin/create-spec-driven-app.ts` pierde 230
 líneas y deja de ser un sitio donde se declara la superficie.
 
+---
+
+### Lo que salió al hacer E2-01 *(2026-08-20)*
+
+**Antes de escribir la funcionalidad, la pregunta del usuario destapó dos
+defectos que la dejaban sin base.** Se preguntaba si se puede *ver* qué ata un
+agente a uno o varios REQ. Al medirlo ejecutando —tres REQ, un agente que
+registra su pid, su worktree y los REQ que menciona su prompt— salió que:
+
+1. **`--concurrency > 1` no hacía absolutamente nada.** El worker se lanza como
+   `node <__filename> --req REQ-NNN`, y al mover el comando a
+   `cli/commands/harness/RunCommand.ts` ese fichero pasó a ser el que *define*
+   el comando, no el que lo *ejecuta*. Cada worker cargaba, no hacía nada y
+   salía 0; el padre lo reportaba como «Worker produced no report» y marcaba
+   fallado con 0 intentos. Ningún test recorría el camino paralelo de punta a
+   punta.
+2. **Cada worker escribía su propio registro de ejecución.** Una ejecución con
+   `--concurrency 3` dejaba **cuatro** ficheros en `.harness/runs`. Como
+   `harness report` lee el directorio entero, cada requisito se contaba dos
+   veces: 12 intentos reportados sobre 9 reales, con filas duplicadas de
+   duración idéntica. Eso corrompe justo las dos métricas de E1-04 — y §2.4
+   hace de la fase C precondición de la fase B, así que la métrica rota
+   bloqueaba lo que debía justificar.
+
+**La respuesta a la pregunta, medida:** un agente está atado a **exactamente un
+requisito**. Tres REQ con `--concurrency 3` dan tres pid distintos, en tres
+worktrees distintos, y cada prompt nombra un único REQ. Con roles eso no cambia:
+un intento puede invocar dos agentes (revisor y ejecutor), pero ambos sobre el
+mismo REQ, el mismo worktree y la misma puerta. Lo que sí faltaba era poder
+*verlo*: el registro ahora anota qué rol corrió cada intento, y la rama lleva un
+prompt archivado por rol.
+
+**El diseño falló primero por donde no se ve leyendo.** Construía el prompt una
+vez por intento, así que los hallazgos del revisor llegaban al intento
+*siguiente*, no al ejecutor que va detrás en el mismo intento — que es
+literalmente para lo que existe el revisor. Se vio con un agente que reporta si
+vio la sección: `sawFindings: false`. Ahora el prompt se construye por paso.
+
+**Y descartar lo que toca el revisor casi se lleva la auditoría por delante.**
+El descarte es `git clean -fd`, y el archivo de prompts es *untracked*: borraba
+la evidencia de qué se le pidió a cada agente. Se excluye explícitamente. Las
+dos protecciones están mutadas: si el revisor conserva sus ficheros, o si el
+clean deja de excluir el archivo, el test falla.
+
+**La regla dura se hace cumplir, no se confía.** El revisor del test escribe un
+fichero a propósito. `advisory: true` es obligatorio en el perfil que nombra
+`review_profile`, y sin él el harness se niega a arrancar.
+
+
 ### 1.1 — la primera release que añade cosas (y por tanto la prueba real de G1)
 
 | ID | Tarea | Idea |
@@ -827,13 +876,13 @@ líneas y deja de ser un sitio donde se declara la superficie.
 
 ### v2
 
-| ID | Tarea | Idea |
-|---|---|---|
-| `E2-01` | Roles como perfiles: `implementer` / `reviewer` (asesor) / `repairer`, con escalada entre intentos | 1 |
-| `E2-02` | Rol `spec-author` acotado a `changes/<id>/` | 1 |
-| `E2-03` | `alm pull --as-change` (escenarios deliberadamente vacíos) | 2 |
-| `E2-04` | Proveedores de comunidad resueltos por paquete: YouTrack, Linear, GitLab, Jira DC | 2 |
-| `E2-05` | Revisar P1 (multi-repo) ahora que el puerto ALM da un identificador supra-repo declarado en vez del apaño actual | 2 |
+| ID | | Tarea | Idea |
+|---|---|---|---|
+| `E2-01` | `[x]` | Roles como perfiles: `attempt_profiles` (escalera por intento) + `review_profile` asesor cuyo trabajo se descarta; un agente sigue atado a un solo REQ | 1 |
+| `E2-02` | `[ ]` | Rol `spec-author` acotado a `changes/<id>/` | 1 |
+| `E2-03` | `[ ]` | `alm pull --as-change` (escenarios deliberadamente vacíos) | 2 |
+| `E2-04` | `[ ]` | Proveedores de comunidad resueltos por paquete: YouTrack, Linear, GitLab, Jira DC | 2 |
+| `E2-05` | `[ ]` | Revisar P1 (multi-repo) ahora que el puerto ALM da un identificador supra-repo declarado en vez del apaño actual | 2 |
 
 ---
 

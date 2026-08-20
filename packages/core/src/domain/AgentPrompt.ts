@@ -17,6 +17,8 @@ export interface PromptOptions {
   promptPrefix?: string;
   hint?: string;
   previousFailure?: string;
+  /** What an advisory reviewer said about the previous attempt. */
+  reviewFindings?: string;
   attempt?: number;
   maxAttempts?: number;
   featureContent?: string | null;
@@ -118,6 +120,19 @@ export class AgentPrompt {
           "The gate rejected the last attempt. Fix the specific failure below — do not " +
             "start over.\n\n```\n" +
             String(opts.previousFailure).trim().slice(-4000) +
+            "\n```"
+        )
+      );
+    }
+
+    if (opts.reviewFindings) {
+      parts.push(
+        AgentPrompt.section(
+          "Reviewer findings",
+          "A reviewer read the previous attempt and reported the following. These are " +
+            "advice, not a verdict: the gate decides, and a finding it does not care " +
+            "about must not send you off-spec.\n\n```\n" +
+            String(opts.reviewFindings).trim().slice(-4000) +
             "\n```"
         )
       );

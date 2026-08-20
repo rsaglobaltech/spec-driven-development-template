@@ -36,6 +36,7 @@ import {
 } from "../../../../packages/core/src/infrastructure/HarnessConfigFile";
 import {
   AttemptRecord,
+  planAttempt,
   scheduleLevels,
   substituteAgentCommand,
   substituteGateCommand,
@@ -276,6 +277,55 @@ function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
   return { ok: true, stage: "", output: "", hint: "" };
 }
 
+/**
+ * Undo whatever an advisory agent touched.
+ *
+ * A reviewer returns text. If it also edited files, those edits would be gated
+ * and committed as if the implementer had made them, and nobody would know
+ * which agent wrote what. Discarding is cheaper to reason about than trusting
+ * the reviewer to behave.
+ */
+/** Where prompt copies live inside the worktree, relative to its root. */
+const PROMPT_ARCHIVE_DIR = ".specops/harness-prompts";
+
+/**
+ * Keep a copy of exactly what each agent was given.
+ *
+ * It goes in the *worktree*, so `git add -A` commits it with the work and it
+ * arrives in the branch a human reviews — which is the point — while the main
+ * tree stays clean. It used to be written to the project directory, which
+ * dirtied it and blocked the next run.
+ *
+ * The file name carries the role, so an attempt that ran a reviewer and then an
+ * implementer leaves two files and it is obvious which prompt went to whom.
+ *
+ * Best-effort: never fail a run over a bookkeeping write.
+ */
+function archivePrompt(worktreeDir, requirement, attempt, step, prompt: string): void {
+  try {
+    const dir = path.join(worktreeDir, ...PROMPT_ARCHIVE_DIR.split("/"));
+    fs.mkdirSync(dir, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    const role = step.profile || (step.advisory ? "reviewer" : "agent");
+    fs.writeFileSync(
+      path.join(dir, `${requirement}-${ts}-attempt-${attempt}-${role}.md`),
+      prompt,
+      "utf8"
+    );
+  } catch {
+    /* never fail the run on an audit-log write */
+  }
+}
+
+function discardWorktreeChanges(worktreeDir: string): void {
+  git(worktreeDir, ["checkout", "--", "."]);
+  // The prompt archive is untracked, so an unqualified `clean -fd` deletes it —
+  // taking with it the record of what the reviewer and every earlier attempt
+  // were given. Auditability is the reason the archive exists; discarding the
+  // reviewer's edits must not discard the evidence.
+  git(worktreeDir, ["clean", "-fd", "-e", PROMPT_ARCHIVE_DIR]);
+}
+
 function attemptRequirement(req, ctx) {
   const { worktreeDir, settings, timeoutMs, hint } = ctx;
   let previousFailure = "";
@@ -287,85 +337,117 @@ function attemptRequirement(req, ctx) {
    * knows what it spent in tokens. `csda harness report` is built on this.
    */
   const attemptLog: AttemptRecord[] = [];
+  /** The reviewer's findings from the previous attempt, fed into this prompt. */
+  let reviewFindings = "";
 
   for (let attempt = 1; attempt <= settings.maxAttempts; attempt += 1) {
     info(`${req.requirement}: attempt ${attempt}/${settings.maxAttempts}`);
     const attemptStart = Date.now();
     let agentMs = 0;
+    /** Which roles ran this attempt, in order — the run record's answer to "who did this". */
+    const profilesUsed: string[] = [];
     const record = (stage: AttemptRecord["endedAt"]) => {
       attemptLog.push({
         attempt,
         endedAt: stage,
         agentMs,
         totalMs: Date.now() - attemptStart,
+        profiles: [...profilesUsed],
       });
     };
 
-    const prompt = buildPrompt(req, worktreeDir, {
-      promptPrefix: settings.promptPrefix,
-      hint,
-      previousFailure: previousFailure || undefined,
-      attempt,
-      maxAttempts: settings.maxAttempts,
+    // An attempt is a sequence of agent invocations, all bound to this one
+    // requirement. Attempt 1 is a single implementing step; a retry may run an
+    // advisory reviewer first, whose findings feed the step that follows.
+    const steps = planAttempt(attempt, {
+      attemptProfiles: settings.attemptProfiles,
+      reviewProfile: settings.reviewProfile || null,
     });
-    const promptFile = path.join(
-      os.tmpdir(),
-      `csda-harness-prompt-${req.requirement}-${crypto.randomBytes(4).toString("hex")}.md`
-    );
-    fs.writeFileSync(promptFile, prompt, "utf8");
-    // Audit copy so a reviewer can see exactly what the agent received for
-    // each attempt. It goes in the *worktree*, not the project: `git add -A`
-    // below commits it with the work, so it arrives in the branch under review
-    // — which is the whole point — and the main tree stays clean.
-    //
-    // It used to write to the project directory, which dirtied it. The harness
-    // refuses to start on a dirty tree, so the second run was blocked by the
-    // droppings of the first.
-    //
-    // Best-effort: never fail the run because of a bookkeeping write.
-    try {
-      const archiveDir = path.join(worktreeDir, ".specops", "harness-prompts");
-      fs.mkdirSync(archiveDir, { recursive: true });
-      const ts = new Date().toISOString().replace(/[:.]/g, "-");
-      fs.writeFileSync(
-        path.join(archiveDir, `${req.requirement}-${ts}-attempt-${attempt}.md`),
-        prompt,
-        "utf8"
-      );
-    } catch {
-      /* never fail the run on an audit-log write */
-    }
 
+    let stepFailed = false;
     try {
-      const command = substituteAgentCommand(settings.agent, promptFile);
-      const agentStart = Date.now();
-      const agent = spawnSync(command, {
-        shell: true,
-        cwd: worktreeDir,
-        encoding: "utf8",
-        timeout: timeoutMs,
-        maxBuffer: SUBPROCESS_MAX_BUFFER,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      // Node reports a timeout as an errno-carrying Error; the base `Error`
-      // type the spawnSync signature declares does not have `code`.
-      agentMs = Date.now() - agentStart;
-      const agentError = agent.error as NodeJS.ErrnoException | undefined;
-      if (agentError?.code === "ETIMEDOUT") {
-        previousFailure = `Agent timed out after ${ctx.timeoutSeconds}s.`;
-        warn(`${req.requirement}: agent timed out`);
-        record("agent-timeout");
-        continue;
-      }
-      if (agent.status !== 0) {
-        previousFailure = `Agent exited ${agent.status}.\n${agent.stdout || ""}${agent.stderr || ""}`;
-        warn(`${req.requirement}: agent exited ${agent.status}`);
-        record("agent-error");
-        continue;
+      for (const step of steps) {
+        // Built per step, not per attempt: the reviewer runs first and the
+        // implementing step that follows must see what it said. Building once
+        // up front meant findings only ever reached the *next* attempt, which
+        // is not what a reviewer is for.
+        const prompt = buildPrompt(req, worktreeDir, {
+          promptPrefix: settings.promptPrefix,
+          hint,
+          previousFailure: previousFailure || undefined,
+          reviewFindings: step.advisory ? undefined : reviewFindings || undefined,
+          attempt,
+          maxAttempts: settings.maxAttempts,
+        });
+        const promptFile = path.join(
+          os.tmpdir(),
+          `csda-harness-prompt-${req.requirement}-${crypto.randomBytes(4).toString("hex")}.md`
+        );
+        fs.writeFileSync(promptFile, prompt, "utf8");
+        archivePrompt(worktreeDir, req.requirement, attempt, step, prompt);
+
+        const agentCommand = step.profile
+          ? settings.profileAgents[step.profile] || settings.agent
+          : settings.agent;
+        const command = substituteAgentCommand(agentCommand, promptFile);
+        if (step.profile) {
+          info(
+            `${req.requirement}: ${step.advisory ? "reviewing" : "running"} as '${step.profile}'`
+          );
+        }
+        const agentStart = Date.now();
+        const agent = spawnSync(command, {
+          shell: true,
+          cwd: worktreeDir,
+          encoding: "utf8",
+          timeout: timeoutMs,
+          maxBuffer: SUBPROCESS_MAX_BUFFER,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        // Node reports a timeout as an errno-carrying Error; the base `Error`
+        // type the spawnSync signature declares does not have `code`.
+        agentMs += Date.now() - agentStart;
+        profilesUsed.push(step.profile ?? (step.advisory ? "reviewer" : "agent"));
+
+        fs.rmSync(promptFile, { force: true });
+        const agentError = agent.error as NodeJS.ErrnoException | undefined;
+        if (agentError?.code === "ETIMEDOUT") {
+          if (step.advisory) {
+            warn(`${req.requirement}: reviewer timed out — continuing without findings`);
+            continue;
+          }
+          previousFailure = `Agent timed out after ${ctx.timeoutSeconds}s.`;
+          warn(`${req.requirement}: agent timed out`);
+          record("agent-timeout");
+          stepFailed = true;
+          break;
+        }
+
+        if (step.advisory) {
+          // The reviewer advises and nothing more. Its findings become input to
+          // the next prompt; anything it wrote is discarded, so it cannot reach
+          // the gate. That is the line between this and a committee — the gate
+          // stays the only judge, and a reviewer can never approve.
+          reviewFindings = `${agent.stdout || ""}${agent.stderr || ""}`.trim();
+          discardWorktreeChanges(worktreeDir);
+          if (agent.status !== 0) {
+            warn(`${req.requirement}: reviewer exited ${agent.status} — findings may be partial`);
+          }
+          continue;
+        }
+
+        if (agent.status !== 0) {
+          previousFailure = `Agent exited ${agent.status}.\n${agent.stdout || ""}${agent.stderr || ""}`;
+          warn(`${req.requirement}: agent exited ${agent.status}`);
+          record("agent-error");
+          stepFailed = true;
+          break;
+        }
       }
     } finally {
-      fs.rmSync(promptFile, { force: true });
+      /* each step removes its own prompt file */
     }
+    if (stepFailed) continue;
 
     const gate = runGate(worktreeDir, settings.testCmd, timeoutMs, req);
     if (!gate.ok) {
@@ -1115,10 +1197,13 @@ export class RunCommand extends BaseCommand {
       const fileConfig = readHarnessConfig(projectDir);
       const settings = resolveHarnessSettings(fileConfig, args);
 
-      if (!args.dryRun && !settings.agent) {
+      // A ladder of per-attempt profiles configures agents just as much as a
+      // single `agent:` does, so a project that declares one is configured.
+      const hasAgent = Boolean(settings.agent) || settings.attemptProfiles.length > 0;
+      if (!args.dryRun && !hasAgent) {
         throw new Error(
-          'No agent configured. Pass --agent "<cmd with {prompt_file}>" or set `agent:` ' +
-            "in harness.config.yaml."
+          'No agent configured. Pass --agent "<cmd with {prompt_file}>", set `agent:` ' +
+            "in harness.config.yaml, or declare `attempt_profiles:`."
         );
       }
 

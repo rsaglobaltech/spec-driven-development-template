@@ -46,6 +46,53 @@ An explicit `agent:` wins over a profile, and an unknown key in
 `harness.config.yaml` is an error rather than a shrug — a key nobody reads is
 worse than a missing one, because the file looks configured.
 
+## Change agent between attempts
+
+Three attempts with the same agent, the same model and only a different prompt
+is mostly a re-roll. A ladder gives each attempt its own profile, and can put an
+advisory reviewer in front of every retry:
+
+```yaml
+# harness.config.yaml
+attempt_profiles:
+  - implementer        # attempt 1
+  - repairer           # attempt 2
+  - repairer-strong    # attempt 3, and any beyond it
+review_profile: reviewer
+
+# .harness/profiles.yaml
+profiles:
+  implementer:
+    agent: "claude -p < {prompt_file}"
+  repairer:
+    agent: "claude -p < {prompt_file}"
+  repairer-strong:
+    agent: "claude --model opus -p < {prompt_file}"
+  reviewer:
+    agent: "claude -p < {prompt_file}"
+    advisory: true
+```
+
+A ladder shorter than `max_attempts` reuses its last rung. Declaring neither key
+keeps exactly the behaviour you have today: one agent, every attempt.
+
+**The reviewer advises; it never approves.** It runs before each retry — never
+before the first attempt, since there is nothing to review yet — and its output
+is added to the next prompt as findings. Then everything it touched in the
+worktree is discarded, so it cannot reach the gate even if it tries to write
+code. `validate --strict-tdd` plus your test command stay the only judge, and a
+finding with the gate green does not block anything.
+
+A profile named by `review_profile` must declare `advisory: true`. Without it
+the harness refuses to start, because a reviewer whose work *was* gated and
+committed is not a reviewer.
+
+Every agent is still bound to exactly one requirement: an attempt may run two
+roles, but both work on the same REQ, in the same worktree, against the same
+gate. `.harness/runs/<ts>.json` names the roles that ran each attempt, and the
+branch carries one archived prompt per role — `attempt-2-reviewer.md`,
+`attempt-2-implementer.md` — so a reviewer can see exactly what each was asked.
+
 ## Run more than one requirement at a time
 
 ```bash

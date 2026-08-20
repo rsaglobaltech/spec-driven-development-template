@@ -64,6 +64,14 @@ export interface AttemptRecord {
   agentMs: number;
   /** Wall-clock for the whole attempt: prompt, agent, gate, done, commit. */
   totalMs: number;
+  /**
+   * Which roles ran this attempt, in order.
+   *
+   * The profile *name*, never the command: an agent command is exactly the kind
+   * of string that ends up carrying an API key, and the run record is a file in
+   * the project.
+   */
+  profiles?: string[];
 }
 
 /**
@@ -124,4 +132,58 @@ export function scheduleLevels(pending) {
 
   const graph = RequirementGraph.fromDependencies(pendingIds, dependsOn);
   return { levels: graph.levels, cycles: graph.cycles, dependsOn, graph };
+}
+
+// ── Roles across attempts ────────────────────────────────────────────────────
+//
+// Today every attempt is identical but for the prompt: same agent, same model,
+// carrying the previous failure. That is the one place where changing agent
+// genuinely helps, because a second attempt with the same everything is mostly
+// a re-roll.
+//
+// A role is a profile name, not a class. `.harness/profiles.yaml` already maps
+// a name to a shell command, so the ladder below is a list of those names and
+// the contract "an agent is a shell command" survives untouched.
+
+/** One agent invocation within an attempt. */
+export interface AttemptStep {
+  /** Profile name, or null for the agent given directly on the command line. */
+  profile: string | null;
+  /**
+   * Advisory steps produce findings for the next step and nothing else: their
+   * work is discarded and they can never satisfy the gate. That is the line
+   * between this and a committee — `validate --strict-tdd` plus the project's
+   * tests stay the only judge.
+   */
+  advisory: boolean;
+}
+
+export interface AttemptPlanOptions {
+  /** Profile per attempt. Shorter than `maxAttempts` reuses the last entry. */
+  attemptProfiles?: readonly string[];
+  /** Advisory profile run before every retry. Never on the first attempt. */
+  reviewProfile?: string | null;
+}
+
+/**
+ * Which agents run, in order, for a given attempt.
+ *
+ * Attempt 1 is always a single implementing step: there is nothing to review
+ * yet. From attempt 2 the review profile, when configured, runs first and its
+ * findings feed the step that follows.
+ *
+ * With no configuration this returns exactly one non-advisory step with no
+ * profile for every attempt — today's behaviour, so an existing project sees
+ * no change until it asks for one.
+ */
+export function planAttempt(attempt: number, opts: AttemptPlanOptions = {}): AttemptStep[] {
+  const ladder = opts.attemptProfiles ?? [];
+  const profile = ladder.length > 0 ? ladder[Math.min(attempt, ladder.length) - 1] : null;
+
+  const steps: AttemptStep[] = [];
+  if (attempt > 1 && opts.reviewProfile) {
+    steps.push({ profile: opts.reviewProfile, advisory: true });
+  }
+  steps.push({ profile: profile ?? null, advisory: false });
+  return steps;
 }
