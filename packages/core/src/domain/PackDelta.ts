@@ -1,0 +1,309 @@
+/**
+ * A pack version bump, expressed as intent.
+ *
+ * The plain `specops diff` answers "which files would change?". That is the
+ * wrong question at review time: `~ docs/specs/traceability.md` tells a
+ * reviewer nothing about what the domain now requires. This module answers
+ * "which requirements would change?", so a pack upgrade is reviewed the same
+ * way any other change is — proposal plus delta specs.
+ *
+ * **Derivation is from the requirements AST, never from a textual file diff.**
+ * A pack that only reformats a template, bumps its own version string or
+ * rewords a comment produces zero deltas. That is the whole point: if the
+ * output were derived from rendered files, every cosmetic change upstream
+ * would manufacture noise and the feature would be worse than the file diff
+ * it replaces.
+ *
+ * Pure throughout. Loading a pack, reading a scenario's steps out of its
+ * Gherkin template, and resolving the project's phrase table are the caller's
+ * to supply — `scripts/specops/as_change` wires all three to the real disk.
+ */
+
+import { asArray } from "./PackSpec";
+import { PackModel } from "./YamlLite";
+import { Phrases } from "./Language";
+
+/** A loaded pack: its model, and the directory its templates resolve against. */
+export interface LoadedPack {
+  model: PackModel;
+  packDir: string;
+}
+
+/**
+ * The Gherkin steps for one scenario, or null when there are none to be had.
+ * Supplied by the caller so this module never opens a template file itself.
+ */
+export type ReadSteps = (packDir: string, scenario) => string[] | null;
+
+export function requirementsById(model) {
+  const out = new Map();
+  for (const req of asArray(model && model.requirements)) {
+    if (req && req.id) out.set(String(req.id), req);
+  }
+  return out;
+}
+
+export function scenariosByRequirement(model) {
+  const out = new Map();
+  for (const sc of asArray(model && model.scenarios)) {
+    if (!sc || !sc.requirement_id) continue;
+    const key = String(sc.requirement_id);
+    if (!out.has(key)) out.set(key, []);
+    out.get(key).push(sc);
+  }
+  return out;
+}
+
+/**
+ * The fields that make a requirement what it is. Anything outside this set —
+ * ordering, comments, template paths, the pack's own version — is not a
+ * behavioural change and must not produce a delta.
+ */
+export function requirementFingerprint(req, scenarios) {
+  const norm = (v) => String(v === undefined || v === null ? "" : v).trim();
+  const scenarioPart = (scenarios || [])
+    .map((sc) =>
+      [
+        norm(sc.id),
+        norm(sc.scenario),
+        norm(sc.use_case),
+        norm(sc.command),
+        norm(sc.aggregate),
+        asArray(sc.events).map(norm).sort().join(","),
+      ].join("|")
+    )
+    .sort()
+    .join("\n");
+  return [
+    norm(req.title),
+    norm(req.description),
+    norm(req.priority),
+    norm(req.status),
+    scenarioPart,
+  ].join("\n");
+}
+
+// ── Gherkin extraction ────────────────────────────────────────────────────────
+
+/**
+ * `origin` records where a requirement came from.
+ *
+ * Provenance goes in the trace comment rather than in a new matrix column on
+ * purpose: `parseTraceabilityRows` keys off a 10-cell row, and an eleventh
+ * column would break every existing consumer of the matrix for a field only
+ * tooling reads. The trace comment is already the extension point, and it
+ * survives `archive` because the renderer writes the whole trace back out.
+ */
+export function traceComment(scenario, origin?) {
+  const parts = [];
+  if (scenario) {
+    if (scenario.use_case) parts.push(`uc=${scenario.use_case}`);
+    if (scenario.command) parts.push(`cmd=${scenario.command}`);
+    if (scenario.aggregate) parts.push(`agg=${scenario.aggregate}`);
+    const events = asArray(scenario.events);
+    if (events.length > 0) parts.push(`evt=${events[0]}`);
+    if (scenario.target) parts.push(`feature=${scenario.target}`);
+  }
+  if (origin) parts.push(`origin=${origin}`);
+  return parts.length > 0 ? `<!-- csda:trace ${parts.join(" ")} -->` : null;
+}
+
+export function renderRequirementBlock(
+  req,
+  scenarios,
+  packDir,
+  t: Phrases,
+  readSteps: ReadSteps,
+  opts?
+) {
+  const o = opts || {};
+  const out = [];
+  out.push(`### Requirement: ${req.id} — ${req.title || req.id}`);
+  out.push("");
+
+  if (o.bodyless) {
+    out.push(o.reason || "(retirado por el pack.)");
+    out.push("");
+    while (out[out.length - 1] === "") out.pop();
+    return out.join("\n");
+  }
+
+  const description = String(req.description || "").trim();
+  out.push(description || t.systemShallMeet(req.title || req.id));
+  if (req.priority) out.push("", t.priority(req.priority));
+  out.push("");
+
+  for (const sc of scenarios || []) {
+    const name = sc.scenario || sc.id || "Scenario";
+    out.push(`#### Scenario: ${sc.id ? `${sc.id} — ${name}` : name}`);
+    out.push("");
+    const steps = readSteps(packDir, sc);
+    if (steps) {
+      for (const step of steps) out.push(`- ${step}`);
+    } else {
+      out.push(t.todoSteps(name));
+    }
+    out.push("");
+  }
+
+  if ((scenarios || []).length === 0) {
+    out.push(`#### Scenario: TODO — ${req.title || req.id}`);
+    out.push("");
+    out.push(t.todoStepsPlain);
+    out.push("");
+  }
+
+  const trace = traceComment((scenarios || [])[0], o.origin);
+  if (trace) {
+    out.push(trace);
+    out.push("");
+  }
+
+  while (out.length && out[out.length - 1] === "") out.pop();
+  return out.join("\n");
+}
+
+/**
+ * Compare two versions of a pack and produce the delta markdown plus a summary.
+ *
+ * @returns { capability, markdown, summary: {added[], modified[], removed[]} }
+ *          `markdown` is null when nothing behavioural changed.
+ */
+export function derivePackDelta(
+  oldPack: LoadedPack | null,
+  newPack: LoadedPack,
+  packId: string,
+  t: Phrases,
+  readSteps: ReadSteps,
+  opts?
+) {
+  const options = opts || {};
+
+  const oldReqs = oldPack ? requirementsById(oldPack.model) : new Map();
+  const newReqs = requirementsById(newPack.model);
+  const oldScenarios = oldPack ? scenariosByRequirement(oldPack.model) : new Map();
+  const newScenarios = scenariosByRequirement(newPack.model);
+
+  const added = [];
+  const modified = [];
+  const removed = [];
+
+  for (const [id, req] of newReqs) {
+    if (!oldReqs.has(id)) {
+      added.push({ req, scenarios: newScenarios.get(id) || [] });
+      continue;
+    }
+    const before = requirementFingerprint(oldReqs.get(id), oldScenarios.get(id) || []);
+    const after = requirementFingerprint(req, newScenarios.get(id) || []);
+    if (before !== after) modified.push({ req, scenarios: newScenarios.get(id) || [] });
+  }
+  for (const [id, req] of oldReqs) {
+    if (!newReqs.has(id)) removed.push({ req, scenarios: oldScenarios.get(id) || [] });
+  }
+
+  if (added.length === 0 && modified.length === 0 && removed.length === 0) {
+    return {
+      capability: packId,
+      markdown: null,
+      summary: { added: [], modified: [], removed: [] },
+    };
+  }
+
+  const lines = [`# Delta — ${packId}`, ""];
+  const purpose = newPack.model && newPack.model.metadata && newPack.model.metadata.name;
+  if (!oldPack && purpose) {
+    lines.push("## Purpose", "", String(purpose), "");
+  }
+
+  const section = (heading, entries, blockOpts?) => {
+    if (entries.length === 0) return;
+    lines.push(`## ${heading}`, "");
+    for (const entry of entries) {
+      lines.push(
+        renderRequirementBlock(entry.req, entry.scenarios, newPack.packDir, t, readSteps, {
+          ...(blockOpts || {}),
+          origin: options.origin,
+        })
+      );
+      lines.push("");
+    }
+  };
+
+  section("ADDED Requirements", added);
+  section("MODIFIED Requirements", modified);
+  section("REMOVED Requirements", removed, {
+    bodyless: true,
+    reason: "(retirado en esta versión del pack.)",
+  });
+
+  while (lines.length && lines[lines.length - 1] === "") lines.pop();
+
+  return {
+    capability: packId,
+    markdown: `${lines.join("\n")}\n`,
+    summary: {
+      added: added.map((e) => e.req.id),
+      modified: modified.map((e) => e.req.id),
+      removed: removed.map((e) => e.req.id),
+    },
+  };
+}
+
+// ── The proposal ──────────────────────────────────────────────────────────────
+
+export function changeIdFor(packId, fromVersion, toVersion) {
+  const slug = (v) =>
+    String(v)
+      .replace(/[^a-zA-Z0-9.]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase();
+  return `upgrade-${slug(packId.split("/").pop())}-${slug(toVersion)}`;
+}
+
+export function renderProposal(entry, targetVersion, summary, t: Phrases) {
+  const count = summary.added.length + summary.modified.length + summary.removed.length;
+  const list = (label, ids) =>
+    ids.length === 0 ? "" : `\n### ${label}\n\n${ids.map((id) => `- ${id}`).join("\n")}\n`;
+
+  return `# Proposal: upgrade ${entry.pack_id} to ${targetVersion}
+
+## Intent
+
+El pack \`${entry.pack_id}\` pasa de \`${entry.version}\` a \`${targetVersion}\`.
+Este cambio recoge **qué requisitos cambian**, derivados del modelo del pack, no
+del diff de ficheros — lo que se revisa aquí es la intención del dominio.
+
+## Scope
+
+${count} requisito(s) afectado(s).
+${list(t.added, summary.added)}${list(t.modified, summary.modified)}${list(t.removed, summary.removed)}
+Fuera de alcance: la reconciliación de los ficheros generados, que sigue siendo
+trabajo de \`specops sync\`.
+
+## Approach
+
+1. Revisar el delta de \`specs/${entry.pack_id}/spec.md\`.
+2. Ejecutar \`csda specops sync --pack ${entry.pack_id} --pack-version ${targetVersion}\`.
+3. Resolver los conflictos que el merge de tres vías marque.
+4. Archivar este cambio para consolidar los requisitos en las specs y la matriz.
+
+> Los pasos marcados \`TODO:\` en el delta son escenarios que el pack declara sin
+> plantilla Gherkin legible. Complétalos antes de archivar.
+`;
+}
+
+export function renderTasks(entry, targetVersion) {
+  return `# Tasks
+
+## 1. Review
+
+- [ ] 1.1 Revisar el delta requisito a requisito
+- [ ] 1.2 Completar los pasos marcados \`TODO:\`
+
+## 2. Apply
+
+- [ ] 2.1 \`csda specops sync --pack ${entry.pack_id} --pack-version ${targetVersion}\`
+- [ ] 2.2 Resolver conflictos del merge de tres vías
+- [ ] 2.3 \`csda change validate\`
+`;
+}
