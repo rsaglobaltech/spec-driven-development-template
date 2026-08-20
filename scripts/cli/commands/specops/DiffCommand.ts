@@ -24,6 +24,7 @@ import { deriveDelta, materialiseChange } from "../../../specops/as_change";
 import { diffDirs } from "../../../../packages/core/src/infrastructure/DirectorySnapshot";
 import type { Diagnostic } from "../../../lib/diagnostics";
 
+// Three levels up from dist/scripts/cli/commands/specops is dist/scripts.
 const EXPAND_SCRIPT = path.join(__dirname, "..", "..", "..", "expand_domain_pack.js");
 
 function info(msg) {

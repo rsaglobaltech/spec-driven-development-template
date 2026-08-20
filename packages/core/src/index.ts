@@ -15,6 +15,7 @@ export * from "./domain/Diagnostic";
 export * from "./domain/DomainPack";
 export * from "./domain/FileChangeSet";
 export * from "./domain/HarnessConfig";
+export * from "./domain/HarnessRun";
 export * from "./domain/Language";
 export * from "./domain/Lockfile";
 export * from "./domain/PackContribution";

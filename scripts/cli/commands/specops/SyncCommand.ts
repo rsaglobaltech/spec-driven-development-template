@@ -40,6 +40,7 @@ import { resolveProjectDir } from "../../../lib/project-root";
 import { resolveRemotePack } from "../../../domain-pack/remote";
 import { depositPackChanges } from "../../../specops/pack_changes";
 
+// Three levels up from dist/scripts/cli/commands/specops is dist/scripts.
 const EXPAND_SCRIPT = path.join(__dirname, "..", "..", "..", "expand_domain_pack.js");
 
 function info(msg) {
