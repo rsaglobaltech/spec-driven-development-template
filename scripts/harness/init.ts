@@ -15,7 +15,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { renderTemplate } from "../domain-pack/common";
+import { renderTemplate } from "../../packages/core/src/domain/PackSpec";
 import { resolveProjectDir } from "../lib/project-root";
 import { agentIo, wantsJson } from "../lib/agent";
 import { error, info, warning, errorMessage } from "../lib/diagnostics";

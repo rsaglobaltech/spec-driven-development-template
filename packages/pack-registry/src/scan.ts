@@ -8,7 +8,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
-import { loadPack } from "../../../scripts/domain-pack/common";
+import { loadPack } from "../../core/src/infrastructure/DiskPackRepository";
 
 const REPO_ROOT = path.resolve(__dirname, "../../../..");
 const CLI = path.join(REPO_ROOT, "bin/create-spec-driven-app.js");

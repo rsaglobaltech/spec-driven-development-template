@@ -20,7 +20,13 @@ import * as path from "node:path";
 import { resolveProjectDir } from "../lib/project-root";
 import { error } from "../lib/diagnostics";
 import { agentIo, wantsJson, EXIT } from "../lib/agent";
-import { paths, listChangeIds, listDeltas, readConfig, CAPABILITIES_DIR } from "./common";
+import {
+  paths,
+  listChangeIds,
+  listDeltas,
+  readConfig,
+  CAPABILITIES_DIR,
+} from "../../packages/core/src/infrastructure/ChangeWorkspace";
 import { artifactState, artifactsFor, ARTIFACTS } from "./artifacts";
 import { BUILT_IN } from "../schema/registry";
 

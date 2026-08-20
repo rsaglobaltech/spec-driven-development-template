@@ -16,7 +16,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { paths, listDeltas } from "./common";
+import { paths, listDeltas } from "../../packages/core/src/infrastructure/ChangeWorkspace";
 import { resolveSchema } from "../schema/registry";
 
 /** The default graph, still exported for callers that predate schemas. */

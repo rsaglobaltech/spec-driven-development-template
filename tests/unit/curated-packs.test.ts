@@ -100,7 +100,7 @@ for (const id of IDS) {
 }
 
 test("no shipped pack declares a schema newer than this CLI reads", () => {
-  const { PACK_SCHEMA_VERSION, isNewerThan } = require("../../scripts/domain-pack/common");
+  const { PACK_SCHEMA_VERSION, isNewerThan } = require("../../packages/core/src/domain/PackSpec");
   for (const id of IDS) {
     const raw = fs.readFileSync(path.join(PACKS_DIR, id, "pack.yaml"), "utf8");
     const declared = /schema_version:\s*"([^"]+)"/.exec(raw);

@@ -5,8 +5,8 @@
  */
 
 import * as fs from "node:fs";
-import { parseTraceabilityRows } from "../domain-pack/common";
-import { paths } from "../change/common";
+import { parseTraceabilityRows } from "../../packages/core/src/domain/TraceabilityFormat";
+import { paths } from "../../packages/core/src/infrastructure/ChangeWorkspace";
 import { error, warning, info } from "../lib/diagnostics";
 import { DiskLockfileRepository } from "../../packages/core/src/infrastructure/DiskLockfileRepository";
 import { DiskDomainPackRepository } from "../../packages/core/src/infrastructure/DiskDomainPackRepository";

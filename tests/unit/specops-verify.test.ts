@@ -12,7 +12,7 @@ const {
   verifyTagSignature,
   assertDigestUnchanged,
 } = require("../../scripts/specops/verify");
-const { gitAvailable } = require("../../scripts/domain-pack/remote");
+const { gitAvailable } = require("../../packages/core/src/infrastructure/RemotePackResolver");
 
 const ROOT_DIR = path.resolve(__dirname, "../../..");
 const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");

@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { renderTemplate } from "../../../domain-pack/common";
+import { renderTemplate } from "../../../../packages/core/src/domain/PackSpec";
 import { BaseCommand } from "../../../lib/command";
 
 import { findCliRoot } from "../../../lib/project-root";

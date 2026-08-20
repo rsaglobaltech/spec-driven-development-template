@@ -18,7 +18,7 @@ const {
   repoHash,
   safeVersionDir,
   gitAvailable,
-} = require("../../scripts/domain-pack/remote");
+} = require("../../packages/core/src/infrastructure/RemotePackResolver");
 
 const HAS_GIT = gitAvailable();
 const skipReason = HAS_GIT ? undefined : "git is not available on PATH";

@@ -14,7 +14,10 @@ const {
   filterHint,
 } = require("../../scripts/harness/run");
 const { buildPrompt } = require("../../scripts/harness/prompt");
-const { readHarnessConfig, resolveHarnessSettings } = require("../../scripts/harness/config");
+const {
+  readHarnessConfig,
+  resolveHarnessSettings,
+} = require("../../packages/core/src/infrastructure/HarnessConfigFile");
 
 // ── parseArgs ────────────────────────────────────────────────────────────────
 

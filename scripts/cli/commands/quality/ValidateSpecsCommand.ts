@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
-import { parseYamlLite } from "../../../domain-pack/common";
-import { listChangeIds } from "../../../change/common";
+import { parseYamlLite } from "../../../../packages/core/src/domain/YamlLite";
+import { listChangeIds } from "../../../../packages/core/src/infrastructure/ChangeWorkspace";
 import { ValidateChangeUseCase } from "../../../../packages/core/src/application/ValidateChangeUseCase";
 import { DiskProjectRepository } from "../../../../packages/core/src/infrastructure/DiskProjectRepository";
 import { formatDiagnostic, error } from "../../../lib/diagnostics";

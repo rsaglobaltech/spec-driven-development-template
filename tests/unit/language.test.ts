@@ -19,7 +19,11 @@ const { spawnSync } = require("node:child_process");
 const ROOT_DIR = path.resolve(__dirname, "../../..");
 const CLI = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
 
-const { PHRASES, KEYWORDS, resolveLanguage, phrases } = require("../../scripts/lib/language");
+const { PHRASES, KEYWORDS } = require("../../packages/core/src/domain/Language");
+const {
+  resolveLanguage,
+  phrases,
+} = require("../../packages/core/src/infrastructure/DiskLanguageRepository");
 
 function cli(...args) {
   return spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8", cwd: ROOT_DIR });

@@ -9,7 +9,7 @@
  * project's phrase table resolved here rather than deep inside the renderer.
  */
 
-import { phrases } from "../lib/language";
+import { phrases } from "../../packages/core/src/infrastructure/DiskLanguageRepository";
 import {
   loadPackModel,
   stepsForScenario,

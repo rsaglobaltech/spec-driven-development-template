@@ -14,8 +14,8 @@ const {
   validateAnswer,
   renderConfigYaml,
   runInitWizard,
-} = require("../../scripts/wizard");
-const { parseYamlLite } = require("../../scripts/domain-pack/common");
+} = require("../../scripts/cli/commands/project/WizardCommand");
+const { parseYamlLite } = require("../../packages/core/src/domain/YamlLite");
 
 const ROOT_DIR = path.resolve(__dirname, "../../..");
 const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");

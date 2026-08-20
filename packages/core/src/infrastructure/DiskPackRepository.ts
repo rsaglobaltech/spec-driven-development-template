@@ -10,7 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { parseYamlLite } from "../domain/YamlLite";
-import { isSafeRelativePath } from "../domain/PackSpec";
+import { isSafeRelativePath, validatePackModel as validatePackSpec } from "../domain/PackSpec";
 import { logInfo } from "./ConsoleReporter";
 
 function fail(message): never {
@@ -92,4 +92,13 @@ export function safeResolve(projectDir, relativePath) {
   }
 
   return absolute;
+}
+
+/**
+ * The pack rules, with the one filesystem question they ask wired to the real
+ * disk. The rules themselves are pure and take the predicate explicitly; this
+ * is the form every caller wants.
+ */
+export function validatePackModel(pack, packRoot) {
+  return validatePackSpec(pack, packRoot, (absolute) => fs.existsSync(absolute));
 }

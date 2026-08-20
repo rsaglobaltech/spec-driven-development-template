@@ -1,6 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { loadPack, asArray, validatePackModel } from "../../../domain-pack/common";
+import {
+  loadPack,
+  validatePackModel,
+} from "../../../../packages/core/src/infrastructure/DiskPackRepository";
+import { asArray } from "../../../../packages/core/src/domain/PackSpec";
 import { BaseCommand } from "../../../lib/command";
 import { agentIo, wantsJson } from "../../../lib/agent";
 import { error as diagError, warning as diagWarning } from "../../../lib/diagnostics";

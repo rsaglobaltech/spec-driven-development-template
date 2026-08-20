@@ -13,15 +13,19 @@ const {
   asArray,
   formatList,
   entityLabel,
-  loadPack,
-  validatePackModel,
-  safeResolve,
-  parseTraceabilityRows,
-  buildTraceabilityMarkdown,
   hasStructuredDomainModel,
   PACK_SCHEMA_VERSION,
   isNewerThan,
-} = require("../../scripts/domain-pack/common");
+} = require("../../packages/core/src/domain/PackSpec");
+const {
+  loadPack,
+  validatePackModel,
+  safeResolve,
+} = require("../../packages/core/src/infrastructure/DiskPackRepository");
+const {
+  parseTraceabilityRows,
+  buildTraceabilityMarkdown,
+} = require("../../packages/core/src/domain/TraceabilityFormat");
 
 const FIXTURE_ROOT = path.resolve(__dirname, "../../../tests/fixtures/domain-packs");
 const FIXTURE_ID = "parking-management/backend";

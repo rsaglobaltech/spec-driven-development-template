@@ -14,7 +14,7 @@ import {
   readConfig,
   paths,
   parseTasks,
-} from "../../../change/common";
+} from "../../../../packages/core/src/infrastructure/ChangeWorkspace";
 
 const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";

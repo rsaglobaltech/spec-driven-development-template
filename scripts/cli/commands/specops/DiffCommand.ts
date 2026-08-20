@@ -19,7 +19,7 @@ import { BaseCommand } from "../../../lib/command";
 
 import { readLock } from "../../../specops/lock";
 import { resolveProjectDir } from "../../../lib/project-root";
-import { resolveRemotePack } from "../../../domain-pack/remote";
+import { resolveRemotePack } from "../../../../packages/core/src/infrastructure/RemotePackResolver";
 import { deriveDelta, materialiseChange } from "../../../specops/as_change";
 import { diffDirs } from "../../../../packages/core/src/infrastructure/DirectorySnapshot";
 import type { Diagnostic } from "../../../lib/diagnostics";

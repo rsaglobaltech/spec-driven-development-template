@@ -1,4 +1,4 @@
-import { createPackBundle } from "../../../domain-pack/remote";
+import { createPackBundle } from "../../../../packages/core/src/infrastructure/RemotePackResolver";
 import { BaseCommand } from "../../../lib/command";
 
 function logInfo(msg: string) {

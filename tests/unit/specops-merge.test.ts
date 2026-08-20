@@ -3,7 +3,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-const { threeWayMerge } = require("../../scripts/specops/merge");
+const { threeWayMerge } = require("../../packages/core/src/infrastructure/GitMergeDriver");
 
 test("threeWayMerge returns the incoming change when local is untouched", () => {
   const base = "line1\nline2\nline3\n";

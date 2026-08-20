@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { resolveProjectDir } from "../../../lib/project-root";
 import { error, warning, info, errorMessage } from "../../../lib/diagnostics";
 import { agentIo, wantsJson, EXIT } from "../../../lib/agent";
-import { threeWayMerge } from "../../../specops/merge";
+import { threeWayMerge } from "../../../../packages/core/src/infrastructure/GitMergeDriver";
 import { TOOLS, ALL_TOOLS } from "../../../agents/init";
 import { BaseCommand } from "../../../lib/command";
 

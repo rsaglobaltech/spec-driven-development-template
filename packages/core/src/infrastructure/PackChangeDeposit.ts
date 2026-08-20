@@ -18,7 +18,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { paths } from "../change/common";
+import { paths } from "./ChangeWorkspace";
 
 function copyTree(from, to) {
   const written = [];

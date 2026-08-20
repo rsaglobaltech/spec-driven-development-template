@@ -18,7 +18,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { parseYamlLite } from "../domain-pack/common";
+import { parseYamlLite } from "../../packages/core/src/domain/YamlLite";
 import { warning } from "../lib/diagnostics";
 import { PROVIDERS, providerIds, getProvider } from "./providers";
 import { CORE_CONFIG_KEYS } from "./port";

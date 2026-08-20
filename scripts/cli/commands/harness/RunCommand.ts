@@ -30,7 +30,10 @@ import { BaseCommand } from "../../../lib/command";
 
 import { resolveProjectDir } from "../../../lib/project-root";
 import { buildPrompt } from "../../../harness/prompt";
-import { readHarnessConfig, resolveHarnessSettings } from "../../../harness/config";
+import {
+  readHarnessConfig,
+  resolveHarnessSettings,
+} from "../../../../packages/core/src/infrastructure/HarnessConfigFile";
 import {
   AttemptRecord,
   scheduleLevels,

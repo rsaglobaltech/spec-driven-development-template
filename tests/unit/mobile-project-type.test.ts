@@ -164,8 +164,8 @@ test("every place that lists project types agrees", () => {
   // restating the list, so the test compared prose against the schema and passed
   // no matter what the wizard actually offered.
   const { PROJECT_TYPES } = require("../../scripts/init_project");
-  const { WIZARD_FIELDS } = require("../../scripts/wizard");
-  const { PACK_PROJECT_TYPES } = require("../../scripts/domain-pack/common");
+  const { WIZARD_FIELDS } = require("../../scripts/cli/commands/project/WizardCommand");
+  const { PACK_PROJECT_TYPES } = require("../../packages/core/src/domain/PackSpec");
   const schema = JSON.parse(
     fs.readFileSync(path.join(ROOT_DIR, "schemas/pack.schema.json"), "utf8")
   );

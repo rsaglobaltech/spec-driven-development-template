@@ -22,7 +22,7 @@ const {
   materialiseChange,
 } = require("../../scripts/specops/as_change");
 const { validateDelta } = require("../../scripts/change/delta");
-const { parseDelta } = require("../../scripts/change/parser");
+const { parseDelta } = require("../../packages/core/src/domain/SpecParser");
 
 const PACK_ID = "parking-management/backend";
 

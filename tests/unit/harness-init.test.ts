@@ -201,7 +201,9 @@ test("what it writes is what `harness run` reads", () => {
   const { parent, projectDir } = scaffold();
   try {
     run(projectDir);
-    const { readHarnessConfig } = require("../../scripts/harness/config");
+    const {
+      readHarnessConfig,
+    } = require("../../packages/core/src/infrastructure/HarnessConfigFile");
     const cfg = readHarnessConfig(projectDir);
     assert.ok(cfg, "generated config did not parse");
     assert.equal(cfg.maxAttempts, 3);

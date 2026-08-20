@@ -23,8 +23,8 @@ import * as path from "node:path";
 import { BaseCommand } from "../../../lib/command";
 import { readLock } from "../../../specops/lock";
 import { resolveProjectDir } from "../../../lib/project-root";
-import { parseDelta } from "../../../change/parser";
-import { listDeltas, paths } from "../../../change/common";
+import { parseDelta } from "../../../../packages/core/src/domain/SpecParser";
+import { listDeltas, paths } from "../../../../packages/core/src/infrastructure/ChangeWorkspace";
 import { error, warning, printDiagnostics } from "../../../lib/diagnostics";
 import {
   deltaToPackFragment,

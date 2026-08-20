@@ -17,9 +17,9 @@ import { BaseCommand } from "../../../lib/command";
 import { resolveProjectDir } from "../../../lib/project-root";
 import { error, hasErrors, printDiagnostics } from "../../../lib/diagnostics";
 import { agentIo } from "../../../lib/agent";
-import { phrases } from "../../../lib/language";
+import { phrases } from "../../../../packages/core/src/infrastructure/DiskLanguageRepository";
 import { ARTIFACTS, artifactState } from "../../../change/artifacts";
-import { parseDelta } from "../../../change/parser";
+import { parseDelta } from "../../../../packages/core/src/domain/SpecParser";
 import { ArchiveChangeUseCase } from "../../../../packages/core/src/application/ArchiveChangeUseCase";
 import { DiskProjectRepository } from "../../../../packages/core/src/infrastructure/DiskProjectRepository";
 import {
@@ -35,7 +35,7 @@ import {
   reserveReqRange,
   taskProgress,
   changeStatusLabel,
-} from "../../../change/common";
+} from "../../../../packages/core/src/infrastructure/ChangeWorkspace";
 import {
   CHANGE_TEMPLATES,
   templateDelta,

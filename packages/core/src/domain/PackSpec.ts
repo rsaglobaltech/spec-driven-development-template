@@ -108,7 +108,7 @@ export function hasStructuredDomainModel(pack) {
 }
 /**
  * Does this absolute path exist? Supplied by the caller so the rules below stay
- * free of `fs`; `scripts/domain-pack/common` passes the real disk check.
+ * free of `fs`; `DiskPackRepository.validatePackModel` passes the real disk check.
  */
 export type TemplateExists = (absolutePath: string) => boolean;
 

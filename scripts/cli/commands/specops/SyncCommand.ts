@@ -27,18 +27,22 @@ import { spawnSync } from "node:child_process";
 import { BaseCommand } from "../../../lib/command";
 
 import { readLock, writeLock, upsertPackEntry, newLock } from "../../../specops/lock";
-import { readConfig, configToPacks, CONFIG_FILE } from "../../../specops/config";
+import {
+  readConfig,
+  configToPacks,
+  CONFIG_FILE,
+} from "../../../../packages/core/src/infrastructure/SpecopsConfigFile";
 import { walkFiles } from "../../../../packages/core/src/infrastructure/DirectorySnapshot";
 import { readBaseline, snapshotBaseline } from "../../../specops/manifest";
-import { threeWayMerge } from "../../../specops/merge";
+import { threeWayMerge } from "../../../../packages/core/src/infrastructure/GitMergeDriver";
 import {
   CONFLICT_OUTCOMES,
   OUTCOME_LABEL,
   reconcile,
 } from "../../../../packages/core/src/domain/Reconciliation";
 import { resolveProjectDir } from "../../../lib/project-root";
-import { resolveRemotePack } from "../../../domain-pack/remote";
-import { depositPackChanges } from "../../../specops/pack_changes";
+import { resolveRemotePack } from "../../../../packages/core/src/infrastructure/RemotePackResolver";
+import { depositPackChanges } from "../../../../packages/core/src/infrastructure/PackChangeDeposit";
 
 // Three levels up from dist/scripts/cli/commands/specops is dist/scripts.
 const EXPAND_SCRIPT = path.join(__dirname, "..", "..", "..", "expand_domain_pack.js");

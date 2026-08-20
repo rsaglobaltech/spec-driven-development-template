@@ -2,26 +2,29 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import {
   asArray,
-  buildTraceabilityMarkdown,
   entityLabel,
-  ensureProjectDir,
   formatList,
-  getWrittenFiles,
   hasStructuredDomainModel,
-  loadPack,
-  logError,
-  logInfo,
   normalizeVars,
-  parseArgs,
-  parseTraceabilityRows,
-  readTemplate,
   renderTemplate,
+} from "../../../../packages/core/src/domain/PackSpec";
+import {
+  buildTraceabilityMarkdown,
+  parseTraceabilityRows,
+} from "../../../../packages/core/src/domain/TraceabilityFormat";
+import {
+  ensureProjectDir,
+  getWrittenFiles,
+  loadPack,
+  readTemplate,
   resetWrittenFiles,
   safeResolve,
   validatePackModel,
   writeFile,
-} from "../../../domain-pack/common";
-import { resolveRemotePack } from "../../../domain-pack/remote";
+} from "../../../../packages/core/src/infrastructure/DiskPackRepository";
+import { logError, logInfo } from "../../../../packages/core/src/infrastructure/ConsoleReporter";
+import { parseArgs } from "./pack-args";
+import { resolveRemotePack } from "../../../../packages/core/src/infrastructure/RemotePackResolver";
 import { readLock, writeLock, upsertPackEntry, newLock } from "../../../specops/lock";
 import {
   computePackDigest,

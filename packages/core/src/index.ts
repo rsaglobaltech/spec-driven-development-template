@@ -69,10 +69,30 @@ export * from "./infrastructure/GitContributionStager";
 export * from "./infrastructure/DiskDomainPackRepository";
 export * from "./infrastructure/DiskHarnessConfigRepository";
 export * from "./infrastructure/DiskLanguageRepository";
+export * from "./infrastructure/GitMergeDriver";
+export * from "./infrastructure/PackChangeDeposit";
+// `readConfig` means the change config in ChangeWorkspace and the specops
+// config here. Both keep their name in their own module; the barrel says which.
+export {
+  CONFIG_FILE as SPECOPS_CONFIG_FILE,
+  readConfig as readSpecopsConfig,
+  configToPacks,
+} from "./infrastructure/SpecopsConfigFile";
 export * from "./infrastructure/DiskLockfileRepository";
 export * from "./infrastructure/DiskManifestRepository";
 export * from "./infrastructure/DiskPackDeltaRepository";
-export * from "./infrastructure/DiskPackRepository";
+// The pure rule takes a `templateExists` predicate; the disk-wired convenience
+// supplies it. Both are useful, so the barrel names which is which.
+export { validatePackModel as validatePackModelOnDisk } from "./infrastructure/DiskPackRepository";
+export {
+  loadPack,
+  ensureProjectDir,
+  readTemplate,
+  writeFile,
+  getWrittenFiles,
+  resetWrittenFiles,
+  safeResolve,
+} from "./infrastructure/DiskPackRepository";
 export * from "./infrastructure/DiskProjectRepository";
 export * from "./infrastructure/DiskRequirementGraphRepository";
 export * from "./infrastructure/DiskTraceabilityRepository";

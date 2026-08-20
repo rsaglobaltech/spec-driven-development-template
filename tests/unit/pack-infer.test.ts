@@ -120,7 +120,7 @@ test("renderYamlFragment emits a parseable, TODO-annotated fragment", () => {
   assert.match(yamlText, /- CapacityThresholdReached/);
 
   // The fragment must round-trip through the project's YAML reader.
-  const { parseYamlLite } = require("../../scripts/domain-pack/common");
+  const { parseYamlLite } = require("../../packages/core/src/domain/YamlLite");
   const reparsed = parseYamlLite(yamlText);
   assert.ok(Array.isArray(reparsed.requirements));
   assert.equal(reparsed.requirements[0].id, "REQ-001");

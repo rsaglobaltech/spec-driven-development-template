@@ -10,7 +10,7 @@ const schemaPath = path.join(ROOT, "schemas", "pack.schema.json");
 const FIXTURE_ROOT = path.join(ROOT, "tests/fixtures/domain-packs");
 const FIXTURE_ID = "parking-management/backend";
 
-const { loadPack } = require("../../scripts/domain-pack/common");
+const { loadPack } = require("../../packages/core/src/infrastructure/DiskPackRepository");
 
 const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
 const ajv = new Ajv({ strict: false, allErrors: true });

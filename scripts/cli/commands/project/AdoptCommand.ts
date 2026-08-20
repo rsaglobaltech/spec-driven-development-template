@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { renderTemplate } from "../../../domain-pack/common";
-import { slugify } from "../../../wizard";
+import { renderTemplate } from "../../../../packages/core/src/domain/PackSpec";
+import { slugify } from "./WizardCommand";
 import { BaseCommand } from "../../../lib/command";
 
 import { findCliRoot } from "../../../lib/project-root";

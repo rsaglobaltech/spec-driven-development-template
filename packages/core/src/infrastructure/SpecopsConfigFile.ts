@@ -17,7 +17,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { parseYamlLite } from "../domain-pack/common";
+import { parseYamlLite } from "../domain/YamlLite";
 
 export const CONFIG_FILE = "specops.config.yaml";
 

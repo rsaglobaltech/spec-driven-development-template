@@ -18,8 +18,8 @@ const { spawnSync } = require("node:child_process");
 
 const { checkPackAgainstProject } = require("../../scripts/specops/against_lock");
 const { deltaToPackFragment, stageContribution } = require("../../scripts/specops/contribute");
-const { depositPackChanges } = require("../../scripts/specops/pack_changes");
-const { parseDelta } = require("../../scripts/change/parser");
+const { depositPackChanges } = require("../../packages/core/src/infrastructure/PackChangeDeposit");
+const { parseDelta } = require("../../packages/core/src/domain/SpecParser");
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..", "..");
 const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");

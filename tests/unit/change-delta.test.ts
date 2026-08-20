@@ -10,7 +10,7 @@ const {
   requirementKey,
   splitLabel,
   parseTraceComment,
-} = require("../../scripts/change/parser");
+} = require("../../packages/core/src/domain/SpecParser");
 const { validateDelta, applyDelta } = require("../../scripts/change/delta");
 
 const SPEC = `# Pricing
