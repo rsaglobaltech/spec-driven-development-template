@@ -13,7 +13,7 @@
  * extension can underline the exact offending value.
  */
 
-const yaml = require("js-yaml");
+import * as yaml from "js-yaml";
 
 function asArray(v) {
   if (Array.isArray(v)) return v;
@@ -392,7 +392,37 @@ function renderPackMermaid(content) {
   return lines.join("\n");
 }
 
-module.exports = {
+export class PackGraphAnalyzer {
+  public static collectDeclared(pack: any) {
+    return collectDeclared(pack);
+  }
+  public static findReferencePosition(lines: string[], value: string) {
+    return findReferencePosition(lines, value);
+  }
+  public static findDanglingReferences(pack: any, declared: any, lines: string[]) {
+    return findDanglingReferences(pack, declared, lines);
+  }
+  public static countRequirementReferences(pack: any) {
+    return countRequirementReferences(pack);
+  }
+  public static analyzePackGraph(content: string) {
+    return analyzePackGraph(content);
+  }
+  public static referenceKindForLine(lines: string[], lineIdx: number) {
+    return referenceKindForLine(lines, lineIdx);
+  }
+  public static findDeclarationPosition(content: string, idOrName: string) {
+    return findDeclarationPosition(content, idOrName);
+  }
+  public static buildPackGraphModel(pack: any) {
+    return buildPackGraphModel(pack);
+  }
+  public static renderPackMermaid(content: string) {
+    return renderPackMermaid(content);
+  }
+}
+
+export {
   collectDeclared,
   findReferencePosition,
   findDanglingReferences,

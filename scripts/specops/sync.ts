@@ -24,6 +24,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
+import { BaseCommand } from "../lib/command";
 
 import { readLock, writeLock, upsertPackEntry, newLock } from "./lock";
 import { readConfig, configToPacks, CONFIG_FILE } from "./config";
@@ -352,75 +353,77 @@ function printPackSummary(packId, version, counts, conflictFiles) {
   }
 }
 
-function main() {
-  try {
-    const args = parseArgs(process.argv.slice(2));
-    const projectDir = resolveProjectDir(args.projectDir);
-    const { packs, source } = resolvePacks(projectDir);
+export class SyncCommand extends BaseCommand {
+  public execute() {
+    try {
+      const args = parseArgs(this.args);
+      const projectDir = resolveProjectDir(args.projectDir);
+      const { packs, source } = resolvePacks(projectDir);
 
-    info(`Reading pack list from ${source}`);
-    if (args.dryRun) info("Dry run — no files will be written.");
+      info(`Reading pack list from ${source}`);
+      if (args.dryRun) info("Dry run — no files will be written.");
 
-    let matched = 0;
-    let totalConflicts = 0;
-    let anyFailure = false;
-    const lockUpdates = [];
+      let matched = 0;
+      let totalConflicts = 0;
+      let anyFailure = false;
+      const lockUpdates = [];
 
-    for (const entry of packs) {
-      if (args.pack && entry.pack_id !== args.pack) continue;
-      matched += 1;
+      for (const entry of packs) {
+        if (args.pack && entry.pack_id !== args.pack) continue;
+        matched += 1;
 
-      const res = syncPack(entry, args, projectDir);
-      if (!res.ok) {
-        anyFailure = true;
-        continue;
+        const res = syncPack(entry, args, projectDir);
+        if (!res.ok) {
+          anyFailure = true;
+          continue;
+        }
+        totalConflicts += res.conflicts;
+        if (res.resolvedEntry) lockUpdates.push(res.resolvedEntry);
       }
-      totalConflicts += res.conflicts;
-      if (res.resolvedEntry) lockUpdates.push(res.resolvedEntry);
-    }
 
-    if (matched === 0) {
-      error(`No packs matched${args.pack ? ` --pack ${args.pack}` : ""}.`);
-      process.exit(1);
-    }
-
-    // Persist resolved versions/commits to the project lockfile.
-    if (!args.dryRun && lockUpdates.length > 0) {
-      let lock = readLock(projectDir) || newLock();
-      for (const resolved of lockUpdates) {
-        lock = upsertPackEntry(lock, {
-          repo: resolved.repo,
-          version: resolved.version,
-          commit: resolved.commit,
-          pack_id: resolved.pack_id,
-          expanded_at: resolved.expanded_at || new Date().toISOString(),
-          vars: resolved.vars || {},
-        });
+      if (matched === 0) {
+        error(`No packs matched${args.pack ? ` --pack ${args.pack}` : ""}.`);
+        process.exit(1);
       }
-      writeLock(projectDir, lock);
-    }
 
-    if (anyFailure) {
-      error("One or more packs failed to expand.");
+      // Persist resolved versions/commits to the project lockfile.
+      if (!args.dryRun && lockUpdates.length > 0) {
+        let lock = readLock(projectDir) || newLock();
+        for (const resolved of lockUpdates) {
+          lock = upsertPackEntry(lock, {
+            repo: resolved.repo,
+            version: resolved.version,
+            commit: resolved.commit,
+            pack_id: resolved.pack_id,
+            expanded_at: resolved.expanded_at || new Date().toISOString(),
+            vars: resolved.vars || {},
+          });
+        }
+        writeLock(projectDir, lock);
+      }
+
+      if (anyFailure) {
+        error("One or more packs failed to expand.");
+        process.exit(1);
+      }
+
+      if (totalConflicts > 0) {
+        process.stdout.write("\n");
+        error(
+          `Sync completed with ${totalConflicts} conflicting file(s). ` +
+            `Resolve them, then re-run 'specops sync'.`
+        );
+        process.exit(1);
+      }
+
+      info(`Sync completed for ${matched} pack(s) with no conflicts.`);
+    } catch (err) {
+      error(err.message);
       process.exit(1);
     }
-
-    if (totalConflicts > 0) {
-      process.stdout.write("\n");
-      error(
-        `Sync completed with ${totalConflicts} conflicting file(s). ` +
-          `Resolve them, then re-run 'specops sync'.`
-      );
-      process.exit(1);
-    }
-
-    info(`Sync completed for ${matched} pack(s) with no conflicts.`);
-  } catch (err) {
-    error(err.message);
-    process.exit(1);
   }
 }
 
 if (require.main === module) {
-  main();
+  new SyncCommand(process.argv.slice(2)).execute();
 }

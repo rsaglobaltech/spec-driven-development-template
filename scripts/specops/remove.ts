@@ -10,7 +10,10 @@
  */
 
 import { resolveProjectDir } from "../lib/project-root";
-import { readLock, writeLock, LOCK_FILENAME } from "./lock";
+import { DiskLockfileRepository } from "../../packages/core/src/infrastructure/DiskLockfileRepository";
+import { RemovePackUseCase } from "../../packages/core/src/application/RemovePackUseCase";
+import { Lockfile } from "../../packages/core/src/domain/Lockfile";
+import { BaseCommand } from "../lib/command";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -67,55 +70,47 @@ export function parseArgs(argv) {
   return opts;
 }
 
-function main() {
-  const opts = parseArgs(process.argv.slice(2));
-  if (!opts.packId) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  pack-id is required (e.g. parking-management/backend).\n`
-    );
-    usage();
-    process.exit(2);
-  }
+export class RemoveCommand extends BaseCommand {
+  public execute() {
+    const opts = parseArgs(this.args);
+    if (!opts.packId) {
+      process.stderr.write(
+        `${c.red}✖${c.reset}  pack-id is required (e.g. parking-management/backend).\n`
+      );
+      usage();
+      process.exit(2);
+    }
 
-  let projectDir;
-  try {
-    projectDir = resolveProjectDir(opts.projectDir, { requireSentinel: true });
-  } catch (err) {
-    process.stderr.write(`${err.message}\n`);
-    process.exit(2);
-  }
+    let projectDir;
+    try {
+      projectDir = resolveProjectDir(opts.projectDir, { requireSentinel: true });
+    } catch (err) {
+      process.stderr.write(`${err.message}\n`);
+      process.exit(2);
+    }
 
-  const lock = readLock(projectDir);
-  if (!lock) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  No ${LOCK_FILENAME} in ${projectDir}. Nothing to remove.\n`
-    );
-    process.exit(1);
-  }
+    const repo = new DiskLockfileRepository(projectDir);
+    const useCase = new RemovePackUseCase(repo);
+    const result = useCase.execute(opts.packId, { dryRun: opts.dryRun });
 
-  const before = lock.packs.length;
-  const remaining = lock.packs.filter((p) => p.pack_id !== opts.packId);
-  if (remaining.length === before) {
-    process.stderr.write(`${c.red}✖${c.reset}  ${opts.packId} not found in ${LOCK_FILENAME}.\n`);
-    process.exit(1);
-  }
+    if (!result.ok) {
+      process.stderr.write(`${c.red}✖${c.reset}  ${result.message}\n`);
+      process.exit(1);
+    }
 
-  if (opts.dryRun) {
+    if (opts.dryRun) {
+      process.stdout.write(
+        `${c.yellow}…${c.reset}  [dry-run] would remove ${c.bold}${opts.packId}${c.reset} from ${Lockfile.FILENAME} (${result.removedCount} entry).\n`
+      );
+      process.exit(0);
+    }
+
     process.stdout.write(
-      `${c.yellow}…${c.reset}  [dry-run] would remove ${c.bold}${opts.packId}${c.reset} from ${LOCK_FILENAME} (${before - remaining.length} entry).\n`
+      `${c.green}✔${c.reset}  Removed ${c.bold}${opts.packId}${c.reset} from ${Lockfile.FILENAME} (${result.removedCount} entry).\n` +
+        `${c.dim}   Generated files were not deleted. Inspect with \`git status\` and remove anything unwanted.${c.reset}\n`
     );
     process.exit(0);
   }
-
-  const next = { ...lock, packs: remaining };
-  writeLock(projectDir, next);
-  process.stdout.write(
-    `${c.green}✔${c.reset}  Removed ${c.bold}${opts.packId}${c.reset} from ${LOCK_FILENAME} (${
-      before - remaining.length
-    } entry).\n` +
-      `${c.dim}   Generated files were not deleted. Inspect with \`git status\` and remove anything unwanted.${c.reset}\n`
-  );
-  process.exit(0);
 }
 
-if (require.main === module) main();
+if (require.main === module) new RemoveCommand(process.argv.slice(2)).execute();

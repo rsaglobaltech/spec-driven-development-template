@@ -12,15 +12,17 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { BaseCommand } from "../lib/command";
 
 import { resolveProjectDir } from "../lib/project-root";
 import { error, warning, hasErrors, printDiagnostics } from "../lib/diagnostics";
 import { agentIo } from "../lib/agent";
 import { phrases } from "../lib/language";
 import { ARTIFACTS, artifactState } from "./artifacts";
-import { validateDelta } from "./delta";
+import { DeltaSpec } from "../../packages/core/src/domain/DeltaSpec";
 import { parseDelta } from "./parser";
-import { planArchive, executeArchive } from "./archive";
+import { ArchiveChangeUseCase } from "../../packages/core/src/application/ArchiveChangeUseCase";
+import { DiskProjectRepository } from "../../packages/core/src/infrastructure/DiskProjectRepository";
 import {
   CHANGE_ID_RE,
   CHANGE_CONFIG_FILE,
@@ -514,7 +516,7 @@ export function validateChange(projectDir, changeId, opts) {
   for (const entry of deltas) {
     const specFile = p.capabilitySpec(entry.capability);
     const specSource = fs.existsSync(specFile) ? fs.readFileSync(specFile, "utf8") : null;
-    const { diagnostics: d } = validateDelta(fs.readFileSync(entry.file, "utf8"), {
+    const { diagnostics: d } = DeltaSpec.validate(fs.readFileSync(entry.file, "utf8"), {
       specSource,
       file: entry.relative,
       strict: opts.strict,
@@ -595,17 +597,20 @@ function cmdArchive(opts) {
     ]);
   }
 
-  const plan = planArchive(projectDir, changeId, { force: opts.force });
+  const repo = new DiskProjectRepository(projectDir);
+  const useCase = new ArchiveChangeUseCase(repo);
+  const plan = useCase.execute(changeId, { force: opts.force });
 
   if (!plan.ok) {
     return fail(opts, nullShape, plan.diagnostics);
   }
 
+  const archivedAs = plan.move ? path.basename(plan.move.to) : `${changeId}-archived`;
   const rel = (f) => path.relative(projectDir, f).split(path.sep).join("/");
   const summary = {
     change: changeId,
-    archivedAs: plan.archivedAs,
-    specsUpdated: plan.specsUpdated,
+    archivedAs: archivedAs,
+    specsUpdated: plan.totals.specsWritten > 0 || plan.totals.specsRetired > 0,
     totals: plan.totals,
     writes: plan.writes.map((w) => ({ file: rel(w.file), kind: w.kind })),
     deletes: plan.deletes.map((d) => ({ file: rel(d.file), reason: d.reason })),
@@ -623,9 +628,11 @@ function cmdArchive(opts) {
       for (const d of summary.deletes) {
         process.stdout.write(`    ${c.red}-${c.reset} ${d.file} ${c.dim}(${d.reason})${c.reset}\n`);
       }
-      process.stdout.write(
-        `    ${c.cyan}→${c.reset} ${rel(plan.move.from)} ${c.dim}moves to${c.reset} ${rel(plan.move.to)}\n`
-      );
+      if (plan.move) {
+        process.stdout.write(
+          `    ${c.cyan}→${c.reset} ${rel(plan.move.from)} ${c.dim}moves to${c.reset} ${rel(plan.move.to)}\n`
+        );
+      }
       if (plan.warnings.length > 0) {
         process.stdout.write("\n");
         printDiagnostics(plan.warnings, process.stdout);
@@ -635,8 +642,8 @@ function cmdArchive(opts) {
   }
 
   try {
-    executeArchive(plan);
-  } catch (err) {
+    repo.executePlan(plan);
+  } catch (err: any) {
     return fail(opts, nullShape, [
       error("archive_spec_update_failed", `Archive failed and was rolled back: ${err.message}`, {
         target: changeId,
@@ -648,7 +655,7 @@ function cmdArchive(opts) {
   emit(opts, { archive: summary }, () => {
     const t = plan.totals;
     process.stdout.write(
-      `\n  ${c.green}✔${c.reset} Archived as ${c.bold}${plan.archivedAs}${c.reset}\n\n` +
+      `\n  ${c.green}✔${c.reset} Archived as ${c.bold}${archivedAs}${c.reset}\n\n` +
         `    ${c.dim}specs:${c.reset}        ${t.added} added · ${t.modified} modified · ${t.removed} removed\n` +
         `    ${c.dim}traceability:${c.reset} ${t.traceability.added} row(s) added · ${t.traceability.updated} updated · ${t.traceability.removed} removed\n` +
         `    ${c.dim}features:${c.reset}     ${plan.writes.filter((w) => w.kind === "feature").length} materialised\n\n` +
@@ -660,51 +667,53 @@ function cmdArchive(opts) {
 
 // ── entry ─────────────────────────────────────────────────────────────────────
 
-function main() {
-  const argv = process.argv.slice(2);
-  const sub = argv[0];
-  if (!sub || sub === "--help" || sub === "-h") {
-    usage();
-    process.exit(sub ? 0 : 2);
-  }
+export class CliCommand extends BaseCommand {
+  public execute() {
+    const argv = this.args;
+    const sub = argv[0];
+    if (!sub || sub === "--help" || sub === "-h") {
+      usage();
+      process.exit(sub ? 0 : 2);
+    }
 
-  // `instructions` parses its own arguments: its first positional is an
-  // artefact name, not a change id, so the shared parser does not fit.
-  if (sub === "instructions") {
-    instructionsMain(argv.slice(1), TEMPLATES);
-    return;
-  }
+    // `instructions` parses its own arguments: its first positional is an
+    // artefact name, not a change id, so the shared parser does not fit.
+    if (sub === "instructions") {
+      instructionsMain(argv.slice(1), TEMPLATES);
+      return;
+    }
 
-  const opts = parseArgs(argv.slice(1));
+    const opts = parseArgs(argv.slice(1));
 
-  const table = {
-    new: cmdNew,
-    list: cmdList,
-    show: cmdShow,
-    status: cmdStatus,
-    validate: cmdValidate,
-    archive: cmdArchive,
-  };
+    const table = {
+      new: cmdNew,
+      list: cmdList,
+      show: cmdShow,
+      status: cmdStatus,
+      validate: cmdValidate,
+      archive: cmdArchive,
+    };
 
-  const handler = table[sub];
-  if (!handler) {
-    process.stderr.write(
-      `Unknown change sub-command: ${sub}. Expected: ${Object.keys(table).join(", ")}\n`
-    );
-    process.exit(2);
-  }
+    const handler = table[sub];
+    if (!handler) {
+      process.stderr.write(
+        `Unknown change sub-command: ${sub}. Expected: ${Object.keys(table).join(", ")}\n`
+      );
+      process.exit(2);
+    }
 
-  try {
-    handler(opts);
-  } catch (err) {
-    fail(opts, {}, [
-      error("change_error", err.message, {
-        fix: "Re-run with --json for the machine-readable form of this failure.",
-      }),
-    ]);
+    try {
+      handler(opts);
+    } catch (err) {
+      fail(opts, {}, [
+        error("change_error", err.message, {
+          fix: "Re-run with --json for the machine-readable form of this failure.",
+        }),
+      ]);
+    }
   }
 }
 
-if (require.main === module) main();
+if (require.main === module) new CliCommand(process.argv.slice(2)).execute();
 
 export { artifactState, ARTIFACTS };

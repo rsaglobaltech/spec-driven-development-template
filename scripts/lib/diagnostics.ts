@@ -1,61 +1,27 @@
 /**
- * The one diagnostic envelope every machine-readable surface of the CLI emits.
+ * Rendering diagnostics for a human at a terminal.
  *
- *   { severity, code, message, target?, fix?, file?, line? }
- *
- * `code` is a stable snake_case string — callers (CI, agents, the VS Code
- * extension) branch on it, never on the message text. `fix` is one actionable
- * sentence or command; a diagnostic without a fix is a diagnostic the user
- * cannot act on, so treat writing one as part of writing the check.
- *
- * Casing is camelCase everywhere in JSON output, decided once here so we do not
- * inherit the snake/camel split that OpenSpec documents as a known defect.
+ * The envelope itself — the `Diagnostic` shape, its constructors and its
+ * predicates — is domain, and lives in `packages/core/src/domain/Diagnostic`.
+ * This module is the delivery half: colours, stream writes and the `--json`
+ * failure shape. It re-exports the domain half so the ~28 existing importers
+ * keep one import site.
  */
 
-/** The one diagnostic envelope, as ADR-0017 fixes it. */
-export interface Diagnostic {
-  severity: "error" | "warning" | "info";
-  code: string;
-  message: string;
-  target?: string;
-  fix?: string;
-  file?: string;
-  line?: number;
-}
+import { Diagnostic, SEVERITY } from "../../packages/core/src/domain/Diagnostic";
 
-export const SEVERITY = Object.freeze({
-  ERROR: "error",
-  WARNING: "warning",
-  INFO: "info",
-});
-
-export function diagnostic(severity, code, message, extra?) {
-  const d: Diagnostic = { severity, code, message };
-  if (extra) {
-    if (extra.target !== undefined) d.target = extra.target;
-    if (extra.fix !== undefined) d.fix = extra.fix;
-    if (extra.file !== undefined) d.file = extra.file;
-    if (extra.line !== undefined && extra.line !== null) d.line = extra.line;
-  }
-  return d;
-}
-
-export const error = (code, message, extra?) => diagnostic(SEVERITY.ERROR, code, message, extra);
-export const warning = (code, message, extra?) =>
-  diagnostic(SEVERITY.WARNING, code, message, extra);
-export const info = (code, message, extra?) => diagnostic(SEVERITY.INFO, code, message, extra);
-
-export function hasErrors(diags) {
-  return (diags || []).some((d) => d.severity === SEVERITY.ERROR);
-}
-
-export function countBySeverity(diags) {
-  const out = { error: 0, warning: 0, info: 0 };
-  for (const d of diags || []) {
-    if (out[d.severity] !== undefined) out[d.severity]++;
-  }
-  return out;
-}
+export {
+  Diagnostic,
+  DiagnosticExtra,
+  SEVERITY,
+  diagnostic,
+  error,
+  warning,
+  info,
+  hasErrors,
+  countBySeverity,
+  errorMessage,
+} from "../../packages/core/src/domain/Diagnostic";
 
 // ── Human rendering ───────────────────────────────────────────────────────────
 
@@ -71,12 +37,12 @@ const c = {
 };
 
 const MARK = {
-  error: `${c.red}✖${c.reset}`,
-  warning: `${c.yellow}▲${c.reset}`,
-  info: `${c.cyan}ℹ${c.reset}`,
+  [SEVERITY.ERROR]: `${c.red}✖${c.reset}`,
+  [SEVERITY.WARNING]: `${c.yellow}▲${c.reset}`,
+  [SEVERITY.INFO]: `${c.cyan}ℹ${c.reset}`,
 };
 
-export function formatDiagnostic(d) {
+export function formatDiagnostic(d: Diagnostic) {
   const where = d.file ? `${d.file}${d.line ? `:${d.line}` : ""}` : d.target || "";
   const head = `${MARK[d.severity] || "-"}  ${where ? `${c.dim}${where}${c.reset} ` : ""}${d.message}`;
   const fix = d.fix ? `\n     ${c.dim}fix:${c.reset} ${d.fix}` : "";
@@ -97,17 +63,4 @@ export function printDiagnostics(diags, stream?) {
 export function failJson(nullShape, diags) {
   process.stdout.write(`${JSON.stringify({ ...nullShape, status: diags }, null, 2)}\n`);
   process.exit(1);
-}
-
-/**
- * The message of whatever was thrown.
- *
- * `catch (err)` appeared eleven times across `scripts/` purely to reach
- * `.message`. A catch binding is genuinely `unknown` — anything can be thrown —
- * so the honest form is to narrow it once, here.
- */
-export function errorMessage(err: unknown): string {
-  if (err instanceof Error) return errorMessage(err);
-  if (typeof err === "string") return err;
-  return String(err);
 }

@@ -1,9 +1,9 @@
 "use strict";
-const { setWorldConstructor, setDefaultTimeout } = require("@cucumber/cucumber");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import { setWorldConstructor, setDefaultTimeout } from "@cucumber/cucumber";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
 // CI on slower runners (Node 18, macOS) can exceed the 5s default per step.
 // Bump to 30s — matches the spawnSync timeout below.

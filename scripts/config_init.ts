@@ -1,96 +1,13 @@
 #!/usr/bin/env node
+import {
+  ConfigInitCommand,
+  parseArgs,
+  TEMPLATE,
+  ConfigInitOptions,
+} from "./cli/commands/config/ConfigInitCommand";
 
-/**
- * `config init` — write a commented `project.yaml` starter in the current
- * directory, so a dev can fill it in and run `csda init --config project.yaml`
- * (or feed the same values to the interactive wizard).
- *
- *   csda config init
- *   csda config init --out ./my.yaml --force
- */
+export { ConfigInitCommand, parseArgs, TEMPLATE, ConfigInitOptions };
 
-import * as fs from "node:fs";
-import * as path from "node:path";
-
-const COLOR_ENABLED =
-  process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
-const c = {
-  reset: COLOR_ENABLED ? "\x1b[0m" : "",
-  bold: COLOR_ENABLED ? "\x1b[1m" : "",
-  dim: COLOR_ENABLED ? "\x1b[2m" : "",
-  red: COLOR_ENABLED ? "\x1b[31m" : "",
-  green: COLOR_ENABLED ? "\x1b[32m" : "",
-  cyan: COLOR_ENABLED ? "\x1b[36m" : "",
-};
-
-const TEMPLATE = `# project.yaml — spec-driven project config
-# Fill these in, then: csda init --config project.yaml --out .
-# Required keys:
-PROJECT_NAME: My App
-PROJECT_SLUG: my-app # lowercase, dashes only
-PROJECT_TYPE: backend # backend | frontend
-DOMAIN: general
-STACK: Node.js, TypeScript
-API_STYLE: REST with DTO boundaries
-TESTING: Vitest, Cucumber
-
-# Optional:
-# LANG: en
-# MODULES: "auth,billing" # comma-separated feature modules
-`;
-
-function usage() {
-  process.stdout.write(
-    `\n  ${c.bold}${c.cyan}⚙️  config init${c.reset}  ${c.dim}— write a commented project.yaml starter${c.reset}\n\n` +
-      `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda config init${c.reset} [--out <path>] [--force]\n\n` +
-      `  ${c.bold}OPTIONS${c.reset}\n` +
-      `    ${c.green}--out <path>${c.reset}  ${c.dim}Target file (default: ./project.yaml).${c.reset}\n` +
-      `    ${c.green}--force${c.reset}       ${c.dim}Overwrite if the file already exists.${c.reset}\n` +
-      `    ${c.green}-h, --help${c.reset}    ${c.dim}Show this help.${c.reset}\n\n`
-  );
+if (require.main === module) {
+  new ConfigInitCommand(process.argv.slice(2)).execute();
 }
-
-/** Parsed command-line options for this command. */
-export interface ConfigInitOptions {
-  out: string;
-  force: boolean;
-}
-
-function parseArgs(argv) {
-  const opts: ConfigInitOptions = { out: "project.yaml", force: false };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--out" && argv[i + 1]) opts.out = argv[++i];
-    else if (a === "--force") opts.force = true;
-    else if (a === "--help" || a === "-h") {
-      usage();
-      process.exit(0);
-    } else if (a.startsWith("-")) {
-      process.stderr.write(`Unknown flag: ${a}\n`);
-      process.exit(2);
-    }
-  }
-  return opts;
-}
-
-function main() {
-  const opts = parseArgs(process.argv.slice(2));
-  const dest = path.resolve(opts.out);
-  if (fs.existsSync(dest) && !opts.force) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  ${opts.out} already exists (use --force to overwrite).\n`
-    );
-    process.exit(2);
-  }
-  fs.writeFileSync(dest, TEMPLATE, "utf8");
-  process.stdout.write(
-    `${c.green}✔${c.reset}  Wrote ${c.bold}${opts.out}${c.reset}\n` +
-      `   ${c.dim}▶ next: edit the values, then \`csda init --config ${opts.out} --out .\`${c.reset}\n`
-  );
-  process.exit(0);
-}
-
-if (require.main === module) main();
-
-export { parseArgs, TEMPLATE };

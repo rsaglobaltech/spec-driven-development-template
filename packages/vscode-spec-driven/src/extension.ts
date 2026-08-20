@@ -1,364 +1,11 @@
-"use strict";
+import * as vscode from "vscode";
+import * as path from "node:path";
+import * as fs from "node:fs";
 
-/**
- * VS Code extension entry point.
- * This file is the ONLY one that imports the `vscode` module.
- * All domain logic lives in pure sibling modules (pack-validator, traceability,
- * validate-runner) that can be unit-tested without a VS Code runtime.
- */
-
-const vscode = require("vscode");
-const path = require("node:path");
-const fs = require("node:fs");
-
-const { validatePackYaml } = require("./pack-validator");
-const { findRequirementIds, findIdInTraceability, parseValidateOutput } = require("./traceability");
-const { runValidate } = require("./validate-runner");
-const {
-  analyzePackGraph,
-  referenceKindForLine,
-  findDeclarationPosition,
-  renderPackMermaid,
-} = require("./pack-graph");
-
-// ── Diagnostic collections ──────────────────────────────────────────────────────────────
-
-/** @type {vscode.DiagnosticCollection} */
-let packDiagnostics;
-/** @type {vscode.DiagnosticCollection} */
-let validateDiagnostics;
-
-// The single live "Pack Graph" webview panel, and the pack.yaml it mirrors.
-/** @type {vscode.WebviewPanel|null} */
-let packGraphPanel = null;
-/** @type {string|null} */
-let packGraphFsPath = null;
-
-// ── Activation ────────────────────────────────────────────────────────────────────────────
-
-/**
- * Called once when VS Code first activates the extension.
- * @param {vscode.ExtensionContext} context
- */
-function activate(context) {
-  packDiagnostics = vscode.languages.createDiagnosticCollection("spec-driven-pack");
-  validateDiagnostics = vscode.languages.createDiagnosticCollection("spec-driven-validate");
-
-  context.subscriptions.push(packDiagnostics, validateDiagnostics);
-
-  // Validate pack.yaml whenever it's opened or its content changes
-  context.subscriptions.push(
-    vscode.workspace.onDidOpenTextDocument((doc) => {
-      if (isPackYaml(doc)) lintPackDocument(doc);
-    }),
-    vscode.workspace.onDidChangeTextDocument((evt) => {
-      if (isPackYaml(evt.document)) lintPackDocument(evt.document);
-    }),
-    vscode.workspace.onDidCloseTextDocument((doc) => {
-      packDiagnostics.delete(doc.uri);
-    })
-  );
-
-  // Run project-level validate on save (opt-in via setting); refresh the
-  // Pack Graph webview when its source pack.yaml is saved or edited.
-  context.subscriptions.push(
-    vscode.workspace.onDidSaveTextDocument((doc) => {
-      refreshPackGraphFor(doc);
-      const cfg = config();
-      if (!cfg.get("validateOnSave")) return;
-      const root = findProjectRoot(doc.uri.fsPath);
-      if (root) triggerProjectValidate(root, cfg.get("cliPath"));
-    }),
-    vscode.workspace.onDidChangeTextDocument((evt) => refreshPackGraphFor(evt.document))
-  );
-
-  // CodeLens: "Reveal REQ-NNN in traceability" above every requirement ID
-  context.subscriptions.push(
-    vscode.languages.registerCodeLensProvider({ scheme: "file" }, new RequirementCodeLensProvider())
-  );
-
-  // pack.yaml authoring: reference-field autocomplete + go-to-definition.
-  context.subscriptions.push(
-    vscode.languages.registerCompletionItemProvider(
-      { scheme: "file", language: "yaml" },
-      new PackReferenceCompletionProvider()
-    ),
-    vscode.languages.registerDefinitionProvider(
-      { scheme: "file", language: "yaml" },
-      new PackReferenceDefinitionProvider()
-    )
-  );
-
-  // Commands
-  context.subscriptions.push(
-    vscode.commands.registerTextEditorCommand(
-      "spec-driven.revealInTraceability",
-      cmdRevealInTraceability
-    ),
-    vscode.commands.registerCommand("spec-driven.validateProject", cmdValidateProject),
-    vscode.commands.registerCommand("spec-driven.showPackGraph", cmdShowPackGraph)
-  );
-
-  // Lint any pack.yaml files already open when extension activates
-  vscode.workspace.textDocuments.forEach((doc) => {
-    if (isPackYaml(doc)) lintPackDocument(doc);
-  });
-}
-
-function deactivate() {
-  packDiagnostics?.dispose();
-  validateDiagnostics?.dispose();
-  packGraphPanel?.dispose();
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────────
-
-/** @returns {vscode.WorkspaceConfiguration} */
-function config() {
-  return vscode.workspace.getConfiguration("spec-driven");
-}
-
-/** True when the document is a file named pack.yaml with YAML language mode. */
-function isPackYaml(doc) {
-  return (
-    path.basename(doc.fileName) === "pack.yaml" &&
-    (doc.languageId === "yaml" || doc.languageId === "plaintext")
-  );
-}
-
-/**
- * Walk up the directory tree to find the spec-driven project root.
- * Recognised by the presence of spec.md or docs/specs/traceability.md.
- * @param {string} filePath
- * @returns {string|null}
- */
-function findProjectRoot(filePath) {
-  let dir = path.dirname(filePath);
-  const { root } = path.parse(dir);
-  while (dir !== root) {
-    if (
-      fs.existsSync(path.join(dir, "spec.md")) ||
-      fs.existsSync(path.join(dir, "docs", "specs", "traceability.md"))
-    ) {
-      return dir;
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return null;
-}
-
-// ── pack.yaml linting ──────────────────────────────────────────────────────────────────
-
-function lintPackDocument(doc) {
-  const cfg = config();
-  const schemaPath =
-    cfg.get("schemaPath") || path.resolve(__dirname, "../../../../schemas/pack.schema.json");
-
-  const { parseError, errors } = validatePackYaml(doc.getText(), schemaPath);
-
-  const diags = [];
-
-  if (parseError) {
-    diags.push(makeDiag(parseError.line, parseError.col, parseError.message, parseError.severity));
-  }
-
-  for (const e of errors) {
-    diags.push(makeDiag(e.line, e.col, e.message, e.severity));
-  }
-
-  // Cross-reference linting: dangling REQ/CMD/AGG/EVT references that the
-  // JSON Schema cannot catch (it validates shape, not referential integrity).
-  for (const d of analyzePackGraph(doc.getText()).dangling) {
-    diags.push(makeDiag(d.line, d.col, d.message, d.severity));
-  }
-
-  packDiagnostics.set(doc.uri, diags);
-}
-
-/** Build a vscode.Diagnostic from a plain error descriptor. */
-function makeDiag(line, col, message, severity) {
-  const l = Math.max(0, line);
-  const c = Math.max(0, col);
-  return new vscode.Diagnostic(
-    new vscode.Range(l, c, l, Math.max(c + 1, c + 80)),
-    message,
-    severity === "error"
-      ? vscode.DiagnosticSeverity.Error
-      : severity === "warning"
-        ? vscode.DiagnosticSeverity.Warning
-        : vscode.DiagnosticSeverity.Information
-  );
-}
-
-// ── Project validate ─────────────────────────────────────────────────────────────────
-
-function triggerProjectValidate(projectDir, cliPath) {
-  const result = runValidate(projectDir, cliPath);
-
-  if (result.spawnError) {
-    vscode.window.showErrorMessage(
-      `Spec-Driven: could not run validate — ${result.spawnError}. ` +
-        `Check the 'spec-driven.cliPath' setting.`
-    );
-    return;
-  }
-
-  const diags = parseValidateOutput(result.stdout, result.stderr);
-  const errors = diags.filter((d) => d.severity === "error");
-  const warnings = diags.filter((d) => d.severity === "warning");
-
-  // Anchor diagnostics to spec.md if it exists, otherwise the project root URI
-  const anchorFile = fs.existsSync(path.join(projectDir, "spec.md"))
-    ? path.join(projectDir, "spec.md")
-    : projectDir;
-  const anchorUri = vscode.Uri.file(anchorFile);
-
-  validateDiagnostics.set(
-    anchorUri,
-    diags.filter((d) => d.severity !== "info").map((d) => makeDiag(0, 0, d.message, d.severity))
-  );
-
-  if (result.exitCode === 0) {
-    vscode.window.setStatusBarMessage("$(check) Spec-Driven: validate passed", 5_000);
-  } else {
-    vscode.window
-      .showWarningMessage(
-        `Spec-Driven: ${errors.length} error(s), ${warnings.length} warning(s). See Problems panel.`,
-        "Open Problems"
-      )
-      .then((choice) => {
-        if (choice === "Open Problems") {
-          vscode.commands.executeCommand("workbench.actions.view.problems");
-        }
-      });
-  }
-}
-
-// ── Commands ────────────────────────────────────────────────────────────────────────
-
-/** Command: spec-driven.revealInTraceability */
-async function cmdRevealInTraceability(editor) {
-  if (!editor) {
-    vscode.window.showInformationMessage(
-      "Open a file first, then place the cursor on a requirement ID."
-    );
-    return;
-  }
-
-  const wordRange = editor.document.getWordRangeAtPosition(
-    editor.selection.active,
-    /[A-Z]+-\d{3,}/
-  );
-  if (!wordRange) {
-    vscode.window.showInformationMessage(
-      "Place the cursor on a requirement ID (e.g. REQ-001, UC-003) then run this command."
-    );
-    return;
-  }
-
-  const id = editor.document.getText(wordRange);
-  const root = findProjectRoot(editor.document.fileName);
-
-  if (!root) {
-    vscode.window.showWarningMessage(
-      "Cannot find spec-driven project root (no spec.md found in parent directories)."
-    );
-    return;
-  }
-
-  const traceFile = path.join(root, "docs", "specs", "traceability.md");
-  if (!fs.existsSync(traceFile)) {
-    vscode.window.showWarningMessage(
-      "docs/specs/traceability.md not found. Run 'init' to generate it."
-    );
-    return;
-  }
-
-  const content = fs.readFileSync(traceFile, "utf8");
-  const targetLine = findIdInTraceability(content, id);
-
-  const traceUri = vscode.Uri.file(traceFile);
-  const doc = await vscode.workspace.openTextDocument(traceUri);
-  const targetEditor = await vscode.window.showTextDocument(doc);
-
-  if (targetLine >= 0) {
-    const pos = new vscode.Position(targetLine, 0);
-    targetEditor.selection = new vscode.Selection(pos, pos);
-    targetEditor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
-  } else {
-    vscode.window.showInformationMessage(`${id} is not yet listed in the traceability matrix.`);
-  }
-}
-
-/** Command: spec-driven.validateProject */
-async function cmdValidateProject() {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders || folders.length === 0) {
-    vscode.window.showErrorMessage("No workspace folder open.");
-    return;
-  }
-
-  const cfg = config();
-  const cliPath = cfg.get("cliPath");
-
-  for (const folder of folders) {
-    triggerProjectValidate(folder.uri.fsPath, cliPath);
-  }
-}
-
-// ── Pack Graph webview ────────────────────────────────────────────────────────────────
-
-/** Command: spec-driven.showPackGraph */
-function cmdShowPackGraph() {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor || !isPackYaml(editor.document)) {
-    vscode.window.showInformationMessage("Open a pack.yaml file, then run this command.");
-    return;
-  }
-  const doc = editor.document;
-
-  if (packGraphPanel) {
-    packGraphFsPath = doc.fileName;
-    packGraphPanel.title = `Pack Graph — ${path.basename(path.dirname(doc.fileName))}`;
-    packGraphPanel.reveal(vscode.ViewColumn.Beside);
-    postPackGraph(doc);
-    return;
-  }
-
-  packGraphPanel = vscode.window.createWebviewPanel(
-    "specDrivenPackGraph",
-    `Pack Graph — ${path.basename(path.dirname(doc.fileName))}`,
-    vscode.ViewColumn.Beside,
-    { enableScripts: true, retainContextWhenHidden: true }
-  );
-  packGraphFsPath = doc.fileName;
-  packGraphPanel.webview.html = packGraphHtml(packGraphPanel.webview);
-  packGraphPanel.onDidDispose(() => {
-    packGraphPanel = null;
-    packGraphFsPath = null;
-  });
-  // The webview tells us when its script is ready, then we send the graph.
-  packGraphPanel.webview.onDidReceiveMessage((msg) => {
-    if (msg && msg.type === "ready") postPackGraph(doc);
-  });
-}
-
-/** Re-render the webview when its source pack.yaml changes. */
-function refreshPackGraphFor(doc) {
-  if (!packGraphPanel || !packGraphFsPath) return;
-  if (doc.fileName !== packGraphFsPath) return;
-  postPackGraph(doc);
-}
-
-function postPackGraph(doc) {
-  if (!packGraphPanel) return;
-  packGraphPanel.webview.postMessage({
-    type: "update",
-    mermaid: renderPackMermaid(doc.getText()),
-  });
-}
+import { validatePackYaml } from "./pack-validator";
+import { findRequirementIds, findIdInTraceability, parseValidateOutput } from "./traceability";
+import { runValidate } from "./validate-runner";
+import { PackGraphAnalyzer } from "./pack-graph";
 
 function nonce() {
   let s = "";
@@ -367,12 +14,7 @@ function nonce() {
   return s;
 }
 
-/**
- * Static webview shell. Mermaid is loaded from jsDelivr (the webview needs
- * network for this feature); the graph text arrives via postMessage so edits
- * re-render without reloading the CDN script.
- */
-function packGraphHtml(webview) {
+function packGraphHtml(webview: vscode.Webview) {
   const n = nonce();
   const cdn = "https://cdn.jsdelivr.net";
   const csp =
@@ -421,18 +63,12 @@ function packGraphHtml(webview) {
 </html>`;
 }
 
-// ── CodeLens provider ─────────────────────────────────────────────────────────────────
-
-class RequirementCodeLensProvider {
-  /**
-   * @param {vscode.TextDocument} document
-   * @returns {vscode.CodeLens[]}
-   */
-  provideCodeLenses(document) {
-    const cfg = config();
+class RequirementCodeLensProvider implements vscode.CodeLensProvider {
+  provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+    const cfg = vscode.workspace.getConfiguration("spec-driven");
     if (!cfg.get("codeLens")) return [];
 
-    const lenses = findRequirementIds(document.getText()).map(({ id, line, col, endCol }) => {
+    const lenses = findRequirementIds(document.getText()).map(({ id, line, col, endCol }: any) => {
       const range = new vscode.Range(line, col, line, endCol);
       return new vscode.CodeLens(range, {
         title: `$(link-external) Reveal ${id} in traceability`,
@@ -441,10 +77,8 @@ class RequirementCodeLensProvider {
       });
     });
 
-    // In pack.yaml, show how many use cases / scenarios reference each
-    // requirement, right on its declaration line.
-    if (isPackYaml(document)) {
-      const { refCounts } = analyzePackGraph(document.getText());
+    if (path.basename(document.fileName) === "pack.yaml") {
+      const { refCounts } = PackGraphAnalyzer.analyzePackGraph(document.getText());
       const lines = document.getText().split("\n");
       for (let i = 0; i < lines.length; i++) {
         const m = lines[i].match(/\bid:\s*["']?(REQ-\d+)\b/);
@@ -467,9 +101,7 @@ class RequirementCodeLensProvider {
   }
 }
 
-// ── pack.yaml reference autocomplete ──────────────────────────────────────────────────
-
-const KIND_DETAIL = {
+const KIND_DETAIL: Record<string, string> = {
   requirement: "requirement",
   command: "command",
   query: "query",
@@ -477,24 +109,22 @@ const KIND_DETAIL = {
   event: "event",
 };
 
-class PackReferenceCompletionProvider {
-  /**
-   * @param {vscode.TextDocument} document
-   * @param {vscode.Position} position
-   * @returns {vscode.CompletionItem[]}
-   */
-  provideCompletionItems(document, position) {
-    if (!isPackYaml(document)) return [];
+class PackReferenceCompletionProvider implements vscode.CompletionItemProvider {
+  provideCompletionItems(
+    document: vscode.TextDocument,
+    position: vscode.Position
+  ): vscode.CompletionItem[] {
+    if (path.basename(document.fileName) !== "pack.yaml") return [];
 
     const lines = document.getText().split("\n");
-    const kind = referenceKindForLine(lines, position.line);
+    const kind = PackGraphAnalyzer.referenceKindForLine(lines, position.line) as string;
     if (!kind) return [];
 
-    const { declared } = analyzePackGraph(document.getText());
-    const candidates = declared[kind];
+    const { declared } = PackGraphAnalyzer.analyzePackGraph(document.getText());
+    const candidates = (declared as any)[kind];
     if (!candidates || candidates.size === 0) return [];
 
-    return [...candidates].sort().map((value) => {
+    return [...candidates].sort().map((value: any) => {
       const item = new vscode.CompletionItem(value, vscode.CompletionItemKind.Reference);
       item.detail = `pack.yaml ${KIND_DETAIL[kind]}`;
       return item;
@@ -502,29 +132,341 @@ class PackReferenceCompletionProvider {
   }
 }
 
-// ── pack.yaml go-to-definition ────────────────────────────────────────────────────────
-
-class PackReferenceDefinitionProvider {
-  /**
-   * @param {vscode.TextDocument} document
-   * @param {vscode.Position} position
-   * @returns {vscode.Location|null}
-   */
-  provideDefinition(document, position) {
-    if (!isPackYaml(document)) return null;
+class PackReferenceDefinitionProvider implements vscode.DefinitionProvider {
+  provideDefinition(
+    document: vscode.TextDocument,
+    position: vscode.Position
+  ): vscode.Location | null {
+    if (path.basename(document.fileName) !== "pack.yaml") return null;
 
     const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z][A-Za-z0-9_-]*/);
     if (!wordRange) return null;
 
     const token = document.getText(wordRange);
-    const decl = findDeclarationPosition(document.getText(), token);
+    const decl = PackGraphAnalyzer.findDeclarationPosition(document.getText(), token);
     if (!decl) return null;
 
-    // Don't jump from a declaration to itself.
     if (decl.line === position.line) return null;
 
     return new vscode.Location(document.uri, new vscode.Position(decl.line, decl.col));
   }
 }
 
-module.exports = { activate, deactivate };
+export class ExtensionActivator {
+  private packDiagnostics: vscode.DiagnosticCollection | undefined;
+  private validateDiagnostics: vscode.DiagnosticCollection | undefined;
+  private packGraphPanel: vscode.WebviewPanel | null = null;
+  private packGraphFsPath: string | null = null;
+  private context: vscode.ExtensionContext | undefined;
+
+  public activate(context: vscode.ExtensionContext) {
+    this.context = context;
+    this.packDiagnostics = vscode.languages.createDiagnosticCollection("spec-driven-pack");
+    this.validateDiagnostics = vscode.languages.createDiagnosticCollection("spec-driven-validate");
+
+    context.subscriptions.push(this.packDiagnostics, this.validateDiagnostics);
+
+    context.subscriptions.push(
+      vscode.workspace.onDidOpenTextDocument((doc) => {
+        if (this.isPackYaml(doc)) this.lintPackDocument(doc);
+      }),
+      vscode.workspace.onDidChangeTextDocument((evt) => {
+        if (this.isPackYaml(evt.document)) this.lintPackDocument(evt.document);
+      }),
+      vscode.workspace.onDidCloseTextDocument((doc) => {
+        this.packDiagnostics?.delete(doc.uri);
+      })
+    );
+
+    context.subscriptions.push(
+      vscode.workspace.onDidSaveTextDocument((doc) => {
+        this.refreshPackGraphFor(doc);
+        const cfg = this.config();
+        if (!cfg.get("validateOnSave")) return;
+        const root = this.findProjectRoot(doc.uri.fsPath);
+        if (root) this.triggerProjectValidate(root, cfg.get("cliPath") as string);
+      }),
+      vscode.workspace.onDidChangeTextDocument((evt) => this.refreshPackGraphFor(evt.document))
+    );
+
+    context.subscriptions.push(
+      vscode.languages.registerCodeLensProvider(
+        { scheme: "file" },
+        new RequirementCodeLensProvider()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.languages.registerCompletionItemProvider(
+        { scheme: "file", language: "yaml" },
+        new PackReferenceCompletionProvider()
+      ),
+      vscode.languages.registerDefinitionProvider(
+        { scheme: "file", language: "yaml" },
+        new PackReferenceDefinitionProvider()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerTextEditorCommand("spec-driven.revealInTraceability", (editor) =>
+        this.cmdRevealInTraceability(editor)
+      ),
+      vscode.commands.registerCommand("spec-driven.validateProject", () =>
+        this.cmdValidateProject()
+      ),
+      vscode.commands.registerCommand("spec-driven.showPackGraph", () => this.cmdShowPackGraph())
+    );
+
+    vscode.workspace.textDocuments.forEach((doc) => {
+      if (this.isPackYaml(doc)) this.lintPackDocument(doc);
+    });
+  }
+
+  public deactivate() {
+    this.packDiagnostics?.dispose();
+    this.validateDiagnostics?.dispose();
+    this.packGraphPanel?.dispose();
+  }
+
+  private config(): vscode.WorkspaceConfiguration {
+    return vscode.workspace.getConfiguration("spec-driven");
+  }
+
+  private isPackYaml(doc: vscode.TextDocument): boolean {
+    return (
+      path.basename(doc.fileName) === "pack.yaml" &&
+      (doc.languageId === "yaml" || doc.languageId === "plaintext")
+    );
+  }
+
+  private findProjectRoot(filePath: string): string | null {
+    let dir = path.dirname(filePath);
+    const { root } = path.parse(dir);
+    while (dir !== root) {
+      if (
+        fs.existsSync(path.join(dir, "spec.md")) ||
+        fs.existsSync(path.join(dir, "docs", "specs", "traceability.md"))
+      ) {
+        return dir;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    return null;
+  }
+
+  private lintPackDocument(doc: vscode.TextDocument) {
+    const cfg = this.config();
+    const schemaPath =
+      (cfg.get("schemaPath") as string) ||
+      path.resolve(__dirname, "../../../../schemas/pack.schema.json");
+
+    const { parseError, errors } = validatePackYaml(doc.getText(), schemaPath);
+
+    const diags: vscode.Diagnostic[] = [];
+
+    if (parseError) {
+      diags.push(
+        this.makeDiag(parseError.line, parseError.col, parseError.message, parseError.severity)
+      );
+    }
+
+    for (const e of errors) {
+      diags.push(this.makeDiag(e.line, e.col, e.message, e.severity));
+    }
+
+    for (const d of PackGraphAnalyzer.analyzePackGraph(doc.getText()).dangling) {
+      diags.push(this.makeDiag(d.line, d.col, d.message, d.severity));
+    }
+
+    this.packDiagnostics?.set(doc.uri, diags);
+  }
+
+  private makeDiag(
+    line: number,
+    col: number,
+    message: string,
+    severity: string
+  ): vscode.Diagnostic {
+    const l = Math.max(0, line);
+    const c = Math.max(0, col);
+    return new vscode.Diagnostic(
+      new vscode.Range(l, c, l, Math.max(c + 1, c + 80)),
+      message,
+      severity === "error"
+        ? vscode.DiagnosticSeverity.Error
+        : severity === "warning"
+          ? vscode.DiagnosticSeverity.Warning
+          : vscode.DiagnosticSeverity.Information
+    );
+  }
+
+  private triggerProjectValidate(projectDir: string, cliPath: string) {
+    const result = runValidate(projectDir, cliPath);
+
+    if (result.spawnError) {
+      vscode.window.showErrorMessage(
+        `Spec-Driven: could not run validate — ${result.spawnError}. ` +
+          `Check the 'spec-driven.cliPath' setting.`
+      );
+      return;
+    }
+
+    const diags = parseValidateOutput(result.stdout, result.stderr);
+    const errors = diags.filter((d: any) => d.severity === "error");
+    const warnings = diags.filter((d: any) => d.severity === "warning");
+
+    const anchorFile = fs.existsSync(path.join(projectDir, "spec.md"))
+      ? path.join(projectDir, "spec.md")
+      : projectDir;
+    const anchorUri = vscode.Uri.file(anchorFile);
+
+    this.validateDiagnostics?.set(
+      anchorUri,
+      diags
+        .filter((d: any) => d.severity !== "info")
+        .map((d: any) => this.makeDiag(0, 0, d.message, d.severity))
+    );
+
+    if (result.exitCode === 0) {
+      vscode.window.setStatusBarMessage("$(check) Spec-Driven: validate passed", 5_000);
+    } else {
+      vscode.window
+        .showWarningMessage(
+          `Spec-Driven: ${errors.length} error(s), ${warnings.length} warning(s). See Problems panel.`,
+          "Open Problems"
+        )
+        .then((choice) => {
+          if (choice === "Open Problems") {
+            vscode.commands.executeCommand("workbench.actions.view.problems");
+          }
+        });
+    }
+  }
+
+  private async cmdRevealInTraceability(editor: vscode.TextEditor | undefined) {
+    if (!editor) {
+      vscode.window.showInformationMessage(
+        "Open a file first, then place the cursor on a requirement ID."
+      );
+      return;
+    }
+
+    const wordRange = editor.document.getWordRangeAtPosition(
+      editor.selection.active,
+      /[A-Z]+-\d{3,}/
+    );
+    if (!wordRange) {
+      vscode.window.showInformationMessage(
+        "Place the cursor on a requirement ID (e.g. REQ-001, UC-003) then run this command."
+      );
+      return;
+    }
+
+    const id = editor.document.getText(wordRange);
+    const root = this.findProjectRoot(editor.document.fileName);
+
+    if (!root) {
+      vscode.window.showWarningMessage(
+        "Cannot find spec-driven project root (no spec.md found in parent directories)."
+      );
+      return;
+    }
+
+    const traceFile = path.join(root, "docs", "specs", "traceability.md");
+    if (!fs.existsSync(traceFile)) {
+      vscode.window.showWarningMessage(
+        "docs/specs/traceability.md not found. Run 'init' to generate it."
+      );
+      return;
+    }
+
+    const content = fs.readFileSync(traceFile, "utf8");
+    const targetLine = findIdInTraceability(content, id);
+
+    const traceUri = vscode.Uri.file(traceFile);
+    const doc = await vscode.workspace.openTextDocument(traceUri);
+    const targetEditor = await vscode.window.showTextDocument(doc);
+
+    if (targetLine >= 0) {
+      const pos = new vscode.Position(targetLine, 0);
+      targetEditor.selection = new vscode.Selection(pos, pos);
+      targetEditor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+    } else {
+      vscode.window.showInformationMessage(`${id} is not yet listed in the traceability matrix.`);
+    }
+  }
+
+  private async cmdValidateProject() {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+      vscode.window.showErrorMessage("No workspace folder open.");
+      return;
+    }
+
+    const cfg = this.config();
+    const cliPath = cfg.get("cliPath") as string;
+
+    for (const folder of folders) {
+      this.triggerProjectValidate(folder.uri.fsPath, cliPath);
+    }
+  }
+
+  private cmdShowPackGraph() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || !this.isPackYaml(editor.document)) {
+      vscode.window.showInformationMessage("Open a pack.yaml file, then run this command.");
+      return;
+    }
+    const doc = editor.document;
+
+    if (this.packGraphPanel) {
+      this.packGraphFsPath = doc.fileName;
+      this.packGraphPanel.title = `Pack Graph — ${path.basename(path.dirname(doc.fileName))}`;
+      this.packGraphPanel.reveal(vscode.ViewColumn.Beside);
+      this.postPackGraph(doc);
+      return;
+    }
+
+    this.packGraphPanel = vscode.window.createWebviewPanel(
+      "specDrivenPackGraph",
+      `Pack Graph — ${path.basename(path.dirname(doc.fileName))}`,
+      vscode.ViewColumn.Beside,
+      { enableScripts: true, retainContextWhenHidden: true }
+    );
+    this.packGraphFsPath = doc.fileName;
+    this.packGraphPanel.webview.html = packGraphHtml(this.packGraphPanel.webview);
+    this.packGraphPanel.onDidDispose(() => {
+      this.packGraphPanel = null;
+      this.packGraphFsPath = null;
+    });
+    this.packGraphPanel.webview.onDidReceiveMessage((msg) => {
+      if (msg && msg.type === "ready") this.postPackGraph(doc);
+    });
+  }
+
+  private refreshPackGraphFor(doc: vscode.TextDocument) {
+    if (!this.packGraphPanel || !this.packGraphFsPath) return;
+    if (doc.fileName !== this.packGraphFsPath) return;
+    this.postPackGraph(doc);
+  }
+
+  private postPackGraph(doc: vscode.TextDocument) {
+    if (!this.packGraphPanel) return;
+    this.packGraphPanel.webview.postMessage({
+      type: "update",
+      mermaid: PackGraphAnalyzer.renderPackMermaid(doc.getText()),
+    });
+  }
+}
+
+const activator = new ExtensionActivator();
+
+export function activate(context: vscode.ExtensionContext) {
+  activator.activate(context);
+}
+
+export function deactivate() {
+  activator.deactivate();
+}

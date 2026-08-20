@@ -21,6 +21,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
+import { BaseCommand } from "../lib/command";
 
 import { readLock } from "./lock";
 import { resolveProjectDir } from "../lib/project-root";
@@ -251,206 +252,208 @@ export function stageContribution(repo, version, branch, files, outDir) {
 
 // ── Command ───────────────────────────────────────────────────────────────────
 
-function main() {
-  const opts = parseArgs(process.argv.slice(2));
-  const nullShape = { contribution: null };
+export class ContributeCommand extends BaseCommand {
+  public execute() {
+    const opts = parseArgs(this.args);
+    const nullShape = { contribution: null };
 
-  const fail = (diags) => {
-    if (opts.json) {
-      process.stdout.write(`${JSON.stringify({ ...nullShape, status: diags }, null, 2)}\n`);
-    } else {
-      printDiagnostics(diags);
+    const fail = (diags) => {
+      if (opts.json) {
+        process.stdout.write(`${JSON.stringify({ ...nullShape, status: diags }, null, 2)}\n`);
+      } else {
+        printDiagnostics(diags);
+      }
+      process.exit(1);
+    };
+
+    if (!opts.change) {
+      return fail([
+        error("change_required", "`specops contribute` expects --change <change-id>.", {
+          fix: "Run `csda change list` to see active changes.",
+        }),
+      ]);
     }
-    process.exit(1);
-  };
 
-  if (!opts.change) {
-    return fail([
-      error("change_required", "`specops contribute` expects --change <change-id>.", {
-        fix: "Run `csda change list` to see active changes.",
-      }),
-    ]);
-  }
+    const projectDir = resolveProjectDir(opts.projectDir);
+    const p = paths(projectDir);
 
-  const projectDir = resolveProjectDir(opts.projectDir);
-  const p = paths(projectDir);
+    if (!fs.existsSync(p.change(opts.change))) {
+      return fail([
+        error("change_not_found", `Change "${opts.change}" does not exist.`, {
+          target: opts.change,
+          fix: "Run `csda change list`.",
+        }),
+      ]);
+    }
 
-  if (!fs.existsSync(p.change(opts.change))) {
-    return fail([
-      error("change_not_found", `Change "${opts.change}" does not exist.`, {
-        target: opts.change,
-        fix: "Run `csda change list`.",
-      }),
-    ]);
-  }
+    const lock = readLock(projectDir);
+    if (!lock || !Array.isArray(lock.packs) || lock.packs.length === 0) {
+      return fail([
+        error("no_lockfile", "No .specops.lock with pack entries in this project.", {
+          fix: "`contribute` sends a change upstream to a pack; add one with `csda specops add`.",
+        }),
+      ]);
+    }
 
-  const lock = readLock(projectDir);
-  if (!lock || !Array.isArray(lock.packs) || lock.packs.length === 0) {
-    return fail([
-      error("no_lockfile", "No .specops.lock with pack entries in this project.", {
-        fix: "`contribute` sends a change upstream to a pack; add one with `csda specops add`.",
-      }),
-    ]);
-  }
+    const candidates = opts.pack ? lock.packs.filter((e) => e.pack_id === opts.pack) : lock.packs;
+    if (candidates.length === 0) {
+      return fail([
+        error("pack_not_found", `No pack "${opts.pack}" in .specops.lock.`, {
+          target: opts.pack,
+          fix: `Available: ${lock.packs.map((e) => e.pack_id).join(", ")}.`,
+        }),
+      ]);
+    }
+    if (candidates.length > 1) {
+      return fail([
+        error("ambiguous_pack", "Several packs are locked; name the one to contribute to.", {
+          fix: `Use --pack with one of: ${lock.packs.map((e) => e.pack_id).join(", ")}.`,
+        }),
+      ]);
+    }
+    const entry = candidates[0];
 
-  const candidates = opts.pack ? lock.packs.filter((e) => e.pack_id === opts.pack) : lock.packs;
-  if (candidates.length === 0) {
-    return fail([
-      error("pack_not_found", `No pack "${opts.pack}" in .specops.lock.`, {
-        target: opts.pack,
-        fix: `Available: ${lock.packs.map((e) => e.pack_id).join(", ")}.`,
-      }),
-    ]);
-  }
-  if (candidates.length > 1) {
-    return fail([
-      error("ambiguous_pack", "Several packs are locked; name the one to contribute to.", {
-        fix: `Use --pack with one of: ${lock.packs.map((e) => e.pack_id).join(", ")}.`,
-      }),
-    ]);
-  }
-  const entry = candidates[0];
+    const deltas = listDeltas(projectDir, opts.change);
+    if (deltas.length === 0) {
+      return fail([
+        error("change_has_no_deltas", `Change "${opts.change}" carries no delta specs.`, {
+          target: opts.change,
+          fix: "There is nothing to send upstream; a contribution is made of requirements.",
+        }),
+      ]);
+    }
 
-  const deltas = listDeltas(projectDir, opts.change);
-  if (deltas.length === 0) {
-    return fail([
-      error("change_has_no_deltas", `Change "${opts.change}" carries no delta specs.`, {
-        target: opts.change,
-        fix: "There is nothing to send upstream; a contribution is made of requirements.",
-      }),
-    ]);
-  }
+    // Merge every delta in the change into one fragment: upstream cares about
+    // requirements, not about how the consuming project filed them.
+    const combined = { added: [], modified: [], removed: [] };
+    for (const d of deltas) {
+      const parsed = parseDelta(fs.readFileSync(d.file, "utf8"));
+      combined.added.push(...parsed.added);
+      combined.modified.push(...parsed.modified);
+      combined.removed.push(...parsed.removed);
+    }
 
-  // Merge every delta in the change into one fragment: upstream cares about
-  // requirements, not about how the consuming project filed them.
-  const combined = { added: [], modified: [], removed: [] };
-  for (const d of deltas) {
-    const parsed = parseDelta(fs.readFileSync(d.file, "utf8"));
-    combined.added.push(...parsed.added);
-    combined.modified.push(...parsed.modified);
-    combined.removed.push(...parsed.removed);
-  }
+    const fragment = deltaToPackFragment(combined, { changeId: opts.change });
+    if (!fragment) {
+      return fail([
+        error("nothing_to_contribute", `Change "${opts.change}" declares no requirement changes.`, {
+          target: opts.change,
+          fix: "Add requirements to the delta before contributing.",
+        }),
+      ]);
+    }
 
-  const fragment = deltaToPackFragment(combined, { changeId: opts.change });
-  if (!fragment) {
-    return fail([
-      error("nothing_to_contribute", `Change "${opts.change}" declares no requirement changes.`, {
-        target: opts.change,
-        fix: "Add requirements to the delta before contributing.",
-      }),
-    ]);
-  }
+    const summary = {
+      added: combined.added.map((r) => r.id || r.name),
+      modified: combined.modified.map((r) => r.id || r.name),
+      removed: combined.removed.map((r) => r.id || r.name),
+    };
 
-  const summary = {
-    added: combined.added.map((r) => r.id || r.name),
-    modified: combined.modified.map((r) => r.id || r.name),
-    removed: combined.removed.map((r) => r.id || r.name),
-  };
+    const proposalFile = path.join(p.change(opts.change), "proposal.md");
+    const proposal = fs.existsSync(proposalFile) ? fs.readFileSync(proposalFile, "utf8") : "";
+    const branch = opts.branch || `contribute/${opts.change}`;
+    const base = path.posix.join("contributions", opts.change);
 
-  const proposalFile = path.join(p.change(opts.change), "proposal.md");
-  const proposal = fs.existsSync(proposalFile) ? fs.readFileSync(proposalFile, "utf8") : "";
-  const branch = opts.branch || `contribute/${opts.change}`;
-  const base = path.posix.join("contributions", opts.change);
+    const files = [
+      {
+        file: path.posix.join(base, "fragment.yaml"),
+        contents: fragment,
+        message: `Contribute ${summary.added.length + summary.modified.length} requirement(s) from a consuming project`,
+      },
+      {
+        file: path.posix.join(base, "delta.md"),
+        contents: deltas.map((d) => fs.readFileSync(d.file, "utf8")).join("\n\n---\n\n"),
+      },
+      {
+        file: path.posix.join(base, "README.md"),
+        contents: contributionReadme(opts.change, entry.pack_id, proposal, summary),
+      },
+    ];
 
-  const files = [
-    {
-      file: path.posix.join(base, "fragment.yaml"),
-      contents: fragment,
-      message: `Contribute ${summary.added.length + summary.modified.length} requirement(s) from a consuming project`,
-    },
-    {
-      file: path.posix.join(base, "delta.md"),
-      contents: deltas.map((d) => fs.readFileSync(d.file, "utf8")).join("\n\n---\n\n"),
-    },
-    {
-      file: path.posix.join(base, "README.md"),
-      contents: contributionReadme(opts.change, entry.pack_id, proposal, summary),
-    },
-  ];
+    if (opts.dryRun) {
+      const payload = {
+        contribution: {
+          change: opts.change,
+          pack: entry.pack_id,
+          repo: entry.repo,
+          branch,
+          files: files.map((f) => f.file),
+          summary,
+          dryRun: true,
+        },
+        status: [],
+      };
+      if (opts.json) {
+        process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+      } else {
+        process.stdout.write(
+          `\n  ${c.bold}Contribution plan${c.reset} ${c.dim}(dry run — nothing cloned)${c.reset}\n\n` +
+            `    ${c.dim}pack:${c.reset}   ${entry.pack_id} ${c.dim}(${entry.repo})${c.reset}\n` +
+            `    ${c.dim}branch:${c.reset} ${branch}\n\n` +
+            files.map((f) => `    ${c.green}+${c.reset} ${f.file}\n`).join("") +
+            `\n${fragment
+              .split("\n")
+              .map((l) => `    ${c.dim}${l}${c.reset}`)
+              .join("\n")}\n\n`
+        );
+      }
+      return;
+    }
 
-  if (opts.dryRun) {
+    if (!entry.repo) {
+      return fail([
+        error("pack_has_no_repo", `Pack "${entry.pack_id}" has no repo in .specops.lock.`, {
+          target: entry.pack_id,
+          fix: "A contribution needs a git repository to branch from.",
+        }),
+      ]);
+    }
+
+    let staged;
+    try {
+      staged = stageContribution(entry.repo, entry.version, branch, files, opts.out);
+    } catch (err) {
+      return fail([
+        error("contribute_stage_failed", `Could not stage the contribution: ${err.message}`, {
+          target: entry.pack_id,
+          fix: "Check that git is on PATH and the pack repository is reachable.",
+        }),
+      ]);
+    }
+
+    const pushCommand = `git -C ${staged.dir} push -u origin ${branch}`;
     const payload = {
       contribution: {
         change: opts.change,
         pack: entry.pack_id,
         repo: entry.repo,
         branch,
-        files: files.map((f) => f.file),
+        clone: staged.dir,
+        files: staged.files,
         summary,
-        dryRun: true,
+        pushCommand,
       },
-      status: [],
+      status: [
+        warning("contribute_not_pushed", "The branch exists locally and was not pushed.", {
+          fix: pushCommand,
+        }),
+      ],
     };
+
     if (opts.json) {
       process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
-    } else {
-      process.stdout.write(
-        `\n  ${c.bold}Contribution plan${c.reset} ${c.dim}(dry run — nothing cloned)${c.reset}\n\n` +
-          `    ${c.dim}pack:${c.reset}   ${entry.pack_id} ${c.dim}(${entry.repo})${c.reset}\n` +
-          `    ${c.dim}branch:${c.reset} ${branch}\n\n` +
-          files.map((f) => `    ${c.green}+${c.reset} ${f.file}\n`).join("") +
-          `\n${fragment
-            .split("\n")
-            .map((l) => `    ${c.dim}${l}${c.reset}`)
-            .join("\n")}\n\n`
-      );
+      return;
     }
-    return;
+
+    process.stdout.write(
+      `\n  ${c.green}✔${c.reset} Contribution staged on ${c.bold}${branch}${c.reset}\n\n` +
+        `    ${c.dim}pack:${c.reset}  ${entry.pack_id}\n` +
+        `    ${c.dim}clone:${c.reset} ${staged.dir}\n\n` +
+        staged.files.map((f) => `    ${c.green}+${c.reset} ${f}\n`).join("") +
+        `\n  ${c.yellow}Nothing was pushed.${c.reset} To publish it:\n\n` +
+        `    ${c.cyan}${pushCommand}${c.reset}\n\n`
+    );
   }
-
-  if (!entry.repo) {
-    return fail([
-      error("pack_has_no_repo", `Pack "${entry.pack_id}" has no repo in .specops.lock.`, {
-        target: entry.pack_id,
-        fix: "A contribution needs a git repository to branch from.",
-      }),
-    ]);
-  }
-
-  let staged;
-  try {
-    staged = stageContribution(entry.repo, entry.version, branch, files, opts.out);
-  } catch (err) {
-    return fail([
-      error("contribute_stage_failed", `Could not stage the contribution: ${err.message}`, {
-        target: entry.pack_id,
-        fix: "Check that git is on PATH and the pack repository is reachable.",
-      }),
-    ]);
-  }
-
-  const pushCommand = `git -C ${staged.dir} push -u origin ${branch}`;
-  const payload = {
-    contribution: {
-      change: opts.change,
-      pack: entry.pack_id,
-      repo: entry.repo,
-      branch,
-      clone: staged.dir,
-      files: staged.files,
-      summary,
-      pushCommand,
-    },
-    status: [
-      warning("contribute_not_pushed", "The branch exists locally and was not pushed.", {
-        fix: pushCommand,
-      }),
-    ],
-  };
-
-  if (opts.json) {
-    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
-    return;
-  }
-
-  process.stdout.write(
-    `\n  ${c.green}✔${c.reset} Contribution staged on ${c.bold}${branch}${c.reset}\n\n` +
-      `    ${c.dim}pack:${c.reset}  ${entry.pack_id}\n` +
-      `    ${c.dim}clone:${c.reset} ${staged.dir}\n\n` +
-      staged.files.map((f) => `    ${c.green}+${c.reset} ${f}\n`).join("") +
-      `\n  ${c.yellow}Nothing was pushed.${c.reset} To publish it:\n\n` +
-      `    ${c.cyan}${pushCommand}${c.reset}\n\n`
-  );
 }
 
-if (require.main === module) main();
+if (require.main === module) new ContributeCommand(process.argv.slice(2)).execute();

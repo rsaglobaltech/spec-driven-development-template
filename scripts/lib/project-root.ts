@@ -73,3 +73,14 @@ export function resolveProjectDir(explicit: string, opts?: { requireSentinel?: b
   }
   return canonical(path.resolve(process.cwd()));
 }
+
+export function findCliRoot(startDir = __dirname): string {
+  let dir = path.resolve(startDir);
+  const { root } = path.parse(dir);
+  while (true) {
+    if (fs.existsSync(path.join(dir, "package.json"))) return dir;
+    if (dir === root) break;
+    dir = path.dirname(dir);
+  }
+  return path.resolve(__dirname, "..", "..");
+}

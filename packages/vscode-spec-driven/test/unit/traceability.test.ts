@@ -1,13 +1,13 @@
 "use strict";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
 
-const {
+import {
   findRequirementIds,
   findIdInTraceability,
   parseValidateOutput,
-} = require("../../src/traceability");
+} from "../../src/traceability";
 
 // ── findRequirementIds ────────────────────────────────────────────────────────
 

@@ -1,0 +1,65 @@
+/**
+ * The public face of the core package.
+ *
+ * Three circles, innermost first: the domain knows nothing but itself, the
+ * application depends only on the domain and on its own ports, and the
+ * infrastructure adapters implement those ports. `tests/unit/architecture.test.ts`
+ * fails the build if an import ever points the other way.
+ */
+
+// ── Domain ───────────────────────────────────────────────────────────────────
+export * from "./domain/ArchivePlan";
+export * from "./domain/DeltaSpec";
+export * from "./domain/Diagnostic";
+export * from "./domain/DomainPack";
+export * from "./domain/HarnessConfig";
+export * from "./domain/Lockfile";
+export * from "./domain/RequirementGraph";
+export * from "./domain/RequirementPlan";
+export * from "./domain/SpecDiff";
+export * from "./domain/SpecParser";
+export * from "./domain/SpecopsManifest";
+export * from "./domain/TraceabilityFormat";
+export * from "./domain/TraceabilityMatrix";
+export * from "./domain/ValidationReport";
+export * from "./domain/YamlLite";
+
+// ── Application ports ────────────────────────────────────────────────────────
+export * from "./application/ports/IDomainPackRepository";
+export * from "./application/ports/IHarnessConfigRepository";
+export * from "./application/ports/IProjectRepository";
+export * from "./application/ports/IRequirementGraphRepository";
+export * from "./application/ports/ITraceabilityRepository";
+// `WriteOptions` is declared by both of these ports; re-export it under a name
+// that says which one it belongs to rather than letting one shadow the other.
+export {
+  ILockfileRepository,
+  WriteOptions as LockfileWriteOptions,
+} from "./application/ports/ILockfileRepository";
+export {
+  IManifestRepository,
+  WriteOptions as ManifestWriteOptions,
+} from "./application/ports/IManifestRepository";
+
+// ── Application use cases ────────────────────────────────────────────────────
+export * from "./application/AddRequirementUseCase";
+export * from "./application/ArchiveChangeUseCase";
+export * from "./application/CheckAgainstLockUseCase";
+export * from "./application/GenerateAgentPromptUseCase";
+export * from "./application/GeneratePlanUseCase";
+export * from "./application/LinkRequirementUseCase";
+export * from "./application/RemovePackUseCase";
+export * from "./application/UpdateRequirementStatusUseCase";
+export * from "./application/ValidateProjectUseCase";
+
+// ── Infrastructure ───────────────────────────────────────────────────────────
+export * from "./infrastructure/ChangeWorkspace";
+export * from "./infrastructure/DiskDomainPackRepository";
+export * from "./infrastructure/DiskHarnessConfigRepository";
+export * from "./infrastructure/DiskLockfileRepository";
+export * from "./infrastructure/DiskManifestRepository";
+export * from "./infrastructure/DiskProjectRepository";
+export * from "./infrastructure/DiskRequirementGraphRepository";
+export * from "./infrastructure/DiskTraceabilityRepository";
+export * from "./infrastructure/HarnessConfigFile";
+export * from "./infrastructure/RemotePackResolver";

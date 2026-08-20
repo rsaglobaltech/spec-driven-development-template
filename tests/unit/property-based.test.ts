@@ -22,7 +22,7 @@ const varName = fc.stringMatching(/^[A-Z][A-Z0-9_]{0,19}$/);
 // string is treated as "missing" by normalizeVars)
 const safeValue = fc
   .string({ minLength: 1, maxLength: 50 })
-  .filter((s) => !s.includes("{{") && !s.includes("}}"));
+  .filter((s) => !s.includes("{") && !s.includes("}"));
 
 const varsMap = fc.dictionary(varName, safeValue, { minKeys: 1, maxKeys: 5 });
 

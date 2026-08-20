@@ -8,7 +8,8 @@ const rootDir = path.resolve(__dirname, "..", "..");
 const distScripts = path.join(__dirname, "..", "scripts");
 const packageJson = require(path.join(rootDir, "package.json"));
 const VERSION: string = packageJson.version || "0.0.0";
-const { SURFACE, helpRows, coreHelpRows, hiddenCommandCount } = require("../scripts/lib/surface");
+import { ICommand } from "../scripts/lib/command";
+import { SURFACE, helpRows, coreHelpRows, hiddenCommandCount } from "../scripts/lib/surface";
 
 /** Resolve a registry row's `script` segments to a path under dist/scripts. */
 function resolveScript(segments: string[]): string {
@@ -226,56 +227,58 @@ function runNodeScript(scriptPath: string, args: string[]): void {
   process.exit(typeof result.status === "number" ? result.status : 1);
 }
 
-function main(): void {
-  const args = process.argv.slice(2);
+export class CreateSpecDrivenAppCommand implements ICommand {
+  public execute(args: string[] = []): void {
+    args = args.length ? args : process.argv.slice(2);
 
-  if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
-    usage({ all: args.includes("--all") });
-    process.exit(0);
-  }
+    if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
+      usage({ all: args.includes("--all") });
+      process.exit(0);
+    }
 
-  if (args[0] === "--version" || args[0] === "-v") {
-    process.stdout.write(`${VERSION}\n`);
-    process.exit(0);
-  }
+    if (args[0] === "--version" || args[0] === "-v") {
+      process.stdout.write(`${VERSION}\n`);
+      process.exit(0);
+    }
 
-  const command = args[0];
+    const command = args[0];
 
-  const row = SURFACE.find((c: any) => c.name === command);
-  if (!row) {
-    info(`Unknown command: ${command}`);
-    usage();
-    process.exit(2);
-  }
+    const row = SURFACE.find((c: any) => c.name === command);
+    if (!row) {
+      info(`Unknown command: ${command}`);
+      usage();
+      process.exit(2);
+    }
 
-  // Three commands need more than a table row. Each is a genuine parsing
-  // decision, not a route, which is why it lives here and not in the registry.
-  if (command === "init") return dispatchInit(args.slice(1));
-  if (command === "validate") return dispatchValidate(args.slice(1));
-  if (command === "harness" && args[1] === "prompt") return dispatchHarnessPrompt(args);
+    // Three commands need more than a table row. Each is a genuine parsing
+    // decision, not a route, which is why it lives here and not in the registry.
+    if (command === "init") return dispatchInit(args.slice(1));
+    if (command === "validate") return dispatchValidate(args.slice(1));
+    if (command === "harness" && args[1] === "prompt") return dispatchHarnessPrompt(args);
 
-  // A command with its own script owns its sub-commands: the dispatcher hands
-  // the whole tail over and the script reports an unknown one in its own words.
-  if (row.script) {
-    const target = resolveScript(row.script);
+    // A command with its own script owns its sub-commands: the dispatcher hands
+    // the whole tail over and the script reports an unknown one in its own words.
+    if (row.script) {
+      const target = resolveScript(row.script);
+      ensureExecutable(target);
+      runNodeScript(target, args.slice(1));
+      return;
+    }
+
+    // Otherwise the sub-command is the route, and an unknown one stops here.
+    const subName = args[1];
+    const sub = (row.subcommands || []).find((s: any) => s.name === subName);
+    if (!sub) {
+      const expected = (row.subcommands || []).map((s: any) => s.name).join(", ");
+      error(`Unknown ${command} sub-command: ${subName || "(none)"}. Expected: ${expected}`);
+      usage();
+      process.exit(2);
+    }
+
+    const target = resolveScript(sub.script);
     ensureExecutable(target);
-    runNodeScript(target, args.slice(1));
-    return;
+    runNodeScript(target, args.slice(sub.argsFrom === undefined ? 2 : sub.argsFrom));
   }
-
-  // Otherwise the sub-command is the route, and an unknown one stops here.
-  const subName = args[1];
-  const sub = (row.subcommands || []).find((s: any) => s.name === subName);
-  if (!sub) {
-    const expected = (row.subcommands || []).map((s: any) => s.name).join(", ");
-    error(`Unknown ${command} sub-command: ${subName || "(none)"}. Expected: ${expected}`);
-    usage();
-    process.exit(2);
-  }
-
-  const target = resolveScript(sub.script);
-  ensureExecutable(target);
-  runNodeScript(target, args.slice(sub.argsFrom === undefined ? 2 : sub.argsFrom));
 }
 
 /**
@@ -344,4 +347,6 @@ function dispatchHarnessPrompt(args: string[]): void {
   runNodeScript(script, ["--dry-run", "--req", reqId, ...args.slice(3)]);
 }
 
-main();
+if (require.main === module || require.main?.filename.endsWith("bin/create-spec-driven-app.js")) {
+  new CreateSpecDrivenAppCommand().execute();
+}

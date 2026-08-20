@@ -26,6 +26,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
+import { BaseCommand } from "../lib/command";
 
 import { resolveProjectDir } from "../lib/project-root";
 import { buildPrompt } from "./prompt";
@@ -1195,119 +1196,121 @@ export async function runLevels(pending, ctx, opts) {
   return results;
 }
 
-async function main() {
-  try {
-    const args = parseArgs(process.argv.slice(2));
-    setJsonMode(args.format === "json");
-    const projectDir = resolveProjectDir(args.projectDir, { requireSentinel: true });
+export class RunCommand extends BaseCommand {
+  public async execute() {
+    try {
+      const args = parseArgs(this.args);
+      setJsonMode(args.format === "json");
+      const projectDir = resolveProjectDir(args.projectDir, { requireSentinel: true });
 
-    const fileConfig = readHarnessConfig(projectDir);
-    const settings = resolveHarnessSettings(fileConfig, args);
+      const fileConfig = readHarnessConfig(projectDir);
+      const settings = resolveHarnessSettings(fileConfig, args);
 
-    if (!args.dryRun && !settings.agent) {
-      throw new Error(
-        'No agent configured. Pass --agent "<cmd with {prompt_file}>" or set `agent:` ' +
-          "in harness.config.yaml."
-      );
-    }
-
-    const plan = runPlan(projectDir);
-    let pending = (plan.requirements || []).filter((r) => r.category !== "DONE");
-    if (args.reqs.length > 0) {
-      const wanted = new Set(args.reqs);
-      pending = pending.filter((r) => wanted.has(r.requirement));
-      const found = new Set(pending.map((r) => r.requirement));
-      for (const want of args.reqs) {
-        if (!found.has(want)) warn(`${want} is not a pending requirement — skipped.`);
-      }
-    }
-
-    if (pending.length === 0) {
-      info("No pending requirements. Nothing to do.");
-      process.exit(0);
-    }
-
-    const hintByReq = new Map((plan.next_steps || []).map((s) => [s.requirement, s.hint]));
-
-    if (args.dryRun) {
-      info(`Dry run — ${pending.length} requirement(s) would be processed:`);
-      for (const req of pending) {
-        const prompt = buildPrompt(req, projectDir, {
-          promptPrefix: settings.promptPrefix,
-          hint: hintByReq.get(req.requirement) as string | undefined,
-        });
-        process.stdout.write(
-          `\n${"═".repeat(72)}\n${req.requirement} (${req.category}) → branch harness/${req.requirement}\n${"═".repeat(72)}\n`
+      if (!args.dryRun && !settings.agent) {
+        throw new Error(
+          'No agent configured. Pass --agent "<cmd with {prompt_file}>" or set `agent:` ' +
+            "in harness.config.yaml."
         );
-        process.stdout.write(prompt + "\n");
       }
-      process.exit(0);
+
+      const plan = runPlan(projectDir);
+      let pending = (plan.requirements || []).filter((r) => r.category !== "DONE");
+      if (args.reqs.length > 0) {
+        const wanted = new Set(args.reqs);
+        pending = pending.filter((r) => wanted.has(r.requirement));
+        const found = new Set(pending.map((r) => r.requirement));
+        for (const want of args.reqs) {
+          if (!found.has(want)) warn(`${want} is not a pending requirement — skipped.`);
+        }
+      }
+
+      if (pending.length === 0) {
+        info("No pending requirements. Nothing to do.");
+        process.exit(0);
+      }
+
+      const hintByReq = new Map((plan.next_steps || []).map((s) => [s.requirement, s.hint]));
+
+      if (args.dryRun) {
+        info(`Dry run — ${pending.length} requirement(s) would be processed:`);
+        for (const req of pending) {
+          const prompt = buildPrompt(req, projectDir, {
+            promptPrefix: settings.promptPrefix,
+            hint: hintByReq.get(req.requirement) as string | undefined,
+          });
+          process.stdout.write(
+            `\n${"═".repeat(72)}\n${req.requirement} (${req.category}) → branch harness/${req.requirement}\n${"═".repeat(72)}\n`
+          );
+          process.stdout.write(prompt + "\n");
+        }
+        process.exit(0);
+      }
+
+      if (!isGitClean(projectDir)) {
+        throw new Error(
+          "Working tree is not clean. Commit or stash your changes before running the harness."
+        );
+      }
+
+      const baseRef = args.baseBranch || "HEAD";
+      const concurrencyNote =
+        settings.concurrency > 1 ? `, up to ${settings.concurrency} at a time` : "";
+      info(`Processing ${pending.length} requirement(s) from base ${baseRef}${concurrencyNote}.`);
+
+      // One prune, in the parent, before anything is created. It used to run per
+      // requirement, which is harmless in series and a race in parallel:
+      // `git worktree prune` running while a sibling is inside
+      // `git worktree add` can remove the record of the worktree being created.
+      if (!process.env.CSDA_HARNESS_WORKER) {
+        git(projectDir, ["worktree", "prune"]);
+      }
+
+      const ctx = {
+        projectDir,
+        baseRef,
+        settings,
+        timeoutMs: args.timeout * 1000,
+        timeoutSeconds: args.timeout,
+        keepWorktrees: args.keepWorktrees,
+        force: args.force,
+      };
+
+      const startedAt = new Date().toISOString();
+      const results = await runLevels(pending, ctx, {
+        concurrency: settings.concurrency,
+        hintByReq,
+        runOne: dispatchLevel,
+      });
+
+      const recordPath = writeRunRecord(projectDir, {
+        schemaVersion: 1,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        baseRef,
+        concurrency: settings.concurrency,
+        maxAttempts: settings.maxAttempts,
+        results,
+      });
+
+      printReport(results, args.format);
+      if (recordPath && args.format !== "json") {
+        info(`Run recorded in ${path.relative(projectDir, recordPath)} — \`csda harness report\``);
+      }
+
+      // A blocked requirement was never attempted, so it is not a pass — but it
+      // is also not evidence that anything is broken beyond the failure that
+      // caused it. It still fails the run, because work was left undone.
+      const failed = results.filter((r) => r.result !== "pass").length;
+      process.exit(failed > 0 ? 1 : 0);
+    } catch (err) {
+      error(err.message);
+      process.exit(1);
     }
-
-    if (!isGitClean(projectDir)) {
-      throw new Error(
-        "Working tree is not clean. Commit or stash your changes before running the harness."
-      );
-    }
-
-    const baseRef = args.baseBranch || "HEAD";
-    const concurrencyNote =
-      settings.concurrency > 1 ? `, up to ${settings.concurrency} at a time` : "";
-    info(`Processing ${pending.length} requirement(s) from base ${baseRef}${concurrencyNote}.`);
-
-    // One prune, in the parent, before anything is created. It used to run per
-    // requirement, which is harmless in series and a race in parallel:
-    // `git worktree prune` running while a sibling is inside
-    // `git worktree add` can remove the record of the worktree being created.
-    if (!process.env.CSDA_HARNESS_WORKER) {
-      git(projectDir, ["worktree", "prune"]);
-    }
-
-    const ctx = {
-      projectDir,
-      baseRef,
-      settings,
-      timeoutMs: args.timeout * 1000,
-      timeoutSeconds: args.timeout,
-      keepWorktrees: args.keepWorktrees,
-      force: args.force,
-    };
-
-    const startedAt = new Date().toISOString();
-    const results = await runLevels(pending, ctx, {
-      concurrency: settings.concurrency,
-      hintByReq,
-      runOne: dispatchLevel,
-    });
-
-    const recordPath = writeRunRecord(projectDir, {
-      schemaVersion: 1,
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      baseRef,
-      concurrency: settings.concurrency,
-      maxAttempts: settings.maxAttempts,
-      results,
-    });
-
-    printReport(results, args.format);
-    if (recordPath && args.format !== "json") {
-      info(`Run recorded in ${path.relative(projectDir, recordPath)} — \`csda harness report\``);
-    }
-
-    // A blocked requirement was never attempted, so it is not a pass — but it
-    // is also not evidence that anything is broken beyond the failure that
-    // caused it. It still fails the run, because work was left undone.
-    const failed = results.filter((r) => r.result !== "pass").length;
-    process.exit(failed > 0 ? 1 : 0);
-  } catch (err) {
-    error(err.message);
-    process.exit(1);
   }
 }
 
 if (require.main === module) {
-  main().catch((err) => {
+  new RunCommand(process.argv.slice(2)).execute().catch((err: any) => {
     error(err && err.message ? err.message : String(err));
     process.exit(1);
   });

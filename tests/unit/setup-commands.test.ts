@@ -6,8 +6,8 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
 
-import { TEMPLATE } from "../../scripts/config_init";
-import { COMMANDS, SUBCOMMANDS, bashScript, zshScript } from "../../scripts/completion";
+import { TEMPLATE } from "../../scripts/config_init.js";
+import { COMMANDS, SUBCOMMANDS, bashScript, zshScript } from "../../scripts/completion.js";
 
 const { commandNames, subcommandNames } = require("../../scripts/lib/surface");
 

@@ -1,0 +1,14 @@
+{
+  "name": "@spec-driven/core",
+  "version": "0.1.0",
+  "description": "The CLI's inner circle: the domain model, the use cases, their ports, and the disk adapters that implement them. Imports nothing from scripts/ — the dependency rule is enforced by tests/unit/architecture.test.ts. Ships inside create-spec-driven-app; see `files` in the root package.json.",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/unit/*.test.js"
+  },
+  "private": true
+}

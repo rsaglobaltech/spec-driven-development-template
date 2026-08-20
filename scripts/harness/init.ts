@@ -19,6 +19,7 @@ import { renderTemplate } from "../domain-pack/common";
 import { resolveProjectDir } from "../lib/project-root";
 import { agentIo, wantsJson } from "../lib/agent";
 import { error, info, warning, errorMessage } from "../lib/diagnostics";
+import { BaseCommand } from "../lib/command";
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..", "..");
 const TEMPLATES = path.join(ROOT_DIR, "templates", "harness");
@@ -129,128 +130,132 @@ function parseArgs(argv) {
   return opts;
 }
 
-function main() {
-  let argv = process.argv.slice(2);
-  // Reachable as `harness init …` through the dispatcher, or directly.
-  if (argv[0] === "harness") argv = argv.slice(1);
-  if (argv[0] === "init") argv = argv.slice(1);
+export class InitCommand extends BaseCommand {
+  public execute() {
+    let argv = this.args;
+    // Reachable as `harness init …` through the dispatcher, or directly.
+    if (argv[0] === "harness") argv = argv.slice(1);
+    if (argv[0] === "init") argv = argv.slice(1);
 
-  const opts = parseArgs(argv);
-  const io = agentIo(opts.json);
+    const opts = parseArgs(argv);
+    const io = agentIo(opts.json);
 
-  let projectDir;
-  try {
-    projectDir = resolveProjectDir(opts.projectDir);
-  } catch (err) {
-    io.usage(NULL_SHAPE, [
-      error("no_project", errorMessage(err), {
-        fix: "Run from inside a spec-driven project, or pass --project-dir <path>.",
-      }),
-    ]);
-    return;
-  }
+    let projectDir;
+    try {
+      projectDir = resolveProjectDir(opts.projectDir);
+    } catch (err) {
+      io.usage(NULL_SHAPE, [
+        error("no_project", errorMessage(err), {
+          fix: "Run from inside a spec-driven project, or pass --project-dir <path>.",
+        }),
+      ]);
+      return;
+    }
 
-  const testCmd = opts.testCmd || detectTestCommand(projectDir);
-  // Rendered into the config as a live key when known, and as a commented-out
-  // one when not — see detectTestCommand for why a placeholder would be worse
-  // than an absent key.
-  const vars = {
-    PROJECT_NAME: projectName(projectDir),
-    TEST_CMD_LINE: testCmd
-      ? `test_cmd: "${testCmd}"`
-      : '# test_cmd: "npm test"   # ← set this once the project has a test command',
-    GATE_COMMAND: testCmd
-      ? `${testCmd}\ncsda validate . --strict-tdd`
-      : "csda validate . --strict-tdd",
-  };
+    const testCmd = opts.testCmd || detectTestCommand(projectDir);
+    // Rendered into the config as a live key when known, and as a commented-out
+    // one when not — see detectTestCommand for why a placeholder would be worse
+    // than an absent key.
+    const vars = {
+      PROJECT_NAME: projectName(projectDir),
+      TEST_CMD_LINE: testCmd
+        ? `test_cmd: "${testCmd}"`
+        : '# test_cmd: "npm test"   # ← set this once the project has a test command',
+      GATE_COMMAND: testCmd
+        ? `${testCmd}\ncsda validate . --strict-tdd`
+        : "csda validate . --strict-tdd",
+    };
 
-  const outputs = [
-    {
-      dest: CONFIG_FILE,
-      body: renderTemplate(
-        fs.readFileSync(path.join(TEMPLATES, "harness.config.yaml.tpl"), "utf8"),
-        vars
-      ),
-    },
-    {
-      dest: PREFIX_FILE,
-      body: renderTemplate(
-        fs.readFileSync(path.join(TEMPLATES, "prompt-prefix.md.tpl"), "utf8"),
-        vars
-      ),
-    },
-  ];
+    const outputs = [
+      {
+        dest: CONFIG_FILE,
+        body: renderTemplate(
+          fs.readFileSync(path.join(TEMPLATES, "harness.config.yaml.tpl"), "utf8"),
+          vars
+        ),
+      },
+      {
+        dest: PREFIX_FILE,
+        body: renderTemplate(
+          fs.readFileSync(path.join(TEMPLATES, "prompt-prefix.md.tpl"), "utf8"),
+          vars
+        ),
+      },
+    ];
 
-  if (opts.stdout) {
-    io.emit({ projectDir, testCmd, files: outputs.map((o) => o.dest) }, () => {
-      for (const out of outputs) {
-        process.stdout.write(`# ── ${out.dest} ${"─".repeat(Math.max(0, 60 - out.dest.length))}\n`);
-        process.stdout.write(out.body);
-        process.stdout.write("\n");
-      }
-    });
-    return;
-  }
-
-  const existing = outputs
-    .map((o) => o.dest)
-    .filter((dest) => fs.existsSync(path.join(projectDir, dest)));
-  if (existing.length > 0 && !opts.force) {
-    io.fail({ ...NULL_SHAPE, projectDir }, [
-      error("harness_config_exists", `Already present: ${existing.join(", ")}`, {
-        target: existing[0],
-        fix: "Re-run with --force to overwrite, or --stdout to print and merge by hand.",
-      }),
-    ]);
-    return;
-  }
-
-  const written = [];
-  for (const out of outputs) {
-    const abs = path.join(projectDir, out.dest);
-    fs.mkdirSync(path.dirname(abs), { recursive: true });
-    fs.writeFileSync(abs, out.body, "utf8");
-    written.push(out.dest);
-  }
-
-  const status = [
-    info("harness_agent_unset", "No agent is configured, deliberately.", {
-      fix: 'Pass it explicitly: csda harness run --req REQ-001 --agent "<cmd> < {prompt_file}"',
-    }),
-  ];
-  if (!testCmd) {
-    status.push(
-      warning(
-        "harness_test_cmd_unset",
-        "No test command detected, so `test_cmd` is commented out.",
-        {
-          target: CONFIG_FILE,
-          fix: "Set it once the project has one. Until then the gate is `validate --strict-tdd` alone, which is a real gate — a placeholder that exits 0 would not be.",
+    if (opts.stdout) {
+      io.emit({ projectDir, testCmd, files: outputs.map((o) => o.dest) }, () => {
+        for (const out of outputs) {
+          process.stdout.write(
+            `# ── ${out.dest} ${"─".repeat(Math.max(0, 60 - out.dest.length))}\n`
+          );
+          process.stdout.write(out.body);
+          process.stdout.write("\n");
         }
-      )
-    );
-  }
+      });
+      return;
+    }
 
-  io.emit(
-    {
-      projectDir,
-      testCmd,
-      files: written,
-      status,
-    },
-    () => {
-      for (const file of written) process.stdout.write(`ℹ️ [INFO] write ${file}\n`);
-      process.stdout.write(
-        "ℹ️ [INFO] ✅ Harness configured.\n" +
-          `ℹ️ [INFO]   gate: validate --strict-tdd${testCmd ? ` + ${testCmd}` : " (no test command detected)"}\n` +
-          "ℹ️ [INFO]   agent: not set — that is your choice and your credentials.\n" +
-          "ℹ️ [INFO] Next:\n" +
-          "ℹ️ [INFO]   1. Read .harness/prompt-prefix.md and make it sound like your team.\n" +
-          "ℹ️ [INFO]   2. csda harness prompt REQ-001        — see it before paying for it\n" +
-          'ℹ️ [INFO]   3. csda harness run --req REQ-001 --agent "<cmd> < {prompt_file}"\n'
+    const existing = outputs
+      .map((o) => o.dest)
+      .filter((dest) => fs.existsSync(path.join(projectDir, dest)));
+    if (existing.length > 0 && !opts.force) {
+      io.fail({ ...NULL_SHAPE, projectDir }, [
+        error("harness_config_exists", `Already present: ${existing.join(", ")}`, {
+          target: existing[0],
+          fix: "Re-run with --force to overwrite, or --stdout to print and merge by hand.",
+        }),
+      ]);
+      return;
+    }
+
+    const written = [];
+    for (const out of outputs) {
+      const abs = path.join(projectDir, out.dest);
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      fs.writeFileSync(abs, out.body, "utf8");
+      written.push(out.dest);
+    }
+
+    const status = [
+      info("harness_agent_unset", "No agent is configured, deliberately.", {
+        fix: 'Pass it explicitly: csda harness run --req REQ-001 --agent "<cmd> < {prompt_file}"',
+      }),
+    ];
+    if (!testCmd) {
+      status.push(
+        warning(
+          "harness_test_cmd_unset",
+          "No test command detected, so `test_cmd` is commented out.",
+          {
+            target: CONFIG_FILE,
+            fix: "Set it once the project has one. Until then the gate is `validate --strict-tdd` alone, which is a real gate — a placeholder that exits 0 would not be.",
+          }
+        )
       );
     }
-  );
+
+    io.emit(
+      {
+        projectDir,
+        testCmd,
+        files: written,
+        status,
+      },
+      () => {
+        for (const file of written) process.stdout.write(`ℹ️ [INFO] write ${file}\n`);
+        process.stdout.write(
+          "ℹ️ [INFO] ✅ Harness configured.\n" +
+            `ℹ️ [INFO]   gate: validate --strict-tdd${testCmd ? ` + ${testCmd}` : " (no test command detected)"}\n` +
+            "ℹ️ [INFO]   agent: not set — that is your choice and your credentials.\n" +
+            "ℹ️ [INFO] Next:\n" +
+            "ℹ️ [INFO]   1. Read .harness/prompt-prefix.md and make it sound like your team.\n" +
+            "ℹ️ [INFO]   2. csda harness prompt REQ-001        — see it before paying for it\n" +
+            'ℹ️ [INFO]   3. csda harness run --req REQ-001 --agent "<cmd> < {prompt_file}"\n'
+        );
+      }
+    );
+  }
 }
 
-if (require.main === module) main();
+if (require.main === module) new InitCommand(process.argv.slice(2)).execute();

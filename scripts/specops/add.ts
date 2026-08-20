@@ -17,6 +17,7 @@
 
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
+import { BaseCommand } from "../lib/command";
 
 import { resolveProjectDir } from "../lib/project-root";
 
@@ -100,62 +101,64 @@ export function parseArgs(argv) {
   return opts;
 }
 
-function main() {
-  const opts = parseArgs(process.argv.slice(2));
+export class AddCommand extends BaseCommand {
+  public execute() {
+    const opts = parseArgs(this.args);
 
-  if (!opts.pack) {
-    process.stderr.write(`${c.red}✖${c.reset}  --pack <pack-id> is required.\n`);
-    usage();
-    process.exit(2);
-  }
-  if (opts.packRepo && opts.packRoot) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  Pass either --pack-repo or --pack-root, not both.\n`
+    if (!opts.pack) {
+      process.stderr.write(`${c.red}✖${c.reset}  --pack <pack-id> is required.\n`);
+      usage();
+      process.exit(2);
+    }
+    if (opts.packRepo && opts.packRoot) {
+      process.stderr.write(
+        `${c.red}✖${c.reset}  Pass either --pack-repo or --pack-root, not both.\n`
+      );
+      process.exit(2);
+    }
+    if (!opts.packRepo && !opts.packRoot) {
+      process.stderr.write(
+        `${c.red}✖${c.reset}  Either --pack-repo (with --pack-version) or --pack-root is required.\n`
+      );
+      process.exit(2);
+    }
+    if (opts.packRepo && !opts.packVersion) {
+      process.stderr.write(
+        `${c.red}✖${c.reset}  --pack-repo requires --pack-version (pin to a git tag or sha).\n`
+      );
+      process.exit(2);
+    }
+
+    let projectDir;
+    try {
+      projectDir = resolveProjectDir(opts.projectDir);
+    } catch (err) {
+      process.stderr.write(`${err.message}\n`);
+      process.exit(2);
+    }
+
+    const expandArgs: string[] = [];
+    if (opts.packRepo) {
+      expandArgs.push("--pack-repo", opts.packRepo, "--pack-version", opts.packVersion);
+    } else {
+      expandArgs.push("--pack-root", opts.packRoot);
+    }
+    expandArgs.push("--pack", opts.pack, "--project-dir", projectDir);
+    if (opts.cacheDir) expandArgs.push("--cache-dir", opts.cacheDir);
+    for (const v of opts.vars) expandArgs.push("--var", v);
+    if (opts.dryRun) expandArgs.push("--dry-run");
+
+    process.stdout.write(
+      `${c.cyan}ℹ${c.reset}  Adding ${c.bold}${opts.pack}${c.reset}${
+        opts.packVersion ? ` @ ${c.bold}${opts.packVersion}${c.reset}` : ""
+      } to ${c.dim}${projectDir}${c.reset}\n`
     );
-    process.exit(2);
-  }
-  if (!opts.packRepo && !opts.packRoot) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  Either --pack-repo (with --pack-version) or --pack-root is required.\n`
-    );
-    process.exit(2);
-  }
-  if (opts.packRepo && !opts.packVersion) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  --pack-repo requires --pack-version (pin to a git tag or sha).\n`
-    );
-    process.exit(2);
-  }
 
-  let projectDir;
-  try {
-    projectDir = resolveProjectDir(opts.projectDir);
-  } catch (err) {
-    process.stderr.write(`${err.message}\n`);
-    process.exit(2);
+    const result = spawnSync(process.execPath, [EXPAND_SCRIPT, ...expandArgs], {
+      stdio: "inherit",
+    });
+    process.exit(typeof result.status === "number" ? result.status : 1);
   }
-
-  const expandArgs: string[] = [];
-  if (opts.packRepo) {
-    expandArgs.push("--pack-repo", opts.packRepo, "--pack-version", opts.packVersion);
-  } else {
-    expandArgs.push("--pack-root", opts.packRoot);
-  }
-  expandArgs.push("--pack", opts.pack, "--project-dir", projectDir);
-  if (opts.cacheDir) expandArgs.push("--cache-dir", opts.cacheDir);
-  for (const v of opts.vars) expandArgs.push("--var", v);
-  if (opts.dryRun) expandArgs.push("--dry-run");
-
-  process.stdout.write(
-    `${c.cyan}ℹ${c.reset}  Adding ${c.bold}${opts.pack}${c.reset}${
-      opts.packVersion ? ` @ ${c.bold}${opts.packVersion}${c.reset}` : ""
-    } to ${c.dim}${projectDir}${c.reset}\n`
-  );
-
-  const result = spawnSync(process.execPath, [EXPAND_SCRIPT, ...expandArgs], {
-    stdio: "inherit",
-  });
-  process.exit(typeof result.status === "number" ? result.status : 1);
 }
 
-if (require.main === module) main();
+if (require.main === module) new AddCommand(process.argv.slice(2)).execute();

@@ -299,7 +299,7 @@ export interface AgentsInitOptions {
   force: boolean;
   json: boolean;
   help?: boolean;
-  unknown?: string[];
+  unknown?: string;
 }
 
 function usage() {

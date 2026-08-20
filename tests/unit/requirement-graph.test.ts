@@ -15,6 +15,7 @@ const {
   readDeclaredDependencies,
   splitDependencies,
   RequirementGraph,
+  requirementGraphFromProject,
 } = require("../../scripts/lib/requirement-graph");
 
 const graphOf = (ids: string[], declared: Record<string, string[]>) =>
@@ -191,7 +192,7 @@ test("requirementGraph reads the specs and orders the matrix in one call", () =>
       requirement("REQ-002", "feature=features/b.feature depends=REQ-001")
     ),
     (dir) => {
-      const g = RequirementGraph.fromProject(dir, ["REQ-002", "REQ-001"]);
+      const g = requirementGraphFromProject(dir, ["REQ-002", "REQ-001"]);
       assert.deepEqual(g.order, ["REQ-001", "REQ-002"]);
       assert.deepEqual(g.dependsOn["REQ-002"], ["REQ-001"]);
       assert.deepEqual(g.cycles, []);
@@ -203,7 +204,7 @@ test("requirementGraph reads the specs and orders the matrix in one call", () =>
 test("with nothing declared, the order is the order it was given", () => {
   withCapability(spec(requirement("REQ-001"), requirement("REQ-002")), (dir) => {
     const given = ["REQ-002", "REQ-001"];
-    assert.deepEqual(RequirementGraph.fromProject(dir, given).order, given);
+    assert.deepEqual(requirementGraphFromProject(dir, given).order, given);
   });
 });
 

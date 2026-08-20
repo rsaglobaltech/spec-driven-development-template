@@ -1,11 +1,13 @@
-"use strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const path = require("node:path");
-
-const { scanPacks } = require("../../src/scan");
-const { renderIndex, renderCard, escape } = require("../../src/render");
+import { scanPacks } from "../../src/scan";
+// `escape` must be imported by name: dropping it silently binds the JS global
+// of the same name, which URL-encodes instead of HTML-escaping.
+import { renderIndex, renderCard, escape } from "../../src/render";
 
 const REPO_ROOT = path.resolve(__dirname, "../../../../..");
 const PACKS_DIR = path.join(REPO_ROOT, "packs");
@@ -154,8 +156,6 @@ test("scanPacks throws when packsRoot does not exist", () => {
 });
 
 test("scanPacks returns empty array when packsRoot has no packs", () => {
-  const fs = require("node:fs");
-  const os = require("node:os");
   const empty = fs.mkdtempSync(path.join(os.tmpdir(), "empty-packs-"));
   try {
     assert.deepEqual(scanPacks(empty), []);

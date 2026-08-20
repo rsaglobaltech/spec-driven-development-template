@@ -1,273 +1,37 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
-
-import { parseSpec } from "../change/parser";
-
 /**
- * The dependency graph between requirements.
+ * The requirement dependency graph, as `scripts/` reaches it.
  *
- * `harness run` processed requirements in matrix order and cut every worktree
- * from the same base, which is wrong whenever one requirement builds on
- * another: REQ-002 needed REQ-001's code to exist and there was no way to say
- * so, so somebody had to know it and pass `--base-branch` by hand. That is
- * defect H12 of the closure plan, and the false failure recorded as H9 was the
- * same gap seen from the other side.
- *
- * A requirement declares what it builds on inside the `csda:trace` comment it
- * already carries:
- *
- *   <!-- csda:trace uc=UC-002 feature=features/auth/scopes.feature
- *        depends=REQ-001 -->
- *
- * That comment is the repository's existing way of attaching machine-readable
- * facts to a requirement, and `change archive` already reads it to write the
- * traceability row. So the model is the one this repository uses everywhere
- * else: **the requirement declares, the matrix reflects.** Nothing about the
- * ten-column format changes, which matters — `done` and `alm sync` both read
- * Status as the penultimate cell, so an extra column would have silently sent
- * status writes to the wrong place.
- *
- * A missing declaration means no dependencies, so every project that never
- * writes one behaves exactly as it does today.
+ * The graph is pure domain (`packages/core/src/domain/RequirementGraph`) and
+ * reading `depends=` off the capability specs is infrastructure
+ * (`DiskRequirementGraphRepository`). This module joins the two for the
+ * command layer, which has a project directory and wants a graph.
  */
 
-/** `{ REQ-id: [REQ-id, …] }`. Sparse: no entry and no dependencies are the same thing. */
-export type DependencyMap = Readonly<Record<string, readonly string[]>>;
+import { RequirementGraph } from "../../packages/core/src/domain/RequirementGraph";
+import { DiskRequirementGraphRepository } from "../../packages/core/src/infrastructure/DiskRequirementGraphRepository";
 
-/** A dependency naming a requirement this project does not have. */
-export interface UnknownDependency {
-  readonly requirement: string;
-  readonly dependency: string;
-}
+export {
+  RequirementGraph,
+  DependencyMap,
+  UnknownDependency,
+  splitDependencies,
+} from "../../packages/core/src/domain/RequirementGraph";
 
-export const CAPABILITIES_DIR = path.join("docs", "specs", "capabilities");
-
-const REQ_ID = /^REQ-[A-Za-z0-9.]+$/;
-
-/** `"REQ-001, REQ-003"` → `["REQ-001", "REQ-003"]`, de-duplicated and upper-cased. */
-export function splitDependencies(raw: string): string[] {
-  const seen = new Set<string>();
-  for (const token of String(raw).split(/[,;\s]+/)) {
-    const id = token.trim().toUpperCase();
-    if (id) seen.add(id);
-  }
-  return [...seen];
-}
+export {
+  CAPABILITIES_DIR,
+  readDeclaredDependencies,
+} from "../../packages/core/src/infrastructure/DiskRequirementGraphRepository";
 
 /**
- * Read every capability spec and return what each requirement declares.
+ * The graph for a project, read from its capability specs.
  *
- * A capability whose spec does not parse is `validate`'s problem to report,
- * not this function's to crash on.
+ * Replaces the former `RequirementGraph.fromProject` static, which put a
+ * filesystem read on a domain class.
  */
-export function readDeclaredDependencies(projectDir: string): Record<string, string[]> {
-  const root = path.join(projectDir, CAPABILITIES_DIR);
-  const declared: Record<string, string[]> = {};
-  if (!fs.existsSync(root)) return declared;
-
-  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const specPath = path.join(root, entry.name, "spec.md");
-    if (!fs.existsSync(specPath)) continue;
-
-    for (const [id, deps] of readSpecDependencies(specPath)) declared[id] = deps;
-  }
-  return declared;
-}
-
-function readSpecDependencies(specPath: string): Array<[string, string[]]> {
-  let parsed: { requirements?: Array<{ id?: string; trace?: Record<string, string> }> };
-  try {
-    parsed = parseSpec(fs.readFileSync(specPath, "utf8"));
-  } catch {
-    return [];
-  }
-
-  const found: Array<[string, string[]]> = [];
-  for (const req of parsed.requirements ?? []) {
-    const id = req.id ? String(req.id).toUpperCase() : "";
-    if (!REQ_ID.test(id)) continue;
-    const raw = req.trace?.depends;
-    if (!raw) continue;
-    const deps = splitDependencies(raw);
-    if (deps.length > 0) found.push([id, deps]);
-  }
-  return found;
-}
-
-/**
- * The graph over a known set of requirements, and every question the CLI asks
- * of it.
- *
- * Built once and then queried: ordering, levels and cycles are all derived
- * from the same two adjacency maps, so they cannot disagree with each other.
- */
-export class RequirementGraph {
-  readonly dependsOn: Readonly<Record<string, string[]>>;
-  readonly dependents: Readonly<Record<string, string[]>>;
-  readonly unknown: readonly UnknownDependency[];
-  readonly selfReferential: readonly string[];
-
-  private readonly ids: readonly string[];
-
-  private constructor(requirementIds: readonly string[], declared: DependencyMap) {
-    this.ids = requirementIds.map((id) => String(id).toUpperCase());
-    const known = new Set(this.ids);
-
-    const dependsOn: Record<string, string[]> = {};
-    const dependents: Record<string, string[]> = {};
-    for (const id of known) {
-      dependsOn[id] = [];
-      dependents[id] = [];
-    }
-
-    const unknown: UnknownDependency[] = [];
-    const selfReferential: string[] = [];
-
-    for (const [requirement, deps] of Object.entries(declared)) {
-      if (!known.has(requirement)) continue; // declared for a REQ not in this project
-      for (const dependency of deps) {
-        if (dependency === requirement) {
-          selfReferential.push(requirement);
-        } else if (!known.has(dependency)) {
-          unknown.push({ requirement, dependency });
-        } else {
-          dependsOn[requirement].push(dependency);
-          dependents[dependency].push(requirement);
-        }
-      }
-    }
-
-    this.dependsOn = dependsOn;
-    this.dependents = dependents;
-    this.unknown = unknown;
-    this.selfReferential = selfReferential;
-  }
-
-  /** Read the declarations out of the project's capability specs. */
-  static fromProject(projectDir: string, requirementIds: readonly string[]): RequirementGraph {
-    return new RequirementGraph(requirementIds, readDeclaredDependencies(projectDir));
-  }
-
-  /** Build from an adjacency map the caller already has — the harness has one. */
-  static fromDependencies(
-    requirementIds: readonly string[],
-    declared: DependencyMap
-  ): RequirementGraph {
-    return new RequirementGraph(requirementIds, declared);
-  }
-
-  /**
-   * Requirements in an order where every dependency comes before what needs
-   * it, and the sets that could run at the same time.
-   *
-   * Kahn's algorithm with the queue kept in the caller's original order, so
-   * the result is stable: two requirements that do not constrain each other
-   * stay in matrix order, and a project with no declarations gets its input
-   * back untouched.
-   */
-  get schedule(): { order: string[]; levels: string[][] } {
-    const remaining = new Map<string, Set<string>>(
-      this.ids.map((id) => [id, new Set(this.dependsOn[id] ?? [])])
-    );
-
-    const order: string[] = [];
-    const levels: string[][] = [];
-
-    while (remaining.size > 0) {
-      const ready = this.ids.filter((id) => remaining.get(id)?.size === 0);
-      if (ready.length === 0) break; // everything left is in, or behind, a cycle
-
-      levels.push(ready);
-      for (const id of ready) {
-        order.push(id);
-        remaining.delete(id);
-      }
-      for (const deps of remaining.values()) {
-        for (const id of ready) deps.delete(id);
-      }
-    }
-
-    return { order, levels };
-  }
-
-  get order(): string[] {
-    return this.schedule.order;
-  }
-
-  get levels(): string[][] {
-    return this.schedule.levels;
-  }
-
-  /**
-   * The cycles among the requirements that could not be ordered.
-   *
-   * Reporting "there is a cycle" is not actionable; reporting
-   * `REQ-002 → REQ-003 → REQ-002` is.
-   */
-  get cycles(): string[][] {
-    const ordered = new Set(this.order);
-    const stuck = this.ids.filter((id) => !ordered.has(id));
-    return this.findCycles(stuck);
-  }
-
-  /**
-   * Everything that transitively waits on `requirement`, so a cascade is
-   * reported once as blocked rather than N times as failed.
-   */
-  transitiveDependents(requirement: string): Set<string> {
-    const blocked = new Set<string>();
-    let grew = true;
-    while (grew) {
-      grew = false;
-      for (const [id, deps] of Object.entries(this.dependsOn)) {
-        if (blocked.has(id)) continue;
-        if (deps.some((d) => d === requirement || blocked.has(d))) {
-          blocked.add(id);
-          grew = true;
-        }
-      }
-    }
-    return blocked;
-  }
-
-  /** Depth-first, returning each cycle once, as the path that closes it. */
-  private findCycles(stuck: readonly string[]): string[][] {
-    const inStuck = new Set(stuck);
-    const cycles: string[][] = [];
-    const seenSignature = new Set<string>();
-    const done = new Set<string>();
-    const path: string[] = [];
-
-    const visit = (id: string): void => {
-      if (done.has(id)) return;
-
-      const at = path.indexOf(id);
-      if (at !== -1) {
-        this.recordCycle(path.slice(at), cycles, seenSignature);
-        return;
-      }
-
-      path.push(id);
-      for (const dep of this.dependsOn[id] ?? []) {
-        if (inStuck.has(dep)) visit(dep);
-      }
-      path.pop();
-      done.add(id);
-    };
-
-    for (const id of stuck) visit(id);
-    return cycles;
-  }
-
-  /** Rotate to the smallest id so one loop found from two entry points is one cycle. */
-  private recordCycle(cycle: string[], cycles: string[][], seen: Set<string>): void {
-    const smallest = [...cycle].sort()[0];
-    const pivot = cycle.indexOf(smallest);
-    const normalised = [...cycle.slice(pivot), ...cycle.slice(0, pivot)];
-    const signature = normalised.join(">");
-    if (seen.has(signature)) return;
-    seen.add(signature);
-    cycles.push(normalised);
-  }
+export function requirementGraphFromProject(
+  projectDir: string,
+  requirementIds: readonly string[]
+): RequirementGraph {
+  const declared = new DiskRequirementGraphRepository().readDeclaredDependencies(projectDir);
+  return RequirementGraph.fromDependencies(requirementIds, declared);
 }

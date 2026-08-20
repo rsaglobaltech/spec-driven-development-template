@@ -17,6 +17,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { BaseCommand } from "../lib/command";
 
 import { readLock } from "./lock";
 import { resolveProjectDir } from "../lib/project-root";
@@ -319,90 +320,92 @@ export function runAsChange(args, projectDir, lock) {
   process.stdout.write("\n");
 }
 
-function main() {
-  try {
-    const args = parseArgs(process.argv.slice(2));
-    const projectDir = resolveProjectDir(args.projectDir);
-    const lock = readLock(projectDir);
-    if (!lock) {
-      error(`No .specops.lock found in ${projectDir}`);
-      process.exit(1);
-    }
-    if (!Array.isArray(lock.packs) || lock.packs.length === 0) {
-      error(".specops.lock has no pack entries.");
-      process.exit(1);
-    }
+export class DiffCommand extends BaseCommand {
+  public execute() {
+    try {
+      const args = parseArgs(this.args);
+      const projectDir = resolveProjectDir(args.projectDir);
+      const lock = readLock(projectDir);
+      if (!lock) {
+        error(`No .specops.lock found in ${projectDir}`);
+        process.exit(1);
+      }
+      if (!Array.isArray(lock.packs) || lock.packs.length === 0) {
+        error(".specops.lock has no pack entries.");
+        process.exit(1);
+      }
 
-    if (args.asChange) {
-      runAsChange(args, projectDir, lock);
-      return;
-    }
+      if (args.asChange) {
+        runAsChange(args, projectDir, lock);
+        return;
+      }
 
-    const jsonOut = {
-      schemaVersion: 1,
-      projectDir,
-      diffs: [] as unknown[],
-      status: [] as Diagnostic[],
-    };
-    let matched = 0;
-    for (const entry of lock.packs) {
-      if (args.pack && entry.pack_id !== args.pack) continue;
-      matched += 1;
+      const jsonOut = {
+        schemaVersion: 1,
+        projectDir,
+        diffs: [] as unknown[],
+        status: [] as Diagnostic[],
+      };
+      let matched = 0;
+      for (const entry of lock.packs) {
+        if (args.pack && entry.pack_id !== args.pack) continue;
+        matched += 1;
 
-      const version = args.packVersion || entry.version;
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "specops-diff-"));
-      try {
-        const expandArgs = buildExpandArgs(entry, version, tmpDir, args.cacheDir, args.vars);
-        const result = spawnSync(process.execPath, [EXPAND_SCRIPT, ...expandArgs], {
-          encoding: "utf8",
-        });
-        if (result.status !== 0) {
+        const version = args.packVersion || entry.version;
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "specops-diff-"));
+        try {
+          const expandArgs = buildExpandArgs(entry, version, tmpDir, args.cacheDir, args.vars);
+          const result = spawnSync(process.execPath, [EXPAND_SCRIPT, ...expandArgs], {
+            encoding: "utf8",
+          });
+          if (result.status !== 0) {
+            if (args.format === "json") {
+              jsonOut.diffs.push({
+                packId: entry.pack_id,
+                currentVersion: entry.version,
+                targetVersion: version,
+                error: result.stderr || result.stdout || "expand failed",
+              });
+            } else {
+              error(`expand failed for ${entry.pack_id}:\n${result.stderr || result.stdout}`);
+            }
+            continue;
+          }
+          const changes = diffDirs(projectDir, tmpDir);
           if (args.format === "json") {
             jsonOut.diffs.push({
               packId: entry.pack_id,
               currentVersion: entry.version,
               targetVersion: version,
-              error: result.stderr || result.stdout || "expand failed",
+              added: changes.added,
+              modified: changes.modified,
+              unchangedCount: changes.unchanged.length,
             });
           } else {
-            error(`expand failed for ${entry.pack_id}:\n${result.stderr || result.stdout}`);
+            printChanges(entry, version, changes);
           }
-          continue;
+        } finally {
+          fs.rmSync(tmpDir, { recursive: true, force: true });
         }
-        const changes = diffDirs(projectDir, tmpDir);
-        if (args.format === "json") {
-          jsonOut.diffs.push({
-            packId: entry.pack_id,
-            currentVersion: entry.version,
-            targetVersion: version,
-            added: changes.added,
-            modified: changes.modified,
-            unchangedCount: changes.unchanged.length,
-          });
-        } else {
-          printChanges(entry, version, changes);
-        }
-      } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
       }
-    }
 
-    if (matched === 0) {
-      error(`No packs matched${args.pack ? ` --pack ${args.pack}` : ""}.`);
+      if (matched === 0) {
+        error(`No packs matched${args.pack ? ` --pack ${args.pack}` : ""}.`);
+        process.exit(1);
+      }
+
+      if (args.format === "json") {
+        process.stdout.write(JSON.stringify(jsonOut, null, 2) + "\n");
+      } else {
+        info(`Diff completed for ${matched} pack(s).`);
+      }
+    } catch (err) {
+      error(err.message);
       process.exit(1);
     }
-
-    if (args.format === "json") {
-      process.stdout.write(JSON.stringify(jsonOut, null, 2) + "\n");
-    } else {
-      info(`Diff completed for ${matched} pack(s).`);
-    }
-  } catch (err) {
-    error(err.message);
-    process.exit(1);
   }
 }
 
 if (require.main === module) {
-  main();
+  new DiffCommand(process.argv.slice(2)).execute();
 }

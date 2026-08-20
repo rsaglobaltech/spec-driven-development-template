@@ -67,6 +67,9 @@ jobs:
       - name: Run BDD tests
         run: npm run test:bdd
 
+      - name: Run core unit tests
+        run: npm run test:core-unit
+
       - name: Run VS Code extension unit tests
         run: npm run test:vscode-unit
 

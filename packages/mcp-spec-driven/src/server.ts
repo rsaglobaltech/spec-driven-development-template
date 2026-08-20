@@ -12,18 +12,36 @@
  * required by Claude Desktop, Cursor, Aider, and other MCP-aware clients.
  */
 
-const { TOOLS } = require("./tools");
+import { TOOLS } from "./tools";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 const PROTOCOL_VERSION = "2024-11-05";
+
+export interface IServer {
+  start(): void;
+  stop(): void;
+}
+
+export interface JsonRpcMessage {
+  jsonrpc: string;
+  id?: number | string | null;
+  method?: string;
+  params?: any;
+  result?: any;
+  error?: {
+    code: number;
+    message: string;
+    data?: any;
+  };
+}
 
 /**
  * This file is compiled into two layouts: the repository's root `dist/` for the
  * test suite, and the package's own `dist/` for publishing. A fixed relative
  * path to package.json resolves in one and not the other, so walk up for it.
  */
-function packageVersion() {
-  const fs = require("node:fs");
-  const path = require("node:path");
+function packageVersion(): string {
   let dir = __dirname;
   for (let i = 0; i < 6; i++) {
     const candidate = path.join(dir, "package.json");
@@ -57,170 +75,191 @@ const SERVER_INFO = {
 
 // ── JSON-RPC framing over stdio ──────────────────────────────────────────────────
 
-let buffer = "";
+export class McpServer implements IServer {
+  private buffer: string = "";
 
-function readMessage(chunk) {
-  buffer += chunk.toString("utf8");
+  public start(): void {
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk: Buffer | string) => {
+      const messages = this.readMessage(chunk);
+      for (const msg of messages) {
+        this.handleMessage(msg);
+      }
+    });
+    process.stdin.on("end", () => {
+      this.stop();
+    });
 
-  const messages = [];
-  // Try Content-Length framing first (per LSP/MCP convention)
-  while (true) {
-    const headerEnd = buffer.indexOf("\r\n\r\n");
-    if (headerEnd === -1) break;
-    const headers = buffer.slice(0, headerEnd);
-    const lengthMatch = headers.match(/Content-Length:\s*(\d+)/i);
-    if (!lengthMatch) {
-      // Bad header — drop until next \r\n\r\n
-      buffer = buffer.slice(headerEnd + 4);
-      continue;
-    }
-    const length = parseInt(lengthMatch[1], 10);
-    const messageStart = headerEnd + 4;
-    if (buffer.length < messageStart + length) break;
-    const body = buffer.slice(messageStart, messageStart + length);
-    buffer = buffer.slice(messageStart + length);
-    try {
-      messages.push(JSON.parse(body));
-    } catch (err) {
-      writeError(null, -32700, `Parse error: ${err.message}`);
-    }
+    // Log activation to stderr so clients see it (stdout is reserved for JSON-RPC)
+    process.stderr.write(`mcp-spec-driven ${SERVER_INFO.version} ready\n`);
   }
 
-  // Also try newline-delimited JSON (used by some clients)
-  if (messages.length === 0 && buffer.includes("\n")) {
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
+  public stop(): void {
+    process.exit(0);
+  }
+
+  public readMessage(chunk: Buffer | string): JsonRpcMessage[] {
+    this.buffer += chunk.toString();
+
+    const messages: JsonRpcMessage[] = [];
+    // Try Content-Length framing first (per LSP/MCP convention)
+    while (true) {
+      const headerEnd = this.buffer.indexOf("\r\n\r\n");
+      if (headerEnd === -1) break;
+      const headers = this.buffer.slice(0, headerEnd);
+      const lengthMatch = headers.match(/Content-Length:\s*(\d+)/i);
+      if (!lengthMatch) {
+        // Bad header — drop until next \r\n\r\n
+        this.buffer = this.buffer.slice(headerEnd + 4);
+        continue;
+      }
+      const length = parseInt(lengthMatch[1], 10);
+      const messageStart = headerEnd + 4;
+      if (this.buffer.length < messageStart + length) break;
+      const body = this.buffer.slice(messageStart, messageStart + length);
+      this.buffer = this.buffer.slice(messageStart + length);
       try {
-        messages.push(JSON.parse(trimmed));
-      } catch {
-        // not JSON — ignore (probably a Content-Length header fragment)
+        messages.push(JSON.parse(body));
+      } catch (err: unknown) {
+        const error = err as Error;
+        this.writeError(null, -32700, `Parse error: ${error.message}`);
       }
     }
+
+    // Also try newline-delimited JSON (used by some clients)
+    if (messages.length === 0 && this.buffer.includes("\n")) {
+      const lines = this.buffer.split("\n");
+      this.buffer = lines.pop() || "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          messages.push(JSON.parse(trimmed));
+        } catch {
+          // not JSON — ignore (probably a Content-Length header fragment)
+        }
+      }
+    }
+
+    return messages;
   }
 
-  return messages;
-}
-
-function writeMessage(message) {
-  const body = JSON.stringify(message);
-  const out = `Content-Length: ${Buffer.byteLength(body, "utf8")}\r\n\r\n${body}`;
-  process.stdout.write(out);
-}
-
-function writeError(id, code, message, data?) {
-  writeMessage({
-    jsonrpc: "2.0",
-    id,
-    error: { code, message, ...(data !== undefined ? { data } : {}) },
-  });
-}
-
-function writeResult(id, result) {
-  writeMessage({ jsonrpc: "2.0", id, result });
-}
-
-// ── Method dispatch ──────────────────────────────────────────────────────────────────────
-
-function handleMessage(msg) {
-  if (msg.jsonrpc !== "2.0") {
-    writeError(msg.id || null, -32600, "Invalid request: missing jsonrpc=2.0");
-    return;
+  public writeMessage(message: JsonRpcMessage): void {
+    const body = JSON.stringify(message);
+    const out = `Content-Length: ${Buffer.byteLength(body, "utf8")}\r\n\r\n${body}`;
+    process.stdout.write(out);
   }
 
-  const { id, method, params } = msg;
+  private writeError(
+    id: string | number | null,
+    code: number,
+    message: string,
+    data?: unknown
+  ): void {
+    this.writeMessage({
+      jsonrpc: "2.0",
+      id,
+      error: { code, message, ...(data !== undefined ? { data } : {}) },
+    });
+  }
 
-  try {
-    switch (method) {
-      case "initialize":
-        writeResult(id, {
-          protocolVersion: PROTOCOL_VERSION,
-          serverInfo: SERVER_INFO,
-          capabilities: { tools: {} },
-        });
-        break;
+  private writeResult(id: string | number | null, result: unknown): void {
+    this.writeMessage({ jsonrpc: "2.0", id, result });
+  }
 
-      case "initialized":
-      case "notifications/initialized":
-        // Notification — no response
-        break;
+  // ── Method dispatch ──────────────────────────────────────────────────────────────────────
 
-      case "tools/list":
-        writeResult(id, {
-          tools: Object.entries(TOOLS).map(([name, t]: [string, any]) => ({
-            name,
-            description: t.description,
-            inputSchema: t.inputSchema,
-          })),
-        });
-        break;
+  public handleMessage(msg: JsonRpcMessage): void {
+    if (msg.jsonrpc !== "2.0") {
+      this.writeError(msg.id || null, -32600, "Invalid request: missing jsonrpc=2.0");
+      return;
+    }
 
-      case "tools/call": {
-        const toolName = params && params.name;
-        const args = (params && params.arguments) || {};
-        const tool = TOOLS[toolName];
-        if (!tool) {
-          writeError(id, -32601, `Unknown tool: ${toolName}`);
+    const { id = null, method, params } = msg;
+
+    try {
+      switch (method) {
+        case "initialize":
+          this.writeResult(id, {
+            protocolVersion: PROTOCOL_VERSION,
+            serverInfo: SERVER_INFO,
+            capabilities: { tools: {} },
+          });
+          break;
+
+        case "initialized":
+        case "notifications/initialized":
+          // Notification — no response
+          break;
+
+        case "tools/list":
+          this.writeResult(id, {
+            tools: Object.entries(TOOLS).map(([name, t]: [string, any]) => ({
+              name,
+              description: t.description,
+              inputSchema: t.inputSchema,
+            })),
+          });
+          break;
+
+        case "tools/call": {
+          const toolName = params && params.name;
+          const args = (params && params.arguments) || {};
+          const tool = TOOLS[toolName as keyof typeof TOOLS];
+          if (!tool) {
+            this.writeError(id, -32601, `Unknown tool: ${toolName}`);
+            break;
+          }
+          try {
+            const result = tool.handler(args);
+            this.writeResult(id, {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(result, null, 2),
+                },
+              ],
+              isError: false,
+            });
+          } catch (err: unknown) {
+            const error = err as Error;
+            this.writeResult(id, {
+              content: [{ type: "text", text: `Error: ${error.message}` }],
+              isError: true,
+            });
+          }
           break;
         }
-        try {
-          const result = tool.handler(args);
-          writeResult(id, {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-            isError: false,
-          });
-        } catch (err) {
-          writeResult(id, {
-            content: [{ type: "text", text: `Error: ${err.message}` }],
-            isError: true,
-          });
-        }
-        break;
+
+        case "ping":
+          this.writeResult(id, {});
+          break;
+
+        case "shutdown":
+          this.writeResult(id, null);
+          this.stop();
+          break;
+
+        default:
+          if (id !== undefined && id !== null) {
+            this.writeError(id, -32601, `Method not found: ${method}`);
+          }
+        // else: notification — ignore unknown notifications
       }
-
-      case "ping":
-        writeResult(id, {});
-        break;
-
-      case "shutdown":
-        writeResult(id, null);
-        process.exit(0);
-        break;
-
-      default:
-        if (id !== undefined && id !== null) {
-          writeError(id, -32601, `Method not found: ${method}`);
-        }
-      // else: notification — ignore unknown notifications
+    } catch (err: unknown) {
+      const error = err as Error;
+      this.writeError(id, -32603, `Internal error: ${error.message}`);
     }
-  } catch (err) {
-    writeError(id, -32603, `Internal error: ${err.message}`);
   }
 }
 
-// ── Main loop ──────────────────────────────────────────────────────────────────────────────
-
-function main() {
-  process.stdin.setEncoding("utf8");
-  process.stdin.on("data", (chunk) => {
-    const messages = readMessage(chunk);
-    for (const msg of messages) handleMessage(msg);
-  });
-  process.stdin.on("end", () => {
-    process.exit(0);
-  });
-
-  // Log activation to stderr so clients see it (stdout is reserved for JSON-RPC)
-  process.stderr.write(`mcp-spec-driven ${SERVER_INFO.version} ready\n`);
+if (require.main === module) {
+  const server = new McpServer();
+  server.start();
 }
 
-if (require.main === module) main();
-
-module.exports = { handleMessage, readMessage, writeMessage };
+// Export a default instance for tests to bind to
+export const defaultServer = new McpServer();
+export const handleMessage = (msg: JsonRpcMessage) => defaultServer.handleMessage(msg);
+export const readMessage = (chunk: Buffer | string) => defaultServer.readMessage(chunk);
+export const writeMessage = (msg: JsonRpcMessage) => defaultServer.writeMessage(msg);
