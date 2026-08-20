@@ -423,11 +423,49 @@ puedan citar en los commits.
 
 ### Antes de 1.0 — solo refactor interno, sin cambio de contrato
 
-| ID | Tarea | Idea |
-|---|---|---|
-| `E0-01` | Registro único de superficie: CLI + MCP + contrato de agente + ficheros por host generados de una sola definición, con `--check` en CI | 3 |
-| `E0-02` | Extraer `AlmProvider` como puerto documentado, con `capabilities()` y kit de conformidad contra respuestas grabadas. Jira y Azure pasan a ser sus dos primeras implementaciones | 2 |
-| `E0-03` | ADR: "el ALM es un espejo; toda entrada externa pasa por el ciclo de `change`" | 2 |
+| ID | | Tarea | Idea |
+|---|---|---|---|
+| `E0-01` | `[x]` | Registro único de superficie: despachador, ambos perfiles de ayuda, completion, contrato de agente y herramientas MCP leen una sola declaración — `06be948`, `21a435a`, `1d35caf` | 3 |
+| `E0-02` | `[ ]` | Extraer `AlmProvider` como puerto documentado, con `capabilities()` y kit de conformidad contra respuestas grabadas. Jira y Azure pasan a ser sus dos primeras implementaciones | 2 |
+| `E0-03` | `[ ]` | ADR: "el ALM es un espejo; toda entrada externa pasa por el ciclo de `change`" | 2 |
+
+### Lo que salió al hacer E0-01 *(2026-08-20)*
+
+La superficie no estaba descrita en tres sitios, sino en **cinco**: el
+despachador y `usage()` en `bin/`, las listas de la completion, la tabla del
+contrato, los esquemas de MCP y las cadenas literales de
+`scripts/agents/commands.ts`. `AI_RULES.md` ya exigía "ninguna orden nueva sin
+fila en la tabla de despacho, en `usage()`, en la tabla del README y un test", y
+aun así la deriva ya estaba publicada:
+
+**Cuatro subcomandos existían y la completion no los ofrecía** — `harness init`,
+`change instructions`, `alm link` y `alm status`. El guarda que debía impedirlo
+comparaba solo nombres de primer nivel, raspando el despachador con una regex,
+así que no podía ver un subcomando ni en principio.
+
+Es exactamente el patrón de §12.11: el defecto no se ve leyendo el código, se ve
+cuando algo lo ejecuta. Aquí lo ejecutó un test nuevo, no un agente, pero la
+lección es la misma — **un guarda que no puede fallar no es un guarda.**
+
+Tres notas de método que conviene repetir en `E0-02`:
+
+1. **Línea base antes de refactorizar.** Se capturaron las 67 invocaciones de
+   todos los comandos y subcomandos (código de salida + huella de stdout y
+   stderr) antes de tocar el despachador, y se compararon después. Los códigos
+   de salida salieron idénticos en las 67, y todo el delta de salida se redujo a
+   tres cadenas intencionadas. Sin esa captura, "no cambia el comportamiento"
+   habría sido una opinión.
+2. **Los guardas se prueban mutando.** Apuntar una fila a una herramienta MCP
+   inexistente rompe dos tests; declarar un comando que no enruta rompe un
+   tercero. Comprobado, no supuesto.
+3. **El registro no puede tragárselo todo.** `init`, `validate` y `harness
+   prompt` siguen parseando por su cuenta porque cada uno es una decisión, no una
+   ruta. Y dos campos —`argsFrom` y `order`— existen porque son comportamiento:
+   `pack lint` y `config set` reciben su propio token de subcomando, y la ayuda
+   diaria se lee como secuencia, no en orden de declaración.
+
+Efecto lateral que sí es producto: `bin/create-spec-driven-app.ts` pierde 230
+líneas y deja de ser un sitio donde se declara la superficie.
 
 ### 1.1 — la primera release que añade cosas (y por tanto la prueba real de G1)
 
