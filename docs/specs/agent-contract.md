@@ -59,10 +59,11 @@ not run reports an `error` about itself.
 
 | Command | Document key | Gate |
 |---|---|---|
+| `csda doctor --json` | `doctor` | yes |
+| `csda status --json` | `status` | no |
 | `csda validate <dir> --json` | `validation` | yes |
 | `csda plan --json` | `plan` | no |
-| `csda status --json` | `status` | no |
-| `csda doctor --json` | `doctor` | yes |
+| `csda report --json` | `report` | no |
 | `csda done <REQ> --json` | `requirement` | no |
 | `csda change list --json` | `changes` | no |
 | `csda change show <id> --json` | `change` | no |
@@ -71,7 +72,6 @@ not run reports an `error` about itself.
 | `csda change archive <id> --json` | `archive` | yes |
 | `csda change instructions <artifact> --json` | `instructions` | no |
 | `csda specops diff --json` | `changes` | no |
-| `csda report --json` | `report` | no |
 | `csda harness run --format json` | `results` | no |
 
 The document key is what the payload carries on success and what is set to

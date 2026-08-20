@@ -16,48 +16,20 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-// Keep both lists in step with the dispatch table in
-// bin/create-spec-driven-app.ts — tests/unit/setup-commands.test.ts asserts it.
-const COMMANDS = [
-  "init",
-  "adopt",
-  "onboard",
-  "doctor",
-  "status",
-  "ci",
-  "alm",
-  "validate",
-  "expand",
-  "plan",
-  "report",
-  "done",
-  "req",
-  "fix",
-  "change",
-  "pack",
-  "specops",
-  "harness",
-  "config",
-  "agents",
-  "update",
-  "schema",
-  "completion",
-  "studio",
-];
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { commandNames, subcommandNames } = require("./lib/surface");
 
-const SUBCOMMANDS: Record<string, string[]> = {
-  pack: ["init", "lint", "infer", "bundle"],
-  specops: ["add", "remove", "sync", "diff", "contribute"],
-  harness: ["run", "prompt"],
-  change: ["new", "list", "show", "status", "validate", "archive"],
-  req: ["add", "link", "done", "list"],
-  ci: ["init"],
-  alm: ["sync"],
-  agents: ["init"],
-  schema: ["which", "init", "fork", "validate"],
-  config: ["init", "set", "get", "list"],
-  completion: ["bash", "zsh", "fish"],
-};
+/**
+ * Both lists come from the one surface declaration, so a command that exists
+ * is completable by construction.
+ *
+ * They were hand-maintained, and the guard only compared top-level names by
+ * scraping the dispatcher with a regex — so `harness init`, `change
+ * instructions`, `alm link` and `alm status` all shipped uncompletable.
+ */
+const COMMANDS = commandNames();
+
+const SUBCOMMANDS: Record<string, string[]> = subcommandNames();
 
 function bashScript() {
   const cmds = COMMANDS.join(" ");

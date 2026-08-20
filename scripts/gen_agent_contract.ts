@@ -22,6 +22,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const { EXIT } = require("./lib/agent");
+const { jsonContractRows } = require("./lib/surface");
 
 /**
  * The repository root, found by walking up to the package.json. Hardcoding a
@@ -43,27 +44,14 @@ const ROOT = repoRoot();
 const OUTPUT = path.join(ROOT, "docs/specs/agent-contract.md");
 
 /**
- * Every command that speaks JSON, with the key its document carries.
+ * Every command that speaks JSON, with the key its document carries, derived
+ * from the one surface declaration.
  *
- * `nullShapeKey` is what a failure sets to null — the contract's rule 3. A
- * command with no row here does not claim to be agent-facing.
+ * It was a second hand-written table here, which is how a command could speak
+ * the contract without the document knowing. `tests/unit/agent-contract.test.ts`
+ * runs every row and fails if a command's real output stops matching it.
  */
-const COMMANDS = [
-  { command: "validate <dir> --json", nullShapeKey: "validation", gate: true },
-  { command: "plan --json", nullShapeKey: "plan", gate: false },
-  { command: "status --json", nullShapeKey: "status", gate: false },
-  { command: "doctor --json", nullShapeKey: "doctor", gate: true },
-  { command: "done <REQ> --json", nullShapeKey: "requirement", gate: false },
-  { command: "change list --json", nullShapeKey: "changes", gate: false },
-  { command: "change show <id> --json", nullShapeKey: "change", gate: false },
-  { command: "change status --json", nullShapeKey: "artifacts", gate: false },
-  { command: "change validate <id> --json", nullShapeKey: "change", gate: true },
-  { command: "change archive <id> --json", nullShapeKey: "archive", gate: true },
-  { command: "change instructions <artifact> --json", nullShapeKey: "instructions", gate: false },
-  { command: "specops diff --json", nullShapeKey: "changes", gate: false },
-  { command: "report --json", nullShapeKey: "report", gate: false },
-  { command: "harness run --format json", nullShapeKey: "results", gate: false },
-];
+const COMMANDS = jsonContractRows();
 
 /** Source files whose diagnostics form the public code catalogue. */
 const SOURCE_GLOBS = [
