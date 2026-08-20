@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `alm` — keep the traceability matrix and the enterprise ALM
  * (Jira / Azure Boards) in sync.
@@ -11,15 +9,17 @@
  *   csda alm status [--project-dir <dir>]
  */
 
-const { resolveProjectDir } = require("../lib/project-root");
-const {
+import { resolveProjectDir } from "../lib/project-root";
+import {
   readAlmConfig,
+  lintAlmConfig,
   readAlmMap,
   writeAlmMap,
   extractRequirements,
   syncRequirements,
-} = require("./core");
-const { makeClient } = require("./clients");
+} from "./core";
+import { makeClient } from "./clients";
+import { printDiagnostics } from "../lib/diagnostics";
 
 function logInfo(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
@@ -106,6 +106,11 @@ async function main() {
   if (sub === "sync") {
     try {
       const cfg = readAlmConfig(projectDir);
+      // Keys nothing reads are reported before the first request, not after a
+      // sync that quietly ignored half the file.
+      const configFindings = lintAlmConfig(cfg);
+      if (configFindings.length > 0) printDiagnostics(configFindings, process.stdout);
+
       const client = makeClient(cfg);
       const map = readAlmMap(projectDir);
       const reqs = extractRequirements(projectDir);
@@ -138,7 +143,7 @@ async function main() {
     }
   }
 
-  logError(`Unknown alm subcommand: ${sub || "(none)"}`);
+  logError(`Unknown alm sub-command: ${sub || "(none)"}. Expected: sync, link, status`);
   usage();
   process.exit(2);
 }

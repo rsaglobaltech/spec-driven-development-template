@@ -1,0 +1,180 @@
+/**
+ * `AlmProvider` — the contract every ALM connector implements.
+ *
+ * The two connectors that existed before this module were a ternary in
+ * `clients.ts` over `provider === "jira"`, which scales to two and no further.
+ * Worse, nothing recorded *which configuration keys each provider reads*, and
+ * three consequences of that shipped:
+ *
+ *   1. a Jira config with no `user_env` passes validation and fails later with
+ *      "Environment variable JIRA_USER is not set" — a variable the file never
+ *      named;
+ *   2. `alm.config.yaml` accepts any key at all, so `nonsense_key: 42` and a
+ *      `user_env` on an Azure config are read by nobody and reported by
+ *      nobody. `harness.config.yaml` takes the opposite position, in this same
+ *      repository, and says why: a key nobody reads is worse than a missing
+ *      one, because the file looks configured;
+ *   3. `done_state` is read by Azure and ignored by Jira, which discovers the
+ *      transition from the workflow. Setting it on a Jira project does
+ *      nothing, silently.
+ *
+ * So a provider declares three things, and each is read by something:
+ *
+ *   `config`        which keys it requires and which it merely accepts.
+ *                   `lintAlmConfig` reports the rest.
+ *   `capabilities`  which operations it can perform. `syncRequirements`
+ *                   degrades instead of throwing when one is missing.
+ *   `create`        the factory, taking the validated config and a fetch
+ *                   implementation so every provider is testable offline.
+ *
+ * The declaration is not decoration: `tests/unit/alm-conformance.test.ts`
+ * runs the same suite against every registered provider and fails when an
+ * implementation and its declaration disagree.
+ */
+
+/** What an issue looks like once created: the key to store, and where a human reads it. */
+export interface IssueRef {
+  readonly key: string;
+  readonly url: string | null;
+}
+
+/**
+ * The only two states the core distinguishes. Every provider collapses its own
+ * vocabulary — Jira status categories, Azure `System.State`, GitHub open/closed
+ * — into one of these, so the sync logic never learns any provider's words.
+ */
+export type IssueStatus = "open" | "done";
+
+/** Operations a provider may support. A capability the core does not branch on does not belong here. */
+export interface AlmCapabilities {
+  readonly create: boolean;
+  readonly readStatus: boolean;
+  readonly close: boolean;
+}
+
+/** Which keys of `alm.config.yaml` a provider reads. */
+export interface AlmConfigContract {
+  readonly required: readonly string[];
+  readonly optional: readonly string[];
+}
+
+/**
+ * A parsed `alm.config.yaml`. Deliberately open: `provider` decides which of
+ * the remaining keys mean anything, and `lintAlmConfig` reports the rest.
+ */
+export interface AlmConfig {
+  provider: string;
+  base_url?: string;
+  project_key?: string;
+  token_env?: string;
+  user_env?: string;
+  issue_type?: string;
+  done_state?: string;
+  [key: string]: unknown;
+}
+
+/** The narrow half: three async methods and no provider vocabulary. */
+export interface AlmClient {
+  readonly capabilities: AlmCapabilities;
+  createIssue(reqId: string, title: string): Promise<IssueRef>;
+  getIssueStatus(issueKey: string): Promise<IssueStatus>;
+  closeIssue(issueKey: string): Promise<void>;
+}
+
+/** The subset of `fetch` the providers use, so tests can replay recordings. */
+export type FetchLike = (url: string, init?: Record<string, unknown>) => Promise<HttpResponse>;
+
+export interface HttpResponse {
+  readonly ok: boolean;
+  readonly status: number;
+  json(): Promise<unknown>;
+  text(): Promise<string>;
+}
+
+export interface AlmProvider {
+  readonly id: string;
+  readonly label: string;
+  readonly config: AlmConfigContract;
+  readonly capabilities: AlmCapabilities;
+  create(cfg: AlmConfig, fetchImpl?: FetchLike): AlmClient;
+}
+
+/** Every capability name, for the checks that iterate them. */
+export const CAPABILITIES: readonly (keyof AlmCapabilities)[] = ["create", "readStatus", "close"];
+
+/** The client method each capability promises. */
+export const CAPABILITY_METHOD: Readonly<Record<keyof AlmCapabilities, keyof AlmClient>> = {
+  create: "createIssue",
+  readStatus: "getIssueStatus",
+  close: "closeIssue",
+};
+
+/** Config keys the core itself reads, whatever the provider. */
+export const CORE_CONFIG_KEYS: readonly string[] = ["alm_version", "provider"];
+
+/**
+ * Check a provider declaration is well formed.
+ *
+ * Called by the conformance kit rather than at import time: a malformed
+ * provider is a bug in this repository, not a condition a user can reach, and
+ * paying for the check on every CLI start would be a tax on everyone.
+ *
+ * @returns problems, empty when the declaration is sound
+ */
+export function checkProviderDeclaration(provider: unknown): string[] {
+  if (!provider || typeof provider !== "object") return ["provider is not an object"];
+
+  const candidate = provider as Partial<AlmProvider>;
+  const problems: string[] = [];
+  const at = (msg: string) => problems.push(`${candidate.id ?? "(anonymous)"}: ${msg}`);
+
+  if (typeof candidate.id !== "string" || !candidate.id) at("declares no id");
+  if (typeof candidate.label !== "string" || !candidate.label) at("declares no label");
+  if (typeof candidate.create !== "function") at("declares no create() factory");
+
+  problems.push(...checkConfigContract(candidate));
+  problems.push(...checkCapabilities(candidate));
+  return problems;
+}
+
+function checkConfigContract(candidate: Partial<AlmProvider>): string[] {
+  const label = candidate.id ?? "(anonymous)";
+  const config = candidate.config;
+  if (!config || typeof config !== "object") return [`${label}: declares no config contract`];
+
+  const problems: string[] = [];
+  for (const bucket of ["required", "optional"] as const) {
+    if (!Array.isArray(config[bucket])) problems.push(`${label}: config.${bucket} is not an array`);
+  }
+
+  const declared = [...(config.required ?? []), ...(config.optional ?? [])];
+  const duplicated = declared.filter((key, i) => declared.indexOf(key) !== i);
+  if (duplicated.length > 0) problems.push(`${label}: declares ${duplicated.join(", ")} twice`);
+
+  for (const key of declared) {
+    if (CORE_CONFIG_KEYS.includes(key))
+      problems.push(`${label}: re-declares the core key '${key}'`);
+  }
+  return problems;
+}
+
+function checkCapabilities(candidate: Partial<AlmProvider>): string[] {
+  const label = candidate.id ?? "(anonymous)";
+  const caps = candidate.capabilities;
+  if (!caps || typeof caps !== "object") return [`${label}: declares no capabilities`];
+
+  const problems: string[] = [];
+  for (const capability of CAPABILITIES) {
+    if (typeof caps[capability] !== "boolean") {
+      problems.push(`${label}: capability '${capability}' is not declared as a boolean`);
+    }
+  }
+
+  const extra = Object.keys(caps).filter(
+    (name) => !CAPABILITIES.includes(name as keyof AlmCapabilities)
+  );
+  if (extra.length > 0) {
+    problems.push(`${label}: declares unknown capabilit(y/ies): ${extra.join(", ")}`);
+  }
+  return problems;
+}

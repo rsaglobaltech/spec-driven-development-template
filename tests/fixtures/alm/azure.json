@@ -1,0 +1,42 @@
+{
+  "provider": "azure",
+  "config": {
+    "alm_version": 1,
+    "provider": "azure",
+    "base_url": "https://dev.azure.com/acme/",
+    "project_key": "HIE",
+    "token_env": "CSDA_CONFORMANCE_TOKEN"
+  },
+  "env": {
+    "CSDA_CONFORMANCE_TOKEN": "pat"
+  },
+  "routes": [
+    {
+      "match": "workitems/$Task",
+      "method": "POST",
+      "json": { "id": 42, "_links": { "html": { "href": "https://dev.azure.com/acme/_workitems/edit/42" } } }
+    },
+    {
+      "match": "workitems/7?fields=System.State",
+      "method": "GET",
+      "json": { "fields": { "System.State": "Active" } }
+    },
+    {
+      "match": "workitems/8?fields=System.State",
+      "method": "GET",
+      "json": { "fields": { "System.State": "Closed" } }
+    },
+    {
+      "match": "workitems/7?api-version",
+      "method": "PATCH",
+      "json": {}
+    }
+  ],
+  "expect": {
+    "createdKey": "42",
+    "createdUrlContains": "edit/42",
+    "openIssue": "7",
+    "doneIssue": "8",
+    "closeIssue": "7"
+  }
+}

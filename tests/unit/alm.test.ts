@@ -8,6 +8,7 @@ const { spawnSync } = require("node:child_process");
 
 const {
   readAlmConfig,
+  lintAlmConfig,
   readAlmMap,
   writeAlmMap,
   extractRequirements,
@@ -164,7 +165,7 @@ test("readAlmConfig validates required keys and provider", () => {
       "alm_version: 1\nprovider: rally\nbase_url: https://x\nproject_key: P\ntoken_env: T\n",
       "utf8"
     );
-    assert.throws(() => readAlmConfig(dir), /provider must be 'jira' or 'azure'/);
+    assert.throws(() => readAlmConfig(dir), /Unknown ALM provider 'rally'. Available: jira, azure/);
 
     fs.writeFileSync(
       path.join(dir, "alm.config.yaml"),
@@ -173,6 +174,83 @@ test("readAlmConfig validates required keys and provider", () => {
     );
     assert.equal(readAlmConfig(dir).provider, "jira");
   });
+});
+
+test("readAlmConfig asks the provider which keys it requires", () => {
+  withProject((dir) => {
+    fs.writeFileSync(
+      path.join(dir, "alm.config.yaml"),
+      "alm_version: 1\nprovider: azure\nbase_url: https://x\ntoken_env: T\n",
+      "utf8"
+    );
+    assert.throws(
+      () => readAlmConfig(dir),
+      /missing required key 'project_key' for provider 'azure'/
+    );
+  });
+});
+
+test("lintAlmConfig names the keys nothing will read, and who would have", () => {
+  // The three findings this port exists for: a key only another provider
+  // reads, and a key no provider reads at all.
+  const cfg = {
+    alm_version: 1,
+    provider: "jira",
+    base_url: "https://x",
+    project_key: "P",
+    token_env: "T",
+    done_state: "Resolved",
+    nonsense_key: 42,
+  };
+  const diags = lintAlmConfig(cfg);
+  assert.equal(diags.length, 2);
+
+  const byTarget = Object.fromEntries(diags.map((d) => [d.target, d]));
+  assert.equal(byTarget.done_state.severity, "warning");
+  assert.equal(byTarget.done_state.code, "alm_config_unread_key");
+  assert.match(byTarget.done_state.message, /read by azure, not by jira/);
+  assert.ok(byTarget.done_state.fix, "a warning without a fix is not actionable");
+  assert.match(byTarget.nonsense_key.message, /read by no ALM provider/);
+});
+
+test("lintAlmConfig is silent when every key is read", () => {
+  assert.deepEqual(
+    lintAlmConfig({
+      alm_version: 1,
+      provider: "azure",
+      base_url: "https://x",
+      project_key: "P",
+      token_env: "T",
+      done_state: "Closed",
+      issue_type: "User Story",
+    }),
+    []
+  );
+});
+
+test("sync reports a requirement it cannot close instead of throwing", async () => {
+  // A provider that declares close:false must not take the whole run down.
+  const client = {
+    capabilities: { create: true, readStatus: true, close: false },
+    async createIssue() {
+      throw new Error("not reached");
+    },
+    async getIssueStatus() {
+      return "open";
+    },
+    async closeIssue() {
+      throw new Error("closeIssue must not be called when close is false");
+    },
+  };
+  const map = { "REQ-001": { issue: "X-1" } };
+  const actions = await syncRequirements(
+    [{ id: "REQ-001", title: "t", status: "done" }],
+    map,
+    client,
+    {}
+  );
+  assert.equal(actions[0].action, "close-unsupported");
+  assert.match(actions[0].detail, /cannot close X-1/);
 });
 
 // ── Provider clients over an injected fetch ───────────────────────────────────

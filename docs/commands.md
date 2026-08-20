@@ -62,10 +62,12 @@ Each command takes `--json`. See [the agent contract](specs/agent-contract.md).
 | `csda harness prompt <REQ>` | Print the prompt the harness would hand an agent, before paying for tokens. |
 | `csda ci init` | Generate the spec gate for GitHub, GitLab, Azure or Jenkins. |
 | `csda alm sync` | Sync requirements with Jira or Azure Boards — create, close, report drift. |
+| `csda alm status` | The requirement ↔ issue mapping, without touching the network. |
+| `csda alm link <REQ> <issue>` | Adopt an issue that already exists into the mapping. |
 | `csda report` | Spec-coverage dashboard as a self-contained HTML file. |
 | `csda doctor` | Diagnose the project and the environment. Every finding ships a fix. |
 
-→ [Automation](automation.md)
+→ [Automation](automation.md) · [Jira and Azure Boards](alm.md)
 
 ## Agents
 
