@@ -3,7 +3,8 @@ import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseYamlLite } from "../../../domain-pack/common";
 import { listChangeIds } from "../../../change/common";
-import { validateChange } from "../../../change/cli";
+import { ValidateChangeUseCase } from "../../../../packages/core/src/application/ValidateChangeUseCase";
+import { DiskProjectRepository } from "../../../../packages/core/src/infrastructure/DiskProjectRepository";
 import { formatDiagnostic, error } from "../../../lib/diagnostics";
 import { checkAgainstLock } from "../../../specops/against_lock";
 import { requirementGraphFromProject } from "../../../lib/requirement-graph";
@@ -354,7 +355,9 @@ export class ValidateSpecsCommand extends BaseCommand {
       const problems: string[] = [];
       const rawProblems: any[] = [];
       for (const id of ids) {
-        const result = validateChange(targetDir, id, { strict: false });
+        const result = new ValidateChangeUseCase(new DiskProjectRepository(targetDir)).execute(id, {
+          strict: false,
+        });
         for (const d of result.diagnostics) {
           if (d.severity === "error") {
             rawProblems.push(d);

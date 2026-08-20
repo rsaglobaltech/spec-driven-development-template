@@ -9,6 +9,7 @@
 
 // ── Domain ───────────────────────────────────────────────────────────────────
 export * from "./domain/ArchivePlan";
+export * from "./domain/ChangeTemplates";
 export * from "./domain/DeltaSpec";
 export * from "./domain/Diagnostic";
 export * from "./domain/DomainPack";
@@ -56,6 +57,7 @@ export * from "./application/GeneratePlanUseCase";
 export * from "./application/LinkRequirementUseCase";
 export * from "./application/RemovePackUseCase";
 export * from "./application/UpdateRequirementStatusUseCase";
+export * from "./application/ValidateChangeUseCase";
 export * from "./application/ValidateProjectUseCase";
 
 // ── Infrastructure ───────────────────────────────────────────────────────────

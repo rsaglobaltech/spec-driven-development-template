@@ -59,6 +59,35 @@ test("a command the registry does not declare is rejected", () => {
   assert.match(`${r.stdout}${r.stderr}`, /Unknown command/);
 });
 
+/**
+ * The text of a command's implementation, following re-exports.
+ *
+ * The entry script the registry names is often a shim that re-exports the real
+ * command, so reading that one file finds nothing. This walks the first-party
+ * import graph from the entry point and concatenates it.
+ */
+function implementationText(entryFile: string): string {
+  const seen = new Set<string>();
+  const chunks: string[] = [];
+  const queue = [entryFile];
+
+  while (queue.length > 0) {
+    const file = queue.pop()!;
+    if (seen.has(file) || !fs.existsSync(file)) continue;
+    seen.add(file);
+    const text = fs.readFileSync(file, "utf8");
+    chunks.push(text);
+
+    for (const m of text.matchAll(/from\s+["'](\.[^"']+)["']/g)) {
+      const resolved = path.resolve(path.dirname(file), m[1]);
+      for (const candidate of [`${resolved}.ts`, path.join(resolved, "index.ts")]) {
+        if (fs.existsSync(candidate)) queue.push(candidate);
+      }
+    }
+  }
+  return chunks.join("\n");
+}
+
 test("a pass-through command's own script knows every sub-command declared for it", () => {
   // A command with its own script owns its sub-commands: the dispatcher hands
   // the tail over untouched, so the registry can drift from what the script
@@ -73,7 +102,7 @@ test("a pass-through command's own script knows every sub-command declared for i
       ...command.script.map((s: string) => s.replace(/\.js$/, ".ts"))
     );
     if (!fs.existsSync(source)) continue;
-    const text = fs.readFileSync(source, "utf8");
+    const text = implementationText(source);
     for (const sub of (command.subcommands || []).map((s: any) => s.name)) {
       if (!new RegExp(`["'\`]${sub}["'\`]|\\b${sub}:`).test(text)) {
         missing.push(`${command.name} ${sub}`);
