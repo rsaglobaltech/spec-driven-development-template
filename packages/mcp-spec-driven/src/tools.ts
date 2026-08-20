@@ -289,6 +289,13 @@ function markRequirementDone(args) {
 
 // ── Tool registry ────────────────────────────────────────────────────────────────
 
+/**
+ * `csda` names the CLI command a tool fronts, for the tools that shell out.
+ * This package builds and publishes on its own, so it cannot read the CLI's
+ * surface registry at runtime; the link is a declaration both sides make and
+ * `tests/unit/surface-registry.test.ts` compares. A tool with no `csda` reads
+ * the project's files directly and fronts nothing.
+ */
 const TOOLS = {
   read_spec: {
     description: "Read the spec.md file (and list other spec markdown) of a spec-driven project.",
@@ -337,6 +344,7 @@ const TOOLS = {
     },
   },
   lint_pack: {
+    csda: "pack lint",
     description: "Run pack lint on a domain pack and return errors/warnings.",
     handler: lintPack,
     inputSchema: {
@@ -356,6 +364,7 @@ const TOOLS = {
     },
   },
   validate_project: {
+    csda: "validate",
     description: "Run validate on a spec-driven project and return errors/warnings.",
     handler: validateProject,
     inputSchema: {
@@ -368,6 +377,7 @@ const TOOLS = {
     },
   },
   plan: {
+    csda: "plan",
     description:
       "List every requirement and its work bucket (NEEDS_FEATURE, NEEDS_TEST, NEEDS_IMPLEMENTATION, NEEDS_STATUS_UPDATE, DONE). Use this BEFORE writing code to discover what to do next.",
     handler: plan,
@@ -381,6 +391,7 @@ const TOOLS = {
     },
   },
   mark_requirement_done: {
+    csda: "done",
     description:
       "Update the Status of a requirement row in traceability.md (default: Implemented). Pass check=true to run `validate` first and abort on failure.",
     handler: markRequirementDone,

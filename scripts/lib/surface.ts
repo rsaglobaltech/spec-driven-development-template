@@ -85,6 +85,12 @@ interface Subcommand {
   argsFrom?: number;
   help?: HelpRow;
   json?: JsonContract;
+  /**
+   * Name of the MCP tool that fronts this command, when one does. The MCP
+   * package builds and publishes on its own, so it cannot read this module at
+   * runtime — the link is a declaration both sides make and a test compares.
+   */
+  mcp?: string;
 }
 
 interface Command {
@@ -94,6 +100,12 @@ interface Command {
   help?: HelpRow;
   coreHelp?: HelpRow;
   json?: JsonContract;
+  /**
+   * Name of the MCP tool that fronts this command, when one does. The MCP
+   * package builds and publishes on its own, so it cannot read this module at
+   * runtime — the link is a declaration both sides make and a test compares.
+   */
+  mcp?: string;
 }
 
 const SURFACE: Command[] = [
@@ -206,6 +218,7 @@ const SURFACE: Command[] = [
       summary: "The gate: structure, traceability, Gherkin, TDD.",
     },
     json: { key: "validation", gate: true, args: "<dir>" },
+    mcp: "validate_project",
   },
   {
     name: "expand",
@@ -231,6 +244,7 @@ const SURFACE: Command[] = [
       summary: "Requirements still needing a test or implementation.",
     },
     json: { key: "plan", gate: false },
+    mcp: "plan",
   },
   {
     name: "report",
@@ -252,6 +266,7 @@ const SURFACE: Command[] = [
     },
     coreHelp: { group: "daily", order: 6, icon: "✔", summary: "Mark a requirement Implemented." },
     json: { key: "requirement", gate: false, args: "<REQ>" },
+    mcp: "mark_requirement_done",
   },
   {
     name: "req",
@@ -321,6 +336,7 @@ const SURFACE: Command[] = [
         name: "lint",
         script: ["lint_pack.js"],
         argsFrom: 1,
+        mcp: "lint_pack",
         help: {
           group: "pack",
           icon: "🔍",
@@ -596,6 +612,20 @@ function hiddenCommandCount() {
   return SURFACE.filter((c) => !c.coreHelp).length;
 }
 
+/**
+ * `{ toolName: "command" | "command sub" }` for every row an MCP tool fronts.
+ */
+function mcpTools() {
+  const out = {};
+  for (const command of SURFACE) {
+    if (command.mcp) out[command.mcp] = command.name;
+    for (const sub of command.subcommands || []) {
+      if (sub.mcp) out[sub.mcp] = `${command.name} ${sub.name}`;
+    }
+  }
+  return out;
+}
+
 module.exports = {
   SURFACE,
   HELP_GROUPS,
@@ -603,6 +633,7 @@ module.exports = {
   commandNames,
   subcommandNames,
   jsonContractRows,
+  mcpTools,
   helpRows,
   coreHelpRows,
   hiddenCommandCount,

@@ -21,11 +21,13 @@ const {
   commandNames,
   subcommandNames,
   jsonContractRows,
+  mcpTools,
   helpRows,
   coreHelpRows,
   hiddenCommandCount,
 } = require("../../scripts/lib/surface");
 const { STEPS } = require("../../scripts/agents/commands");
+const { TOOLS } = require("../../packages/mcp-spec-driven/src/tools");
 
 const ROOT_DIR = path.resolve(__dirname, "../../..");
 const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
@@ -164,4 +166,37 @@ test("every command the agent steps tell an agent to run exists", () => {
     [],
     `agent steps name commands that do not exist: ${unknown.join(", ")}`
   );
+});
+
+test("every MCP tool that fronts a command fronts one that exists", () => {
+  // The MCP package publishes on its own, so it cannot read the registry at
+  // runtime. Both sides declare the link instead, and this is where the two
+  // declarations are made to agree — the drift would otherwise surface as an
+  // agent calling a tool that shells out to a command the CLI dropped.
+  const declared = mcpTools();
+  const subs = subcommandNames();
+
+  const unknown: string[] = [];
+  for (const [tool, spec] of Object.entries(TOOLS) as [string, any][]) {
+    if (!spec.csda) continue;
+    const [command, sub] = spec.csda.split(" ");
+    if (!commandNames().includes(command) || (sub && !(subs[command] || []).includes(sub))) {
+      unknown.push(`${tool} → csda ${spec.csda}`);
+    }
+    assert.equal(
+      declared[tool],
+      spec.csda,
+      `${tool} fronts '${spec.csda}' but the registry says '${declared[tool]}'`
+    );
+  }
+  assert.deepEqual(
+    unknown,
+    [],
+    `MCP tools front commands that do not exist: ${unknown.join(", ")}`
+  );
+});
+
+test("every command the registry marks as MCP-exposed has a tool", () => {
+  const missing = Object.keys(mcpTools()).filter((tool) => !(tool in TOOLS));
+  assert.deepEqual(missing, [], `declared MCP tools that do not exist: ${missing.join(", ")}`);
 });
