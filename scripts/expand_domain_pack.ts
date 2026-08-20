@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-const fs = require("node:fs");
-const path = require("node:path");
-const {
+import * as fs from "node:fs";
+import * as path from "node:path";
+import {
   asArray,
   buildTraceabilityMarkdown,
   entityLabel,
@@ -22,19 +22,22 @@ const {
   safeResolve,
   validatePackModel,
   writeFile,
-} = require("./domain-pack/common");
-const { resolveRemotePack } = require("./domain-pack/remote");
-const { readLock, writeLock, upsertPackEntry, newLock } = require("./specops/lock");
-const {
+} from "./domain-pack/common";
+import { resolveRemotePack } from "./domain-pack/remote";
+import { readLock, writeLock, upsertPackEntry, newLock } from "./specops/lock";
+import {
   computePackDigest,
   readSecurityPolicy,
   verifyTagSignature,
   assertDigestUnchanged,
-} = require("./specops/verify");
-const { snapshotBaseline } = require("./specops/manifest");
+} from "./specops/verify";
+import { snapshotBaseline } from "./specops/manifest";
 
 const PACKAGE_VERSION = (() => {
   try {
+    // The path is computed at run time — it differs between `scripts/` and the
+    // compiled `dist/scripts/` — and an `import` specifier must be static. This
+    // is the one thing `require` still does that `import` cannot.
     return require(path.resolve(__dirname, "..", "..", "package.json")).version || "0.0.0";
   } catch {
     return "0.0.0";

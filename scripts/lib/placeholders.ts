@@ -1,5 +1,3 @@
-"use strict";
-
 // csda:allow-placeholders — this module is the {{VAR}} scanner itself.
 
 /**
@@ -12,18 +10,18 @@
  * differently is worse than one imperfect checker.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
-const PLACEHOLDER_RE = /\{\{[A-Z_][A-Z0-9_]*\}\}/;
+export const PLACEHOLDER_RE = /\{\{[A-Z_][A-Z0-9_]*\}\}/;
 
 /**
  * Syntax-neutral on purpose: put it in whatever comment form the file uses —
  * `<!-- csda:allow-placeholders -->` in markdown, `// csda:allow-placeholders`
  * in code. Same convention as the `csda:trace` marker.
  */
-const PLACEHOLDER_ALLOW_RE = /csda:allow-placeholders/;
+export const PLACEHOLDER_ALLOW_RE = /csda:allow-placeholders/;
 
 /**
  * Never scanned: dependency trees and build output are not the project's specs,
@@ -31,7 +29,7 @@ const PLACEHOLDER_ALLOW_RE = /csda:allow-placeholders/;
  * would report as unresolved placeholders in any project with dependencies
  * installed.
  */
-const SKIP_DIRS = new Set([
+export const SKIP_DIRS = new Set([
   "node_modules",
   "dist",
   "build",
@@ -84,7 +82,7 @@ function gitIgnoredNames(dir) {
   return ignored;
 }
 
-function walk(dir, ignored = null) {
+export function walk(dir, ignored = null) {
   const skipIgnored = ignored || gitIgnoredNames(dir);
   const out = [];
   let entries;
@@ -104,7 +102,7 @@ function walk(dir, ignored = null) {
 }
 
 /** True when the file is exempt for a stated reason, rather than by accident. */
-function isExempt(file, content) {
+export function isExempt(file, content) {
   // A .tpl file is unrendered by definition — its {{VAR}} tokens are the point,
   // not a defect. Generated projects never contain .tpl files, so this does not
   // weaken the check for the projects the gate is aimed at; it only stops it
@@ -119,7 +117,7 @@ function isExempt(file, content) {
  * Every file under `rootDir` that still carries an unresolved `{{TOKEN}}`,
  * as paths relative to `rootDir` with POSIX separators.
  */
-function findUnresolvedPlaceholders(rootDir) {
+export function findUnresolvedPlaceholders(rootDir) {
   const offenders = [];
   for (const file of walk(rootDir)) {
     let content;
@@ -137,7 +135,7 @@ function findUnresolvedPlaceholders(rootDir) {
 }
 
 /** The distinct variable names still unresolved, for an actionable message. */
-function missingVariables(rootDir, offenders) {
+export function missingVariables(rootDir, offenders) {
   const names = new Set();
   for (const rel of offenders) {
     let content;
@@ -150,13 +148,3 @@ function missingVariables(rootDir, offenders) {
   }
   return [...names].sort();
 }
-
-module.exports = {
-  PLACEHOLDER_RE,
-  PLACEHOLDER_ALLOW_RE,
-  SKIP_DIRS,
-  walk,
-  isExempt,
-  findUnresolvedPlaceholders,
-  missingVariables,
-};

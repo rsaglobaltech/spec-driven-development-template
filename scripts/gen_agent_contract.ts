@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * Generates `docs/specs/agent-contract.md` from the source, never by hand.
  *
@@ -18,11 +16,11 @@
  *   node --test dist/tests/unit/agent-contract.test.js   # fail if it is stale
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { EXIT } = require("./lib/agent");
-const { jsonContractRows } = require("./lib/surface");
+import { EXIT } from "./lib/agent";
+import { jsonContractRows } from "./lib/surface";
 
 /**
  * The repository root, found by walking up to the package.json. Hardcoding a
@@ -41,7 +39,7 @@ function repoRoot() {
 }
 
 const ROOT = repoRoot();
-const OUTPUT = path.join(ROOT, "docs/specs/agent-contract.md");
+export const OUTPUT = path.join(ROOT, "docs/specs/agent-contract.md");
 
 /**
  * Every command that speaks JSON, with the key its document carries, derived
@@ -51,7 +49,7 @@ const OUTPUT = path.join(ROOT, "docs/specs/agent-contract.md");
  * the contract without the document knowing. `tests/unit/agent-contract.test.ts`
  * runs every row and fails if a command's real output stops matching it.
  */
-const COMMANDS = jsonContractRows();
+export const COMMANDS = jsonContractRows();
 
 /** Source files whose diagnostics form the public code catalogue. */
 const SOURCE_GLOBS = [
@@ -70,7 +68,7 @@ const SOURCE_GLOBS = [
  * Harvest `error("code", …)` / `warning("code", …)` / `diagnostic(sev, "code", …)`
  * from the source. Anything the code emits is in the catalogue by construction.
  */
-function harvestCodes() {
+export function harvestCodes() {
   const byArea = new Map();
   for (const rel of SOURCE_GLOBS) {
     const file = path.join(ROOT, rel);
@@ -99,7 +97,7 @@ function table(rows, headers) {
   return [head, sep, ...rows.map((r) => `| ${r.join(" | ")} |`)].join("\n");
 }
 
-function render() {
+export function render() {
   const codes = harvestCodes();
   const codeRows = [];
   for (const [file, list] of codes) {
@@ -215,5 +213,3 @@ function main() {
 }
 
 if (require.main === module) main();
-
-module.exports = { render, harvestCodes, COMMANDS, OUTPUT };

@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * The command surface of this CLI, declared once.
  *
@@ -37,7 +35,7 @@
  * Sections of `--help --all`, in the order they print. Declared here because
  * the order and the wording are editorial, not derivable.
  */
-const HELP_GROUPS = [
+export const HELP_GROUPS = [
   { id: "core", title: "CORE COMMANDS" },
   { id: "pack", title: "PACK COMMANDS" },
   { id: "specops", title: "SPECOPS COMMANDS" },
@@ -46,7 +44,7 @@ const HELP_GROUPS = [
 ];
 
 /** Sections of the narrowed help, in the order they print. */
-const CORE_GROUPS = [
+export const CORE_GROUPS = [
   { id: "start", title: "START HERE" },
   { id: "daily", title: "EVERY DAY" },
 ];
@@ -108,7 +106,7 @@ interface Command {
   mcp?: string;
 }
 
-const SURFACE: Command[] = [
+export const SURFACE: Command[] = [
   {
     name: "init",
     script: ["init_project.js"],
@@ -522,12 +520,12 @@ const SURFACE: Command[] = [
 // ── Derived views ─────────────────────────────────────────────────────────────
 
 /** Every top-level command name, in declaration order. */
-function commandNames() {
+export function commandNames() {
   return SURFACE.map((c) => c.name);
 }
 
 /** `{ command: [sub, …] }` for every command that dispatches further. */
-function subcommandNames() {
+export function subcommandNames() {
   const out = {};
   for (const command of SURFACE) {
     if (command.subcommands) out[command.name] = command.subcommands.map((s) => s.name);
@@ -540,7 +538,7 @@ function subcommandNames() {
  * an agent types. `gen_agent_contract.ts` renders these straight into the
  * published table, so the string is the contract's own spelling.
  */
-function jsonContractRows() {
+export function jsonContractRows() {
   const rows = [];
   const push = (invocation, json) => {
     const args = json.args ? ` ${json.args}` : "";
@@ -565,7 +563,7 @@ function jsonContractRows() {
  * the help does. A row's label is `command` or `command sub`, which is why
  * the help can list `ci init` and `plan` side by side.
  */
-function helpRows() {
+export function helpRows() {
   const byGroup = new Map(HELP_GROUPS.map((g) => [g.id, []]));
   const add = (label, help) => {
     const bucket = byGroup.get(help.group);
@@ -582,7 +580,7 @@ function helpRows() {
 }
 
 /** The same, for the narrowed daily surface. */
-function coreHelpRows() {
+export function coreHelpRows() {
   const byGroup = new Map(CORE_GROUPS.map((g) => [g.id, []]));
   for (const command of SURFACE) {
     if (!command.coreHelp) continue;
@@ -598,7 +596,7 @@ function coreHelpRows() {
     });
   }
   for (const rows of byGroup.values()) {
-    (rows as any[]).sort((a, b) => (a.order || 0) - (b.order || 0));
+    rows.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }
   return CORE_GROUPS.map((g) => ({ group: g.id, title: g.title, rows: byGroup.get(g.id) }));
 }
@@ -608,14 +606,14 @@ function coreHelpRows() {
  * number `usage()` quotes when it points at `--help --all`. It was prose, and
  * prose does not recount itself when a command is added.
  */
-function hiddenCommandCount() {
+export function hiddenCommandCount() {
   return SURFACE.filter((c) => !c.coreHelp).length;
 }
 
 /**
  * `{ toolName: "command" | "command sub" }` for every row an MCP tool fronts.
  */
-function mcpTools() {
+export function mcpTools() {
   const out = {};
   for (const command of SURFACE) {
     if (command.mcp) out[command.mcp] = command.name;
@@ -625,16 +623,3 @@ function mcpTools() {
   }
   return out;
 }
-
-module.exports = {
-  SURFACE,
-  HELP_GROUPS,
-  CORE_GROUPS,
-  commandNames,
-  subcommandNames,
-  jsonContractRows,
-  mcpTools,
-  helpRows,
-  coreHelpRows,
-  hiddenCommandCount,
-};

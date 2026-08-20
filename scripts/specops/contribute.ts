@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `csda specops contribute --change <id>` — the loop back to the pack.
  *
@@ -19,16 +17,16 @@
  * human to run.
  */
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
-const { readLock } = require("./lock");
-const { resolveProjectDir } = require("../lib/project-root");
-const { parseDelta } = require("../change/parser");
-const { listDeltas, paths } = require("../change/common");
-const { error, warning, printDiagnostics } = require("../lib/diagnostics");
+import { readLock } from "./lock";
+import { resolveProjectDir } from "../lib/project-root";
+import { parseDelta, blockText } from "../change/parser";
+import { listDeltas, paths } from "../change/common";
+import { error, warning, printDiagnostics } from "../lib/diagnostics";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -40,6 +38,17 @@ const c = {
   cyan: COLOR_ENABLED ? "\x1b[36m" : "",
   yellow: COLOR_ENABLED ? "\x1b[33m" : "",
 };
+
+/** Parsed command-line options for this command. */
+export interface ContributeOptions {
+  projectDir: string;
+  change: string;
+  pack: string;
+  out: string;
+  branch: string;
+  dryRun: boolean;
+  json: boolean;
+}
 
 function usage() {
   process.stdout.write(
@@ -58,8 +67,8 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
-  const opts: any = {
+export function parseArgs(argv) {
+  const opts: ContributeOptions = {
     projectDir: ".",
     change: "",
     pack: "",
@@ -100,7 +109,7 @@ const yamlString = (v) =>
  * delta, this reads a delta and writes a `pack.yaml` fragment. Round-tripping
  * the two is what makes the pack and the project speak one language.
  */
-function deltaToPackFragment(delta, opts?) {
+export function deltaToPackFragment(delta, opts?) {
   const o = opts || {};
   const requirements = [];
   const scenarios = [];
@@ -112,7 +121,7 @@ function deltaToPackFragment(delta, opts?) {
         `  - id: ${req.id || "REQ-TODO"}`,
         `    title: ${yamlString(req.name)}`,
         `    priority: ${trace.priority || "Should"}`,
-        `    description: ${yamlString((req.text || "").split("\n")[0])}`,
+        `    description: ${yamlString(blockText(req.text).split("\n")[0])}`,
         `    status: Draft`,
         disposition ? `    # ${disposition}` : null,
       ]
@@ -160,7 +169,7 @@ function deltaToPackFragment(delta, opts?) {
   return `${lines.join("\n")}\n`;
 }
 
-function contributionReadme(changeId, packId, proposal, summary) {
+export function contributionReadme(changeId, packId, proposal, summary) {
   return `# Contribution: ${changeId}
 
 Proposed upstream from a project consuming \`${packId}\`.
@@ -200,7 +209,7 @@ function git(args, cwd) {
  * Clone the pack, branch, write the contribution, commit. Nothing leaves the
  * machine — the caller is handed a branch and the command that would publish it.
  */
-function stageContribution(repo, version, branch, files, outDir) {
+export function stageContribution(repo, version, branch, files, outDir) {
   const dir = outDir || fs.mkdtempSync(path.join(os.tmpdir(), "csda-contribute-"));
   fs.mkdirSync(dir, { recursive: true });
 
@@ -445,5 +454,3 @@ function main() {
 }
 
 if (require.main === module) main();
-
-module.exports = { parseArgs, deltaToPackFragment, contributionReadme, stageContribution };

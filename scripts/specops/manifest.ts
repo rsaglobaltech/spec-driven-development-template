@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * `.specops/` baseline manifest — the missing "common ancestor" that lets
  * `specops sync` do conflict detection instead of blindly overwriting.
@@ -20,36 +18,47 @@
  * Pure module: no logging, no process.exit. Throws on invalid input.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const crypto = require("node:crypto");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as crypto from "node:crypto";
 
-const SPECOPS_DIR = ".specops";
-const BASELINE_DIRNAME = "baseline";
-const MANIFEST_FILENAME = "manifest.json";
-const MANIFEST_VERSION = 1;
+export const SPECOPS_DIR = ".specops";
+export const BASELINE_DIRNAME = "baseline";
+export const MANIFEST_FILENAME = "manifest.json";
+export const MANIFEST_VERSION = 1;
 
-function manifestPath(projectDir) {
+export function manifestPath(projectDir) {
   return path.join(projectDir, SPECOPS_DIR, MANIFEST_FILENAME);
 }
 
-function baselineDir(projectDir, packId) {
+export function baselineDir(projectDir, packId) {
   return path.join(projectDir, SPECOPS_DIR, BASELINE_DIRNAME, packId);
 }
 
-function sha256(content) {
+export function sha256(content) {
   return crypto.createHash("sha256").update(content).digest("hex");
 }
 
-function newManifest() {
+export function newManifest() {
   return { specops_manifest_version: MANIFEST_VERSION, packs: {} };
+}
+
+/** Every writer here takes the same one flag: plan, or actually write. */
+/** One file captured in a pack's baseline: where it lives, and what it said. */
+export interface BaselineEntry {
+  rel: string;
+  content: string;
+}
+
+export interface WriteOptions {
+  dryRun?: boolean;
 }
 
 /**
  * Read and parse `.specops/manifest.json`.
  * @returns Parsed manifest or `null` if the file does not exist.
  */
-function readManifest(projectDir) {
+export function readManifest(projectDir) {
   const p = manifestPath(projectDir);
   if (!fs.existsSync(p)) return null;
   let parsed;
@@ -67,7 +76,7 @@ function readManifest(projectDir) {
   return parsed;
 }
 
-function writeManifest(projectDir, manifest, options: any = {}) {
+export function writeManifest(projectDir: string, manifest: unknown, options: WriteOptions = {}) {
   const p = manifestPath(projectDir);
   if (options.dryRun) return { path: p, written: false };
   fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -79,7 +88,7 @@ function writeManifest(projectDir, manifest, options: any = {}) {
  * Read a single baseline file's content.
  * @returns Content string or `null` when no baseline is recorded for it.
  */
-function readBaseline(projectDir, packId, rel) {
+export function readBaseline(projectDir, packId, rel) {
   const p = path.join(baselineDir(projectDir, packId), rel);
   if (!fs.existsSync(p)) return null;
   return fs.readFileSync(p, "utf8");
@@ -90,14 +99,20 @@ function readBaseline(projectDir, packId, rel) {
  * Wipes the pack's previous baseline tree first so files dropped by the pack
  * do not linger as phantom merge bases.
  */
-function snapshotBaseline(projectDir, packId, entries, meta: any = {}, options: any = {}) {
+export function snapshotBaseline(
+  projectDir: string,
+  packId: string,
+  entries: readonly BaselineEntry[] | null | undefined,
+  meta: Record<string, unknown> = {},
+  options: WriteOptions = {}
+) {
   if (options.dryRun) return { written: false, count: 0 };
   if (!packId) throw new Error("snapshotBaseline: packId is required");
 
   const baseDir = baselineDir(projectDir, packId);
   fs.rmSync(baseDir, { recursive: true, force: true });
 
-  const hashes = {};
+  const hashes: Record<string, string> = {};
   for (const entry of entries || []) {
     if (!entry || !entry.rel) continue;
     const dest = path.join(baseDir, entry.rel);
@@ -112,18 +127,3 @@ function snapshotBaseline(projectDir, packId, entries, meta: any = {}, options: 
 
   return { written: true, count: Object.keys(hashes).length };
 }
-
-module.exports = {
-  SPECOPS_DIR,
-  BASELINE_DIRNAME,
-  MANIFEST_FILENAME,
-  MANIFEST_VERSION,
-  manifestPath,
-  baselineDir,
-  sha256,
-  newManifest,
-  readManifest,
-  writeManifest,
-  readBaseline,
-  snapshotBaseline,
-};

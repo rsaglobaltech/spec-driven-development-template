@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Reader for `specops.config.yaml` — the declarative multi-pack composition file.
  *
@@ -17,13 +15,13 @@
  * the fetch always re-resolves the tag on the first run).
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { parseYamlLite } = require("../domain-pack/common");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { parseYamlLite } from "../domain-pack/common";
 
-const CONFIG_FILE = "specops.config.yaml";
+export const CONFIG_FILE = "specops.config.yaml";
 
-function readConfig(projectDir) {
+export function readConfig(projectDir) {
   const filePath = path.join(projectDir, CONFIG_FILE);
   if (!fs.existsSync(filePath)) return null;
   const raw = fs.readFileSync(filePath, "utf8");
@@ -37,7 +35,7 @@ function readConfig(projectDir) {
  *
  * Throws with a descriptive message on malformed input.
  */
-function configToPacks(config) {
+export function configToPacks(config) {
   if (!config || !Array.isArray(config.packs) || config.packs.length === 0) {
     throw new Error(`${CONFIG_FILE}: 'packs' must be a non-empty array`);
   }
@@ -55,5 +53,3 @@ function configToPacks(config) {
     };
   });
 }
-
-module.exports = { readConfig, configToPacks, CONFIG_FILE };

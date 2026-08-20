@@ -19,10 +19,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
 import { spawnSync } from "node:child_process";
-const { resolveProjectDir } = require("./lib/project-root");
-const { parseTraceability } = require("./plan");
-const { agentIo, wantsJson } = require("./lib/agent");
-const { error } = require("./lib/diagnostics");
+import { resolveProjectDir } from "./lib/project-root";
+import { parseTraceability } from "./plan";
+import { agentIo, wantsJson } from "./lib/agent";
+import { error, errorMessage } from "./lib/diagnostics";
 
 const DONE_SCRIPT = path.join(__dirname, "done.js");
 
@@ -273,9 +273,9 @@ function statusColor(status) {
 
 function collectFieldFlags(argv) {
   // Returns { fields, status, rest } parsed from --feature/--test/... flags.
-  const fields: any = {};
+  const fields: Record<string, string> = {};
   let status = null;
-  const rest: any[] = [];
+  const rest: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a in LINK_FIELDS && argv[i + 1] != null) {
@@ -392,9 +392,9 @@ async function interactive(tracePath, projectDir) {
     }
     rl.close();
     return 0;
-  } catch (err: any) {
+  } catch (err) {
     rl.close();
-    process.stderr.write(`${c.red}✖${c.reset}  ${err.message}\n`);
+    process.stderr.write(`${c.red}✖${c.reset}  ${errorMessage(err)}\n`);
     return 1;
   }
 }
@@ -432,9 +432,9 @@ async function main() {
   let projectDir;
   try {
     projectDir = resolveProjectDir(explicitDir);
-  } catch (err: any) {
+  } catch (err) {
     io.usage({ requirements: [] }, [
-      error("no_project", err.message, {
+      error("no_project", errorMessage(err), {
         fix: "Run from inside a spec-driven project, or pass --project-dir <path>.",
       }),
     ]);

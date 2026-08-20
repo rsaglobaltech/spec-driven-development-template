@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * Node.js port of new_spec_project.sh — invoked via --engine=node on the
  * 'init' command. Accepts the same flags and produces identical output.
@@ -13,11 +11,11 @@
  *   node scripts/init_project.js --config <path> --out <dir>
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
-const { parseYamlLite } = require("./domain-pack/common");
-const { runInitWizard, defaultAnswers, renderConfigYaml } = require("./wizard");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
+import { parseYamlLite } from "./domain-pack/common";
+import { runInitWizard, defaultAnswers, renderConfigYaml } from "./wizard";
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const TEMPLATES_DIR = path.join(ROOT_DIR, "templates");

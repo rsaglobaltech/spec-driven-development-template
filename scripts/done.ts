@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `done <REQ-id>` — update the Status of a requirement row in
  * docs/specs/traceability.md to a terminal state (Implemented by default).
@@ -13,12 +11,12 @@
  *   csda done REQ-007 --check
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
-const { resolveProjectDir } = require("./lib/project-root");
-const { error } = require("./lib/diagnostics");
-const { agentIo, EXIT } = require("./lib/agent");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
+import { resolveProjectDir } from "./lib/project-root";
+import { error } from "./lib/diagnostics";
+import { agentIo, EXIT } from "./lib/agent";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -34,7 +32,24 @@ const c = {
 
 const VALIDATE_SCRIPT = path.join(__dirname, "validate_specs.js");
 
-const ALLOWED_STATUSES = ["Draft", "Approved", "Implemented", "Verified", "Released", "Deprecated"];
+export const ALLOWED_STATUSES = [
+  "Draft",
+  "Approved",
+  "Implemented",
+  "Verified",
+  "Released",
+  "Deprecated",
+];
+
+/** Parsed command-line options for this command. */
+export interface DoneOptions {
+  reqId: string | null;
+  status: string;
+  projectDir: string;
+  check: boolean;
+  strict: boolean;
+  json?: boolean;
+}
 
 function usage() {
   process.stdout.write(
@@ -54,8 +69,8 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
-  const opts: any = {
+export function parseArgs(argv) {
+  const opts: DoneOptions = {
     reqId: null,
     status: "Implemented",
     projectDir: ".",
@@ -91,7 +106,7 @@ function parseArgs(argv) {
  * Replace the Status cell of every row whose Requirement cell equals `reqId`.
  * Returns the new content and the number of rows updated.
  */
-function setRequirementStatus(content, reqId, newStatus) {
+export function setRequirementStatus(content, reqId, newStatus) {
   const lines = content.split("\n");
   let updated = 0;
   const out = lines.map((line) => {
@@ -211,5 +226,3 @@ function main() {
 }
 
 if (require.main === module) main();
-
-module.exports = { parseArgs, setRequirementStatus, ALLOWED_STATUSES };

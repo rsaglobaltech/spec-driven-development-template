@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `specops diff` — shows what would change in the project if each pack
  * in `.specops.lock` were re-expanded (optionally at a different
@@ -14,16 +12,17 @@
  *   3. Emit a per-pack summary listing added (+) and modified (~) files
  */
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const crypto = require("node:crypto");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 
-const { readLock } = require("./lock");
-const { resolveProjectDir } = require("../lib/project-root");
-const { resolveRemotePack } = require("../domain-pack/remote");
-const { deriveDelta, materialiseChange } = require("./as_change");
+import { readLock } from "./lock";
+import { resolveProjectDir } from "../lib/project-root";
+import { resolveRemotePack } from "../domain-pack/remote";
+import { deriveDelta, materialiseChange } from "./as_change";
+import type { Diagnostic } from "../lib/diagnostics";
 
 const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 const LOCK_FILENAME = ".specops.lock";
@@ -53,7 +52,7 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const args = {
     projectDir: ".",
     pack: "",
@@ -126,7 +125,7 @@ function hashFile(filePath) {
 const IGNORE_DIRS = new Set([".git", "node_modules", "_site", ".cache", ".specops"]);
 const IGNORE_FILES = new Set([LOCK_FILENAME]);
 
-function walkFiles(root) {
+export function walkFiles(root) {
   const out = [];
   function recurse(dir) {
     let entries;
@@ -151,7 +150,7 @@ function walkFiles(root) {
   return out;
 }
 
-function diffDirs(baselineDir, candidateDir) {
+export function diffDirs(baselineDir, candidateDir) {
   const candidateFiles = walkFiles(candidateDir);
   const added = [];
   const modified = [];
@@ -172,7 +171,7 @@ function diffDirs(baselineDir, candidateDir) {
   return { added, modified, unchanged };
 }
 
-function buildExpandArgs(entry, version, tmpDir, cacheDir, extraVars = {}) {
+export function buildExpandArgs(entry, version, tmpDir, cacheDir, extraVars = {}) {
   const out = [
     "--pack-repo",
     entry.repo,
@@ -218,7 +217,7 @@ function printChanges(entry, version, changes) {
  * only reformats templates yields no deltas, which is the property that makes
  * this more useful than the file diff rather than noisier than it.
  */
-function runAsChange(args, projectDir, lock) {
+export function runAsChange(args, projectDir, lock) {
   const results = [];
   let matched = 0;
 
@@ -342,8 +341,8 @@ function main() {
     const jsonOut = {
       schemaVersion: 1,
       projectDir,
-      diffs: [] as any[],
-      status: [] as any[],
+      diffs: [] as unknown[],
+      status: [] as Diagnostic[],
     };
     let matched = 0;
     for (const entry of lock.packs) {
@@ -407,5 +406,3 @@ function main() {
 if (require.main === module) {
   main();
 }
-
-module.exports = { parseArgs, diffDirs, walkFiles, buildExpandArgs, runAsChange };

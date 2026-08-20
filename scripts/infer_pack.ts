@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `pack infer` — invert the authoring flow.
  *
@@ -19,10 +17,16 @@
  *   csda pack infer --from <feature-file> [--format yaml|json]
  */
 
-const fs = require("node:fs");
+import * as fs from "node:fs";
 
 function logError(msg) {
   process.stderr.write(`❌ [ERROR] ${msg}\n`);
+}
+
+/** Parsed command-line options for this command. */
+export interface InferPackOptions {
+  from: string | null;
+  format: string;
 }
 
 function usage() {
@@ -38,8 +42,8 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
-  const opts: any = { from: null, format: "yaml" };
+export function parseArgs(argv) {
+  const opts: InferPackOptions = { from: null, format: "yaml" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--from" && argv[i + 1]) {
@@ -66,7 +70,7 @@ const STEP_RE = /^(Given|When|Then|And|But)\b\s*(.*)$/i;
  * Parse a .feature file: the feature name, feature-level tags, and each
  * scenario with its tags and steps (And/But inherit the prior keyword).
  */
-function parseFeatureFile(content) {
+export function parseFeatureFile(content) {
   const featureTags = [];
   const scenarios = [];
   let featureName = "";
@@ -122,7 +126,7 @@ function pad(n) {
 }
 
 /** PascalCase the first few significant words of a step/title. */
-function toPascalCase(text) {
+export function toPascalCase(text) {
   const words = text
     .replace(/"[^"]*"/g, "") // drop quoted literals — they are data, not intent
     .replace(/[^A-Za-z0-9 ]/g, " ")
@@ -135,7 +139,7 @@ function toPascalCase(text) {
 }
 
 /** Collect REQ-NNN ids from feature/scenario tags (e.g. `@REQ-001`). */
-function collectRequirementIds(parsed) {
+export function collectRequirementIds(parsed) {
   const ids = new Set();
   const scan = (tags) => {
     for (const tag of tags || []) {
@@ -149,7 +153,7 @@ function collectRequirementIds(parsed) {
 }
 
 /** Quoted PascalCase tokens in a Then step are very likely event names. */
-function extractEventNames(text) {
+export function extractEventNames(text) {
   const out = [];
   const re = /"([A-Z][A-Za-z0-9]+)"/g;
   let m;
@@ -162,7 +166,7 @@ function extractEventNames(text) {
  * cannot infer is left as an explicit `TODO:` string so nothing silently
  * ships half-guessed.
  */
-function inferModel(parsed, sourceFile) {
+export function inferModel(parsed, sourceFile) {
   const reqIds = collectRequirementIds(parsed);
   const requirements =
     reqIds.length > 0
@@ -242,7 +246,7 @@ function yamlScalar(value) {
   return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
-function renderYamlFragment(model, sourceFile) {
+export function renderYamlFragment(model, sourceFile) {
   const out = [
     `# Proposed pack.yaml fragment inferred from ${sourceFile}`,
     `# Heuristic skeleton — review and resolve every TODO before merging.`,
@@ -340,13 +344,3 @@ function main() {
 if (require.main === module) {
   main();
 }
-
-module.exports = {
-  parseArgs,
-  parseFeatureFile,
-  toPascalCase,
-  collectRequirementIds,
-  extractEventNames,
-  inferModel,
-  renderYamlFragment,
-};

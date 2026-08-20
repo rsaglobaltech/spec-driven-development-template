@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * `specops diff --as-change` — a pack version bump, expressed as intent.
  *
@@ -18,15 +16,19 @@
  * it replaces.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { parseYamlLite, asArray } = require("../domain-pack/common");
-const { phrases } = require("../lib/language");
+import { parseYamlLite, asArray } from "../domain-pack/common";
+import type { PackModel } from "../domain-pack/common";
+import { phrases } from "../lib/language";
 
 // ── Reading the pack model ────────────────────────────────────────────────────
 
-function loadPackModel(packRoot, packId) {
+export function loadPackModel(
+  packRoot: string,
+  packId: string
+): { model: PackModel; packDir: string } {
   const packFile = path.join(path.resolve(packRoot), packId, "pack.yaml");
   if (!fs.existsSync(packFile)) {
     throw new Error(`Pack file not found: ${packFile}`);
@@ -37,7 +39,7 @@ function loadPackModel(packRoot, packId) {
   };
 }
 
-function requirementsById(model) {
+export function requirementsById(model) {
   const out = new Map();
   for (const req of asArray(model && model.requirements)) {
     if (req && req.id) out.set(String(req.id), req);
@@ -45,7 +47,7 @@ function requirementsById(model) {
   return out;
 }
 
-function scenariosByRequirement(model) {
+export function scenariosByRequirement(model) {
   const out = new Map();
   for (const sc of asArray(model && model.scenarios)) {
     if (!sc || !sc.requirement_id) continue;
@@ -61,7 +63,7 @@ function scenariosByRequirement(model) {
  * ordering, comments, template paths, the pack's own version — is not a
  * behavioural change and must not produce a delta.
  */
-function requirementFingerprint(req, scenarios) {
+export function requirementFingerprint(req, scenarios) {
   const norm = (v) => String(v === undefined || v === null ? "" : v).trim();
   const scenarioPart = (scenarios || [])
     .map((sc) =>
@@ -96,7 +98,7 @@ const GHERKIN_KEYWORD = /^\s*(Given|When|Then|And|But)\s+(.*)$/i;
  * that says "TODO" is reviewable; one that says something plausible but made
  * up is not.
  */
-function stepsForScenario(packDir, scenario) {
+export function stepsForScenario(packDir, scenario) {
   const templateRel = scenario && scenario.template;
   if (!templateRel) return null;
   const templateFile = path.resolve(packDir, templateRel);
@@ -149,7 +151,7 @@ function traceComment(scenario, origin?) {
   return parts.length > 0 ? `<!-- csda:trace ${parts.join(" ")} -->` : null;
 }
 
-function renderRequirementBlock(req, scenarios, packDir, opts?) {
+export function renderRequirementBlock(req, scenarios, packDir, opts?) {
   const t = phrases(opts && opts.projectDir);
   const o = opts || {};
   const out = [];
@@ -204,7 +206,7 @@ function renderRequirementBlock(req, scenarios, packDir, opts?) {
  * @returns { capability, markdown, summary: {added[], modified[], removed[]} }
  *          `markdown` is null when nothing behavioural changed.
  */
-function deriveDelta(oldPackRoot, newPackRoot, packId, opts?) {
+export function deriveDelta(oldPackRoot, newPackRoot, packId, opts?) {
   const options = opts || {};
   const oldPack = oldPackRoot ? loadPackModel(oldPackRoot, packId) : null;
   const newPack = loadPackModel(newPackRoot, packId);
@@ -282,7 +284,7 @@ function deriveDelta(oldPackRoot, newPackRoot, packId, opts?) {
 
 // ── The proposal ──────────────────────────────────────────────────────────────
 
-function changeIdFor(packId, fromVersion, toVersion) {
+export function changeIdFor(packId, fromVersion, toVersion) {
   const slug = (v) =>
     String(v)
       .replace(/[^a-zA-Z0-9.]+/g, "-")
@@ -344,7 +346,7 @@ function renderTasks(entry, targetVersion) {
  * Materialise the derived delta as a change folder. Returns the list of files
  * written (or that would be written, when `dryRun`).
  */
-function materialiseChange(projectDir, entry, targetVersion, derived, opts?) {
+export function materialiseChange(projectDir, entry, targetVersion, derived, opts?) {
   const o = opts || {};
   const changeId = o.changeId || changeIdFor(entry.pack_id, entry.version, targetVersion);
   const changeDir = path.join(projectDir, "docs", "specs", "changes", changeId);
@@ -385,15 +387,3 @@ function materialiseChange(projectDir, entry, targetVersion, derived, opts?) {
     files: files.map((f) => path.relative(projectDir, f.file).split(path.sep).join("/")),
   };
 }
-
-module.exports = {
-  loadPackModel,
-  requirementsById,
-  scenariosByRequirement,
-  requirementFingerprint,
-  stepsForScenario,
-  deriveDelta,
-  changeIdFor,
-  materialiseChange,
-  renderRequirementBlock,
-};

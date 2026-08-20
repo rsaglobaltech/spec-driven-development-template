@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `specops sync` — re-expands every pack recorded in `.specops.lock` and
  * reconciles the result with the project using three-way merge.
@@ -22,17 +20,19 @@
  * CI and agent harnesses can detect that a human needs to intervene.
  */
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
-const { readLock, writeLock, upsertPackEntry, newLock } = require("./lock");
-const { readConfig, configToPacks, CONFIG_FILE } = require("./config");
-const { walkFiles } = require("./diff");
-const { readBaseline, snapshotBaseline } = require("./manifest");
-const { threeWayMerge } = require("./merge");
-const { resolveProjectDir } = require("../lib/project-root");
+import { readLock, writeLock, upsertPackEntry, newLock } from "./lock";
+import { readConfig, configToPacks, CONFIG_FILE } from "./config";
+import { walkFiles } from "./diff";
+import { readBaseline, snapshotBaseline } from "./manifest";
+import { threeWayMerge } from "./merge";
+import { resolveProjectDir } from "../lib/project-root";
+import { resolveRemotePack } from "../domain-pack/remote";
+import { depositPackChanges } from "./pack_changes";
 
 const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 
@@ -63,7 +63,7 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const args = {
     projectDir: ".",
     pack: "",
@@ -123,7 +123,7 @@ function parseArgs(argv) {
   return args;
 }
 
-function buildExpandArgs(entry, version, projectDir, cacheDir, dryRun, extraVars = {}) {
+export function buildExpandArgs(entry, version, projectDir, cacheDir, dryRun, extraVars = {}) {
   const out = [
     "--pack-repo",
     entry.repo,
@@ -147,7 +147,7 @@ function buildExpandArgs(entry, version, projectDir, cacheDir, dryRun, extraVars
   return out;
 }
 
-function resolvePacks(projectDir) {
+export function resolvePacks(projectDir) {
   const lock = readLock(projectDir);
   if (lock) {
     if (!Array.isArray(lock.packs) || lock.packs.length === 0) {
@@ -172,7 +172,7 @@ function resolvePacks(projectDir) {
  * Returns { outcome, baselineContent } where baselineContent is what should
  * be recorded as the next merge base for this file.
  */
-function reconcileFile(rel, incoming, projectDir, packId, args) {
+export function reconcileFile(rel, incoming, projectDir, packId, args) {
   const localPath = path.join(projectDir, rel);
   const localExists = fs.existsSync(localPath);
   const local = localExists ? fs.readFileSync(localPath, "utf8") : null;
@@ -235,7 +235,6 @@ function resolvePackRootForChanges(entry, version, args) {
   if (entry.pack_root) return entry.pack_root;
   if (!entry.repo) return null;
   try {
-    const { resolveRemotePack } = require("../domain-pack/remote");
     const resolved = resolveRemotePack({
       repo: entry.repo,
       version,
@@ -293,7 +292,6 @@ function syncPack(entry, args, projectDir) {
     // applied — so the consuming team reviews them like any other change.
     // Additive: a change id already present locally is skipped, not replaced.
     try {
-      const { depositPackChanges } = require("./pack_changes");
       const resolved = resolvePackRootForChanges(entry, version, args);
       if (resolved) {
         const { deposited, skipped } = depositPackChanges(projectDir, resolved, entry.pack_id, {
@@ -426,5 +424,3 @@ function main() {
 if (require.main === module) {
   main();
 }
-
-module.exports = { parseArgs, buildExpandArgs, resolvePacks, reconcileFile };

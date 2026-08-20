@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `csda config set|get|list` — the project's own preferences.
  *
@@ -13,21 +11,21 @@
  * Lives at `.csda/config.json` — the same directory the artefact schemas use.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { error } = require("../scripts/lib/diagnostics");
-const { agentIo, wantsJson, EXIT } = require("./lib/agent");
+import { error } from "../scripts/lib/diagnostics";
+import { agentIo, wantsJson, EXIT } from "./lib/agent";
 
-const CONFIG_DIR = ".csda";
-const CONFIG_FILE = "config.json";
+export const CONFIG_DIR = ".csda";
+export const CONFIG_FILE = "config.json";
 
 /**
  * Every key is declared, with its allowed values. An unknown key is a typo,
  * not an extension point — silently accepting one means the setting appears to
  * work and does nothing.
  */
-const KEYS = {
+export const KEYS = {
   profile: {
     values: ["core", "full"],
     describe: "Which commands `csda --help` lists by default.",
@@ -38,11 +36,11 @@ const KEYS = {
   },
 };
 
-function configPath(projectDir) {
+export function configPath(projectDir) {
   return path.join(projectDir, CONFIG_DIR, CONFIG_FILE);
 }
 
-function read(projectDir) {
+export function read(projectDir) {
   try {
     return JSON.parse(fs.readFileSync(configPath(projectDir), "utf8"));
   } catch {
@@ -50,7 +48,7 @@ function read(projectDir) {
   }
 }
 
-function write(projectDir, config) {
+export function write(projectDir, config) {
   const file = configPath(projectDir);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, "utf8");
@@ -74,7 +72,7 @@ function usage() {
   );
 }
 
-function main(argv) {
+export function main(argv) {
   const io = agentIo(wantsJson(argv));
   const NULL_SHAPE = { config: null };
   const args = argv.filter((a) => a !== "--json");
@@ -162,5 +160,3 @@ function main(argv) {
 }
 
 if (require.main === module) main(process.argv.slice(2));
-
-module.exports = { main, read, write, configPath, KEYS, CONFIG_DIR, CONFIG_FILE };

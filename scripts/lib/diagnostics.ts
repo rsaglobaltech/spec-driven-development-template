@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * The one diagnostic envelope every machine-readable surface of the CLI emits.
  *
@@ -14,14 +12,25 @@
  * inherit the snake/camel split that OpenSpec documents as a known defect.
  */
 
-const SEVERITY = Object.freeze({
+/** The one diagnostic envelope, as ADR-0017 fixes it. */
+export interface Diagnostic {
+  severity: "error" | "warning" | "info";
+  code: string;
+  message: string;
+  target?: string;
+  fix?: string;
+  file?: string;
+  line?: number;
+}
+
+export const SEVERITY = Object.freeze({
   ERROR: "error",
   WARNING: "warning",
   INFO: "info",
 });
 
-function diagnostic(severity, code, message, extra?) {
-  const d: any = { severity, code, message };
+export function diagnostic(severity, code, message, extra?) {
+  const d: Diagnostic = { severity, code, message };
   if (extra) {
     if (extra.target !== undefined) d.target = extra.target;
     if (extra.fix !== undefined) d.fix = extra.fix;
@@ -31,15 +40,16 @@ function diagnostic(severity, code, message, extra?) {
   return d;
 }
 
-const error = (code, message, extra?) => diagnostic(SEVERITY.ERROR, code, message, extra);
-const warning = (code, message, extra?) => diagnostic(SEVERITY.WARNING, code, message, extra);
-const info = (code, message, extra?) => diagnostic(SEVERITY.INFO, code, message, extra);
+export const error = (code, message, extra?) => diagnostic(SEVERITY.ERROR, code, message, extra);
+export const warning = (code, message, extra?) =>
+  diagnostic(SEVERITY.WARNING, code, message, extra);
+export const info = (code, message, extra?) => diagnostic(SEVERITY.INFO, code, message, extra);
 
-function hasErrors(diags) {
+export function hasErrors(diags) {
   return (diags || []).some((d) => d.severity === SEVERITY.ERROR);
 }
 
-function countBySeverity(diags) {
+export function countBySeverity(diags) {
   const out = { error: 0, warning: 0, info: 0 };
   for (const d of diags || []) {
     if (out[d.severity] !== undefined) out[d.severity]++;
@@ -66,7 +76,7 @@ const MARK = {
   info: `${c.cyan}ℹ${c.reset}`,
 };
 
-function formatDiagnostic(d) {
+export function formatDiagnostic(d) {
   const where = d.file ? `${d.file}${d.line ? `:${d.line}` : ""}` : d.target || "";
   const head = `${MARK[d.severity] || "-"}  ${where ? `${c.dim}${where}${c.reset} ` : ""}${d.message}`;
   const fix = d.fix ? `\n     ${c.dim}fix:${c.reset} ${d.fix}` : "";
@@ -74,7 +84,7 @@ function formatDiagnostic(d) {
   return `${head} ${code}${fix}`;
 }
 
-function printDiagnostics(diags, stream?) {
+export function printDiagnostics(diags, stream?) {
   const out = stream || process.stderr;
   for (const d of diags || []) out.write(`${formatDiagnostic(d)}\n`);
 }
@@ -84,20 +94,20 @@ function printDiagnostics(diags, stream?) {
  * command's null-shape plus the diagnostics, and exit 1. Prose never goes to
  * stdout in JSON mode, so a consumer can always `| jq .`.
  */
-function failJson(nullShape, diags) {
+export function failJson(nullShape, diags) {
   process.stdout.write(`${JSON.stringify({ ...nullShape, status: diags }, null, 2)}\n`);
   process.exit(1);
 }
 
-module.exports = {
-  SEVERITY,
-  diagnostic,
-  error,
-  warning,
-  info,
-  hasErrors,
-  countBySeverity,
-  formatDiagnostic,
-  printDiagnostics,
-  failJson,
-};
+/**
+ * The message of whatever was thrown.
+ *
+ * `catch (err)` appeared eleven times across `scripts/` purely to reach
+ * `.message`. A catch binding is genuinely `unknown` — anything can be thrown —
+ * so the honest form is to narrow it once, here.
+ */
+export function errorMessage(err: unknown): string {
+  if (err instanceof Error) return errorMessage(err);
+  if (typeof err === "string") return err;
+  return String(err);
+}

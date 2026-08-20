@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Pack integrity and provenance (supply-chain guardrails for specops).
  *
@@ -16,11 +14,11 @@
  * Pure-ish module: no process.exit; throws or returns.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const crypto = require("node:crypto");
-const { spawnSync } = require("node:child_process");
-const { parseYamlLite } = require("../domain-pack/common");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { parseYamlLite } from "../domain-pack/common";
 
 function walkFiles(dir) {
   const out = [];
@@ -38,7 +36,7 @@ function walkFiles(dir) {
  * and file contents, NUL-separated. Independent of OS and clone order.
  * @returns {string} "sha256:<hex>"
  */
-function computePackDigest(packDir) {
+export function computePackDigest(packDir) {
   if (!fs.existsSync(packDir) || !fs.statSync(packDir).isDirectory()) {
     throw new Error(`computePackDigest: not a directory: ${packDir}`);
   }
@@ -59,7 +57,7 @@ function computePackDigest(packDir) {
  * Read the pack-security policy from specops.config.yaml (flat key).
  * @returns {{ requireSignedPacks: boolean }}
  */
-function readSecurityPolicy(projectDir) {
+export function readSecurityPolicy(projectDir) {
   const cfgPath = path.join(projectDir, "specops.config.yaml");
   if (!fs.existsSync(cfgPath)) return { requireSignedPacks: false };
   try {
@@ -76,7 +74,7 @@ function readSecurityPolicy(projectDir) {
  * the checked-out commit as a fallback (annotated-tag-less workflows).
  * @returns {{ verified: boolean, method: "tag"|"commit"|null, output: string }}
  */
-function verifyTagSignature(gitDir, version) {
+export function verifyTagSignature(gitDir, version) {
   const tag = spawnSync("git", ["-C", gitDir, "verify-tag", version], { encoding: "utf8" });
   if (tag.status === 0) {
     return { verified: true, method: "tag", output: (tag.stderr || "").trim() };
@@ -96,7 +94,7 @@ function verifyTagSignature(gitDir, version) {
  * Throw when the lockfile already pins this (repo, pack, version) to a
  * different content digest — the content behind the version changed.
  */
-function assertDigestUnchanged(lockEntry, packId, version, actualDigest) {
+export function assertDigestUnchanged(lockEntry, packId, version, actualDigest) {
   if (!lockEntry || !lockEntry.digest || lockEntry.version !== version) return;
   if (lockEntry.digest !== actualDigest) {
     throw new Error(
@@ -111,10 +109,3 @@ function assertDigestUnchanged(lockEntry, packId, version, actualDigest) {
     );
   }
 }
-
-module.exports = {
-  computePackDigest,
-  readSecurityPolicy,
-  verifyTagSignature,
-  assertDigestUnchanged,
-};

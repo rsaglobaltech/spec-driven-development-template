@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Packs that distribute changes.
  *
@@ -17,10 +15,10 @@
  * project is never touched. A pack cannot clobber local work in flight.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { paths } = require("../change/common");
+import { paths } from "../change/common";
 
 function copyTree(from, to) {
   const written = [];
@@ -47,7 +45,7 @@ function copyTree(from, to) {
  * @param packId     e.g. `parking-management/backend`
  * @returns { deposited, skipped } — change ids, not file paths
  */
-function depositPackChanges(projectDir, packRoot, packId, opts?) {
+export function depositPackChanges(projectDir, packRoot, packId, opts?) {
   const o = opts || {};
   const source = path.join(packRoot, packId, "changes");
   const deposited = [];
@@ -75,5 +73,3 @@ function depositPackChanges(projectDir, packRoot, packId, opts?) {
 
   return { deposited, skipped };
 }
-
-module.exports = { depositPackChanges };

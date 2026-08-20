@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Delta-spec rules: what makes a delta well-formed, and what it means to apply
  * one to a capability spec.
@@ -9,18 +7,18 @@
  * so a delta that validates is by construction a delta that can be applied.
  */
 
-const { parseSpec, parseDelta, requirementKey, renderSpec, REQ_ID } = require("./parser");
-const { error, warning } = require("../lib/diagnostics");
+import { parseSpec, parseDelta, requirementKey, renderSpec, REQ_ID, blockText } from "./parser";
+import { error, warning } from "../lib/diagnostics";
 
-const VALID_SECTIONS = [
+export const VALID_SECTIONS = [
   "## Purpose",
   "## ADDED Requirements",
   "## MODIFIED Requirements",
   "## REMOVED Requirements",
 ];
 
-const RFC2119 = /\b(SHALL|MUST|SHOULD|MAY|DEBE|DEBERÁ|DEBERA)\b/;
-const GHERKIN_STEP = /^\s*(GIVEN|WHEN|THEN|AND|BUT|DADO|CUANDO|ENTONCES|Y)\b/i;
+export const RFC2119 = /\b(SHALL|MUST|SHOULD|MAY|DEBE|DEBERÁ|DEBERA)\b/;
+export const GHERKIN_STEP = /^\s*(GIVEN|WHEN|THEN|AND|BUT|DADO|CUANDO|ENTONCES|Y)\b/i;
 
 /**
  * Validate one delta against the capability spec it targets.
@@ -32,7 +30,7 @@ const GHERKIN_STEP = /^\s*(GIVEN|WHEN|THEN|AND|BUT|DADO|CUANDO|ENTONCES|Y)\b/i;
  * @param opts.file relative path used in diagnostics
  * @param opts.strict enable the advisory quality checks as errors
  */
-function validateDelta(deltaSource, opts?) {
+export function validateDelta(deltaSource, opts?) {
   const o = opts || {};
   const file = o.file || "spec.md";
   const diags = [];
@@ -134,7 +132,8 @@ function validateDelta(deltaSource, opts?) {
         );
       }
     }
-    if (req.text && !RFC2119.test(req.text)) {
+    const requirementText = blockText(req.text);
+    if (requirementText && !RFC2119.test(requirementText)) {
       diags.push(
         warning(
           "no_rfc2119_keyword",
@@ -206,7 +205,7 @@ function validateDelta(deltaSource, opts?) {
  *   signal for the caller to delete the spec file (only ever when the change
  *   declares `retire_capabilities: true`).
  */
-function applyDelta(specSource, deltaSource, opts?) {
+export function applyDelta(specSource, deltaSource, opts?) {
   const o = opts || {};
   const delta = parseDelta(deltaSource);
   const spec = specSource
@@ -264,5 +263,3 @@ function stripOp(req) {
   const { op: _op, ...rest } = req;
   return rest;
 }
-
-module.exports = { validateDelta, applyDelta, VALID_SECTIONS, RFC2119, GHERKIN_STEP };

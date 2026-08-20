@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `csda init --from-pack <repo>@<tag> --pack <id>` — scaffold and install a
  * domain pack in one step.
@@ -14,17 +12,17 @@
  * versioned.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
-const { error } = require("./lib/diagnostics");
-const { agentIo, wantsJson, EXIT } = require("./lib/agent");
+import { error } from "./lib/diagnostics";
+import { agentIo, wantsJson, EXIT } from "./lib/agent";
 
 const CLI = path.join(__dirname, "..", "bin", "create-spec-driven-app.js");
 
 /** `https://host/org/repo.git@v1.2.3` → { repo, version }. */
-function parseReference(reference) {
+export function parseReference(reference) {
   // Split on the last @ so an scp-style git URL (git@host:org/repo.git@tag)
   // still parses — the first @ belongs to the user, not the version.
   const at = reference.lastIndexOf("@");
@@ -52,7 +50,7 @@ function usage() {
   );
 }
 
-function main(argv) {
+export function main(argv) {
   const io = agentIo(wantsJson(argv));
   const NULL_SHAPE = { project: null };
 
@@ -165,7 +163,7 @@ function main(argv) {
 }
 
 /** The most recently created directory under `outDir` that looks spec-driven. */
-function newestProjectIn(outDir) {
+export function newestProjectIn(outDir) {
   let best = null;
   let bestTime = -1;
   let entries;
@@ -188,5 +186,3 @@ function newestProjectIn(outDir) {
 }
 
 if (require.main === module) main(process.argv.slice(2));
-
-module.exports = { main, parseReference, newestProjectIn };

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 function stripInlineComment(line) {
   let inSingle = false;
@@ -195,7 +195,31 @@ function parseTokens(tokens) {
   return root;
 }
 
-function parseYamlLite(content) {
+/**
+ * A parsed YAML document. `unknown` rather than `any` on purpose: every caller
+ * knows the shape it expects and says so, instead of the parser pretending to
+ * know shapes it cannot.
+ */
+export type YamlDocument = Record<string, unknown>;
+
+/**
+ * The parts of a `pack.yaml` the CLI reads.
+ *
+ * Deliberately partial and open: `schemas/pack.schema.json` is the authority
+ * on the full format (ADR-0020), and a duplicate of it here would be a second
+ * description to keep in step. What this type buys is that the six fields the
+ * code actually touches stop being `unknown`.
+ */
+export interface PackModel extends YamlDocument {
+  metadata?: { name?: string; [key: string]: unknown };
+  requirements?: unknown[];
+  scenarios?: unknown[];
+  use_cases?: unknown[];
+  commands?: unknown[];
+  events?: unknown[];
+}
+
+export function parseYamlLite(content: string): YamlDocument {
   const lines = content.replace(/\r\n/g, "\n").split("\n");
   const tokens = [];
 
@@ -239,10 +263,10 @@ function fail(message) {
  * that adds a field to `schemas/pack.schema.json`, or packs authored against
  * the new field will be rejected by a CLI that in fact understands them.
  */
-const PACK_SCHEMA_VERSION = "1.3.0";
+export const PACK_SCHEMA_VERSION = "1.3.0";
 
 /** Project types a pack may target. Mirrors the enum in schemas/pack.schema.json. */
-const PACK_PROJECT_TYPES = ["backend", "frontend", "mobile", "contracts"];
+export const PACK_PROJECT_TYPES = ["backend", "frontend", "mobile", "contracts"];
 
 /**
  * Numeric SemVer comparison for schema versions — `a > b`.
@@ -252,7 +276,7 @@ const PACK_PROJECT_TYPES = ["backend", "frontend", "mobile", "contracts"];
  * pre-release or build parts to handle, and this project ships no runtime
  * dependencies.
  */
-function isNewerThan(a, b) {
+export function isNewerThan(a, b) {
   const pa = String(a).split(".").map(Number);
   const pb = String(b).split(".").map(Number);
   for (let i = 0; i < 3; i++) {
@@ -263,7 +287,7 @@ function isNewerThan(a, b) {
   return false;
 }
 
-const ALLOWED_STATUSES = new Set([
+export const ALLOWED_STATUSES = new Set([
   "Draft",
   "Needs Clarification",
   "Domain Reviewed",
@@ -278,20 +302,20 @@ const ALLOWED_STATUSES = new Set([
 
 const ALLOWED_PRIORITIES = new Set(["Must", "Should", "Could", "Won't"]);
 
-function asArray(value) {
+export function asArray(value) {
   if (Array.isArray(value)) return value;
   if (value === undefined || value === null || value === "") return [];
   return [value];
 }
 
-function formatList(value, fallback = "-") {
+export function formatList(value, fallback = "-") {
   const items = asArray(value)
     .map((item) => String(item).trim())
     .filter(Boolean);
   return items.length > 0 ? items.join(", ") : fallback;
 }
 
-function entityLabel(entity, fallback = "-") {
+export function entityLabel(entity, fallback = "-") {
   if (!entity) return fallback;
   if (typeof entity === "string") return entity;
   if (entity.id && entity.name) return `${entity.id} ${entity.name}`;
@@ -300,7 +324,7 @@ function entityLabel(entity, fallback = "-") {
   return fallback;
 }
 
-function hasStructuredDomainModel(pack) {
+export function hasStructuredDomainModel(pack) {
   return [
     "requirements",
     "bounded_contexts",
@@ -313,7 +337,7 @@ function hasStructuredDomainModel(pack) {
   ].some((key) => Array.isArray(pack[key]) && pack[key].length > 0);
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const args = {
     packRoot: "",
     pack: "",
@@ -395,7 +419,7 @@ function parseArgs(argv) {
   return args;
 }
 
-function loadPack(packRoot, packId) {
+export function loadPack(packRoot, packId) {
   if (!packRoot) fail("Missing --pack-root <path>.");
   if (!packId) fail("Missing --pack <domain/type>.");
 
@@ -420,7 +444,7 @@ function loadPack(packRoot, packId) {
   };
 }
 
-function validatePackModel(pack, packRoot) {
+export function validatePackModel(pack, packRoot) {
   if (!pack || typeof pack !== "object" || Array.isArray(pack)) {
     fail("Invalid pack format. Root must be an object.");
   }
@@ -720,7 +744,7 @@ function validatePackModel(pack, packRoot) {
   };
 }
 
-function renderTemplate(content, vars) {
+export function renderTemplate(content, vars) {
   return content.replace(/{{([A-Z][A-Z0-9_]*)}}/g, (_, token) => {
     if (!(token in vars)) {
       fail(`Missing variable '${token}' required by template.`);
@@ -729,7 +753,7 @@ function renderTemplate(content, vars) {
   });
 }
 
-function normalizeVars(requiredVars, providedVars) {
+export function normalizeVars(requiredVars, providedVars) {
   const normalized = { ...providedVars };
 
   for (const name of requiredVars) {
@@ -741,15 +765,15 @@ function normalizeVars(requiredVars, providedVars) {
   return normalized;
 }
 
-function logInfo(message) {
+export function logInfo(message) {
   process.stdout.write(`ℹ️ [INFO] ${message}\n`);
 }
 
-function logError(message) {
+export function logError(message) {
   process.stderr.write(`❌ [ERROR] ${message}\n`);
 }
 
-function ensureProjectDir(projectDir, dryRun) {
+export function ensureProjectDir(projectDir, dryRun) {
   if (!projectDir) {
     fail("Missing --project-dir <path>.");
   }
@@ -761,7 +785,7 @@ function ensureProjectDir(projectDir, dryRun) {
   }
 }
 
-function readTemplate(packRoot, templatePath) {
+export function readTemplate(packRoot, templatePath) {
   return fs.readFileSync(path.resolve(packRoot, templatePath), "utf8");
 }
 
@@ -769,7 +793,7 @@ function readTemplate(packRoot, templatePath) {
 // a baseline after rendering. Reset per expansion via resetWrittenFiles().
 const _writtenFiles = [];
 
-function writeFile(targetFile, content, dryRun) {
+export function writeFile(targetFile, content, dryRun) {
   if (dryRun) {
     logInfo(`[dry-run] write ${targetFile}`);
     return;
@@ -780,15 +804,15 @@ function writeFile(targetFile, content, dryRun) {
   _writtenFiles.push({ file: targetFile, content });
 }
 
-function getWrittenFiles() {
+export function getWrittenFiles() {
   return _writtenFiles.slice();
 }
 
-function resetWrittenFiles() {
+export function resetWrittenFiles() {
   _writtenFiles.length = 0;
 }
 
-function safeResolve(projectDir, relativePath) {
+export function safeResolve(projectDir, relativePath) {
   if (!isSafeRelativePath(relativePath)) {
     fail(`Invalid target path '${relativePath}'.`);
   }
@@ -802,7 +826,7 @@ function safeResolve(projectDir, relativePath) {
   return absolute;
 }
 
-function parseTraceabilityRows(existingContent) {
+export function parseTraceabilityRows(existingContent) {
   const rows = [];
   const seen = new Set();
   let mode = "legacy";
@@ -866,7 +890,7 @@ function parseTraceabilityRows(existingContent) {
   return { mode, rows };
 }
 
-function buildTraceabilityMarkdown(rows, mode = "legacy") {
+export function buildTraceabilityMarkdown(rows, mode = "legacy") {
   if (mode === "rich") {
     const header = [
       "# Traceability Matrix",
@@ -909,30 +933,3 @@ function buildTraceabilityMarkdown(rows, mode = "legacy") {
   );
   return `${header.concat(body).join("\n")}\n`;
 }
-
-module.exports = {
-  ALLOWED_STATUSES,
-  PACK_SCHEMA_VERSION,
-  PACK_PROJECT_TYPES,
-  isNewerThan,
-  asArray,
-  buildTraceabilityMarkdown,
-  entityLabel,
-  ensureProjectDir,
-  formatList,
-  hasStructuredDomainModel,
-  loadPack,
-  logError,
-  logInfo,
-  normalizeVars,
-  parseArgs,
-  parseTraceabilityRows,
-  parseYamlLite,
-  readTemplate,
-  renderTemplate,
-  resetWrittenFiles,
-  getWrittenFiles,
-  safeResolve,
-  validatePackModel,
-  writeFile,
-};

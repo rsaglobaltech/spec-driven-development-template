@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `csda change <sub>` — the change lifecycle.
  *
@@ -12,18 +10,18 @@
  * what lets an agent drive this without screen-scraping.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { resolveProjectDir } = require("../lib/project-root");
-const { error, warning, hasErrors, printDiagnostics } = require("../lib/diagnostics");
-const { agentIo } = require("../lib/agent");
-const { phrases } = require("../lib/language");
-const { ARTIFACTS, artifactState } = require("./artifacts");
-const { validateDelta } = require("./delta");
-const { parseDelta } = require("./parser");
-const { planArchive, executeArchive } = require("./archive");
-const {
+import { resolveProjectDir } from "../lib/project-root";
+import { error, warning, hasErrors, printDiagnostics } from "../lib/diagnostics";
+import { agentIo } from "../lib/agent";
+import { phrases } from "../lib/language";
+import { ARTIFACTS, artifactState } from "./artifacts";
+import { validateDelta } from "./delta";
+import { parseDelta } from "./parser";
+import { planArchive, executeArchive } from "./archive";
+import {
   CHANGE_ID_RE,
   CHANGE_CONFIG_FILE,
   DEFAULT_CONFIG,
@@ -36,7 +34,8 @@ const {
   reserveReqRange,
   taskProgress,
   changeStatusLabel,
-} = require("./common");
+} from "./common";
+import { main as instructionsMain } from "./instructions";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -55,7 +54,7 @@ const c = {
 // F3 makes this configurable per schema; for now the built-in is the default.
 
 /** The skeletons `change new` writes, shared with `change instructions`. */
-const TEMPLATES = {
+export const TEMPLATES = {
   proposal: (changeId) => templateProposal(changeId),
   tasks: () => templateTasks(),
   design: (changeId) => templateDesign(changeId),
@@ -86,8 +85,23 @@ function usage() {
   );
 }
 
+/** Parsed command-line options for this command. */
+export interface ChangeOptions {
+  projectDir: string;
+  json: boolean;
+  strict: boolean;
+  dryRun: boolean;
+  force: boolean;
+  full: boolean;
+  capability: string | null;
+  schema?: string;
+  reserve: number;
+  yes?: boolean;
+  positional: string[];
+}
+
 function parseArgs(argv) {
-  const opts: any = {
+  const opts: ChangeOptions = {
     projectDir: ".",
     json: false,
     strict: false,
@@ -472,7 +486,7 @@ function cmdStatus(opts) {
 
 // ── validate ──────────────────────────────────────────────────────────────────
 
-function validateChange(projectDir, changeId, opts) {
+export function validateChange(projectDir, changeId, opts) {
   const p = paths(projectDir);
   const diagnostics = [];
   const dir = p.change(changeId);
@@ -657,8 +671,6 @@ function main() {
   // `instructions` parses its own arguments: its first positional is an
   // artefact name, not a change id, so the shared parser does not fit.
   if (sub === "instructions") {
-    // Required lazily — instructions.ts imports ARTIFACTS from this module.
-    const { main: instructionsMain } = require("./instructions");
     instructionsMain(argv.slice(1), TEMPLATES);
     return;
   }
@@ -695,4 +707,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { validateChange, artifactState, ARTIFACTS, TEMPLATES };
+export { artifactState, ARTIFACTS };

@@ -51,11 +51,40 @@ document lie is worse than no change at all.
 
 ## Module style
 
-Both `export` and `module.exports` appear in `scripts/`. The newer files use ESM
-syntax, which `tsc` downlevels to CommonJS; imports that cross into an older
-`module.exports` file use `require()`. **Match the file you are editing.** Do not
-convert a file's style as a drive-by change — that was rejected once already as a
-64-file refactor with no user-facing value.
+**ESM syntax everywhere in `scripts/`.** `import` and `export`, which `tsc`
+downlevels to CommonJS — the published package is still CommonJS, and
+`package.json` deliberately does not set `"type": "module"`.
+
+The tree was mixed until the 2026-08-20 migration, and this rule used to say
+"match the file you are editing", because converting one file at a time makes a
+worse mixture than either style alone. That is now done: 51 files moved, and
+`module.exports` no longer appears in `scripts/`. Adding one back is a
+regression.
+
+`require()` survives in exactly two places, both because an `import` specifier
+must be static while the path is computed at run time — `scripts/ci_init.ts`
+and `scripts/expand_domain_pack.ts`, reading `package.json`. Both say so in a
+comment. A third needs the same justification.
+
+## Typing
+
+**No `any`.** Declare an `interface` or `type` instead; there are 54 exported
+from `scripts/`, and they are why the migration found real defects rather than
+just moving keywords. Two are the seams everything passes through:
+
+- `AgentIo` / `Diagnostic` (`lib/agent.ts`, `lib/diagnostics.ts`) — the
+  ADR-0017 envelope.
+- `DocumentNode` / `RequirementNode` / `DeltaNode` (`change/parser.ts`) — the
+  one AST every spec and delta parses into. `text` and `body` are `string[]`
+  while `parseMarkdown` accumulates them and a `string` afterwards; read them
+  with `blockText` rather than assuming either.
+
+For a caught error use `errorMessage(err)` from `lib/diagnostics`, not
+`catch (err: any)`: a catch binding really is `unknown`, and that helper is
+where the narrowing lives.
+
+`strict` stays **off** in `tsconfig.json`. Turning it on is its own decision
+with its own migration, not a side effect of another change.
 
 ## Before you open a PR
 

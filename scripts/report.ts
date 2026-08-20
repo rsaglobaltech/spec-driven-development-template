@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `report` — spec-coverage dashboard (mejora C1 / P5).
  *
@@ -19,10 +17,10 @@
  * drops straight into GitHub Pages / GitLab Pages or a CI artifact.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { resolveProjectDir } = require("./lib/project-root");
-const { parseTraceability, classify, detectOrphans } = require("./plan");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { resolveProjectDir } from "./lib/project-root";
+import { parseTraceability, classify, detectOrphans } from "./plan";
 
 const HISTORY_REL = "reports/spec-coverage-history.jsonl";
 
@@ -35,7 +33,7 @@ const DONE_CATEGORY = "DONE";
  * reading files under projectDir — returns a stable structure that both the
  * HTML and JSON renderers consume.
  */
-function buildReport(projectDir) {
+export function buildReport(projectDir) {
   const tracePath = path.join(projectDir, "docs/specs/traceability.md");
   const content = fs.readFileSync(tracePath, "utf8");
   const rows = parseTraceability(content);
@@ -70,7 +68,7 @@ function buildReport(projectDir) {
   };
 }
 
-function readSpecops(projectDir) {
+export function readSpecops(projectDir) {
   const lockPath = path.join(projectDir, ".specops.lock");
   if (!fs.existsSync(lockPath)) {
     return { used: false, packs: [], baselinePresent: true, drift: [] };
@@ -149,7 +147,7 @@ const CATEGORY_LABELS = {
   NEEDS_EVERYTHING: "Nothing yet",
 };
 
-function sparkline(history) {
+export function sparkline(history) {
   const pts = history.map((h) => h.implementedPct);
   if (pts.length < 2) return "";
   const w = 240;
@@ -177,7 +175,7 @@ function tile(value, label, tone = "") {
   );
 }
 
-function renderHtml(report, opts) {
+export function renderHtml(report, opts) {
   const generatedAt = (opts && opts.generatedAt) || new Date();
   const history = (opts && opts.history) || [];
   const pct = report.implementedPct;
@@ -312,6 +310,15 @@ ${rows}
 `;
 }
 
+/** Parsed command-line options for this command. */
+export interface ReportOptions {
+  projectDir: string;
+  format: string;
+  out: string | null;
+  stdout: boolean;
+  record: boolean;
+}
+
 /**
  * The report object keeps the matrix's snake_case row vocabulary because the
  * HTML renderer reads it directly. The JSON *contract* is camelCase
@@ -340,7 +347,7 @@ function toCamelRequirement(item) {
   };
 }
 
-function renderJson(report) {
+export function renderJson(report) {
   const wire = {
     ...report,
     requirements: (report.requirements || []).map(toCamelRequirement),
@@ -351,8 +358,8 @@ function renderJson(report) {
 
 // ── CLI ────────────────────────────────────────────────────────────────────────────
 
-function parseArgs(argv) {
-  const opts: any = {
+export function parseArgs(argv) {
+  const opts: ReportOptions = {
     projectDir: ".",
     format: "html",
     out: null,
@@ -448,5 +455,3 @@ function main() {
 }
 
 if (require.main === module) main();
-
-module.exports = { buildReport, renderHtml, renderJson, readSpecops, sparkline, parseArgs };

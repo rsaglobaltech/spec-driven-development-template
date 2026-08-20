@@ -18,10 +18,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
-const { resolveProjectDir } = require("./lib/project-root");
-const { parseTraceability, detectOrphans } = require("./plan");
-const { agentIo, wantsJson } = require("./lib/agent");
-const { error } = require("./lib/diagnostics");
+import { resolveProjectDir } from "./lib/project-root";
+import { parseTraceability, detectOrphans } from "./plan";
+import { agentIo, wantsJson } from "./lib/agent";
+import { error, errorMessage } from "./lib/diagnostics";
 import { appendRequirement } from "./req";
 
 /**
@@ -101,8 +101,16 @@ function computeFixes(projectDir, traceContent, specContent) {
   return { content, actions };
 }
 
+/** Parsed command-line options for this command. */
+export interface FixOptions {
+  projectDir: string;
+  yes: boolean;
+  dryRun: boolean;
+  json: boolean;
+}
+
 function parseArgs(argv) {
-  const opts: any = { projectDir: ".", yes: false, dryRun: false, json: wantsJson(argv) };
+  const opts: FixOptions = { projectDir: ".", yes: false, dryRun: false, json: wantsJson(argv) };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--yes" || a === "-y") opts.yes = true;
@@ -128,9 +136,9 @@ async function main() {
   let projectDir;
   try {
     projectDir = resolveProjectDir(opts.projectDir);
-  } catch (err: any) {
+  } catch (err) {
     io.usage(NULL_SHAPE, [
-      error("no_project", err.message, {
+      error("no_project", errorMessage(err), {
         fix: "Run from inside a spec-driven project, or pass --project-dir <path>.",
       }),
     ]);

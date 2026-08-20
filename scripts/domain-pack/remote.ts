@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Resolves a remote pack repository to a local on-disk path.
  *
@@ -16,24 +14,30 @@
  * Throws on any failure with a contextual message.
  */
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const crypto = require("node:crypto");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 
-const DEFAULT_CACHE_DIR = path.join(os.homedir(), ".cache", "csda", "packs");
+export const DEFAULT_CACHE_DIR = path.join(os.homedir(), ".cache", "csda", "packs");
 const GIT_TIMEOUT_MS = 60_000;
 
-function repoHash(repo) {
+export function repoHash(repo) {
   return crypto.createHash("sha256").update(String(repo)).digest("hex").slice(0, 16);
 }
 
-function safeVersionDir(version) {
+export function safeVersionDir(version) {
   return String(version).replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-function runGit(args, options: any = {}) {
+/** The two knobs every git invocation here needs. */
+interface GitOptions {
+  timeout?: number;
+  cwd?: string;
+}
+
+function runGit(args: string[], options: GitOptions = {}) {
   const result = spawnSync("git", args, {
     encoding: "utf8",
     timeout: options.timeout || GIT_TIMEOUT_MS,
@@ -49,7 +53,7 @@ function runGit(args, options: any = {}) {
   return (result.stdout || "").trim();
 }
 
-function gitAvailable() {
+export function gitAvailable() {
   const result = spawnSync("git", ["--version"], { encoding: "utf8" });
   return result.status === 0;
 }
@@ -65,7 +69,7 @@ function isOffline(opts) {
  * @param {{ repo: string, version: string, cacheDir?: string, force?: boolean, offline?: boolean }} options
  * @returns {{ packRoot: string, commit: string, version: string, cached: boolean }}
  */
-function resolveRemotePack(options) {
+export function resolveRemotePack(options) {
   const opts = options || {};
   if (!opts.repo) throw new Error("resolveRemotePack: 'repo' is required");
   if (!opts.version) throw new Error("resolveRemotePack: 'version' is required");
@@ -117,7 +121,7 @@ function resolveRemotePack(options) {
  * @param {{ repo: string, out: string, tmpDir?: string }} options
  * @returns {{ out: string, refs: string[] }}
  */
-function createPackBundle(options) {
+export function createPackBundle(options) {
   const opts = options || {};
   if (!opts.repo) throw new Error("createPackBundle: 'repo' is required");
   if (!opts.out) throw new Error("createPackBundle: 'out' is required");
@@ -141,12 +145,3 @@ function createPackBundle(options) {
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   }
 }
-
-module.exports = {
-  resolveRemotePack,
-  createPackBundle,
-  repoHash,
-  safeVersionDir,
-  gitAvailable,
-  DEFAULT_CACHE_DIR,
-};

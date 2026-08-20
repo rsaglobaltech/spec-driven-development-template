@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `csda onboard` — the guided tour for a repository that has code but no specs.
  *
@@ -15,13 +13,13 @@
  * a verdict; every capability it suggests names the evidence it came from.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { resolveProjectDir } = require("./lib/project-root");
-const { error, info } = require("./lib/diagnostics");
-const { agentIo, wantsJson, EXIT } = require("./lib/agent");
-const { detectStack } = require("./adopt_project");
+import { resolveProjectDir } from "./lib/project-root";
+import { error, info } from "./lib/diagnostics";
+import { agentIo, wantsJson, EXIT } from "./lib/agent";
+import { detectStack } from "./adopt_project";
 
 const COLOR =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -34,7 +32,7 @@ const c = {
 };
 
 /** Directories that describe the build, not the domain. */
-const NOT_DOMAIN = new Set([
+export const NOT_DOMAIN = new Set([
   "node_modules",
   "dist",
   "build",
@@ -125,7 +123,7 @@ function subdirectories(dir) {
  * `src/main/java/com/acme/`, and stopping at `com` would propose `com` as a
  * capability.
  */
-function descendThroughWrappers(root) {
+export function descendThroughWrappers(root) {
   let current = root;
   // Descend while there is exactly one child: a directory with a single
   // subdirectory is a wrapper, not a choice. Stopping at the first *meaningful*
@@ -159,7 +157,7 @@ function countFiles(dir) {
   return total;
 }
 
-function titleCase(name) {
+export function titleCase(name) {
   return name
     .replace(/[-_]+/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -170,7 +168,7 @@ function titleCase(name) {
 }
 
 /** Capabilities proposed from how the code is already organised. */
-function proposeCapabilities(projectDir) {
+export function proposeCapabilities(projectDir) {
   for (const candidate of DOMAIN_ROOTS) {
     const root = path.join(projectDir, candidate);
     if (!fs.existsSync(root)) continue;
@@ -209,7 +207,7 @@ function usage() {
   );
 }
 
-function main(argv) {
+export function main(argv) {
   const io = agentIo(wantsJson(argv));
   const NULL_SHAPE = { onboarding: null };
 
@@ -326,5 +324,3 @@ function renderHuman({ projectDir, adopted, stack, capabilities, nextCommand }) 
 }
 
 if (require.main === module) main(process.argv.slice(2));
-
-module.exports = { main, proposeCapabilities, descendThroughWrappers, titleCase, NOT_DOMAIN };

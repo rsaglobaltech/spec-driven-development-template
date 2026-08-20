@@ -16,7 +16,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-const { commandNames, subcommandNames } = require("./lib/surface");
+import { commandNames, subcommandNames } from "./lib/surface";
 
 /**
  * Both lists come from the one surface declaration, so a command that exists

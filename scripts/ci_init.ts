@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `ci init` — generate the Spec-Driven Development CI gate for the CI
  * provider your organisation actually uses (enterprise rarely means GitHub).
@@ -14,12 +12,15 @@
  * machine-readable `plan --format json` as a build artifact.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { renderTemplate } = require("./domain-pack/common");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { renderTemplate } from "./domain-pack/common";
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const CI_TEMPLATES = path.join(ROOT_DIR, "templates", "ci");
+// The path is computed at run time — it differs between `scripts/` and the
+// compiled `dist/scripts/` — and an `import` specifier must be static. This
+// is the one thing `require` still does that `import` cannot.
 const packageJson = require(path.join(ROOT_DIR, "package.json"));
 
 /** Provider registry: template file + canonical destination in a repo. */

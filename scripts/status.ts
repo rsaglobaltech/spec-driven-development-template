@@ -11,9 +11,10 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-const { resolveProjectDir } = require("./lib/project-root");
-const { parseTraceability, classify, detectOrphans } = require("./plan");
-const { readLock } = require("./specops/lock");
+import { resolveProjectDir } from "./lib/project-root";
+import { parseTraceability, classify, detectOrphans } from "./plan";
+import { readLock } from "./specops/lock";
+import { errorMessage } from "./lib/diagnostics";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -39,8 +40,14 @@ function usage() {
   );
 }
 
+/** Parsed command-line options for this command. */
+export interface StatusOptions {
+  projectDir: string;
+  format: string;
+}
+
 function parseArgs(argv) {
-  const opts: any = { projectDir: ".", format: "text" };
+  const opts: StatusOptions = { projectDir: ".", format: "text" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
@@ -68,7 +75,7 @@ function parseArgs(argv) {
 function summarise(projectDir, traceContent) {
   const rows = parseTraceability(traceContent);
   const items = rows.map((r) => classify(r, projectDir)).filter((x) => x !== null);
-  const counts: any = {
+  const counts: Record<string, number> = {
     total: items.length,
     DONE: 0,
     NEEDS_FEATURE: 0,
@@ -170,8 +177,8 @@ function main() {
   let projectDir;
   try {
     projectDir = resolveProjectDir(opts.projectDir);
-  } catch (err: any) {
-    process.stderr.write(`${err.message}\n`);
+  } catch (err) {
+    process.stderr.write(`${errorMessage(err)}\n`);
     process.exit(2);
   }
 

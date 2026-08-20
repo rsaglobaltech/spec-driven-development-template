@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * The artefact dependency graph, and where a change currently stands in it.
  *
@@ -15,14 +13,14 @@
  * forbidden from writing this".
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { paths, listDeltas } = require("./common");
-const { resolveSchema } = require("../schema/registry");
+import { paths, listDeltas } from "./common";
+import { resolveSchema } from "../schema/registry";
 
 /** The default graph, still exported for callers that predate schemas. */
-const ARTIFACTS = [
+export const ARTIFACTS = [
   { id: "proposal", generates: "proposal.md", requires: [] },
   { id: "specs", generates: "specs/**/spec.md", requires: ["proposal"] },
   { id: "design", generates: "design.md", requires: ["proposal"] },
@@ -34,12 +32,21 @@ const ARTIFACTS = [
  * the default rather than failing: a change already in flight should not become
  * unreadable because someone deleted a schema file.
  */
-function artifactsFor(projectDir, config) {
+export function artifactsFor(projectDir, config) {
   const found = resolveSchema(projectDir, (config && config.schema) || "spec-driven");
   if (!found || !Array.isArray(found.schema.artifacts) || found.schema.artifacts.length === 0) {
     return ARTIFACTS;
   }
   return found.schema.artifacts;
+}
+
+/** One artefact of a change, and whether it can be worked on yet. */
+export interface ArtifactStateEntry {
+  id: string;
+  outputPath: string;
+  status: "done" | "ready" | "blocked" | "skipped";
+  requires: string[];
+  missingDeps?: string[];
 }
 
 /**
@@ -51,7 +58,7 @@ function artifactsFor(projectDir, config) {
  */
 function outputsPresent(projectDir, changeId, artifacts) {
   const dir = paths(projectDir).change(changeId);
-  const present: any = {};
+  const present: Record<string, boolean> = {};
   for (const a of artifacts) {
     if (a.id === "specs") {
       present[a.id] = listDeltas(projectDir, changeId).length > 0;
@@ -76,13 +83,13 @@ function hasAnyFile(dir) {
   }
 }
 
-function artifactState(projectDir, changeId, config) {
+export function artifactState(projectDir, changeId, config) {
   const artifacts = artifactsFor(projectDir, config);
   const exists = outputsPresent(projectDir, changeId, artifacts);
 
   // A change that declares skip_specs satisfies the `specs` dependency without
   // creating anything — the artefact counts as done, not as missing.
-  const skipped: any = { specs: config.skip_specs === true };
+  const skipped: Record<string, boolean> = { specs: config.skip_specs === true };
   // Lite rigor makes design optional in the same way.
   if (config.rigor === "lite" && !exists.design) skipped.design = true;
 
@@ -95,7 +102,7 @@ function artifactState(projectDir, changeId, config) {
     else if (exists[a.id]) status = "done";
     else if (missingDeps.length > 0) status = "blocked";
     else status = "ready";
-    const entry: any = {
+    const entry: ArtifactStateEntry = {
       id: a.id,
       outputPath: a.generates,
       status,
@@ -105,5 +112,3 @@ function artifactState(projectDir, changeId, config) {
     return entry;
   });
 }
-
-module.exports = { ARTIFACTS, artifactsFor, artifactState };

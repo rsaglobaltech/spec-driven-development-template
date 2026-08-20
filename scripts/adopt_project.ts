@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `adopt` — install Spec-Driven Development onto an EXISTING repository
  * (brownfield). Detects the stack from build manifests, then generates the
@@ -11,10 +9,10 @@
  *   csda adopt [--project-dir <dir>] [--dry-run] [--var KEY=VALUE]...
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { renderTemplate } = require("./domain-pack/common");
-const { slugify } = require("./wizard");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { renderTemplate } from "./domain-pack/common";
+import { slugify } from "./wizard";
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const ADOPT_TEMPLATES = path.join(ROOT_DIR, "templates", "adopt");
@@ -89,7 +87,7 @@ function readIfExists(p) {
  * Inspect build manifests at the project root and derive stack facts.
  * Returns { PROJECT_NAME, STACK, TESTING, TEST_CMD, detected }.
  */
-function detectStack(dir) {
+export function detectStack(dir) {
   const facts = {
     PROJECT_NAME: path.basename(dir),
     STACK: "unknown — edit AI_RULES.md with your stack",
@@ -262,5 +260,3 @@ function main() {
 }
 
 if (require.main === module) main();
-
-module.exports = { detectStack };

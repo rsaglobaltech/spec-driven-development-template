@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `doctor` — diagnose a spec-driven project and the local environment,
  * reporting every finding with a concrete fix. Unlike `validate` (a
@@ -13,13 +11,22 @@
  * Exit codes: 0 = no errors (warnings allowed), 1 = at least one error.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
-const { resolveProjectDir } = require("./lib/project-root");
-const { diagnostic } = require("./lib/diagnostics");
-const { findUnresolvedPlaceholders } = require("./lib/placeholders");
-const { agentIo, wantsJson, EXIT } = require("./lib/agent");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
+import { resolveProjectDir } from "./lib/project-root";
+import { diagnostic } from "./lib/diagnostics";
+import { findUnresolvedPlaceholders } from "./lib/placeholders";
+import { agentIo, wantsJson, EXIT } from "./lib/agent";
+import {
+  listChangeIds,
+  listArchivedIds,
+  listDeltas,
+  taskProgress,
+  readConfig,
+  paths,
+  parseTasks,
+} from "./change/common";
 
 const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
@@ -284,16 +291,6 @@ function checkChanges(dir) {
     ok("changes", "no change directory (not using the change lifecycle — that is fine)");
     return;
   }
-
-  const {
-    listChangeIds,
-    listArchivedIds,
-    listDeltas,
-    taskProgress,
-    readConfig,
-    paths,
-    parseTasks,
-  } = require("./change/common");
 
   const active = listChangeIds(dir);
   const archived = listArchivedIds(dir);

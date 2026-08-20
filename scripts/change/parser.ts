@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * Shared markdown AST for capability specs and delta specs.
  *
@@ -44,11 +42,11 @@ const RE_STEP = /^\s*[-*]\s+(.*)$/;
 // mangling every requirement whose name starts with an acronym.
 const RE_LABEL_WITH_ID = /^((?:REQ|SCN|UC|CMD|QRY|AGG|EVT)-[A-Za-z0-9.]+)\s*(?:[—–:-]\s*)?(.*)$/;
 
-const REQ_ID = /^REQ-\d+$/;
-const SCN_ID = /^SCN-[A-Za-z0-9.-]+$/;
+export const REQ_ID = /^REQ-\d+$/;
+export const SCN_ID = /^SCN-[A-Za-z0-9.-]+$/;
 
 /** Stable key for matching a requirement across a delta and a spec. */
-function slug(text) {
+export function slug(text) {
   return String(text || "")
     .toLowerCase()
     .normalize("NFD")
@@ -57,7 +55,7 @@ function slug(text) {
     .replace(/^-+|-+$/g, "");
 }
 
-function splitLabel(label) {
+export function splitLabel(label) {
   const m = RE_LABEL_WITH_ID.exec(String(label).trim());
   if (m && m[2]) return { id: m[1], name: m[2].trim() };
   if (m && !m[2]) return { id: m[1], name: m[1] };
@@ -68,12 +66,12 @@ function splitLabel(label) {
  * The identity of a requirement. Prefer the explicit id; fall back to a slug of
  * the name so pure-markdown specs (no REQ ids) still round-trip.
  */
-function requirementKey(req) {
+export function requirementKey(req) {
   if (!req) return null;
   return req.id ? req.id.toUpperCase() : `name:${slug(req.name)}`;
 }
 
-function parseTraceComment(raw) {
+export function parseTraceComment(raw: string): TraceComment {
   // `uc=UC-007 cmd=CMD-011 feature=features/a.feature` → object.
   // Values may be quoted to allow spaces.
   const trace = {};
@@ -91,17 +89,106 @@ function parseTraceComment(raw) {
 }
 
 /**
+ * The AST every spec and delta parses into.
+ *
+ * One tree for both shapes is what lets `archive` apply a delta to a spec
+ * without a second, subtly different parser — so it is worth naming rather
+ * than leaving as four `any`s inside the loop that builds it.
+ */
+
+/** `uc=UC-007 depends=REQ-001` → `{ uc: "UC-007", depends: "REQ-001" }`. */
+export type TraceComment = Record<string, string>;
+
+export interface ScenarioNode {
+  id: string | null;
+  name: string;
+  heading: string;
+  line: number;
+  steps: string[];
+}
+
+export interface RequirementNode {
+  id: string | null;
+  name: string;
+  heading: string;
+  line: number;
+  /**
+   * Lines while `parseMarkdown` is accumulating them, one string once
+   * `parseSpec` / `parseDelta` have collapsed the block. Use `blockText` to
+   * read it without caring which stage produced the node.
+   */
+  text: string[] | string;
+  scenarios: ScenarioNode[];
+  trace: TraceComment;
+  /** Set by `parseSpec` / `parseDelta`: the identity two documents match on. */
+  key?: string | null;
+  /** Set by `parseDelta`: which section of the delta the block came from. */
+  op?: DeltaOperation;
+}
+
+/** The three things a delta can say about a requirement. */
+export type DeltaOperation = "added" | "modified" | "removed";
+
+/** A heading the delta grammar does not recognise, kept so it can be reported. */
+export interface UnknownSection {
+  heading: string | null;
+  line: number;
+}
+
+export interface SectionNode {
+  heading: string | null;
+  line: number;
+  /** Lines, then one string — see `RequirementNode.text`. */
+  body: string[] | string;
+  requirements: RequirementNode[];
+}
+
+export interface DocumentNode {
+  title: string | null;
+  sections: SectionNode[];
+  /** Lines, then one string — see `RequirementNode.text`. */
+  preamble: string[] | string;
+}
+
+/** Read a block whichever stage produced it. */
+export function blockText(block: string[] | string | null | undefined): string {
+  if (Array.isArray(block)) return block.join("\n");
+  return block ?? "";
+}
+
+/** A delta document: the same tree, sorted into what it does to the spec. */
+export interface DeltaNode {
+  title: string | null;
+  purpose: string | string[];
+  added: RequirementNode[];
+  modified: RequirementNode[];
+  removed: RequirementNode[];
+  renamed: unknown[];
+  unknownSections: UnknownSection[];
+  sections: SectionNode[];
+}
+
+/**
  * Low-level parse. Returns every `##` section with the requirements nested
  * under it, preserving source line numbers so diagnostics can point at them.
  */
-function parseMarkdown(source) {
+export function parseMarkdown(source: string): DocumentNode {
   const lines = String(source == null ? "" : source).split(/\r?\n/);
-  const doc: any = { title: null, sections: [], preamble: [] };
+  const doc: DocumentNode = { title: null, sections: [], preamble: [] };
 
-  let section: any = null;
-  let requirement: any = null;
-  let scenario: any = null;
-  let traceBuffer: string[] = null;
+  let section: SectionNode | null = null;
+  let requirement: RequirementNode | null = null;
+  let scenario: ScenarioNode | null = null;
+  let traceBuffer: string[] | null = null;
+
+  /**
+   * Blocks are arrays while this function builds them and strings after
+   * `trimBlock` collapses them at the end. The cast is confined here rather
+   * than repeated at each of the four places a line is appended.
+   */
+  const appendLine = (block: string[] | string, line: string): void => {
+    (block as string[]).push(line);
+  };
 
   const closeScenario = () => {
     scenario = null;
@@ -195,23 +282,24 @@ function parseMarkdown(source) {
       // Non-list prose after a scenario ends the scenario but stays with the
       // requirement body, so nothing is silently dropped.
       closeScenario();
-      if (requirement) requirement.text.push(line);
+      if (requirement) appendLine(requirement.text, line);
       continue;
     }
 
     if (requirement) {
-      requirement.text.push(line);
+      appendLine(requirement.text, line);
       continue;
     }
     if (section) {
-      section.body.push(line);
+      appendLine(section.body, line);
       continue;
     }
-    doc.preamble.push(line);
+    appendLine(doc.preamble, line);
   }
 
   // Normalise the collected free text: trim leading/trailing blank lines.
-  const trimBlock = (arr) => {
+  const trimBlock = (arr: string[] | string): string => {
+    if (!Array.isArray(arr)) return arr;
     const out = arr.slice();
     while (out.length && out[0].trim() === "") out.shift();
     while (out.length && out[out.length - 1].trim() === "") out.pop();
@@ -230,7 +318,7 @@ function parseMarkdown(source) {
   return doc;
 }
 
-function findSection(doc, name) {
+export function findSection(doc, name) {
   const wanted = String(name).toLowerCase();
   return doc.sections.find((s) => s.heading && s.heading.toLowerCase() === wanted) || null;
 }
@@ -240,7 +328,7 @@ function findSection(doc, name) {
  * are collected from every section so a hand-written spec that omits the
  * `## Requirements` heading still parses.
  */
-function parseSpec(source) {
+export function parseSpec(source) {
   const doc = parseMarkdown(source);
   const purposeSection = findSection(doc, "Purpose");
   const requirements = [];
@@ -255,7 +343,7 @@ function parseSpec(source) {
   };
 }
 
-const DELTA_SECTIONS = {
+export const DELTA_SECTIONS = {
   "added requirements": "added",
   "modified requirements": "modified",
   "removed requirements": "removed",
@@ -269,9 +357,9 @@ const DELTA_SECTIONS = {
  * `unknownSections` is not an error here — `validateDelta` decides what to do
  * with it, so the parser stays a pure reader.
  */
-function parseDelta(source) {
+export function parseDelta(source: string): DeltaNode {
   const doc = parseMarkdown(source);
-  const delta: any = {
+  const delta: DeltaNode = {
     title: doc.title,
     purpose: "",
     added: [],
@@ -318,7 +406,7 @@ function renderTrace(trace) {
   return `<!-- csda:trace ${parts.join(" ")} -->`;
 }
 
-function renderRequirement(req) {
+export function renderRequirement(req) {
   const out = [];
   out.push(`### Requirement: ${req.heading || req.name}`);
   out.push("");
@@ -342,7 +430,7 @@ function renderRequirement(req) {
   return out.join("\n");
 }
 
-function renderSpec(spec) {
+export function renderSpec(spec) {
   const out = [];
   out.push(`# ${spec.title || "Specification"}`);
   out.push("");
@@ -361,19 +449,3 @@ function renderSpec(spec) {
   while (out.length && out[out.length - 1] === "") out.pop();
   return out.join("\n") + "\n";
 }
-
-module.exports = {
-  parseMarkdown,
-  parseSpec,
-  parseDelta,
-  findSection,
-  renderSpec,
-  renderRequirement,
-  requirementKey,
-  slug,
-  splitLabel,
-  parseTraceComment,
-  DELTA_SECTIONS,
-  REQ_ID,
-  SCN_ID,
-};

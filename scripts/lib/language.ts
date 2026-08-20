@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * The language of generated prose.
  *
@@ -15,11 +13,11 @@
  * Set with `csda config set language es`. Defaults to English.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 /** Never translated, in any language. These are parsed, not read. */
-const KEYWORDS = Object.freeze([
+export const KEYWORDS = Object.freeze([
   "SHALL",
   "MUST",
   "SHOULD",
@@ -36,7 +34,7 @@ const KEYWORDS = Object.freeze([
   "csda:trace",
 ]);
 
-const PHRASES = {
+export const PHRASES = {
   en: {
     systemShall: (behaviour) => `The system SHALL ${behaviour}.`,
     systemShallMeet: (what) => `The system SHALL satisfy "${what}".`,
@@ -90,14 +88,14 @@ const PHRASES = {
   },
 };
 
-const DEFAULT = "en";
+export const DEFAULT = "en";
 
 /**
  * The project's language: `.csda/config.json`, or `CSDA_LANGUAGE`, or English.
  * A regional tag (`pt-BR`) falls back to its base language rather than to
  * English — closer is better than default.
  */
-function resolveLanguage(projectDir) {
+export function resolveLanguage(projectDir) {
   const raw = process.env.CSDA_LANGUAGE || readConfigured(projectDir);
   if (!raw) return DEFAULT;
   const tag = String(raw).toLowerCase();
@@ -106,7 +104,7 @@ function resolveLanguage(projectDir) {
   return PHRASES[base] ? base : DEFAULT;
 }
 
-function readConfigured(projectDir) {
+export function readConfigured(projectDir) {
   try {
     const file = path.join(projectDir || ".", ".csda", "config.json");
     const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
@@ -117,8 +115,6 @@ function readConfigured(projectDir) {
 }
 
 /** The phrase table for a project. */
-function phrases(projectDir) {
+export function phrases(projectDir) {
   return PHRASES[resolveLanguage(projectDir)];
 }
-
-module.exports = { PHRASES, KEYWORDS, DEFAULT, resolveLanguage, phrases, readConfigured };

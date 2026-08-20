@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `csda agents init --tool <names>` — wire the spec-driven loop into the agent
  * tools a team already uses.
@@ -12,13 +10,13 @@
  * moves; a file that calls the engine never is.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { resolveProjectDir } = require("../lib/project-root");
-const { error, warning } = require("../lib/diagnostics");
-const { agentIo, wantsJson, EXIT } = require("../lib/agent");
-const { STEPS, PROJECT_RULES } = require("./commands");
+import { resolveProjectDir } from "../lib/project-root";
+import { error, warning, errorMessage } from "../lib/diagnostics";
+import { agentIo, wantsJson, EXIT } from "../lib/agent";
+import { STEPS, PROJECT_RULES } from "./commands";
 
 const COLOR =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -32,7 +30,7 @@ const c = {
 
 // ── Renderers, one per tool convention ────────────────────────────────────────
 
-function slashCommandBody(step) {
+export function slashCommandBody(step) {
   return [
     "---",
     `description: ${step.summary}`,
@@ -60,7 +58,7 @@ function slashCommandBody(step) {
   ].join("\n");
 }
 
-function instructionsBody(title) {
+export function instructionsBody(title) {
   return [
     `# ${title}`,
     "",
@@ -112,7 +110,7 @@ function cursorRuleBody() {
  *
  * Adding a tool is one row: the loop below does not know any tool's name.
  */
-const TOOLS = {
+export const TOOLS = {
   claude: {
     label: "Claude Code",
     files: () => [
@@ -158,7 +156,18 @@ const TOOLS = {
   },
 };
 
-const ALL_TOOLS = Object.keys(TOOLS);
+export const ALL_TOOLS = Object.keys(TOOLS);
+
+/** Parsed command-line options for this command. */
+export interface AgentsInitOptions {
+  tools: string[];
+  projectDir: string;
+  dryRun: boolean;
+  force: boolean;
+  json: boolean;
+  help?: boolean;
+  unknown?: string[];
+}
 
 function usage() {
   process.stdout.write(
@@ -173,8 +182,14 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
-  const opts: any = { tools: ALL_TOOLS, projectDir: ".", dryRun: false, force: false, json: false };
+export function parseArgs(argv) {
+  const opts: AgentsInitOptions = {
+    tools: ALL_TOOLS,
+    projectDir: ".",
+    dryRun: false,
+    force: false,
+    json: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--tool" && argv[i + 1]) {
@@ -192,7 +207,7 @@ function parseArgs(argv) {
   return opts;
 }
 
-function main(argv) {
+export function main(argv) {
   const opts = parseArgs(argv);
   const io = agentIo(opts.json || wantsJson(argv));
   const NULL_SHAPE = { agents: null };
@@ -223,9 +238,9 @@ function main(argv) {
   let projectDir;
   try {
     projectDir = resolveProjectDir(opts.projectDir);
-  } catch (err: any) {
+  } catch (err) {
     io.usage(NULL_SHAPE, [
-      error("project_not_found", err.message, {
+      error("project_not_found", errorMessage(err), {
         fix: "Run from inside a spec-driven project, or pass --project-dir.",
       }),
     ]);
@@ -307,5 +322,3 @@ function main(argv) {
 }
 
 if (require.main === module) main(process.argv.slice(2));
-
-module.exports = { main, TOOLS, ALL_TOOLS, parseArgs, slashCommandBody, instructionsBody };

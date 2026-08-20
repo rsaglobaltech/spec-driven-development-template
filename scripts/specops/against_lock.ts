@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * `validate --against-lock` — the drift gate.
  *
@@ -13,17 +11,17 @@
  * reports no drift; a pack whose REQ-005 never made it into the project does.
  */
 
-const fs = require("node:fs");
+import * as fs from "node:fs";
 
-const { readLock } = require("./lock");
-const { resolveRemotePack } = require("../domain-pack/remote");
-const { loadPackModel, requirementsById, scenariosByRequirement } = require("./as_change");
-const { parseTraceabilityRows } = require("../domain-pack/common");
-const { paths } = require("../change/common");
-const { error, warning, info } = require("../lib/diagnostics");
+import { readLock } from "./lock";
+import { resolveRemotePack } from "../domain-pack/remote";
+import { loadPackModel, requirementsById, scenariosByRequirement } from "./as_change";
+import { parseTraceabilityRows } from "../domain-pack/common";
+import { paths } from "../change/common";
+import { error, warning, info } from "../lib/diagnostics";
 
 /** Strip the backticks the generated matrix wraps paths in. */
-function bare(value) {
+export function bare(value) {
   return String(value === undefined || value === null ? "" : value)
     .trim()
     .replace(/^`|`$/g, "");
@@ -37,7 +35,7 @@ const isEmpty = (v) => EMPTY.has(bare(v));
  *
  * @returns diagnostics[] — empty when the project still honours the pack.
  */
-function checkPackAgainstProject(model, entry, matrixRows) {
+export function checkPackAgainstProject(model, entry, matrixRows) {
   const diagnostics = [];
   const requirements = requirementsById(model);
   const scenarios = scenariosByRequirement(model);
@@ -122,7 +120,7 @@ function checkPackAgainstProject(model, entry, matrixRows) {
  *          lockfile, which is not a failure: a project that never adopted a
  *          pack cannot have drifted from one.
  */
-function checkAgainstLock(projectDir, opts?) {
+export function checkAgainstLock(projectDir, opts?) {
   const o = opts || {};
   const diagnostics = [];
   const lock = readLock(projectDir);
@@ -194,5 +192,3 @@ function checkAgainstLock(projectDir, opts?) {
 
   return { checked, diagnostics };
 }
-
-module.exports = { checkAgainstLock, checkPackAgainstProject, bare };

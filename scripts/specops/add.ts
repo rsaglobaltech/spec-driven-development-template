@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `specops add` — thin npm-install-style wrapper around `expand`.
  *
@@ -17,10 +15,10 @@
  *   3. Pre-flight checks the arguments the user *almost certainly* needs.
  */
 
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
-const { resolveProjectDir } = require("../lib/project-root");
+import { resolveProjectDir } from "../lib/project-root";
 
 const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 
@@ -35,6 +33,18 @@ const c = {
   yellow: COLOR_ENABLED ? "\x1b[33m" : "",
   cyan: COLOR_ENABLED ? "\x1b[36m" : "",
 };
+
+/** Parsed command-line options for this command. */
+export interface SpecopsAddOptions {
+  packRepo: string;
+  packRoot: string;
+  packVersion: string;
+  pack: string;
+  projectDir: string;
+  cacheDir: string;
+  vars: string[];
+  dryRun: boolean;
+}
 
 function usage() {
   process.stdout.write(
@@ -58,8 +68,8 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
-  const opts: any = {
+export function parseArgs(argv) {
+  const opts: SpecopsAddOptions = {
     packRepo: "",
     packRoot: "",
     packVersion: "",
@@ -149,5 +159,3 @@ function main() {
 }
 
 if (require.main === module) main();
-
-module.exports = { parseArgs };

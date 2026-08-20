@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `csda update` — regenerate the files the CLI writes into a project, without
  * discarding what the team edited.
@@ -18,16 +16,16 @@
  * resolved silently.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { resolveProjectDir } = require("./lib/project-root");
-const { error, warning, info } = require("./lib/diagnostics");
-const { agentIo, wantsJson, EXIT } = require("./lib/agent");
-const { threeWayMerge } = require("./specops/merge");
-const { TOOLS, ALL_TOOLS } = require("./agents/init");
+import { resolveProjectDir } from "./lib/project-root";
+import { error, warning, info, errorMessage } from "./lib/diagnostics";
+import { agentIo, wantsJson, EXIT } from "./lib/agent";
+import { threeWayMerge } from "./specops/merge";
+import { TOOLS, ALL_TOOLS } from "./agents/init";
 
-const BASELINE_DIR = path.join(".csda", "baseline");
+export const BASELINE_DIR = path.join(".csda", "baseline");
 
 const COLOR =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -58,7 +56,7 @@ function baselinePath(projectDir, rel) {
  * updated — `update` never introduces a tool the project did not opt into.
  * Adding one is what `agents init --tool <name>` is for.
  */
-function generatedFiles(projectDir) {
+export function generatedFiles(projectDir) {
   const planned = new Map();
   for (const tool of ALL_TOOLS) {
     for (const file of TOOLS[tool].files()) {
@@ -70,12 +68,35 @@ function generatedFiles(projectDir) {
   return [...planned.values()].filter((f) => fs.existsSync(path.join(projectDir, f.path)));
 }
 
+/** A file the CLI generates and therefore knows how to refresh. */
+export interface GeneratedFile {
+  path: string;
+  contents: string;
+}
+
+/** `update` only ever has to know whether it may write. */
+export interface UpdateOptions {
+  dryRun?: boolean;
+}
+
+/** What happened to one file, and why, in one word the report can group by. */
+export interface UpdateResult {
+  path: string;
+  outcome: "unchanged" | "written" | "adopted" | "updated" | "conflict";
+  note?: string;
+  conflicts?: number;
+}
+
 /**
  * Merge one file. Four outcomes, and the caller needs to tell them apart:
  * unchanged, updated cleanly, conflicted, or adopted (no baseline to merge
  * against, so the local file is kept and recorded as the new baseline).
  */
-function updateFile(projectDir, file, opts): any {
+export function updateFile(
+  projectDir: string,
+  file: GeneratedFile,
+  opts: UpdateOptions
+): UpdateResult {
   const target = path.join(projectDir, file.path);
   const local = readIfExists(target);
   const base = readIfExists(baselinePath(projectDir, file.path));
@@ -138,7 +159,7 @@ function usage() {
   );
 }
 
-function main(argv) {
+export function main(argv) {
   const io = agentIo(wantsJson(argv));
   const NULL_SHAPE = { update: null };
 
@@ -153,9 +174,9 @@ function main(argv) {
   let projectDir;
   try {
     projectDir = resolveProjectDir(dirFlag !== -1 ? argv[dirFlag + 1] : ".");
-  } catch (err: any) {
+  } catch (err) {
     io.usage(NULL_SHAPE, [
-      error("project_not_found", err.message, {
+      error("project_not_found", errorMessage(err), {
         fix: "Run from inside a spec-driven project, or pass --project-dir.",
       }),
     ]);
@@ -203,8 +224,8 @@ const MARK = {
   conflict: `${c.red}!${c.reset}`,
 };
 
-function renderHuman(results, dryRun) {
-  const counts = results.reduce((acc: any, r) => {
+function renderHuman(results: UpdateResult[], dryRun: boolean) {
+  const counts = results.reduce<Record<string, number>>((acc, r) => {
     acc[r.outcome] = (acc[r.outcome] || 0) + 1;
     return acc;
   }, {});
@@ -233,5 +254,3 @@ function renderHuman(results, dryRun) {
 }
 
 if (require.main === module) main(process.argv.slice(2));
-
-module.exports = { main, updateFile, generatedFiles, BASELINE_DIR };

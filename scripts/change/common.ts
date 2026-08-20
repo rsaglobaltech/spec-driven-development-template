@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Layout and metadata for the change lifecycle.
  *
@@ -19,20 +17,20 @@
  *   └── changes/archive/YYYY-MM-DD-<id>/
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { parseYamlLite } = require("../domain-pack/common");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { parseYamlLite } from "../domain-pack/common";
 
-const SPECS_DIR = path.join("docs", "specs");
-const CAPABILITIES_DIR = path.join(SPECS_DIR, "capabilities");
-const CHANGES_DIR = path.join(SPECS_DIR, "changes");
-const ARCHIVE_DIR = path.join(CHANGES_DIR, "archive");
-const TRACEABILITY_FILE = path.join(SPECS_DIR, "traceability.md");
+export const SPECS_DIR = path.join("docs", "specs");
+export const CAPABILITIES_DIR = path.join(SPECS_DIR, "capabilities");
+export const CHANGES_DIR = path.join(SPECS_DIR, "changes");
+export const ARCHIVE_DIR = path.join(CHANGES_DIR, "archive");
+export const TRACEABILITY_FILE = path.join(SPECS_DIR, "traceability.md");
 
-const CHANGE_CONFIG_FILE = "change.yaml";
-const CHANGE_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const CHANGE_CONFIG_FILE = "change.yaml";
+export const CHANGE_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-const DEFAULT_CONFIG = Object.freeze({
+export const DEFAULT_CONFIG = Object.freeze({
   csda_change_version: 1,
   schema: "spec-driven",
   rigor: "lite",
@@ -40,7 +38,7 @@ const DEFAULT_CONFIG = Object.freeze({
   retire_capabilities: false,
 });
 
-function paths(projectDir) {
+export function paths(projectDir) {
   const root = path.resolve(projectDir);
   return {
     root,
@@ -57,7 +55,7 @@ function paths(projectDir) {
 }
 
 /** Active changes, sorted. `archive` is never an active change. */
-function listChangeIds(projectDir) {
+export function listChangeIds(projectDir) {
   const p = paths(projectDir);
   if (!fs.existsSync(p.changes)) return [];
   return fs
@@ -67,7 +65,7 @@ function listChangeIds(projectDir) {
     .sort();
 }
 
-function listArchivedIds(projectDir) {
+export function listArchivedIds(projectDir) {
   const p = paths(projectDir);
   if (!fs.existsSync(p.archive)) return [];
   return fs
@@ -82,7 +80,7 @@ function listArchivedIds(projectDir) {
  * `docs/specs/changes/<id>/specs/pricing/spec.md` → capability "pricing".
  * Nested capability names (`billing/invoicing`) are supported.
  */
-function listDeltas(projectDir, changeId) {
+export function listDeltas(projectDir, changeId) {
   const base = paths(projectDir).changeSpecs(changeId);
   const out = [];
   if (!fs.existsSync(base)) return out;
@@ -105,7 +103,7 @@ function listDeltas(projectDir, changeId) {
 }
 
 /** Proposed `.feature` files a change carries, relative to its features/ dir. */
-function listChangeFeatures(projectDir, changeId) {
+export function listChangeFeatures(projectDir, changeId) {
   const base = paths(projectDir).changeFeatures(changeId);
   const out = [];
   if (!fs.existsSync(base)) return out;
@@ -126,7 +124,7 @@ function listChangeFeatures(projectDir, changeId) {
   return out.sort((a, b) => a.relative.localeCompare(b.relative));
 }
 
-function readConfig(projectDir, changeId) {
+export function readConfig(projectDir, changeId) {
   const file = path.join(paths(projectDir).change(changeId), CHANGE_CONFIG_FILE);
   if (!fs.existsSync(file)) return { ...DEFAULT_CONFIG };
   let parsed;
@@ -140,7 +138,7 @@ function readConfig(projectDir, changeId) {
   return { ...DEFAULT_CONFIG, ...(parsed || {}) };
 }
 
-function renderConfig(cfg) {
+export function renderConfig(cfg) {
   const lines = [
     `csda_change_version: ${cfg.csda_change_version || 1}`,
     `schema: ${cfg.schema || "spec-driven"}`,
@@ -166,7 +164,7 @@ const REQ_ID_RE = /\bREQ-(\d+)\b/g;
  *
  * Two changes worked in parallel would otherwise both mint REQ-014.
  */
-function highestReservedReq(projectDir) {
+export function highestReservedReq(projectDir) {
   const p = paths(projectDir);
   let max = 0;
   const scan = (text) => {
@@ -200,12 +198,12 @@ function highestReservedReq(projectDir) {
   return max;
 }
 
-function formatReqId(n) {
+export function formatReqId(n) {
   return `REQ-${String(n).padStart(3, "0")}`;
 }
 
 /** Reserve `count` consecutive REQ ids for a new change. */
-function reserveReqRange(projectDir, count) {
+export function reserveReqRange(projectDir, count) {
   const start = highestReservedReq(projectDir) + 1;
   const end = start + Math.max(1, count) - 1;
   return [formatReqId(start), formatReqId(end)];
@@ -215,7 +213,7 @@ function reserveReqRange(projectDir, count) {
 
 const TASK_LINE = /^\s*[-*]\s+\[( |x|X)\]\s+(.*)$/;
 
-function parseTasks(markdown) {
+export function parseTasks(markdown) {
   const tasks = [];
   for (const line of String(markdown || "").split(/\r?\n/)) {
     const m = TASK_LINE.exec(line);
@@ -224,7 +222,7 @@ function parseTasks(markdown) {
   return tasks;
 }
 
-function taskProgress(projectDir, changeId) {
+export function taskProgress(projectDir, changeId) {
   const file = path.join(paths(projectDir).change(changeId), "tasks.md");
   if (!fs.existsSync(file)) return { total: 0, complete: 0, remaining: 0, tasks: [] };
   const tasks = parseTasks(fs.readFileSync(file, "utf8"));
@@ -232,32 +230,8 @@ function taskProgress(projectDir, changeId) {
   return { total: tasks.length, complete, remaining: tasks.length - complete, tasks };
 }
 
-function changeStatusLabel(progress) {
+export function changeStatusLabel(progress) {
   if (progress.total === 0) return "no-tasks";
   if (progress.remaining === 0) return "complete";
   return "in-progress";
 }
-
-module.exports = {
-  SPECS_DIR,
-  CAPABILITIES_DIR,
-  CHANGES_DIR,
-  ARCHIVE_DIR,
-  TRACEABILITY_FILE,
-  CHANGE_CONFIG_FILE,
-  CHANGE_ID_RE,
-  DEFAULT_CONFIG,
-  paths,
-  listChangeIds,
-  listArchivedIds,
-  listDeltas,
-  listChangeFeatures,
-  readConfig,
-  renderConfig,
-  highestReservedReq,
-  reserveReqRange,
-  formatReqId,
-  parseTasks,
-  taskProgress,
-  changeStatusLabel,
-};

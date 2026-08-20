@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * `csda change archive` — the merge engine.
  *
@@ -24,16 +22,16 @@
  * anywhere restores the files already written.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { applyDelta, validateDelta } = require("./delta");
-const { parseDelta } = require("./parser");
-const { paths, listDeltas, listChangeFeatures, readConfig, taskProgress } = require("./common");
-const { parseTraceabilityRows, buildTraceabilityMarkdown } = require("../domain-pack/common");
-const { error, warning } = require("../lib/diagnostics");
+import { applyDelta, validateDelta } from "./delta";
+import { parseDelta } from "./parser";
+import { paths, listDeltas, listChangeFeatures, readConfig, taskProgress } from "./common";
+import { parseTraceabilityRows, buildTraceabilityMarkdown } from "../domain-pack/common";
+import { error, warning } from "../lib/diagnostics";
 
-function todayStamp(now?) {
+export function todayStamp(now?) {
   const d = now instanceof Date ? now : new Date();
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -44,7 +42,7 @@ function readIfExists(file) {
 }
 
 /** Human-readable capability title: `billing/invoicing` → `Billing / Invoicing`. */
-function capabilityTitle(capability) {
+export function capabilityTitle(capability) {
   return String(capability)
     .split("/")
     .map((part) => part.replace(/[-_]+/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase()))
@@ -61,7 +59,7 @@ function code(value) {
   return /^`.*`$/.test(value) ? value : `\`${value}\``;
 }
 
-function traceRow(req) {
+export function traceRow(req) {
   const trace = req.trace || {};
   const firstScenario = (req.scenarios || [])[0];
   return {
@@ -87,10 +85,12 @@ function traceRow(req) {
  * `Implemented` requirement would otherwise reset it to `Draft` and quietly
  * take it back out from under the --strict-tdd gate.
  */
-function statedFields(req) {
+export function statedFields(req) {
   const trace = req.trace || {};
   const firstScenario = (req.scenarios || [])[0];
-  const stated: any = {};
+  // Only the trace fields this requirement actually declares; the matrix
+  // upsert fills the rest.
+  const stated: Record<string, string> = {};
   if (trace.scn || (firstScenario && firstScenario.id)) {
     stated.scenarioId = trace.scn || firstScenario.id;
   }
@@ -110,7 +110,7 @@ function statedFields(req) {
  * delta does not speak about — a change that only adds a scenario must not
  * blank out the implementation columns a previous change filled in.
  */
-function syncTraceability(existingContent, applied) {
+export function syncTraceability(existingContent, applied) {
   const parsed = existingContent
     ? parseTraceabilityRows(existingContent)
     : { mode: "rich", rows: [] };
@@ -189,7 +189,7 @@ function spliceMatrix(existing, generated) {
  * Compute every write the archive would perform, without touching disk.
  * `--dry-run` prints this and stops; the real run hands it to `executeArchive`.
  */
-function planArchive(projectDir, changeId, opts?) {
+export function planArchive(projectDir, changeId, opts?) {
   const o = opts || {};
   const p = paths(projectDir);
   const diagnostics = [];
@@ -390,7 +390,7 @@ function planArchive(projectDir, changeId, opts?) {
  * content held in memory, and every file we create is remembered, so a failure
  * halfway through leaves the project exactly as it was.
  */
-function executeArchive(plan) {
+export function executeArchive(plan) {
   const undo = [];
   const restore = () => {
     for (const step of undo.reverse()) {
@@ -436,13 +436,3 @@ function executeArchive(plan) {
     throw err;
   }
 }
-
-module.exports = {
-  planArchive,
-  executeArchive,
-  syncTraceability,
-  traceRow,
-  statedFields,
-  capabilityTitle,
-  todayStamp,
-};

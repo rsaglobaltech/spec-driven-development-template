@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * License policy gate over the CycloneDX SBOM that `npm sbom` emits.
  *
@@ -19,7 +17,7 @@
  *   node dist/scripts/license_check.js --sbom sbom.json [--json] [--markdown]
  */
 
-const fs = require("node:fs");
+import * as fs from "node:fs";
 
 /**
  * Permissive licences that impose no obligation beyond attribution. A copyleft
@@ -27,7 +25,7 @@ const fs = require("node:fs");
  * need a deliberate review of what it obliges, which is exactly what silently
  * allowing it would skip.
  */
-const ALLOWED = new Set([
+export const ALLOWED = new Set([
   "0BSD",
   "Apache-2.0",
   "BSD-2-Clause",
@@ -49,7 +47,7 @@ const ALLOWED = new Set([
  * `{ license: { id | name } }`, or an SPDX `{ expression }` for dual licences.
  * @returns {string} SPDX-ish string, or "UNKNOWN" when nothing is declared.
  */
-function licenseOf(component) {
+export function licenseOf(component) {
   const entries = component.licenses || [];
   const parts = entries
     .map((e) => (e.license && (e.license.id || e.license.name)) || e.expression)
@@ -63,7 +61,7 @@ function licenseOf(component) {
  * *any* alternative is allowed — treating it as one opaque string would reject
  * a package that is plainly MIT-available.
  */
-function alternatives(expression) {
+export function alternatives(expression) {
   return expression
     .replace(/[()]/g, " ")
     .split(/\s+OR\s+/i)
@@ -71,7 +69,7 @@ function alternatives(expression) {
     .filter(Boolean);
 }
 
-function isAllowed(expression) {
+export function isAllowed(expression) {
   if (expression === "UNKNOWN") return false;
   // AND means every term binds, so every term must be allowed.
   if (/\sAND\s/i.test(expression)) {
@@ -92,7 +90,7 @@ function readStdin() {
   }
 }
 
-function summarise(components) {
+export function summarise(components) {
   const byLicense = new Map();
   const violations = [];
   for (const c of components) {
@@ -196,7 +194,5 @@ function main() {
   }
   process.exit(0);
 }
-
-module.exports = { licenseOf, isAllowed, alternatives, summarise, ALLOWED };
 
 if (require.main === module) main();

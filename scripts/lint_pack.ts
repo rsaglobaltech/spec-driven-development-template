@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * pack lint — semantic validation of a pack.yaml beyond JSON Schema.
  *
@@ -8,9 +6,9 @@
  *   csda pack lint --pack-root <path> --pack <domain/type>
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { loadPack, asArray, validatePackModel } = require("./domain-pack/common");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { loadPack, asArray, validatePackModel } from "./domain-pack/common";
 
 function logInfo(msg) {
   process.stdout.write(`ℹ️  [INFO] ${msg}\n`);
@@ -20,6 +18,16 @@ function logWarn(msg) {
 }
 function logError(msg) {
   process.stderr.write(`❌ [ERROR] ${msg}\n`);
+}
+
+/** Parsed command-line options for this command. */
+export interface LintPackOptions {
+  packRoot: string | null;
+  packId: string | null;
+  strict: boolean;
+  graph: boolean;
+  graphFormat: string;
+  json: boolean;
 }
 
 function usage() {
@@ -40,8 +48,8 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
-  const opts: any = {
+export function parseArgs(argv) {
+  const opts: LintPackOptions = {
     packRoot: null,
     packId: null,
     strict: false,
@@ -78,8 +86,8 @@ function parseArgs(argv) {
   return opts;
 }
 
-const { agentIo, wantsJson } = require("./lib/agent");
-const { error: diagError, warning: diagWarning } = require("./lib/diagnostics");
+import { agentIo, wantsJson } from "./lib/agent";
+import { error as diagError, warning as diagWarning } from "./lib/diagnostics";
 
 /** The document shape when lint cannot run at all. */
 const NULL_SHAPE = { pack: null, packRoot: null, graph: null };
@@ -240,7 +248,7 @@ const STEP_RE = /^\s*(Given|When|Then|And|But)\b\s*(.*)$/i;
  * Parse one Gherkin feature file into a flat list of scenarios. Intentionally
  * light — enough to judge structure and step language, not a full parser.
  */
-function parseFeature(content) {
+export function parseFeature(content) {
   const scenarios = [];
   let current = null;
   for (const raw of content.split("\n")) {
@@ -277,7 +285,7 @@ function parseFeature(content) {
   return scenarios;
 }
 
-function isGenericTitle(title) {
+export function isGenericTitle(title) {
   if (!title) return true;
   if (/^(test|scenario|example|untitled)\b/i.test(title)) return true;
   return title.split(/\s+/).filter(Boolean).length < 3;
@@ -325,7 +333,7 @@ function inlineGherkin(scn) {
   return { title: scn.title || scn.scenario || "", steps, outline: false, hasExamples: true };
 }
 
-function lintScenarioQuality(pack, packRoot, errors, scenarioIssues) {
+export function lintScenarioQuality(pack, packRoot, errors, scenarioIssues) {
   for (const scn of asArray(pack.scenarios)) {
     const label = scn.id || scn.title || scn.scenario || "(unnamed scenario)";
 
@@ -406,7 +414,12 @@ function lintInstallable(pack, packRoot, errors, _warnings) {
   }
 }
 
-function runLint(pack, packRoot, opts: any = {}) {
+/** Flags that change what `pack lint` reports, not how it reads the pack. */
+export interface LintRunOptions {
+  strict?: boolean;
+}
+
+export function runLint(pack, packRoot, opts: LintRunOptions = {}) {
   const errors = [];
   const warnings = [];
   const scenarioIssues = [];
@@ -439,7 +452,7 @@ function runLint(pack, packRoot, opts: any = {}) {
 // as Mermaid or DOT. A reference to an ID/name that does not exist becomes a
 // synthetic "missing" node so the break is visible in the diagram *and* listed.
 
-function buildPackGraph(pack) {
+export function buildPackGraph(pack) {
   const nodes = [];
   const edges = [];
   const broken = [];
@@ -574,7 +587,7 @@ function sanitizeId(id) {
   return id.replace(/[^A-Za-z0-9]/g, "_");
 }
 
-function renderMermaid(graph) {
+export function renderMermaid(graph) {
   const lines = ["graph LR"];
   for (const node of graph.nodes) {
     const safe = sanitizeId(node.id);
@@ -595,7 +608,7 @@ function renderMermaid(graph) {
   return lines.join("\n");
 }
 
-function renderDot(graph) {
+export function renderDot(graph) {
   const lines = ["digraph pack {", "  rankdir=LR;", "  node [shape=box, style=rounded];"];
   const fill = {
     requirement: "#e7f5ff",
@@ -723,14 +736,3 @@ function main() {
 if (require.main === module) {
   main();
 }
-
-module.exports = {
-  parseArgs,
-  parseFeature,
-  isGenericTitle,
-  lintScenarioQuality,
-  runLint,
-  buildPackGraph,
-  renderMermaid,
-  renderDot,
-};

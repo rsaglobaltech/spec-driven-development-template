@@ -51,8 +51,14 @@ function usage() {
   );
 }
 
+/** Parsed command-line options for this command. */
+export interface ConfigInitOptions {
+  out: string;
+  force: boolean;
+}
+
 function parseArgs(argv) {
-  const opts: any = { out: "project.yaml", force: false };
+  const opts: ConfigInitOptions = { out: "project.yaml", force: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--out" && argv[i + 1]) opts.out = argv[++i];

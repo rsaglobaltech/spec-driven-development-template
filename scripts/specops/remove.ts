@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `specops remove <pack-id>` — drop a pack entry from `.specops.lock`.
  *
@@ -11,8 +9,8 @@
  *   csda specops remove parking-management/backend
  */
 
-const { resolveProjectDir } = require("../lib/project-root");
-const { readLock, writeLock, LOCK_FILENAME } = require("./lock");
+import { resolveProjectDir } from "../lib/project-root";
+import { readLock, writeLock, LOCK_FILENAME } from "./lock";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -25,6 +23,13 @@ const c = {
   yellow: COLOR_ENABLED ? "\x1b[33m" : "",
   cyan: COLOR_ENABLED ? "\x1b[36m" : "",
 };
+
+/** Parsed command-line options for this command. */
+export interface SpecopsRemoveOptions {
+  packId: string | null;
+  projectDir: string;
+  dryRun: boolean;
+}
 
 function usage() {
   process.stdout.write(
@@ -40,8 +45,8 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
-  const opts: any = { packId: null, projectDir: ".", dryRun: false };
+export function parseArgs(argv) {
+  const opts: SpecopsRemoveOptions = { packId: null, projectDir: ".", dryRun: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
@@ -114,5 +119,3 @@ function main() {
 }
 
 if (require.main === module) main();
-
-module.exports = { parseArgs };

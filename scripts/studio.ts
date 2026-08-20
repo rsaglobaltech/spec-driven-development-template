@@ -16,8 +16,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as http from "node:http";
-const { resolveProjectDir } = require("./lib/project-root");
-const { parseTraceability } = require("./plan");
+import { resolveProjectDir } from "./lib/project-root";
+import { parseTraceability } from "./plan";
+import { errorMessage } from "./lib/diagnostics";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -45,8 +46,15 @@ function usage() {
   );
 }
 
+/** Parsed command-line options for this command. */
+export interface StudioOptions {
+  projectDir: string;
+  port: number;
+  json: boolean;
+}
+
 function parseArgs(argv) {
-  const opts: any = { projectDir: ".", port: 4173, json: false };
+  const opts: StudioOptions = { projectDir: ".", port: 4173, json: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--port" && argv[i + 1]) opts.port = Number(argv[++i]);
@@ -163,8 +171,8 @@ function main() {
   let projectDir;
   try {
     projectDir = resolveProjectDir(opts.projectDir);
-  } catch (err: any) {
-    process.stderr.write(`${err.message}\n`);
+  } catch (err) {
+    process.stderr.write(`${errorMessage(err)}\n`);
     process.exit(2);
   }
 
@@ -193,8 +201,8 @@ function main() {
         `  ${c.green}▶ http://localhost:${opts.port}${c.reset}  ${c.dim}(Ctrl-C to stop · /status.json for the model)${c.reset}\n\n`
     );
   });
-  server.on("error", (err: any) => {
-    process.stderr.write(`${c.red}✖${c.reset}  Could not start server: ${err.message}\n`);
+  server.on("error", (err: unknown) => {
+    process.stderr.write(`${c.red}✖${c.reset}  Could not start server: ${errorMessage(err)}\n`);
     process.exit(1);
   });
 }

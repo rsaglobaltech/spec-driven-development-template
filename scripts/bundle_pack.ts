@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `pack bundle` — export a pack repository as a single-file git bundle for
  * air-gapped environments. On the disconnected side the bundle is a valid
@@ -10,7 +8,7 @@
  *   csda pack bundle --repo <url> --out <file.bundle>
  */
 
-const { createPackBundle } = require("./domain-pack/remote");
+import { createPackBundle } from "./domain-pack/remote";
 
 function logInfo(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
