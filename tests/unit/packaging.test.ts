@@ -17,11 +17,29 @@ const packageJson = require(path.join(repoRoot, "package.json"));
 
 const { SURFACE } = require("../../scripts/lib/surface");
 
+/**
+ * Every registry row that names a script, subcommands included.
+ *
+ * Walking only the top level misses `specops sync`, `change archive` and the
+ * rest — which are exactly the rows most likely to be moved and left behind.
+ */
+function dispatchableRows(): Array<{ name: string; script: string[] }> {
+  const out: Array<{ name: string; script: string[] }> = [];
+  const visit = (rows, prefix: string) => {
+    for (const row of rows || []) {
+      const name = prefix ? `${prefix} ${row.name}` : row.name;
+      if (row.script) out.push({ name, script: row.script });
+      visit(row.subcommands, name);
+    }
+  };
+  visit(SURFACE, "");
+  return out;
+}
+
 /** Entry points a user can reach: the bin shim plus every command it dispatches to. */
 function entryPoints(): string[] {
   const entries = [path.join(distDir, "bin", "create-spec-driven-app.js")];
-  for (const row of SURFACE) {
-    if (!row.script) continue;
+  for (const row of dispatchableRows()) {
     entries.push(path.join(distDir, "scripts", ...row.script));
   }
   return entries.filter((f) => fs.existsSync(f));
@@ -66,6 +84,18 @@ function coveredByFiles(relPath: string): boolean {
   });
 }
 
+/**
+ * Does this compiled module actually do something when node runs it?
+ *
+ * Two styles are in use: most commands guard on `require.main === module`,
+ * while `alm/cli` calls `main()` unconditionally at load. Both run; a module
+ * that only re-exports does not.
+ */
+function runsSomething(js: string): boolean {
+  if (js.includes("require.main === module")) return true;
+  return /^[A-Za-z_$][\w$]*\s*\(/m.test(js); // an unindented top-level call
+}
+
 test("every module the CLI requires is inside a published `files` entry", () => {
   const reachable = reachableDistFiles();
   assert.ok(reachable.size > 0, "expected to walk a non-empty require graph");
@@ -90,4 +120,23 @@ test("the CLI require graph really does span packages/core", () => {
     reachable.some((rel) => rel.startsWith("dist/packages/core/")),
     "expected the walk to reach dist/packages/core; if core is genuinely unused, drop it from `files`"
   );
+});
+
+test("every script the command registry dispatches to is a runnable entry point", () => {
+  // The registry spawns these files by path. A module that only re-exports its
+  // command loads fine, resolves fine, and does nothing — which is how moving a
+  // command into `scripts/cli/commands/` and leaving a shim behind silently
+  // turned `csda specops sync` into a no-op.
+  const missing: string[] = [];
+  for (const row of dispatchableRows()) {
+    const file = path.join(distDir, "scripts", ...row.script);
+    if (!fs.existsSync(file)) {
+      missing.push(`${row.name}: ${row.script.join("/")} was not built`);
+      continue;
+    }
+    if (!runsSomething(fs.readFileSync(file, "utf8"))) {
+      missing.push(`${row.name}: ${row.script.join("/")} never runs its command`);
+    }
+  }
+  assert.deepEqual(missing, [], `\n  ${missing.join("\n  ")}`);
 });
