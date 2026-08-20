@@ -13,6 +13,8 @@ import { test } from "node:test";
 import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as os from "node:os";
+import { spawnSync } from "node:child_process";
 
 const {
   SURFACE,
@@ -26,40 +28,57 @@ const {
 const { STEPS } = require("../../scripts/agents/commands");
 
 const ROOT_DIR = path.resolve(__dirname, "../../..");
-const BIN_SOURCE = fs.readFileSync(
-  path.join(ROOT_DIR, "bin", "create-spec-driven-app.ts"),
-  "utf8"
-);
+const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
 
-test("every registry command is dispatched by the CLI, and vice versa", () => {
-  const dispatched = [...BIN_SOURCE.matchAll(/command === "([a-z-]+)"/g)].map((m) => m[1]);
+function runCli(args: string[]) {
+  return spawnSync(process.execPath, [CLI_PATH, ...args], {
+    cwd: os.tmpdir(),
+    encoding: "utf8",
+    input: "",
+  });
+}
 
-  const undispatched = commandNames().filter((c: string) => !dispatched.includes(c));
-  assert.deepEqual(undispatched, [], `declared but not dispatched: ${undispatched.join(", ")}`);
-
-  const undeclared = dispatched.filter((c) => !commandNames().includes(c));
-  assert.deepEqual(undeclared, [], `dispatched but not declared: ${undeclared.join(", ")}`);
+test("every command the registry declares actually routes", () => {
+  // The dispatcher reads the registry, so this is the check that the reading
+  // works end to end: a declared command must never come back as unknown.
+  const unroutable: string[] = [];
+  for (const name of commandNames()) {
+    const r = runCli([name, "--help"]);
+    if (/Unknown command/.test(`${r.stdout}${r.stderr}`)) unroutable.push(name);
+  }
+  assert.deepEqual(unroutable, [], `declared but unroutable: ${unroutable.join(", ")}`);
 });
 
-test("every subcommand the registry declares is reachable", () => {
-  // The dispatcher handles some sub-commands itself and passes the rest
-  // through to the command's own script. A sub-command is reachable if either
-  // place names it — but something must.
+test("a command the registry does not declare is rejected", () => {
+  // The other half: routing from a table is only a guarantee if the table is
+  // also the limit of what is accepted.
+  const r = runCli(["definitely-not-a-command"]);
+  assert.equal(r.status, 2);
+  assert.match(`${r.stdout}${r.stderr}`, /Unknown command/);
+});
+
+test("a pass-through command's own script knows every sub-command declared for it", () => {
+  // A command with its own script owns its sub-commands: the dispatcher hands
+  // the tail over untouched, so the registry can drift from what the script
+  // accepts without anything noticing. Table-routed sub-commands cannot drift
+  // — the route is the declaration.
   const missing: string[] = [];
-  for (const [command, subs] of Object.entries(subcommandNames())) {
-    const row = SURFACE.find((c: any) => c.name === command);
-    const ownScript = row.script
-      ? path.join(ROOT_DIR, "scripts", ...row.script.map((s: string) => s.replace(/\.js$/, ".ts")))
-      : null;
-    const source =
-      BIN_SOURCE + (ownScript && fs.existsSync(ownScript) ? fs.readFileSync(ownScript, "utf8") : "");
-    for (const sub of subs as string[]) {
-      if (!new RegExp(`["'\`]${sub}["'\`]|\\b${sub}:`).test(source)) {
-        missing.push(`${command} ${sub}`);
+  for (const command of SURFACE) {
+    if (!command.script) continue;
+    const source = path.join(
+      ROOT_DIR,
+      "scripts",
+      ...command.script.map((s: string) => s.replace(/\.js$/, ".ts"))
+    );
+    if (!fs.existsSync(source)) continue;
+    const text = fs.readFileSync(source, "utf8");
+    for (const sub of (command.subcommands || []).map((s: any) => s.name)) {
+      if (!new RegExp(`["'\`]${sub}["'\`]|\\b${sub}:`).test(text)) {
+        missing.push(`${command.name} ${sub}`);
       }
     }
   }
-  assert.deepEqual(missing, [], `declared but unreachable: ${missing.join(", ")}`);
+  assert.deepEqual(missing, [], `declared but unknown to its script: ${missing.join(", ")}`);
 });
 
 test("every declared script exists", () => {
@@ -90,11 +109,7 @@ test("the JSON contract rows are unique and carry a document key", () => {
   const rows = jsonContractRows();
   assert.ok(rows.length > 0);
   const invocations = rows.map((r: any) => r.command);
-  assert.equal(
-    new Set(invocations).size,
-    invocations.length,
-    "two rows claim the same invocation"
-  );
+  assert.equal(new Set(invocations).size, invocations.length, "two rows claim the same invocation");
   for (const row of rows) {
     assert.ok(row.nullShapeKey, `${row.command} declares no document key`);
     assert.match(row.command, /(--json|--format json)$/, `${row.command} names no JSON flag`);
@@ -144,5 +159,9 @@ test("every command the agent steps tell an agent to run exists", () => {
       }
     }
   }
-  assert.deepEqual(unknown, [], `agent steps name commands that do not exist: ${unknown.join(", ")}`);
+  assert.deepEqual(
+    unknown,
+    [],
+    `agent steps name commands that do not exist: ${unknown.join(", ")}`
+  );
 });

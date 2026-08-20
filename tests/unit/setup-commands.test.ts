@@ -5,13 +5,11 @@
 
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
-import * as fs from "node:fs";
-import * as path from "node:path";
 
 import { TEMPLATE } from "../../scripts/config_init";
 import { COMMANDS, SUBCOMMANDS, bashScript, zshScript } from "../../scripts/completion";
 
-const ROOT_DIR = path.resolve(__dirname, "../../..");
+const { commandNames, subcommandNames } = require("../../scripts/lib/surface");
 
 test("config init TEMPLATE contains every required key", () => {
   for (const key of [
@@ -48,16 +46,12 @@ test("zsh completion script is compdef-tagged and registers the function", () =>
   assert.match(s, /doctor/);
 });
 
-test("completion COMMANDS matches the CLI dispatch table exactly", () => {
-  // Completion that advertises a command the CLI does not have — or omits one it
-  // does — is worse than no completion. This is the guard that keeps the list in
-  // step as commands are added.
-  const bin = fs.readFileSync(path.join(ROOT_DIR, "bin", "create-spec-driven-app.ts"), "utf8");
-  const dispatched = [...bin.matchAll(/command === "([a-z-]+)"/g)].map((m) => m[1]);
-
-  const missing = dispatched.filter((c) => !COMMANDS.includes(c));
-  assert.deepEqual(missing, [], `dispatched but not completable: ${missing.join(", ")}`);
-
-  const stale = COMMANDS.filter((c) => !dispatched.includes(c));
-  assert.deepEqual(stale, [], `completable but not dispatched: ${stale.join(", ")}`);
+test("completion COMMANDS is the surface registry, not a second list", () => {
+  // This used to scrape `command === "…"` out of the dispatcher with a regex,
+  // which is why it only ever compared top-level names and let four
+  // sub-commands ship uncompletable. The dispatcher now routes from the
+  // registry, so the guarantee is structural — what is left to check is that
+  // completion did not grow a copy of its own again.
+  assert.deepEqual(COMMANDS, commandNames());
+  assert.deepEqual(SUBCOMMANDS, subcommandNames());
 });

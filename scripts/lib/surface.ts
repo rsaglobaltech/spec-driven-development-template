@@ -34,18 +34,33 @@
  */
 
 /**
- * Sections of `--help --all`, in the order they print. Declared separately
- * because the order is editorial, not alphabetical.
+ * Sections of `--help --all`, in the order they print. Declared here because
+ * the order and the wording are editorial, not derivable.
  */
-const HELP_GROUPS = ["core", "pack", "specops", "harness", "dx"];
+const HELP_GROUPS = [
+  { id: "core", title: "CORE COMMANDS" },
+  { id: "pack", title: "PACK COMMANDS" },
+  { id: "specops", title: "SPECOPS COMMANDS" },
+  { id: "harness", title: "HARNESS COMMANDS" },
+  { id: "dx", title: "DX COMMANDS" },
+];
 
 /** Sections of the narrowed help, in the order they print. */
-const CORE_GROUPS = ["start", "daily"];
+const CORE_GROUPS = [
+  { id: "start", title: "START HERE" },
+  { id: "daily", title: "EVERY DAY" },
+];
 
 interface HelpRow {
   group: string;
   icon: string;
   summary: string;
+  /**
+   * Position within the group. The daily surface reads as a sequence —
+   * status → plan → req → change → validate → done — which is neither
+   * alphabetical nor the order the commands are declared in.
+   */
+  order?: number;
 }
 
 interface JsonContract {
@@ -62,6 +77,12 @@ interface JsonContract {
 interface Subcommand {
   name: string;
   script?: string[];
+  /**
+   * Index into argv where this row's own arguments begin. 2 by default — the
+   * dispatcher eats the sub-command token. `pack lint` and `config set` parse
+   * that token themselves, so theirs starts at 1.
+   */
+  argsFrom?: number;
   help?: HelpRow;
   json?: JsonContract;
 }
@@ -134,6 +155,7 @@ const SURFACE: Command[] = [
     },
     coreHelp: {
       group: "daily",
+      order: 1,
       icon: "🧭",
       summary: "Where the project stands, and the one command to run next.",
     },
@@ -179,6 +201,7 @@ const SURFACE: Command[] = [
     },
     coreHelp: {
       group: "daily",
+      order: 5,
       icon: "✅",
       summary: "The gate: structure, traceability, Gherkin, TDD.",
     },
@@ -203,6 +226,7 @@ const SURFACE: Command[] = [
     },
     coreHelp: {
       group: "daily",
+      order: 2,
       icon: "📋",
       summary: "Requirements still needing a test or implementation.",
     },
@@ -226,7 +250,7 @@ const SURFACE: Command[] = [
       icon: "✔",
       summary: "Mark a requirement as Implemented in traceability.md.",
     },
-    coreHelp: { group: "daily", icon: "✔", summary: "Mark a requirement Implemented." },
+    coreHelp: { group: "daily", order: 6, icon: "✔", summary: "Mark a requirement Implemented." },
     json: { key: "requirement", gate: false, args: "<REQ>" },
   },
   {
@@ -240,6 +264,7 @@ const SURFACE: Command[] = [
     },
     coreHelp: {
       group: "daily",
+      order: 3,
       icon: "📝",
       summary: "Add, link and close requirements without editing the matrix.",
     },
@@ -273,6 +298,7 @@ const SURFACE: Command[] = [
     },
     coreHelp: {
       group: "daily",
+      order: 4,
       icon: "🔄",
       summary: "Propose, review and archive a change to specs that already shipped.",
     },
@@ -284,6 +310,7 @@ const SURFACE: Command[] = [
       {
         name: "init",
         script: ["init_pack.js"],
+        argsFrom: 1,
         help: {
           group: "pack",
           icon: "📦",
@@ -293,6 +320,7 @@ const SURFACE: Command[] = [
       {
         name: "lint",
         script: ["lint_pack.js"],
+        argsFrom: 1,
         help: {
           group: "pack",
           icon: "🔍",
@@ -302,6 +330,7 @@ const SURFACE: Command[] = [
       {
         name: "infer",
         script: ["infer_pack.js"],
+        argsFrom: 1,
         help: {
           group: "pack",
           icon: "🔮",
@@ -410,9 +439,9 @@ const SURFACE: Command[] = [
     name: "config",
     subcommands: [
       { name: "init", script: ["config_init.js"] },
-      { name: "set", script: ["config_set.js"] },
-      { name: "get", script: ["config_set.js"] },
-      { name: "list", script: ["config_set.js"] },
+      { name: "set", script: ["config_set.js"], argsFrom: 1 },
+      { name: "get", script: ["config_set.js"], argsFrom: 1 },
+      { name: "list", script: ["config_set.js"], argsFrom: 1 },
     ],
     help: {
       group: "dx",
@@ -446,12 +475,7 @@ const SURFACE: Command[] = [
   {
     name: "schema",
     script: ["schema", "cli.js"],
-    subcommands: [
-      { name: "which" },
-      { name: "init" },
-      { name: "fork" },
-      { name: "validate" },
-    ],
+    subcommands: [{ name: "which" }, { name: "init" }, { name: "fork" }, { name: "validate" }],
     help: {
       group: "dx",
       icon: "🗺",
@@ -526,7 +550,7 @@ function jsonContractRows() {
  * the help can list `ci init` and `plan` side by side.
  */
 function helpRows() {
-  const byGroup = new Map(HELP_GROUPS.map((g) => [g, []]));
+  const byGroup = new Map(HELP_GROUPS.map((g) => [g.id, []]));
   const add = (label, help) => {
     const bucket = byGroup.get(help.group);
     if (!bucket) throw new Error(`surface: unknown help group '${help.group}' on '${label}'`);
@@ -538,12 +562,12 @@ function helpRows() {
       if (sub.help) add(`${command.name} ${sub.name}`, sub.help);
     }
   }
-  return HELP_GROUPS.map((group) => ({ group, rows: byGroup.get(group) }));
+  return HELP_GROUPS.map((g) => ({ group: g.id, title: g.title, rows: byGroup.get(g.id) }));
 }
 
 /** The same, for the narrowed daily surface. */
 function coreHelpRows() {
-  const byGroup = new Map(CORE_GROUPS.map((g) => [g, []]));
+  const byGroup = new Map(CORE_GROUPS.map((g) => [g.id, []]));
   for (const command of SURFACE) {
     if (!command.coreHelp) continue;
     const bucket = byGroup.get(command.coreHelp.group);
@@ -554,9 +578,13 @@ function coreHelpRows() {
       label: command.name,
       icon: command.coreHelp.icon,
       summary: command.coreHelp.summary,
+      order: command.coreHelp.order,
     });
   }
-  return CORE_GROUPS.map((group) => ({ group, rows: byGroup.get(group) }));
+  for (const rows of byGroup.values()) {
+    (rows as any[]).sort((a, b) => (a.order || 0) - (b.order || 0));
+  }
+  return CORE_GROUPS.map((g) => ({ group: g.id, title: g.title, rows: byGroup.get(g.id) }));
 }
 
 /**

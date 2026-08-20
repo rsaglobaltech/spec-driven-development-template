@@ -8,40 +8,12 @@ const rootDir = path.resolve(__dirname, "..", "..");
 const distScripts = path.join(__dirname, "..", "scripts");
 const packageJson = require(path.join(rootDir, "package.json"));
 const VERSION: string = packageJson.version || "0.0.0";
-const initNodeScript = path.join(distScripts, "init_project.js");
-const initFromPackScript = path.join(distScripts, "init_from_pack.js");
-const adoptScript = path.join(distScripts, "adopt_project.js");
-const doctorScript = path.join(distScripts, "doctor.js");
-const ciInitScript = path.join(distScripts, "ci_init.js");
-const packBundleScript = path.join(distScripts, "bundle_pack.js");
-const almScript = path.join(distScripts, "alm", "cli.js");
-const validateScript = path.join(distScripts, "validate_specs.js");
-const expandScript = path.join(distScripts, "expand_domain_pack.js");
-const packInitScript = path.join(distScripts, "init_pack.js");
-const packLintScript = path.join(distScripts, "lint_pack.js");
-const packInferScript = path.join(distScripts, "infer_pack.js");
-const specopsSyncScript = path.join(distScripts, "specops", "sync.js");
-const specopsDiffScript = path.join(distScripts, "specops", "diff.js");
-const specopsAddScript = path.join(distScripts, "specops", "add.js");
-const specopsRemoveScript = path.join(distScripts, "specops", "remove.js");
-const specopsContributeScript = path.join(distScripts, "specops", "contribute.js");
-const harnessRunScript = path.join(distScripts, "harness", "run.js");
-const harnessInitScript = path.join(distScripts, "harness", "init.js");
-const planScript = path.join(distScripts, "plan.js");
-const reportScript = path.join(distScripts, "report.js");
-const doneScript = path.join(distScripts, "done.js");
-const changeScript = path.join(distScripts, "change", "cli.js");
-const reqScript = path.join(distScripts, "req.js");
-const statusScript = path.join(distScripts, "status.js");
-const fixScript = path.join(distScripts, "fix.js");
-const configInitScript = path.join(distScripts, "config_init.js");
-const configSetScript = path.join(distScripts, "config_set.js");
-const schemaScript = path.join(distScripts, "schema", "cli.js");
-const onboardScript = path.join(distScripts, "onboard.js");
-const updateScript = path.join(distScripts, "update.js");
-const completionScript = path.join(distScripts, "completion.js");
-const studioScript = path.join(distScripts, "studio.js");
-const agentsInitScript = path.join(distScripts, "agents", "init.js");
+const { SURFACE, helpRows, coreHelpRows, hiddenCommandCount } = require("../scripts/lib/surface");
+
+/** Resolve a registry row's `script` segments to a path under dist/scripts. */
+function resolveScript(segments: string[]): string {
+  return path.join(distScripts, ...segments);
+}
 
 // ── Pretty output helpers ─────────────────────────────────────────────────────────
 
@@ -99,32 +71,83 @@ function example(line: string, comment?: string): string {
 }
 
 /**
- * The eight commands of the daily loop.
+ * The worked examples of `--help --all`. Prose, not surface: they are chosen
+ * for what they teach, so they are declared here rather than derived.
+ */
+const EXAMPLES =
+  example(`npx create-spec-driven-app@latest init`, "Generate a new project (wizard)") +
+  example(
+    `npx create-spec-driven-app@latest adopt --project-dir ./my-existing-repo`,
+    "Adopt SDD on an existing codebase"
+  ) +
+  example(
+    `npx create-spec-driven-app@latest init --config ./project.config --out ./projects`,
+    "Generate a new project from a config file"
+  ) +
+  example(
+    `npx create-spec-driven-app@latest validate ./projects/my-app --strict-tdd`,
+    "Validate with the TDD gate"
+  ) +
+  example(
+    `npx create-spec-driven-app@latest expand --pack-root ./domain-packs \\\n        --pack parking-management/backend --project-dir ./projects/my-app \\\n        --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking ops"`,
+    "Apply a local pack"
+  ) +
+  example(
+    `npx create-spec-driven-app@latest expand --pack-repo https://github.com/acme/parking-specops.git \\\n        --pack-version v0.1.0 --pack backend --project-dir ./projects/smart-parking \\\n        --var PROJECT_NAME="Smart Parking"`,
+    "Apply a remote pack pinned to a git tag"
+  ) +
+  example(
+    `npx create-spec-driven-app@latest specops sync --project-dir ./projects/smart-parking`,
+    "Re-expand everything in .specops.lock / specops.config.yaml"
+  ) +
+  example(
+    `npx create-spec-driven-app@latest specops diff --project-dir ./projects/smart-parking --pack-version v0.2.0`,
+    "Preview a version bump"
+  ) +
+  example(
+    `npx create-spec-driven-app@latest plan --project-dir ./projects/smart-parking`,
+    "Show what requirements still need work"
+  ) +
+  example(
+    `npx create-spec-driven-app@latest plan --project-dir ./projects/smart-parking --format json`,
+    "Same, machine-readable for AI agents"
+  ) +
+  example(
+    `npx create-spec-driven-app@latest done REQ-007 --check`,
+    "Mark REQ-007 Implemented (after validate passes)"
+  ) +
+  example(
+    `npx create-spec-driven-app@latest pack init --out ./domain-packs --name "Billing Backend" --type contracts`,
+    "Scaffold a contracts-flavoured pack"
+  );
+
+/**
+ * The daily loop, narrowed.
  *
- * The surface grew to twenty-one, which is more than anyone reads. A new user
+ * The surface grew past twenty, which is more than anyone reads. A new user
  * needs `init` or `adopt` once, then lives in status → plan → req → change →
  * validate → done. Everything else is real but not first — `--help --all`
  * shows it, and `csda config set profile full` makes that the default.
+ *
+ * Both help profiles are rendered from the surface registry, so a command
+ * cannot exist without appearing in one of them or being deliberately absent
+ * from both.
  */
+function renderGroups(groups: any[]): string {
+  return groups
+    .map((g) => section(g.title) + g.rows.map((r: any) => cmd(r.icon, r.label, r.summary)).join(""))
+    .join("");
+}
+
 function usageCore() {
   process.stdout.write(
     banner() +
       section("USAGE") +
       `    ${c.cyan}csda${c.reset} ${c.bold}<command>${c.reset} [options]\n` +
       `    ${c.dim}Run ‘<command> --help’ for per-command details.${c.reset}\n` +
-      section("START HERE") +
-      cmd("⚡", "init", "Scaffold a new spec-driven project.") +
-      cmd("🏗", "adopt", "Install SDD on an EXISTING repository, without touching code.") +
-      cmd("🧭", "onboard", "Read an existing repo and propose the capabilities its code implies.") +
-      section("EVERY DAY") +
-      cmd("🧭", "status", "Where the project stands, and the one command to run next.") +
-      cmd("📋", "plan", "Requirements still needing a test or implementation.") +
-      cmd("📝", "req", "Add, link and close requirements without editing the matrix.") +
-      cmd("🔄", "change", "Propose, review and archive a change to specs that already shipped.") +
-      cmd("✅", "validate", "The gate: structure, traceability, Gherkin, TDD.") +
-      cmd("✔", "done", "Mark a requirement Implemented.") +
+      renderGroups(coreHelpRows()) +
       section("MORE") +
-      `    ${c.dim}Fifteen more commands cover packs, automation, agents and reporting.${c.reset}\n` +
+      `    ${c.dim}${hiddenCommandCount()} more commands cover packs, automation, agents and reporting.${c.reset}\n` +
       `    ${c.green}csda --help --all${c.reset}${c.dim}                    show every command${c.reset}\n` +
       `    ${c.green}csda config set profile full${c.reset}${c.dim}         make that the default${c.reset}\n` +
       section("EXAMPLES") +
@@ -163,125 +186,12 @@ function usageFull() {
       section("USAGE") +
       `    ${c.cyan}create-spec-driven-app${c.reset} ${c.bold}<command>${c.reset} [options]\n` +
       `    ${c.dim}Run ‘<command> --help’ for per-command details.${c.reset}\n` +
-      section("CORE COMMANDS") +
-      cmd("⚡", "init", "Scaffold a new project; --from-pack <repo>@<tag> also installs a pack.") +
-      cmd("🏗", "adopt", "Install SDD on an EXISTING repository (brownfield, non-invasive).") +
-      cmd("🧭", "onboard", "Read an existing repo and propose the capabilities its code implies.") +
-      cmd("🩺", "doctor", "Diagnose the project and environment; every finding ships a fix.") +
-      cmd("🧭", "status", "Daily dashboard: what is done, what is orphaned, what to do next.") +
-      cmd("🚦", "ci init", "Generate the spec gate for GitHub, GitLab, Azure, or Jenkins.") +
-      cmd("🎫", "alm sync", "Sync REQs with Jira / Azure Boards (create, close, drift).") +
-      cmd(
-        "✅",
-        "validate",
-        "Check structure, traceability, Gherkin (+ --strict-tdd / --against-lock gates)."
-      ) +
-      cmd("🧩", "expand", "Apply a domain pack (local path or remote git tag).") +
-      cmd("📋", "plan", "List requirements that still need a test or implementation.") +
-      cmd("📊", "report", "Spec-coverage dashboard as self-contained HTML (CI/Pages artifact).") +
-      cmd("✔", "done", "Mark a requirement as Implemented in traceability.md.") +
-      cmd("📝", "req", "Add, link and close requirements without hand-editing the matrix.") +
-      cmd("🔧", "fix", "Apply the fixes validate suggests (--dry-run to preview).") +
-      cmd(
-        "🔄",
-        "change",
-        "Propose, review and archive a change (new · list · show · status · validate · archive)."
-      ) +
-      section("PACK COMMANDS") +
-      cmd("📦", "pack init", "Scaffold a new pack skeleton (backend · frontend · contracts).") +
-      cmd("🔍", "pack lint", "Lint a pack: schema, cross-refs, and scenario quality (--strict).") +
-      cmd("🔮", "pack infer", "Propose a pack.yaml skeleton from a .feature file.") +
-      cmd("📴", "pack bundle", "Export a pack repo as a git bundle for air-gapped use.") +
-      section("SPECOPS COMMANDS") +
-      cmd("➕", "specops add", "Add a pack (npm-install-style); writes .specops.lock.") +
-      cmd("➖", "specops remove", "Drop a pack entry from .specops.lock.") +
-      cmd(
-        "🔁",
-        "specops sync",
-        "Re-expand packs and three-way merge them, preserving local edits."
-      ) +
-      cmd(
-        "📊",
-        "specops diff",
-        "Preview a version bump; --as-change derives a reviewable change."
-      ) +
-      cmd(
-        "📤",
-        "specops contribute",
-        "Send a local change back upstream to the pack (never pushes)."
-      ) +
-      section("HARNESS COMMANDS") +
-      cmd(
-        "🤖",
-        "harness run",
-        "Run the plan → agent → verify → done loop for every pending requirement."
-      ) +
-      cmd("📝", "harness prompt", "Print the prompt the harness would hand an agent for one REQ.") +
-      cmd("🧰", "harness init", "Scaffold harness.config.yaml and the prompt prefix.") +
-      section("DX COMMANDS") +
-      cmd("⚙", "config", "Project preferences: `config init`, `config set profile full`.") +
-      cmd("🤖", "agents init", "Wire the loop into Claude, Cursor, Copilot, Aider and more.") +
-      cmd(
-        "🔄",
-        "update",
-        "Refresh generated agent files after a CLI upgrade, keeping your edits."
-      ) +
-      cmd("🗺", "schema", "Inspect or fork the artefact graph a change follows.") +
-      cmd("⌨", "completion", "Print a shell completion script (bash · zsh).") +
-      cmd(
-        "🖼",
-        "studio",
-        "Serve a local, read-only HTML view of the spec tree (--json for agents)."
-      ) +
+      renderGroups(helpRows()) +
       section("GLOBAL FLAGS") +
       flag("-h, --help", "Show this help.") +
       flag("-v, --version", "Show CLI version.") +
       section("EXAMPLES") +
-      example(`npx create-spec-driven-app@latest init`, "Generate a new project (wizard)") +
-      example(
-        `npx create-spec-driven-app@latest adopt --project-dir ./my-existing-repo`,
-        "Adopt SDD on an existing codebase"
-      ) +
-      example(
-        `npx create-spec-driven-app@latest init --config ./project.config --out ./projects`,
-        "Generate a new project from a config file"
-      ) +
-      example(
-        `npx create-spec-driven-app@latest validate ./projects/my-app --strict-tdd`,
-        "Validate with the TDD gate"
-      ) +
-      example(
-        `npx create-spec-driven-app@latest expand --pack-root ./domain-packs \\\n        --pack parking-management/backend --project-dir ./projects/my-app \\\n        --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking ops"`,
-        "Apply a local pack"
-      ) +
-      example(
-        `npx create-spec-driven-app@latest expand --pack-repo https://github.com/acme/parking-specops.git \\\n        --pack-version v0.1.0 --pack backend --project-dir ./projects/smart-parking \\\n        --var PROJECT_NAME="Smart Parking"`,
-        "Apply a remote pack pinned to a git tag"
-      ) +
-      example(
-        `npx create-spec-driven-app@latest specops sync --project-dir ./projects/smart-parking`,
-        "Re-expand everything in .specops.lock / specops.config.yaml"
-      ) +
-      example(
-        `npx create-spec-driven-app@latest specops diff --project-dir ./projects/smart-parking --pack-version v0.2.0`,
-        "Preview a version bump"
-      ) +
-      example(
-        `npx create-spec-driven-app@latest plan --project-dir ./projects/smart-parking`,
-        "Show what requirements still need work"
-      ) +
-      example(
-        `npx create-spec-driven-app@latest plan --project-dir ./projects/smart-parking --format json`,
-        "Same, machine-readable for AI agents"
-      ) +
-      example(
-        `npx create-spec-driven-app@latest done REQ-007 --check`,
-        "Mark REQ-007 Implemented (after validate passes)"
-      ) +
-      example(
-        `npx create-spec-driven-app@latest pack init --out ./domain-packs --name "Billing Backend" --type contracts`,
-        "Scaffold a contracts-flavoured pack"
-      ) +
+      EXAMPLES +
       section("LEARN MORE") +
       `    ${c.dim}📖 How-to guide   ${c.reset}${c.blue}https://github.com/rsaglobaltech/spec-driven-development-template/blob/main/docs/how-to.md${c.reset}\n` +
       `    ${c.dim}🌐 Documentation  ${c.reset}${c.blue}https://rsaglobaltech.github.io/spec-driven-development-template/${c.reset}\n` +
@@ -331,287 +241,107 @@ function main(): void {
 
   const command = args[0];
 
-  if (command === "init") {
-    const passThrough = args.slice(1);
-    // Reject --engine=shell — the Bash engine was removed in this release.
-    const engineIdx = passThrough.indexOf("--engine");
-    if (
-      passThrough.includes("--engine=shell") ||
-      (engineIdx !== -1 && passThrough[engineIdx + 1] === "shell")
-    ) {
-      error(
-        "--engine=shell was removed. The CLI is now Node-only. Drop the flag to use the (sole) Node engine."
-      );
-      process.exit(2);
-    }
-    // `--from-pack` composes init with `specops add`, so it needs its own
-    // orchestrator rather than another flag inside init.
-    if (passThrough.includes("--from-pack")) {
-      ensureExecutable(initFromPackScript);
-      runNodeScript(initFromPackScript, passThrough);
-      return;
-    }
-    ensureExecutable(initNodeScript);
-    runNodeScript(initNodeScript, passThrough);
-    return;
-  }
-
-  if (command === "adopt") {
-    ensureExecutable(adoptScript);
-    runNodeScript(adoptScript, args.slice(1));
-    return;
-  }
-
-  if (command === "doctor") {
-    ensureExecutable(doctorScript);
-    runNodeScript(doctorScript, args.slice(1));
-    return;
-  }
-
-  if (command === "alm") {
-    ensureExecutable(almScript);
-    runNodeScript(almScript, args.slice(1));
-    return;
-  }
-
-  if (command === "ci") {
-    const sub = args[1];
-    if (sub !== "init") {
-      error(`Unknown ci subcommand: ${sub || "(none)"} — expected 'ci init'.`);
-      process.exit(2);
-    }
-    ensureExecutable(ciInitScript);
-    runNodeScript(ciInitScript, args.slice(2));
-    return;
-  }
-
-  if (command === "validate") {
-    ensureExecutable(validateScript);
-
-    const validateArgs = args.slice(1);
-    const positional = validateArgs.filter((a) => !a.startsWith("-"));
-    if (positional.length !== 1) {
-      error(`'validate' expects exactly one positional argument: <project_dir>`);
-      usage();
-      process.exit(2);
-    }
-    const VALIDATE_FLAGS = new Set(["--strict-tdd", "--against-lock", "--json"]);
-    const unknownFlags = validateArgs.filter((a) => a.startsWith("-") && !VALIDATE_FLAGS.has(a));
-    if (unknownFlags.length > 0) {
-      error(`Unknown flag(s) for validate: ${unknownFlags.join(", ")}`);
-      usage();
-      process.exit(2);
-    }
-
-    runNodeScript(validateScript, validateArgs);
-    return;
-  }
-
-  if (command === "expand") {
-    ensureExecutable(expandScript);
-    const passThrough = args.slice(1);
-    runNodeScript(expandScript, passThrough);
-    return;
-  }
-
-  if (command === "report") {
-    ensureExecutable(reportScript);
-    runNodeScript(reportScript, args.slice(1));
-    return;
-  }
-
-  if (command === "plan") {
-    ensureExecutable(planScript);
-    runNodeScript(planScript, args.slice(1));
-    return;
-  }
-
-  if (command === "done") {
-    ensureExecutable(doneScript);
-    runNodeScript(doneScript, args.slice(1));
-    return;
-  }
-
-  if (command === "change") {
-    ensureExecutable(changeScript);
-    runNodeScript(changeScript, args.slice(1));
-    return;
-  }
-
-  if (command === "req") {
-    ensureExecutable(reqScript);
-    runNodeScript(reqScript, args.slice(1));
-    return;
-  }
-
-  if (command === "status") {
-    ensureExecutable(statusScript);
-    runNodeScript(statusScript, args.slice(1));
-    return;
-  }
-
-  if (command === "fix") {
-    ensureExecutable(fixScript);
-    runNodeScript(fixScript, args.slice(1));
-    return;
-  }
-
-  if (command === "studio") {
-    ensureExecutable(studioScript);
-    runNodeScript(studioScript, args.slice(1));
-    return;
-  }
-
-  if (command === "completion") {
-    ensureExecutable(completionScript);
-    runNodeScript(completionScript, args.slice(1));
-    return;
-  }
-
-  if (command === "agents") {
-    const subCommand = args[1];
-    if (subCommand === "init") {
-      ensureExecutable(agentsInitScript);
-      runNodeScript(agentsInitScript, args.slice(2));
-      return;
-    }
-    error(`Unknown agents sub-command: ${subCommand || "(none)"}. Expected: init`);
+  const row = SURFACE.find((c: any) => c.name === command);
+  if (!row) {
+    info(`Unknown command: ${command}`);
     usage();
     process.exit(2);
   }
 
-  if (command === "update") {
-    ensureExecutable(updateScript);
-    runNodeScript(updateScript, args.slice(1));
+  // Three commands need more than a table row. Each is a genuine parsing
+  // decision, not a route, which is why it lives here and not in the registry.
+  if (command === "init") return dispatchInit(args.slice(1));
+  if (command === "validate") return dispatchValidate(args.slice(1));
+  if (command === "harness" && args[1] === "prompt") return dispatchHarnessPrompt(args);
+
+  // A command with its own script owns its sub-commands: the dispatcher hands
+  // the whole tail over and the script reports an unknown one in its own words.
+  if (row.script) {
+    const target = resolveScript(row.script);
+    ensureExecutable(target);
+    runNodeScript(target, args.slice(1));
     return;
   }
 
-  if (command === "onboard") {
-    ensureExecutable(onboardScript);
-    runNodeScript(onboardScript, args.slice(1));
-    return;
-  }
-
-  if (command === "schema") {
-    ensureExecutable(schemaScript);
-    runNodeScript(schemaScript, args.slice(1));
-    return;
-  }
-
-  if (command === "config") {
-    const subCommand = args[1];
-    if (subCommand === "init") {
-      ensureExecutable(configInitScript);
-      runNodeScript(configInitScript, args.slice(2));
-      return;
-    }
-    if (subCommand === "set" || subCommand === "get" || subCommand === "list") {
-      ensureExecutable(configSetScript);
-      runNodeScript(configSetScript, args.slice(1));
-      return;
-    }
-    error(`Unknown config sub-command: ${subCommand || "(none)"}. Expected: init, set, get, list`);
+  // Otherwise the sub-command is the route, and an unknown one stops here.
+  const subName = args[1];
+  const sub = (row.subcommands || []).find((s: any) => s.name === subName);
+  if (!sub) {
+    const expected = (row.subcommands || []).map((s: any) => s.name).join(", ");
+    error(`Unknown ${command} sub-command: ${subName || "(none)"}. Expected: ${expected}`);
     usage();
     process.exit(2);
   }
 
-  if (command === "pack") {
-    const subCommand = args[1];
-    if (subCommand === "init") {
-      ensureExecutable(packInitScript);
-      runNodeScript(packInitScript, args.slice(1));
-      return;
-    }
-    if (subCommand === "lint") {
-      ensureExecutable(packLintScript);
-      runNodeScript(packLintScript, args.slice(1));
-      return;
-    }
-    if (subCommand === "infer") {
-      ensureExecutable(packInferScript);
-      runNodeScript(packInferScript, args.slice(1));
-      return;
-    }
-    if (subCommand === "bundle") {
-      ensureExecutable(packBundleScript);
-      runNodeScript(packBundleScript, args.slice(2));
-      return;
-    }
+  const target = resolveScript(sub.script);
+  ensureExecutable(target);
+  runNodeScript(target, args.slice(sub.argsFrom === undefined ? 2 : sub.argsFrom));
+}
+
+/**
+ * `init` is two commands wearing one name: `--from-pack` composes it with
+ * `specops add`, which needs its own orchestrator rather than another flag
+ * inside init.
+ */
+function dispatchInit(passThrough: string[]): void {
+  // Reject --engine=shell — the Bash engine was removed in this release.
+  const engineIdx = passThrough.indexOf("--engine");
+  if (
+    passThrough.includes("--engine=shell") ||
+    (engineIdx !== -1 && passThrough[engineIdx + 1] === "shell")
+  ) {
     error(
-      `Unknown pack sub-command: ${subCommand || "(none)"}. Expected: init, lint, infer, bundle`
+      "--engine=shell was removed. The CLI is now Node-only. Drop the flag to use the (sole) Node engine."
     );
+    process.exit(2);
+  }
+  const script = passThrough.includes("--from-pack")
+    ? resolveScript(["init_from_pack.js"])
+    : resolveScript(["init_project.js"]);
+  ensureExecutable(script);
+  runNodeScript(script, passThrough);
+}
+
+/**
+ * `validate` is the gate, so a typo in a flag must not read as "nothing to
+ * report". It is the one command whose arguments the dispatcher checks.
+ */
+function dispatchValidate(validateArgs: string[]): void {
+  const script = resolveScript(["validate_specs.js"]);
+  ensureExecutable(script);
+
+  const positional = validateArgs.filter((a) => !a.startsWith("-"));
+  if (positional.length !== 1) {
+    error(`'validate' expects exactly one positional argument: <project_dir>`);
+    usage();
+    process.exit(2);
+  }
+  const VALIDATE_FLAGS = new Set(["--strict-tdd", "--against-lock", "--json"]);
+  const unknownFlags = validateArgs.filter((a) => a.startsWith("-") && !VALIDATE_FLAGS.has(a));
+  if (unknownFlags.length > 0) {
+    error(`Unknown flag(s) for validate: ${unknownFlags.join(", ")}`);
     usage();
     process.exit(2);
   }
 
-  if (command === "harness") {
-    const subCommand = args[1];
-    if (subCommand === "init") {
-      ensureExecutable(harnessInitScript);
-      runNodeScript(harnessInitScript, args.slice(2));
-      return;
-    }
-    if (subCommand === "run") {
-      ensureExecutable(harnessRunScript);
-      runNodeScript(harnessRunScript, args.slice(2));
-      return;
-    }
-    if (subCommand === "prompt") {
-      // `csda harness prompt <REQ-id> [--project-dir <path>]` — friendly alias
-      // for `harness run --dry-run --req <REQ>`. Prints the prompt the agent
-      // would receive, no git, no agent, no gate.
-      const reqId = args[2];
-      if (!reqId || !/^REQ-\d+$/.test(reqId)) {
-        error("`harness prompt` expects a REQ-id, e.g. `csda harness prompt REQ-001`.");
-        usage();
-        process.exit(2);
-      }
-      ensureExecutable(harnessRunScript);
-      runNodeScript(harnessRunScript, ["--dry-run", "--req", reqId, ...args.slice(3)]);
-      return;
-    }
-    error(`Unknown harness sub-command: ${subCommand || "(none)"}. Expected: init, run, prompt`);
+  runNodeScript(script, validateArgs);
+}
+
+/**
+ * `harness prompt <REQ-id>` is a friendly alias for `harness run --dry-run
+ * --req <REQ>`: it prints the prompt the agent would receive, with no git, no
+ * agent and no gate.
+ */
+function dispatchHarnessPrompt(args: string[]): void {
+  const reqId = args[2];
+  if (!reqId || !/^REQ-\d+$/.test(reqId)) {
+    error("`harness prompt` expects a REQ-id, e.g. `csda harness prompt REQ-001`.");
     usage();
     process.exit(2);
   }
-
-  if (command === "specops") {
-    const subCommand = args[1];
-    if (subCommand === "sync") {
-      ensureExecutable(specopsSyncScript);
-      runNodeScript(specopsSyncScript, args.slice(2));
-      return;
-    }
-    if (subCommand === "diff") {
-      ensureExecutable(specopsDiffScript);
-      runNodeScript(specopsDiffScript, args.slice(2));
-      return;
-    }
-    if (subCommand === "add") {
-      ensureExecutable(specopsAddScript);
-      runNodeScript(specopsAddScript, args.slice(2));
-      return;
-    }
-    if (subCommand === "remove") {
-      ensureExecutable(specopsRemoveScript);
-      runNodeScript(specopsRemoveScript, args.slice(2));
-      return;
-    }
-    if (subCommand === "contribute") {
-      ensureExecutable(specopsContributeScript);
-      runNodeScript(specopsContributeScript, args.slice(2));
-      return;
-    }
-    error(
-      `Unknown specops sub-command: ${subCommand || "(none)"}. Expected: add, remove, sync, diff, contribute`
-    );
-    usage();
-    process.exit(2);
-  }
-
-  info(`Unknown command: ${command}`);
-  usage();
-  process.exit(2);
+  const script = resolveScript(["harness", "run.js"]);
+  ensureExecutable(script);
+  runNodeScript(script, ["--dry-run", "--req", reqId, ...args.slice(3)]);
 }
 
 main();
