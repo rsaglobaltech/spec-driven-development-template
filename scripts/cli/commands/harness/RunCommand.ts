@@ -47,6 +47,15 @@ const SCRIPTS_DIR = path.join(__dirname, "..", "..", "..");
 const PLAN_SCRIPT = path.join(SCRIPTS_DIR, "plan.js");
 const DONE_SCRIPT = path.join(SCRIPTS_DIR, "done.js");
 const VALIDATE_SCRIPT = path.join(SCRIPTS_DIR, "validate_specs.js");
+/**
+ * What a worker process runs.
+ *
+ * It must be the file the command registry spawns, not this module: this one
+ * defines the command but does not execute it, so pointing a worker at
+ * `__filename` starts a process that loads, does nothing and exits 0 — which
+ * the parent reports as "Worker produced no report".
+ */
+const WORKER_ENTRY = path.join(SCRIPTS_DIR, "harness", "run.js");
 
 /**
  * In `--format json` mode stdout carries exactly one JSON document and nothing
@@ -887,7 +896,7 @@ function runWorkers(runnable, ctx, concurrency) {
     const fill = () => {
       while (running.size < concurrency && queue.length > 0) {
         const id = queue.shift();
-        const child = spawn(process.execPath, [__filename, ...workerArgs(id, ctx)], {
+        const child = spawn(process.execPath, [WORKER_ENTRY, ...workerArgs(id, ctx)], {
           env: { ...process.env, CSDA_HARNESS_WORKER: "1" },
         });
 
@@ -1182,15 +1191,21 @@ export class RunCommand extends BaseCommand {
         runOne: dispatchLevel,
       });
 
-      const recordPath = writeRunRecord(projectDir, {
-        schemaVersion: 1,
-        startedAt,
-        finishedAt: new Date().toISOString(),
-        baseRef,
-        concurrency: settings.concurrency,
-        maxAttempts: settings.maxAttempts,
-        results,
-      });
+      // Only the run that a person started writes a record. A worker is one
+      // slice of that run, and its own record would be a second copy of the
+      // same requirement — `harness report` reads every file in the directory,
+      // so duplicates land straight in "cost per delivered REQ".
+      const recordPath = process.env.CSDA_HARNESS_WORKER
+        ? null
+        : writeRunRecord(projectDir, {
+            schemaVersion: 1,
+            startedAt,
+            finishedAt: new Date().toISOString(),
+            baseRef,
+            concurrency: settings.concurrency,
+            maxAttempts: settings.maxAttempts,
+            results,
+          });
 
       printReport(results, args.format);
       if (recordPath && args.format !== "json") {

@@ -537,7 +537,11 @@ test("specops remove exits non-zero when pack-id is not in lockfile", () => {
 
 // Build a minimal spec-driven project that passes `validate --strict-tdd`
 // and has exactly one pending requirement (REQ-001, no artifacts on disk).
-function makeHarnessProject(tempRoot) {
+/**
+ * @param extraReqs additional independent requirements, e.g. ["REQ-002"].
+ *                  They declare no dependencies, so they may run in parallel.
+ */
+function makeHarnessProject(tempRoot, extraReqs: string[] = []) {
   const projectDir = path.join(tempRoot, "project");
   fs.mkdirSync(path.join(projectDir, "features"), { recursive: true });
   fs.mkdirSync(path.join(projectDir, "docs", "specs", "adr"), { recursive: true });
@@ -563,10 +567,31 @@ function makeHarnessProject(tempRoot) {
       "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |",
       "|---|---|---|---|---|---|---|---|---|---|",
       "| REQ-001 | SCN-001 | `features/health.feature` | UC-001 | CMD-001 | AGG-001 | EVT-001 | `src/health.js` | `test/health.test.js` | Draft |",
+      ...extraReqs.map((id) => {
+        const n = id.replace("REQ-", "");
+        return (
+          `| ${id} | SCN-${n} | \`features/f${n}.feature\` | UC-${n} | CMD-${n} | AGG-${n} | ` +
+          `EVT-${n} | \`src/f${n}.js\` | \`test/f${n}.test.js\` | Draft |`
+        );
+      }),
       "",
     ].join("\n"),
     "utf8"
   );
+
+  for (const id of extraReqs) {
+    const n = id.replace("REQ-", "");
+    fs.appendFileSync(
+      path.join(projectDir, "spec.md"),
+      `\n## ${id} — Feature ${n}\n\nDo the ${n} thing.\n`,
+      "utf8"
+    );
+    fs.writeFileSync(
+      path.join(projectDir, "features", `f${n}.feature`),
+      `Feature: F${n}\n  Scenario: ok\n    Given the service is up\n    Then /f${n} returns 200\n`,
+      "utf8"
+    );
+  }
 
   gitInTest(["init", "--quiet", "--initial-branch=main", projectDir]);
   gitInTest(["config", "user.email", "test@example.com"], { cwd: projectDir });
@@ -707,6 +732,82 @@ test("harness run skips an existing branch unless --force", { skip: !hasGit() },
   assert.notEqual(result.status, 0);
   assert.match(result.stdout, /REQ-001\s+skipped/);
   assert.match(result.stdout, /already exists/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test(
+  "harness run --concurrency 2 drives every requirement through a worker",
+  { skip: !hasGit() },
+  () => {
+    // The parallel path spawns a worker process per requirement. Nothing
+    // exercised it end to end, so it broke silently when the command moved out
+    // of its entry-point file: the worker started the module that *defines* the
+    // command rather than the one that *runs* it, loaded, did nothing and
+    // exited 0 — which the parent reported as "Worker produced no report".
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-par-"));
+    const projectDir = makeHarnessProject(tempRoot, ["REQ-002"]);
+
+    const result = runCli([
+      "harness",
+      "run",
+      "--project-dir",
+      projectDir,
+      "--concurrency",
+      "2",
+      "--agent",
+      `node -e "require('node:fs').writeFileSync('agent-ran.txt','ok')" {prompt_file}`,
+    ]);
+
+    assert.equal(result.status, 0, result.stderr + result.stdout);
+    assert.match(result.stdout, /REQ-001\s+pass/);
+    assert.match(result.stdout, /REQ-002\s+pass/);
+    assert.doesNotMatch(result.stdout, /produced no report/);
+
+    for (const id of ["REQ-001", "REQ-002"]) {
+      const show = spawnSync("git", ["-C", projectDir, "show", `harness/${id}:agent-ran.txt`], {
+        encoding: "utf8",
+      });
+      assert.equal(show.status, 0, `the agent should have run for ${id}`);
+    }
+
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+);
+
+test("a parallel run records itself once, not once per worker", { skip: !hasGit() }, () => {
+  // `harness report` reads every file in .harness/runs, so a worker writing
+  // its own record counts the same requirement twice and inflates both
+  // "requirements attempted" and "cost per delivered REQ".
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-rec-"));
+  const projectDir = makeHarnessProject(tempRoot, ["REQ-002"]);
+
+  const result = runCli([
+    "harness",
+    "run",
+    "--project-dir",
+    projectDir,
+    "--concurrency",
+    "2",
+    "--agent",
+    `node -e "require('node:fs').writeFileSync('agent-ran.txt','ok')" {prompt_file}`,
+  ]);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+
+  const runsDir = path.join(projectDir, ".harness", "runs");
+  const records = fs.readdirSync(runsDir).filter((f) => f.endsWith(".json"));
+  assert.equal(records.length, 1, `expected one record, got: ${records.join(", ")}`);
+
+  const record = JSON.parse(fs.readFileSync(path.join(runsDir, records[0]), "utf8"));
+  assert.equal(record.concurrency, 2, "the record should describe the run a person started");
+  assert.deepEqual(
+    record.results.map((r: any) => r.requirement).sort(),
+    ["REQ-001", "REQ-002"],
+    "the parent's record must carry every requirement, not one worker's slice"
+  );
+
+  const report = runCli(["harness", "report", "--project-dir", projectDir]);
+  assert.match(report.stdout, /requirements attempted\s+2/);
 
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
