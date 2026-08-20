@@ -14,6 +14,7 @@ export * from "./domain/Diagnostic";
 export * from "./domain/DomainPack";
 export * from "./domain/HarnessConfig";
 export * from "./domain/Lockfile";
+export * from "./domain/PackSpec";
 export * from "./domain/RequirementGraph";
 export * from "./domain/RequirementPlan";
 export * from "./domain/SpecDiff";
@@ -54,10 +55,12 @@ export * from "./application/ValidateProjectUseCase";
 
 // ── Infrastructure ───────────────────────────────────────────────────────────
 export * from "./infrastructure/ChangeWorkspace";
+export * from "./infrastructure/ConsoleReporter";
 export * from "./infrastructure/DiskDomainPackRepository";
 export * from "./infrastructure/DiskHarnessConfigRepository";
 export * from "./infrastructure/DiskLockfileRepository";
 export * from "./infrastructure/DiskManifestRepository";
+export * from "./infrastructure/DiskPackRepository";
 export * from "./infrastructure/DiskProjectRepository";
 export * from "./infrastructure/DiskRequirementGraphRepository";
 export * from "./infrastructure/DiskTraceabilityRepository";

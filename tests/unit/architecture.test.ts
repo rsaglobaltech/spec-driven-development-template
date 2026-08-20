@@ -115,11 +115,12 @@ test("the domain layer performs no I/O", () => {
   const offenders: string[] = [];
   for (const file of sourceFiles(path.join(coreSrc, "domain"))) {
     for (const spec of importSpecifiers(file)) {
-      // `crypto` is deliberately absent: hashing a string is pure computation,
-      // and SpecopsManifest content-addresses its entries with it. `path` is
-      // here because a domain module that knows filesystem layout is coupled to
-      // it even though the calls themselves are string manipulation.
-      if (/^(node:)?(fs|path|os|child_process|http|https|net)$/.test(spec)) {
+      // Only real I/O is banned. `crypto` and `path` are deliberately absent:
+      // hashing a string and normalising one are pure computation, and the
+      // domain needs `path` for the traversal checks that keep a pack template
+      // inside its root — rules worth stating once, in the layer that owns
+      // them, rather than hand-rolling string comparisons that can be bypassed.
+      if (/^(node:)?(fs|fs\/promises|os|child_process|http|https|net|dns)$/.test(spec)) {
         offenders.push(`${path.relative(repoRoot, file)} → ${spec}`);
       }
     }
