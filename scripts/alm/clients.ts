@@ -25,3 +25,6 @@ export const jiraClient = (cfg: AlmConfig, fetchImpl?: FetchLike): AlmClient =>
 
 export const azureClient = (cfg: AlmConfig, fetchImpl?: FetchLike): AlmClient =>
   getProvider("azure").create(cfg, fetchImpl);
+
+export const githubClient = (cfg: AlmConfig, fetchImpl?: FetchLike): AlmClient =>
+  getProvider("github").create(cfg, fetchImpl);

@@ -862,6 +862,59 @@ fichero a propósito. `advisory: true` es obligatorio en el perfil que nombra
 `review_profile`, y sin él el harness se niega a arrancar.
 
 
+---
+
+### Lo que salió al hacer E1-06 *(2026-08-20)*
+
+**«Añadir un proveedor es una fila» resultó ser cierto**, y esta es la factura a
+favor: el conector son dos ficheros —`providers/github.ts` y su fixture— más una
+fila en `PROVIDERS`. El kit de conformidad lo adoptó solo: once comprobaciones
+sin escribir ninguna, y **la única que falló fue la de la tabla documentada**,
+que exigió añadir `github` a `docs/alm.md` antes de dejar pasar el commit. Un
+guarda que muerde en el primer uso real.
+
+**Dónde GitHub se niega a parecerse a los otros dos, que es justo para lo que
+existe el contrato de configuración:**
+
+| | Jira / Azure | GitHub |
+|---|---|---|
+| Unidad | `project_key` | **`repo`** (`acme/widgets`) |
+| `base_url` | obligatoria | **opcional** — solo Enterprise Server |
+| Tipo | `issue_type` | no existe: hay etiquetas |
+| Estado final | categoría / `done_state` | abierto o cerrado |
+
+Escribir `project_key: acme/widgets` habría sido mentir, y el linter de config
+ya avisa de esa clave como «la lee jira, azure — aquí no hace nada».
+
+**El hallazgo de diseño: cerrado no siempre es hecho.** GitHub distingue cerrar
+como `completed` de cerrar como `not_planned`. Colapsar ambos a `done` le diría
+a `traceability.md` que un requisito se entregó cuando el equipo lo había
+**descartado**. Así que `not_planned` se lee como abierto y la discrepancia sale
+como deriva para que la resuelva una persona — que es literalmente lo que pide
+ADR-0021. Simétricamente, `closeIssue` escribe `state_reason: completed`
+explícito: sin él, las dos mitades del conector no coincidirían al releer.
+
+Dos detalles que sin test se descubren contra un servidor real: un `repo` que no
+sea `owner/name` se rechaza **antes** de la primera petición (si no, GitHub
+responde un 404 que no dice nada del error real), y una issue cerrada **sin**
+`state_reason` —las anteriores a que GitHub lo registrara— se lee como hecha;
+tratarla como no-hecha reabriría años de historial en el primer `sync`.
+
+**Un defecto colateral que github destapó:** la plantilla de «no encuentro
+`alm.config.yaml`» estaba escrita a mano con forma de Jira e incluía
+`project_key`, es decir, enseñaba a un usuario de GitHub exactamente la clave
+que su propio linter le iba a reprochar. Ahora se genera desde las
+declaraciones de cada proveedor, así que no puede enseñar una clave que nadie
+lee.
+
+**Lo que no entra, y por qué no a medias:** `linkBack` sigue fuera. La nota de
+E0-02 lo aparcó aquí, pero §3.2 lo dibuja como `linkBack(issueKey, specUrl)` y
+**nadie ha decidido de dónde sale ese `specUrl`**: el núcleo ALM no conoce el
+remoto ni la rama, y derivarlo obligaría a meter git en una capa que hoy solo
+habla HTTP. Media implementación sería peor que ninguna — la misma razón por la
+que `req add --depends-on` sigue pendiente. Necesita decisión, no código.
+
+
 ### 1.1 — la primera release que añade cosas (y por tanto la prueba real de G1)
 
 | ID | Tarea | Idea |
@@ -871,7 +924,7 @@ fichero a propósito. `advisory: true` es obligatorio en el perfil que nombra
 | `E1-03` | `[x]` | Base de worktree derivada del grafo (incluida integración de varias dependencias) + aviso de base obsoleta — **cierra H9** | 1 |
 | `E1-04` | `[x]` | Registro `.harness/runs/<ts>.json` (autoignorado) y `csda harness report`: acierto al primer intento y coste por requisito entregado | 1 |
 | `E1-05` | `[x]` | Plugin de Claude Code generado desde la misma definición: 6 comandos + MCP + hook `Stop` que bloquea con el gate en rojo, una vez por prompt | 3 |
-| `E1-06` | `[ ]` | Proveedor `github` (issues) sobre el puerto de `E0-02` | 2 |
+| `E1-06` | `[x]` | Proveedor `github` (issues) sobre el puerto de `E0-02`: `repo` en vez de `project_key`, `base_url` opcional, y *cerrado no siempre es hecho* | 2 |
 | `E1-07` | `[ ]` | Antigravity: verificar formato de extensión y decidir entre los tres desenlaces de §4.4 | 3 |
 
 ### v2

@@ -20,7 +20,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { parseYamlLite } from "../../packages/core/src/domain/YamlLite";
 import { warning } from "../lib/diagnostics";
-import { PROVIDERS, providerIds, getProvider } from "./providers";
+import { PROVIDERS, getProvider } from "./providers";
 import { CORE_CONFIG_KEYS } from "./port";
 import type { AlmConfig } from "./port";
 
@@ -39,15 +39,24 @@ export const DONE_STATUSES = new Set(["Implemented", "Verified", "Released"]);
 export function readAlmConfig(projectDir) {
   const cfgPath = path.join(projectDir, CONFIG_FILENAME);
   if (!fs.existsSync(cfgPath)) {
+    // Built from the declarations rather than written out: a hand-kept example
+    // teaches whichever provider it was written for. It used to show
+    // `project_key`, which GitHub does not read at all — the same key its own
+    // linter now warns about.
+    const perProvider = PROVIDERS.map(
+      (p) =>
+        `  # ${p.label}\n` +
+        `  provider: ${p.id}\n` +
+        [...p.config.required].map((k) => `  ${k}: …`).join("\n") +
+        (p.config.optional.length > 0 ? `\n  # optional: ${[...p.config.optional].join(", ")}` : "")
+    ).join("\n\n");
+
     throw new Error(
       `${CONFIG_FILENAME} not found in ${projectDir}.\n` +
-        "Fix: create it with:\n" +
-        "  alm_version: 1\n" +
-        `  provider: ${providerIds().join(" | ")}\n` +
-        "  base_url: https://acme.atlassian.net\n" +
-        "  project_key: HIE\n" +
-        "  token_env: JIRA_TOKEN     # env var holding the API token\n" +
-        "  user_env: JIRA_USER       # jira only: env var holding the account email"
+        "Fix: create it with `alm_version: 1` and one of:\n\n" +
+        `${perProvider}\n\n` +
+        "Credentials are never in this file: `token_env` names the environment " +
+        "variable that holds the token."
     );
   }
   // The parser cannot know this document's shape; the port declares it, so the

@@ -35,8 +35,9 @@ Which keys a provider reads is the provider's own declaration, and they differ:
 | --- | --- | --- |
 | `jira` | `base_url`, `project_key`, `token_env` | `user_env`, `issue_type` |
 | `azure` | `base_url`, `project_key`, `token_env` | `issue_type`, `done_state` |
+| `github` | `repo`, `token_env` | `base_url` |
 
-Two asymmetries worth knowing, because both used to fail silently:
+Three asymmetries worth knowing, because the first two used to fail silently:
 
 - **`done_state` is Azure-only.** Jira's workflows are per-project, so "done"
   there is a status *category* and closing means finding a transition into it.
@@ -44,9 +45,26 @@ Two asymmetries worth knowing, because both used to fail silently:
   before its first request.
 - **`user_env` is Jira-only**, because Jira Cloud's Basic auth pairs the token
   with an account email. It defaults to `JIRA_USER` when omitted.
+- **GitHub takes `repo`, not `project_key`**, and its `base_url` is optional.
+  Its unit is a repository — `repo: acme/widgets` — and github.com has one API
+  host, so only GitHub Enterprise Server needs a base URL. It has no
+  `issue_type` (GitHub has labels) and no `done_state` (an issue is open or
+  closed).
 
 Any key that the configured provider does not read is reported as a warning
 with a fix, naming the provider that *would* have read it.
+
+### Closed is not always done, on GitHub
+
+GitHub records *why* an issue was closed. Closing as **not planned** means the
+team decided against the work; closing as **completed** means it happened. Only
+the second reads as `done` here.
+
+Collapsing both would tell `traceability.md` that a requirement was delivered
+when it had in fact been abandoned. Instead a not-planned close leaves the
+requirement open, and the disagreement shows up as drift for a person to
+settle — which is what [ADR-0021](specs/adr/0021-alm-is-a-mirror.md) asks for:
+the board is a mirror, and it never advances a requirement on its own.
 
 ## Run
 

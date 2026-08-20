@@ -1,5 +1,6 @@
 import { jiraProvider } from "./jira";
 import { azureProvider } from "./azure";
+import { githubProvider } from "./github";
 import type { AlmProvider } from "../port";
 
 /**
@@ -9,7 +10,7 @@ import type { AlmProvider } from "../port";
  * The conformance kit iterates this list, so a provider that is registered is
  * a provider that is tested — there is no way to add one quietly.
  */
-export const PROVIDERS: readonly AlmProvider[] = [jiraProvider, azureProvider];
+export const PROVIDERS: readonly AlmProvider[] = [jiraProvider, azureProvider, githubProvider];
 
 const BY_ID: ReadonlyMap<string, AlmProvider> = new Map(PROVIDERS.map((p) => [p.id, p]));
 

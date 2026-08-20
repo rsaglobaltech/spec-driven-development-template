@@ -1,0 +1,135 @@
+import { HttpAlmClient } from "./http-client";
+import type {
+  AlmCapabilities,
+  AlmConfig,
+  AlmProvider,
+  FetchLike,
+  IssueRef,
+  IssueStatus,
+} from "../port";
+
+/** The slices of GitHub's issue responses this connector reads. */
+interface GitHubIssue {
+  readonly number: number;
+  readonly html_url?: string;
+  readonly state?: string;
+  /** "completed" | "not_planned" | "reopened" | null — only on closed issues. */
+  readonly state_reason?: string | null;
+}
+
+/** github.com. A GitHub Enterprise Server install sets `base_url` instead. */
+const PUBLIC_API = "https://api.github.com";
+
+/** Pinned so a future default does not change what this connector sends. */
+const API_VERSION = "2022-11-28";
+
+/**
+ * GitHub Issues.
+ *
+ * The unit is a **repository**, not a project, which is why this provider
+ * declares `repo` rather than reusing `project_key`. Writing
+ * `project_key: acme/widgets` would read as a lie, and the config contract
+ * exists precisely so a provider can say what it actually needs.
+ *
+ * There is no `issue_type`: GitHub has labels, and the connector applies the
+ * same two every other provider does. There is no `done_state` either — an
+ * issue is open or closed — and declaring one would be read by nobody, which
+ * is the defect `done_state` on Jira already was.
+ *
+ * **Closed is not always done.** GitHub distinguishes closing an issue as
+ * `completed` from closing it as `not_planned`, and only the first means the
+ * work happened. Collapsing both to "done" would tell the traceability matrix
+ * a requirement was delivered when the team had in fact abandoned it — so
+ * `not_planned` reads as open, and the mismatch surfaces as drift for a human,
+ * which is what ADR-0021 asks for.
+ */
+class GitHubClient extends HttpAlmClient {
+  readonly capabilities: AlmCapabilities = { create: true, readStatus: true, close: true };
+
+  private readonly headers: Readonly<Record<string, string>>;
+  private readonly repo: string;
+
+  constructor(cfg: AlmConfig, fetchImpl?: FetchLike) {
+    // github.com has one API host, so `base_url` is only for Enterprise Server.
+    // Defaulting here keeps it out of every config that does not need it.
+    super({ ...cfg, base_url: cfg.base_url ?? PUBLIC_API }, fetchImpl);
+
+    const token = HttpAlmClient.requireEnv(cfg.token_env);
+    this.headers = {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": API_VERSION,
+      "Content-Type": "application/json",
+    };
+    this.repo = GitHubClient.requireRepo(cfg.repo);
+  }
+
+  /**
+   * `owner/name`, checked here rather than discovered as a 404.
+   *
+   * A bare repository name builds `/repos/widgets/issues`, which GitHub answers
+   * with a 404 that says nothing about the real mistake.
+   */
+  private static requireRepo(value: unknown): string {
+    const repo = String(value ?? "").replace(/^\/+|\/+$/g, "");
+    if (!/^[^/\s]+\/[^/\s]+$/.test(repo)) {
+      throw new Error(
+        `alm.config.yaml: repo '${String(value ?? "")}' is not in owner/name form.\n` +
+          "Fix: write it as `repo: acme/widgets`."
+      );
+    }
+    return repo;
+  }
+
+  async createIssue(reqId: string, title: string): Promise<IssueRef> {
+    const created = await this.requestJson<GitHubIssue>(
+      `/repos/${this.repo}/issues`,
+      `GitHub create issue for ${reqId}`,
+      {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify({
+          title: `${reqId} — ${title}`,
+          labels: ["spec-driven", reqId],
+        }),
+      }
+    );
+    // The number is enough to address the issue because the repository comes
+    // from the config — the same shape Azure uses for its work-item ids.
+    return { key: String(created.number), url: created.html_url ?? null };
+  }
+
+  async getIssueStatus(issueKey: string): Promise<IssueStatus> {
+    const issue = await this.requestJson<GitHubIssue>(
+      `/repos/${this.repo}/issues/${issueKey}`,
+      `GitHub read issue ${issueKey}`,
+      { headers: this.headers }
+    );
+    if (issue.state !== "closed") return "open";
+    return issue.state_reason === "not_planned" ? "open" : "done";
+  }
+
+  async closeIssue(issueKey: string): Promise<void> {
+    await this.request(`/repos/${this.repo}/issues/${issueKey}`, `GitHub close issue ${issueKey}`, {
+      method: "PATCH",
+      headers: this.headers,
+      // `completed` rather than the default, so `getIssueStatus` reads back
+      // as done and the two halves of this connector agree.
+      body: JSON.stringify({ state: "closed", state_reason: "completed" }),
+    });
+  }
+}
+
+export const githubProvider: AlmProvider = {
+  id: "github",
+  label: "GitHub Issues",
+  config: {
+    required: ["repo", "token_env"],
+    // Only GitHub Enterprise Server needs a base URL; github.com is the default.
+    optional: ["base_url"],
+  },
+  capabilities: { create: true, readStatus: true, close: true },
+  create: (cfg, fetchImpl) => new GitHubClient(cfg, fetchImpl),
+};
+
+export default githubProvider;
