@@ -522,6 +522,38 @@ en versión más nueva— y se puede soltar con `git stash drop`.
 
 ---
 
+### Lo que salió al hacer E1-03 *(2026-08-20)*
+
+Un requisito se corta ahora de **la rama de su dependencia**, no del HEAD de la
+ejecución. Verificado con un control negativo, que es lo que hace que la
+comprobación valga: el agente de REQ-002 aborta si no ve `src/a.js`. **Con** la
+dependencia declarada pasa y `git merge-base --is-ancestor` confirma la
+ascendencia; **sin** ella, falla. La derivación carga peso real.
+
+El aviso de H9 sale con el número exacto: *«base stale-base is 1 commit(s)
+behind main. A fix that landed on main is not in this worktree — a gate failure
+may not be about REQ-001.»* Justo el diagnóstico que costó dos ejecuciones de
+agente descubrir a mano.
+
+**El hallazgo del día, y no es un caso raro sino uno garantizado.** Un requisito
+con **dos** dependencias necesita el código de ambas, y sus ramas no se conocen
+entre sí. Al integrarlas, el merge **siempre** choca en
+`docs/specs/traceability.md`: cada ejecución termina llamando a `csda done`, que
+edita la misma tabla. Es decir, **el harness se estorba a sí mismo** en cuanto el
+grafo deja de ser una cadena.
+
+La salida no fue rendirse ni fusionar a ciegas, sino ver para qué existe esa
+base: **solo para que el agente vea código**. Su estado de matriz no lo consulta
+nadie, y cada rama `harness/REQ-NNN` real conserva su propia fila intacta. Así
+que un conflicto ahí es espurio y se resuelve quedándose con la versión de la
+base; un conflicto en un fichero de código **de verdad** bloquea el requisito y
+lo nombra. Ambos casos probados ejecutando.
+
+Y no contradice «el harness nunca mergea»: esa promesa es sobre la rama que
+revisa un humano. Esta base es desechable y se borra al terminar.
+
+---
+
 ### Lo que salió al hacer E1-02 *(2026-08-20)*
 
 **Medido, no supuesto:** dos requisitos independientes con un agente de 3 s
@@ -718,7 +750,7 @@ líneas y deja de ser un sitio donde se declara la superficie.
 |---|---|---|
 | `E1-01` | `[x]` | Dependencias en el comentario `csda:trace`; `scripts/lib/requirement-graph.ts`; `plan` ordena y marca `blocked`; `validate` falla ciclos, dependencias inexistentes y autorreferencias — **cierra H12** | 1 |
 | `E1-02` | `[x]` | `harness run --concurrency N` por niveles del DAG; descendientes de un fallo marcados `blocked` con 0 intentos, no fallados; ciclos reportados sin colgarse | 1 |
-| `E1-03` | `[ ]` | Base de worktree derivada del grafo + aviso cuando va por detrás de `main` — **cierra H9** | 1 |
+| `E1-03` | `[x]` | Base de worktree derivada del grafo (incluida integración de varias dependencias) + aviso de base obsoleta — **cierra H9** | 1 |
 | `E1-04` | `[ ]` | Registro de ejecución `.harness/runs/<ts>.json` y `csda harness report` (coste por requisito, acierto al primer intento) | 1 |
 | `E1-05` | `[ ]` | Plugin de Claude Code: comandos + MCP + **hooks** de `validate` durante la sesión | 3 |
 | `E1-06` | `[ ]` | Proveedor `github` (issues) sobre el puerto de `E0-02` | 2 |

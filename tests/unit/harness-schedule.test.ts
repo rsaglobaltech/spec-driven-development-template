@@ -149,3 +149,56 @@ test("a cycle is reported as blocked, never attempted and never hung on", async 
   assert.match(byId["REQ-001"].error, /csda validate/, "points at the command that explains it");
   assert.deepEqual(dispatcher.calls, [["REQ-003"]]);
 });
+
+// ── Base derivation (E1-03 / H9) ──────────────────────────────────────────────
+
+/** A dispatcher that records the base each requirement was given. */
+function baseRecordingDispatcher(verdicts: Record<string, string> = {}) {
+  const bases: Record<string, string> = {};
+  const fn = async (runnable: string[], byId: any, hints: any, ctx: any) => {
+    for (const id of runnable) bases[id] = ctx.baseFor ? ctx.baseFor(id) : ctx.baseRef;
+    return runnable.map((id) => ({
+      requirement: id,
+      category: "NEEDS_TEST",
+      result: verdicts[id] || "pass",
+      attempts: 1,
+      branch: `harness/${id}`,
+    }));
+  };
+  return Object.assign(fn, { bases });
+}
+
+const BASE_CTX: any = { projectDir: "/nowhere", baseRef: "HEAD" };
+
+test("a requirement with no dependencies is cut from the run's base", async () => {
+  const dispatcher = baseRecordingDispatcher();
+  await runLevels([req("REQ-001")], BASE_CTX, OPTS(dispatcher));
+  assert.equal(dispatcher.bases["REQ-001"], "HEAD");
+});
+
+test("a requirement is cut from the branch of the dependency it builds on", async () => {
+  // H9: this is what removes the need to know the order and pass
+  // `--base-branch` by hand. The dependency's code only exists on its branch.
+  const dispatcher = baseRecordingDispatcher();
+  await runLevels([req("REQ-001"), req("REQ-002", ["REQ-001"])], BASE_CTX, OPTS(dispatcher));
+  assert.equal(dispatcher.bases["REQ-001"], "HEAD");
+  assert.equal(dispatcher.bases["REQ-002"], "harness/REQ-001");
+});
+
+test("a dependency that did not pass contributes no base", async () => {
+  const dispatcher = baseRecordingDispatcher({ "REQ-001": "fail" });
+  const results = await runLevels(
+    [req("REQ-001"), req("REQ-002", ["REQ-001"])],
+    BASE_CTX,
+    OPTS(dispatcher)
+  );
+  assert.equal(dispatcher.bases["REQ-002"], undefined, "REQ-002 was never dispatched");
+  assert.equal(results.find((r: any) => r.requirement === "REQ-002").result, "blocked");
+});
+
+test("a dependency outside this run leaves the base alone", async () => {
+  // Already DONE, or filtered out by `--req`: its work is in the run's base.
+  const dispatcher = baseRecordingDispatcher();
+  await runLevels([req("REQ-002", ["REQ-001"])], BASE_CTX, OPTS(dispatcher));
+  assert.equal(dispatcher.bases["REQ-002"], "HEAD");
+});

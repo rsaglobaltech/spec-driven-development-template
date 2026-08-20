@@ -67,7 +67,7 @@ Each command takes `--json`. See [the agent contract](specs/agent-contract.md).
 | `csda report` | Spec-coverage dashboard as a self-contained HTML file. |
 | `csda doctor` | Diagnose the project and the environment. Every finding ships a fix. |
 
-→ [Automation](automation.md) · [Jira and Azure Boards](alm.md)
+→ [Automation](automation.md) · [The harness](harness.md) · [Jira and Azure Boards](alm.md)
 
 ## Agents
 

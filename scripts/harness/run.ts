@@ -454,6 +454,157 @@ function attemptRequirement(req, ctx) {
 }
 
 /**
+ * The repository's main line, for the staleness check.
+ *
+ * `origin/HEAD` is authoritative when it is set; otherwise the conventional
+ * names, in order. A repository with none of them simply gets no warning —
+ * guessing wrong would be worse than staying quiet.
+ */
+function defaultBranch(projectDir: string): string | null {
+  const head = git(projectDir, ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"]);
+  if (head.status === 0) {
+    const ref = String(head.stdout).trim().replace("refs/remotes/", "");
+    if (ref) return ref;
+  }
+  for (const name of ["main", "master"]) {
+    if (git(projectDir, ["rev-parse", "--verify", "--quiet", name]).status === 0) return name;
+  }
+  return null;
+}
+
+/** How many commits `target` has that `ref` does not. */
+function commitsBehind(projectDir: string, ref: string, target: string): number {
+  const r = git(projectDir, ["rev-list", "--count", `${ref}..${target}`]);
+  if (r.status !== 0) return 0;
+  return Number(String(r.stdout).trim()) || 0;
+}
+
+/**
+ * Warn when the base a requirement is cut from is missing work that the main
+ * line already has.
+ *
+ * This is H9. `--base-branch harness/REQ-001` behaves exactly as git says it
+ * should — the new branch inherits its base, not `main` — and it cost two
+ * agent runs to discover, because a fix that had landed on `main` was simply
+ * not there and the gate failed for a reason that had nothing to do with the
+ * requirement. Deriving the base (below) removes the need to pass the flag;
+ * this says so out loud when the derived base is stale anyway.
+ */
+function warnIfBaseIsStale(projectDir: string, reqId: string, base: string): void {
+  const mainLine = defaultBranch(projectDir);
+  if (!mainLine || mainLine === base) return;
+  const behind = commitsBehind(projectDir, base, mainLine);
+  if (behind === 0) return;
+  warn(
+    `${reqId}: base ${base} is ${behind} commit(s) behind ${mainLine}. ` +
+      `A fix that landed on ${mainLine} is not in this worktree — a gate failure may not be about ${reqId}.`
+  );
+}
+
+/**
+ * Files the harness writes itself, and whose conflicts on an integration base
+ * therefore mean nothing.
+ *
+ * Two sibling requirement branches *always* conflict here: each run ends with
+ * `csda done REQ-NNN`, which edits the same traceability matrix. The
+ * integration base exists only so an agent can see the code its dependencies
+ * produced; the matrix state on a throwaway branch is consulted by nobody, and
+ * each real `harness/REQ-NNN` branch keeps its own row untouched.
+ */
+const HARNESS_WRITTEN = ["docs/specs/traceability.md"];
+
+/**
+ * Resolve conflicts in generated files by keeping the base's version, and
+ * report any conflict that is left.
+ *
+ * @returns conflicted paths that are *not* generated — the ones a human owns
+ */
+function resolveGeneratedConflicts(worktree: string): string[] {
+  const listed = git(worktree, ["diff", "--name-only", "--diff-filter=U"]);
+  if (listed.status !== 0) return ["(could not list conflicts)"];
+
+  const conflicted = String(listed.stdout)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const rest = conflicted.filter((p) => !HARNESS_WRITTEN.includes(p));
+  if (rest.length > 0) return rest;
+
+  for (const file of conflicted) {
+    git(worktree, ["checkout", "--ours", "--", file]);
+    git(worktree, ["add", "--", file]);
+  }
+  const commit = git(worktree, ["commit", "--no-edit"]);
+  return commit.status === 0 ? [] : ["(could not conclude the merge)"];
+}
+
+/**
+ * Where a requirement's worktree is cut from.
+ *
+ * A requirement that builds on another needs that other's code to exist, and
+ * the only place it exists during a run is the dependency's own
+ * `harness/REQ-NNN` branch. Deriving this is what closes H12's other half:
+ * nobody has to know the order and pass `--base-branch` by hand.
+ *
+ * Dependencies that are already `DONE` contribute nothing here — their work is
+ * in the run's base already.
+ *
+ * @param deps   the requirement's dependencies, in declaration order
+ * @param passed REQ → branch, for the dependencies that passed in this run
+ */
+function deriveBase(projectDir, reqId, deps, passed, ctx) {
+  const branches = deps.map((d) => passed.get(d)).filter(Boolean);
+
+  if (branches.length === 0) return { base: ctx.baseRef };
+  if (branches.length === 1) return { base: branches[0] };
+
+  // More than one dependency produced code, on branches that know nothing of
+  // each other. Cutting from one would silently omit the rest, so they are
+  // integrated into a throwaway base first. This is not the merge the harness
+  // refuses to do — that one is into a branch a human reviews; this is
+  // assembling the context the requirement was declared to need, and a
+  // conflict here is a real finding rather than a nuisance.
+  const integration = `harness/base/${reqId}`;
+  git(projectDir, ["branch", "-D", integration]);
+  const cut = git(projectDir, ["branch", integration, ctx.baseRef]);
+  if (cut.status !== 0) {
+    return { error: `could not create ${integration}: ${cut.stderr || cut.stdout}` };
+  }
+
+  const worktree = path.join(
+    os.tmpdir(),
+    `csda-harness-base-${reqId}-${crypto.randomBytes(4).toString("hex")}`
+  );
+  const add = git(projectDir, ["worktree", "add", worktree, integration]);
+  if (add.status !== 0) {
+    return { error: `could not check out ${integration}: ${add.stderr || add.stdout}` };
+  }
+
+  try {
+    for (const branch of branches) {
+      const merge = git(worktree, ["merge", "--no-edit", branch]);
+      if (merge.status === 0) continue;
+
+      const unresolved = resolveGeneratedConflicts(worktree);
+      if (unresolved.length > 0) {
+        git(worktree, ["merge", "--abort"]);
+        return {
+          error:
+            `${branch} conflicts with the other dependencies of ${reqId} in ` +
+            `${unresolved.join(", ")}. Those are source files; a human has to decide.`,
+        };
+      }
+    }
+  } finally {
+    git(projectDir, ["worktree", "remove", "--force", worktree]);
+  }
+
+  info(`${reqId}: base is ${branches.join(" + ")} integrated into ${integration}`);
+  return { base: integration };
+}
+
+/**
  * Commit a failed attempt so the branch carries what the agent wrote.
  *
  * Returns false when there was nothing to commit — an agent that produced no
@@ -496,6 +647,8 @@ function processRequirement(req, ctx) {
     }
     git(projectDir, ["branch", "-D", branch]);
   }
+
+  warnIfBaseIsStale(projectDir, req.requirement, baseRef);
 
   const add = git(projectDir, ["worktree", "add", "-b", branch, worktreeDir, baseRef]);
   if (add.status !== 0) {
@@ -686,7 +839,11 @@ export function printReport(results, format) {
 async function dispatchLevel(runnable, byId, hintByReq, ctx, concurrency) {
   if (concurrency <= 1) {
     return runnable.map((id) =>
-      processRequirement(byId.get(id), { ...ctx, hint: hintByReq.get(id) })
+      processRequirement(byId.get(id), {
+        ...ctx,
+        baseRef: ctx.baseFor ? ctx.baseFor(id) : ctx.baseRef,
+        hint: hintByReq.get(id),
+      })
     );
   }
   return runWorkers(runnable, ctx, concurrency);
@@ -761,7 +918,7 @@ function workerArgs(id, ctx) {
     "--concurrency",
     "1",
     "--base-branch",
-    ctx.baseRef,
+    ctx.baseFor ? ctx.baseFor(id) : ctx.baseRef,
     "--timeout",
     String(ctx.timeoutSeconds),
     "--max-attempts",
@@ -855,6 +1012,8 @@ export async function runLevels(pending, ctx, opts) {
 
   const results = [];
   const blocked = new Set();
+  /** REQ → the branch its work landed on, for the requirements that follow it. */
+  const passedBranches = new Map();
 
   for (const level of levels) {
     const runnable = level.filter((id) => !blocked.has(id));
@@ -874,8 +1033,48 @@ export async function runLevels(pending, ctx, opts) {
 
     if (runnable.length === 0) continue;
 
-    const levelResults = await runOne(runnable, byId, hintByReq, ctx, concurrency);
+    // A requirement is cut from its dependencies' branches, not from the run's
+    // base: that is where the code it builds on exists during a run.
+    const derivationFailures = new Map();
+    const baseFor = (id) => {
+      const derived = deriveBase(ctx.projectDir, id, dependsOn[id] || [], passedBranches, ctx);
+      if (derived.error) {
+        derivationFailures.set(id, derived.error);
+        return ctx.baseRef;
+      }
+      return derived.base;
+    };
+
+    const bases = new Map(runnable.map((id) => [id, baseFor(id)]));
+    const attemptable = runnable.filter((id) => !derivationFailures.has(id));
+
+    for (const [id, reason] of derivationFailures) {
+      const req = byId.get(id);
+      results.push({
+        requirement: id,
+        category: req ? req.category : "",
+        result: "blocked",
+        attempts: 0,
+        branch: `harness/${id}`,
+        error: `Not attempted: could not assemble its base. ${reason}`,
+      });
+      for (const dependent of graph.transitiveDependents(id)) blocked.add(dependent);
+    }
+
+    if (attemptable.length === 0) continue;
+
+    const levelResults = await runOne(
+      attemptable,
+      byId,
+      hintByReq,
+      { ...ctx, baseFor: (id) => bases.get(id) },
+      concurrency
+    );
     results.push(...levelResults);
+
+    for (const r of levelResults) {
+      if (r.result === "pass") passedBranches.set(r.requirement, r.branch);
+    }
 
     for (const r of levelResults) {
       if (r.result !== "pass") {
