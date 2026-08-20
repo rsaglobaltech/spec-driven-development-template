@@ -29,14 +29,20 @@ const SOURCE_GLOBS = [
   "scripts/change/instructions.ts",
   "packages/core/src/application/CheckAgainstLockUseCase.ts",
   "scripts/specops/against_lock.ts",
-  "scripts/specops/contribute.ts",
+  "scripts/cli/commands/specops/ContributeCommand.ts",
 ];
 
 export function harvestCodes() {
   const byArea = new Map();
   for (const rel of SOURCE_GLOBS) {
     const file = path.join(ROOT, rel);
-    if (!fs.existsSync(file)) continue;
+    // A listed file that has moved would silently drop its codes from the
+    // contract, so say so rather than quietly harvesting less.
+    if (!fs.existsSync(file)) {
+      throw new Error(
+        `Agent contract source not found: ${rel}. Update SOURCE_GLOBS if the file moved.`
+      );
+    }
     const source = fs.readFileSync(file, "utf8");
     const codes = new Set<string>();
     for (const m of source.matchAll(/\b(?:error|warning|info|fail)\(\s*"([a-z][a-z0-9_]*)"/g)) {

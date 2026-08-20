@@ -130,16 +130,16 @@ computed — `strict_tdd_*` covers `strict_tdd_1` through `strict_tdd_3`.
 | `artifact_unknown` | `scripts/change/instructions.ts` |
 | `change_not_found` | `scripts/change/instructions.ts` |
 | `project_not_found` | `scripts/change/instructions.ts` |
-| `ambiguous_pack` | `scripts/specops/contribute.ts` |
-| `change_has_no_deltas` | `scripts/specops/contribute.ts` |
-| `change_not_found` | `scripts/specops/contribute.ts` |
-| `change_required` | `scripts/specops/contribute.ts` |
-| `contribute_not_pushed` | `scripts/specops/contribute.ts` |
-| `contribute_stage_failed` | `scripts/specops/contribute.ts` |
-| `no_lockfile` | `scripts/specops/contribute.ts` |
-| `nothing_to_contribute` | `scripts/specops/contribute.ts` |
-| `pack_has_no_repo` | `scripts/specops/contribute.ts` |
-| `pack_not_found` | `scripts/specops/contribute.ts` |
+| `ambiguous_pack` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `change_has_no_deltas` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `change_not_found` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `change_required` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `contribute_not_pushed` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `contribute_stage_failed` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `no_lockfile` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `nothing_to_contribute` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `pack_has_no_repo` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `pack_not_found` | `scripts/cli/commands/specops/ContributeCommand.ts` |
 
 ## Worked example
 
