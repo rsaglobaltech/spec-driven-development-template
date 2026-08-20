@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "spec-driven": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@spec-driven/mcp-server"
+      ]
+    }
+  }
+}

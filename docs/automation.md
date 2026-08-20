@@ -46,6 +46,51 @@ Restart the client; the tools appear in the model's tool list as `spec-driven.*`
 
 ---
 
+## Install the Claude Code plugin
+
+**Goal:** the loop as slash commands, the spec tree over MCP, and the gate
+running *before* the session can end rather than after it in CI.
+
+```bash
+csda agents init --tool claude-plugin --project-dir ./csda-plugin
+```
+
+That writes a complete plugin: `.claude-plugin/plugin.json`, the six commands
+of the loop under `commands/csda/`, an `.mcp.json` pointing at the spec-driven
+MCP server, and `hooks/hooks.json` with the gate.
+
+**The hook is the part no other target can offer.** Every other tool here gets
+*instructions* — text an agent may or may not follow. A plugin gets a `Stop`
+hook, which runs whether the agent likes it or not:
+
+```
+The spec gate is failing, so this work is not finished:
+
+  • [strict_tdd_1] Test artifact is TBD but status is 'In Dev'
+    fix: Write the test first, then set its path in the row's
+         'Test artifact' column.
+
+Run `csda validate . --strict-tdd` to see all of it.
+```
+
+The session does not end while that is true. `validate --strict-tdd` stops
+being something that reviews an agent's work after it has gone and becomes
+something it cannot walk past.
+
+**It will not trap you.** The hook blocks **once per prompt**. The second time
+the same prompt reaches it, the findings are reported and the session ends: by
+then the agent has been told, and a human needs to see the answer more than the
+loop needs another turn. A project without `spec.md`, or a machine without
+`csda` on `PATH`, is left alone entirely.
+
+`claude-plugin` is the one target `csda agents init` does *not* write by
+default — a plugin is an installable artefact, not something to scatter into
+every project.
+
+---
+
+---
+
 ## Use the VS Code extension
 
 **Goal:** get inline diagnostics for `pack.yaml`, code-lens to jump to the traceability row, and validate-on-save.

@@ -522,6 +522,41 @@ en versión más nueva— y se puede soltar con `git stash drop`.
 
 ---
 
+### Lo que salió al hacer E1-05 *(2026-08-20)*
+
+**Primero verificar, después escribir.** El esquema de plugins no me lo sabía
+con la precisión que hace falta, y un manifiesto inventado produce un plugin que
+no carga. Comprobado contra la referencia oficial antes de una sola línea:
+`.claude-plugin/plugin.json` es el manifiesto, **todos** los directorios de
+componentes van en la raíz del plugin y nunca dentro de `.claude-plugin/`, y
+—lo decisivo— un hook `Stop` que sale con **código 2 bloquea la parada** y su
+stderr es lo que se le dice al agente.
+
+**El problema de diseño real no era el formato, era el bucle.** Un hook que
+bloquea siempre que el gate está rojo puede atrapar una sesión para siempre:
+intenta, falla, se bloquea, intenta. Por eso bloquea **una vez por prompt**,
+con marca en `prompt_id`. La segunda vez reporta y deja terminar, porque a esas
+alturas al agente ya se le dijo y quien necesita ver la respuesta es una
+persona. Probado ejecutando: rojo + prompt nuevo → `exit 2` con el diagnóstico y
+su `fix`; mismo prompt otra vez → `exit 0`; prompt distinto → vuelve a bloquear.
+
+**Y volví a nombrar un fichero que no existía.** `hooks.json` declaraba
+`${CLAUDE_PLUGIN_ROOT}/scripts/gate-hook.js` y el generador no lo empaquetaba.
+Un plugin se instala solo, sin el CLI que lo generó al lado, así que el script
+tiene que viajar con él — se copia del compilado, no se reescribe, porque una
+segunda copia de esa lógica es una segunda cosa que mantener correcta. Hay un
+test que lo fija, y muerde: quitando el fichero, falla.
+
+**Cero deriva por construcción:** los seis comandos salen de los mismos `STEPS`
+que Cursor y Copilot, y un test compara la lista del plugin contra esa
+definición.
+
+`claude-plugin` es el único destino que `agents init` **no** escribe por
+defecto: un plugin es un artefacto instalable, no algo que esparcir en cada
+proyecto. El test de defectos ahora dice esa razón, no solo la lista.
+
+---
+
 ### Lo que salió al hacer E1-04 *(2026-08-20)*
 
 **E0-01 se pagó solo, y aquí está la factura.** Añadir `harness report` fue
@@ -786,7 +821,7 @@ líneas y deja de ser un sitio donde se declara la superficie.
 | `E1-02` | `[x]` | `harness run --concurrency N` por niveles del DAG; descendientes de un fallo marcados `blocked` con 0 intentos, no fallados; ciclos reportados sin colgarse | 1 |
 | `E1-03` | `[x]` | Base de worktree derivada del grafo (incluida integración de varias dependencias) + aviso de base obsoleta — **cierra H9** | 1 |
 | `E1-04` | `[x]` | Registro `.harness/runs/<ts>.json` (autoignorado) y `csda harness report`: acierto al primer intento y coste por requisito entregado | 1 |
-| `E1-05` | `[ ]` | Plugin de Claude Code: comandos + MCP + **hooks** de `validate` durante la sesión | 3 |
+| `E1-05` | `[x]` | Plugin de Claude Code generado desde la misma definición: 6 comandos + MCP + hook `Stop` que bloquea con el gate en rojo, una vez por prompt | 3 |
 | `E1-06` | `[ ]` | Proveedor `github` (issues) sobre el puerto de `E0-02` | 2 |
 | `E1-07` | `[ ]` | Antigravity: verificar formato de extensión y decidir entre los tres desenlaces de §4.4 | 3 |
 
