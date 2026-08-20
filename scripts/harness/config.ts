@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Reader for `harness.config.yaml` — optional per-project defaults for
  * `csda harness run`, so the test command and agent invocation do not have
@@ -10,6 +8,7 @@
  *   agent: "opencode run \"$(cat {prompt_file})\""
  *   test_cmd: "mvn -B test"
  *   max_attempts: 3
+ *   concurrency: 1
  *   prompt_prefix: "Role: Lead Architect. Hexagonal arch is non-negotiable."
  *   # or, for a multi-line prefix (parseYamlLite has no block scalar support):
  *   prompt_prefix_file: ./.harness/prompt-prefix.md
@@ -26,11 +25,23 @@
  * process.exit. Throws on malformed YAML or a missing prefix file.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { parseYamlLite } = require("../domain-pack/common");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { parseYamlLite } from "../domain-pack/common";
 
-const HARNESS_CONFIG_FILE = "harness.config.yaml";
+export const HARNESS_CONFIG_FILE = "harness.config.yaml";
+
+/** Everything `harness run` needs, after the file and the flags are merged. */
+export interface HarnessSettings {
+  agent: string;
+  testCmd: string;
+  maxAttempts: number;
+  concurrency: number;
+  promptPrefix: string;
+  push: boolean;
+  remote: string;
+  prCmd: string;
+}
 
 /** Every key this reader understands. Anything else is rejected, not ignored. */
 const KNOWN_KEYS = new Set([
@@ -39,6 +50,7 @@ const KNOWN_KEYS = new Set([
   "agent_profile",
   "test_cmd",
   "max_attempts",
+  "concurrency",
   "push",
   "remote",
   "pr_cmd",
@@ -46,7 +58,7 @@ const KNOWN_KEYS = new Set([
   "prompt_prefix_file",
 ]);
 
-function readHarnessConfig(projectDir) {
+export function readHarnessConfig(projectDir) {
   const filePath = path.join(projectDir, HARNESS_CONFIG_FILE);
   if (!fs.existsSync(filePath)) return null;
 
@@ -55,7 +67,7 @@ function readHarnessConfig(projectDir) {
     throw new Error(`Invalid ${HARNESS_CONFIG_FILE}: root must be a mapping`);
   }
 
-  const config: any = {};
+  const config: Partial<HarnessSettings> = {};
   if (parsed.agent !== undefined) config.agent = String(parsed.agent);
   if (parsed.test_cmd !== undefined) config.testCmd = String(parsed.test_cmd);
   if (parsed.max_attempts !== undefined) {
@@ -64,6 +76,17 @@ function readHarnessConfig(projectDir) {
       throw new Error(`Invalid ${HARNESS_CONFIG_FILE}: max_attempts must be a positive integer`);
     }
     config.maxAttempts = n;
+  }
+
+  // How many requirements may be in flight at once. 1 keeps the loop exactly
+  // as it has always been — see the comment on `runLevels` in run.ts for why
+  // that default is deliberate rather than timid.
+  if (parsed.concurrency !== undefined) {
+    const n = Number(parsed.concurrency);
+    if (!Number.isInteger(n) || n < 1) {
+      throw new Error(`Invalid ${HARNESS_CONFIG_FILE}: concurrency must be a positive integer`);
+    }
+    config.concurrency = n;
   }
 
   if (parsed.push !== undefined) config.push = parsed.push === true || parsed.push === "true";
@@ -143,17 +166,19 @@ function resolveProfileAgent(projectDir, profileName) {
 /**
  * Merge file config with CLI args. CLI wins on every key; the file fills gaps.
  */
-function resolveHarnessSettings(fileConfig, cliArgs) {
+export function resolveHarnessSettings(
+  fileConfig: Partial<HarnessSettings> | null,
+  cliArgs: Partial<HarnessSettings>
+): HarnessSettings {
   const file = fileConfig || {};
   return {
     agent: cliArgs.agent || file.agent || "",
     testCmd: cliArgs.testCmd || file.testCmd || "",
     maxAttempts: cliArgs.maxAttempts || file.maxAttempts || 3,
+    concurrency: cliArgs.concurrency || file.concurrency || 1,
     promptPrefix: cliArgs.promptPrefix || file.promptPrefix || "",
     push: cliArgs.push || file.push || false,
     remote: cliArgs.remote || file.remote || "origin",
     prCmd: cliArgs.prCmd || file.prCmd || "",
   };
 }
-
-module.exports = { HARNESS_CONFIG_FILE, readHarnessConfig, resolveHarnessSettings };

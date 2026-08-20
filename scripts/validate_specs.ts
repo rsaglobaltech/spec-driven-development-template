@@ -1,9 +1,7 @@
 #!/usr/bin/env node
-"use strict";
-
-const { error } = require("./lib/diagnostics");
-const { agentIo, wantsJson, EXIT } = require("./lib/agent");
-const { findUnresolvedPlaceholders } = require("./lib/placeholders");
+import { error } from "./lib/diagnostics";
+import { agentIo, wantsJson, EXIT } from "./lib/agent";
+import { findUnresolvedPlaceholders } from "./lib/placeholders";
 
 /**
  * Node.js port of validate_specs.sh — same checks, same exit codes.
@@ -11,10 +9,15 @@ const { findUnresolvedPlaceholders } = require("./lib/placeholders");
  *   node scripts/validate_specs.js <project_dir> [--strict-tdd]
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
-const { parseYamlLite } = require("./domain-pack/common");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
+import { parseYamlLite } from "./domain-pack/common";
+import { listChangeIds } from "./change/common";
+import { validateChange } from "./change/cli";
+import { formatDiagnostic } from "./lib/diagnostics";
+import { checkAgainstLock } from "./specops/against_lock";
+import { RequirementGraph } from "./lib/requirement-graph";
 
 function logInfo(msg) {
   const stream = IO && IO.json ? process.stderr : process.stdout;
@@ -345,7 +348,7 @@ function main() {
   const matrixRows = parseMatrixRows(traceContent, traceMode);
 
   // Collect requirement IDs referenced in the matrix (for strict-tdd check)
-  const reqsInMatrix = new Set();
+  const reqsInMatrix = new Set<string>();
 
   const strictTddViolations = [];
 
@@ -504,10 +507,6 @@ function main() {
   let changeCount = 0;
   const changesDir = path.join(targetDir, "docs/specs/changes");
   if (fs.existsSync(changesDir)) {
-    const { listChangeIds } = require("./change/common");
-    const { validateChange } = require("./change/cli");
-    const { formatDiagnostic } = require("./lib/diagnostics");
-
     const ids = listChangeIds(targetDir);
     changeCount = ids.length;
     const problems = [];
@@ -539,9 +538,6 @@ function main() {
   let lockChecked = 0;
   let lockAdvisories = [];
   if (againstLock) {
-    const { checkAgainstLock } = require("./specops/against_lock");
-    const { formatDiagnostic } = require("./lib/diagnostics");
-
     const result = checkAgainstLock(targetDir, {});
     lockChecked = result.checked;
     const errors = result.diagnostics.filter((d) => d.severity === "error");
@@ -561,6 +557,59 @@ function main() {
       process.exit(1);
     }
     lockAdvisories = rest;
+  }
+
+  // The dependency graph. A cycle makes the queue unorderable and an unknown
+  // dependency points at nothing, so both fail the gate unconditionally rather
+  // than only under --strict-tdd: neither is a matter of rigour, both are
+  // declarations that cannot be true.
+  {
+    const graph = RequirementGraph.fromProject(targetDir, [...reqsInMatrix]);
+    const graphProblems = [];
+
+    for (const cycle of graph.cycles) {
+      const loop = [...cycle, cycle[0]].join(" → ");
+      graphProblems.push(
+        error("requirement_cycle", `Requirements depend on each other in a cycle: ${loop}`, {
+          target: cycle[0],
+          fix:
+            `Remove one \`depends=\` from the csda:trace comment of one of them — ` +
+            `${cycle.join(", ")} cannot all come after each other.`,
+        })
+      );
+    }
+
+    for (const { requirement, dependency } of graph.unknown) {
+      graphProblems.push(
+        error(
+          "unknown_dependency",
+          `${requirement} declares depends=${dependency}, which is not a requirement in this project.`,
+          {
+            target: requirement,
+            fix: `Correct the id in ${requirement}'s csda:trace comment, or add a traceability row for ${dependency}.`,
+          }
+        )
+      );
+    }
+
+    for (const requirement of graph.selfReferential) {
+      graphProblems.push(
+        error("self_dependency", `${requirement} declares that it depends on itself.`, {
+          target: requirement,
+          fix: `Remove \`depends=${requirement}\` from its csda:trace comment.`,
+        })
+      );
+    }
+
+    if (graphProblems.length > 0) {
+      if (IO.json) {
+        IO.fail({ validation: null }, graphProblems);
+        return;
+      }
+      logError("Requirement dependency problems:");
+      for (const d of graphProblems) process.stderr.write(`  ${formatDiagnostic(d)}\n`);
+      process.exit(1);
+    }
   }
 
   if (IO.json) {

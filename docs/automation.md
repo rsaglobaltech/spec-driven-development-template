@@ -116,6 +116,44 @@ An explicit `agent:` wins over a profile, and an unknown key in
 `harness.config.yaml` is an error rather than a shrug — a key nobody reads is
 worse than a missing one, because the file looks configured.
 
+### Run more than one requirement at a time
+
+```bash
+csda harness run --concurrency 4
+```
+
+**Only requirements that do not depend on each other ever run together.** The
+harness reads the dependency graph — the `depends=` keys in each requirement's
+`csda:trace` comment — and processes the queue in levels: everything in a level
+is independent, so it can go out to the pool at once; the next level waits.
+
+**A failure blocks what waits on it; it does not fail it.** Before dependencies
+were expressible, one broken predecessor produced a failure for every
+requirement behind it — N failures for one cause, and N agent invocations paid
+for work that could not have succeeded. Now the report says so:
+
+```
+  ❌ REQ-001  fail (1 attempt)     → harness/REQ-001
+  ⛔ REQ-002  blocked (0 attempts) → harness/REQ-002
+       Not attempted: REQ-001 did not pass.
+
+  0 passed · 1 failed · 0 skipped · 1 blocked
+```
+
+A requirement caught in a dependency cycle is reported the same way and never
+attempted; `csda validate` is what explains the cycle and how to break it.
+
+**The default is 1, deliberately.** Two reasons, and neither is timidity:
+
+- Every step of a requirement — the gate, the agent, `csda done`, git — is a
+  blocking call, so above 1 each requirement runs in a worker process. That
+  path is newer than the serial one, which has years of real agent runs behind
+  it.
+- Parallelism moves the bottleneck rather than removing it. Four green branches
+  are four reviews, and the harness still never merges.
+
+`concurrency: 4` in `harness.config.yaml` sets it for the project.
+
 ### When a run fails
 
 The report prints the tail of the gate output and names the command that
@@ -238,7 +276,20 @@ Mirror the same call in CI (see §4) so the gate survives `--no-verify`.
 
 ---
 
+## Sync requirements with Jira or Azure Boards
+
+`csda alm sync` keeps the traceability matrix and the board in step — creating
+an issue for each unlinked requirement, closing it when the requirement is
+done, and reporting drift rather than resolving it.
+
+→ [Jira and Azure Boards](alm.md)
+
+---
+
+---
+
 ## Next
 
+- [Jira and Azure Boards](alm.md)
 - [The agent contract](specs/agent-contract.md)
 - [The harness spec](specs/harness.md)

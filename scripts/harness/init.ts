@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `harness init` — scaffold `harness.config.yaml` and `.harness/prompt-prefix.md`.
  *
@@ -15,12 +13,12 @@
  *                                       [--force] [--stdout] [--json]
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { renderTemplate } = require("../domain-pack/common");
-const { resolveProjectDir } = require("../lib/project-root");
-const { agentIo, wantsJson } = require("../lib/agent");
-const { error, info, warning } = require("../lib/diagnostics");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { renderTemplate } from "../domain-pack/common";
+import { resolveProjectDir } from "../lib/project-root";
+import { agentIo, wantsJson } from "../lib/agent";
+import { error, info, warning, errorMessage } from "../lib/diagnostics";
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..", "..");
 const TEMPLATES = path.join(ROOT_DIR, "templates", "harness");
@@ -42,7 +40,7 @@ const NULL_SHAPE = { projectDir: null, files: [] };
  * freshly scaffolded project has no build file yet precisely because no code
  * exists, so this is the common case, not the edge one.
  */
-function detectTestCommand(projectDir) {
+export function detectTestCommand(projectDir) {
   const has = (file) => fs.existsSync(path.join(projectDir, file));
   if (has("package.json")) {
     try {
@@ -67,7 +65,7 @@ function detectTestCommand(projectDir) {
   return null;
 }
 
-function projectName(projectDir) {
+export function projectName(projectDir) {
   const specPath = path.join(projectDir, "spec.md");
   if (fs.existsSync(specPath)) {
     const heading = /^#\s+(.+)$/m.exec(fs.readFileSync(specPath, "utf8"));
@@ -94,8 +92,17 @@ function usage() {
   );
 }
 
+/** Parsed command-line options for this command. */
+export interface HarnessInitOptions {
+  projectDir: string;
+  testCmd: string | null;
+  force: boolean;
+  stdout: boolean;
+  json: boolean;
+}
+
 function parseArgs(argv) {
-  const opts: any = {
+  const opts: HarnessInitOptions = {
     projectDir: ".",
     testCmd: null,
     force: false,
@@ -134,9 +141,9 @@ function main() {
   let projectDir;
   try {
     projectDir = resolveProjectDir(opts.projectDir);
-  } catch (err: any) {
+  } catch (err) {
     io.usage(NULL_SHAPE, [
-      error("no_project", err.message, {
+      error("no_project", errorMessage(err), {
         fix: "Run from inside a spec-driven project, or pass --project-dir <path>.",
       }),
     ]);
@@ -245,7 +252,5 @@ function main() {
     }
   );
 }
-
-module.exports = { detectTestCommand, projectName };
 
 if (require.main === module) main();

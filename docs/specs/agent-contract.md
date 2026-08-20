@@ -93,8 +93,11 @@ computed — `strict_tdd_*` covers `strict_tdd_1` through `strict_tdd_3`.
 | `missing_required_file` | `scripts/validate_specs.ts` |
 | `no_feature_files` | `scripts/validate_specs.ts` |
 | `project_dir_not_found` | `scripts/validate_specs.ts` |
+| `requirement_cycle` | `scripts/validate_specs.ts` |
+| `self_dependency` | `scripts/validate_specs.ts` |
 | `strict_tdd_*` | `scripts/validate_specs.ts` |
 | `traceability_header_missing` | `scripts/validate_specs.ts` |
+| `unknown_dependency` | `scripts/validate_specs.ts` |
 | `use_cases_header_missing` | `scripts/validate_specs.ts` |
 | `placeholders` | `scripts/doctor.ts` |
 | `project` | `scripts/doctor.ts` |

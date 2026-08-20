@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `csda harness run` — the spec-driven delivery loop for AI coding agents.
  *
@@ -23,25 +21,39 @@
  * harness never merges a branch — a human reviews and merges.
  */
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const crypto = require("node:crypto");
-const { spawnSync } = require("node:child_process");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as crypto from "node:crypto";
+import { spawn, spawnSync } from "node:child_process";
 
-const { resolveProjectDir } = require("../lib/project-root");
-const { buildPrompt } = require("./prompt");
-const { readHarnessConfig, resolveHarnessSettings } = require("./config");
+import { resolveProjectDir } from "../lib/project-root";
+import { buildPrompt } from "./prompt";
+import { readHarnessConfig, resolveHarnessSettings } from "./config";
+import { RequirementGraph } from "../lib/requirement-graph";
 
 const PLAN_SCRIPT = path.join(__dirname, "..", "plan.js");
 const DONE_SCRIPT = path.join(__dirname, "..", "done.js");
 const VALIDATE_SCRIPT = path.join(__dirname, "..", "validate_specs.js");
 
+/**
+ * In `--format json` mode stdout carries exactly one JSON document and nothing
+ * else — rule 1 of the agent contract (ADR-0017). It did not: progress lines
+ * went to stdout alongside the report, so
+ * `harness run --format json 2>/dev/null | jq .` did not parse. Nobody noticed
+ * because nothing parsed it until the worker pool did.
+ */
+let jsonMode = false;
+
+export function setJsonMode(on) {
+  jsonMode = Boolean(on);
+}
+
 function info(msg) {
-  process.stdout.write(`ℹ️  [harness] ${msg}\n`);
+  (jsonMode ? process.stderr : process.stdout).write(`ℹ️  [harness] ${msg}\n`);
 }
 function warn(msg) {
-  process.stdout.write(`⚠️  [harness] ${msg}\n`);
+  (jsonMode ? process.stderr : process.stdout).write(`⚠️  [harness] ${msg}\n`);
 }
 function error(msg) {
   process.stderr.write(`❌ [harness] ${msg}\n`);
@@ -58,6 +70,8 @@ function usage() {
       "                         Substitutes {req}, {scenario} and {feature_file}, so the\n" +
       "                         gate can run the scenario under test.\n" +
       "  --max-attempts <n>     Retries per requirement, feeding back the failure (default 3).\n" +
+      "  --concurrency <n>      Requirements in flight at once (default 1). Only requirements\n" +
+      "                         that do not depend on each other ever run together.\n" +
       "  --req <REQ-NNN>        Limit to specific requirement(s); repeatable.\n" +
       "  --project-dir <path>   Project root (auto-detected from cwd if omitted).\n" +
       "  --base-branch <ref>    Branch/ref each worktree is cut from (default: current HEAD).\n" +
@@ -76,12 +90,13 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const args = {
     projectDir: ".",
     agent: "",
     testCmd: "",
     maxAttempts: 0,
+    concurrency: 0,
     reqs: [] as string[],
     baseBranch: "",
     // 600 was the original guess. Both real runs disproved it: the first
@@ -111,6 +126,12 @@ function parseArgs(argv) {
         throw new Error("--max-attempts must be a positive integer");
       }
       args.maxAttempts = n;
+    } else if (token === "--concurrency") {
+      const n = Number(argv[++i]);
+      if (!Number.isInteger(n) || n < 1) {
+        throw new Error("--concurrency must be a positive integer");
+      }
+      args.concurrency = n;
     } else if (token === "--req") {
       const r = argv[++i] || "";
       if (!/^REQ-\d+$/.test(r)) throw new Error(`--req expects REQ-NNN, got: ${r}`);
@@ -153,7 +174,7 @@ function parseArgs(argv) {
  * Throws when the template is missing the placeholder — without it the agent
  * would never receive the prompt.
  */
-function substituteAgentCommand(template, promptFile) {
+export function substituteAgentCommand(template, promptFile) {
   if (!template.includes("{prompt_file}")) {
     throw new Error(
       "The agent command must contain the {prompt_file} placeholder, e.g. " +
@@ -219,7 +240,7 @@ const SUBPROCESS_MAX_BUFFER = 64 * 1024 * 1024;
  * `{feature_file}` is the useful one in practice: most runners accept a path and
  * will run exactly that feature's scenarios.
  */
-function substituteGateCommand(template, req) {
+export function substituteGateCommand(template, req) {
   const featureFile = String(req.featureFile || req.feature_file || "")
     .replace(/^`|`$/g, "")
     .split("#")[0]
@@ -246,7 +267,7 @@ function substituteGateCommand(template, req) {
  * many, which is the shape of that mistake. A hint, not a verdict: a legitimate
  * failure must not be second-guessed into passing.
  */
-function filterHint(template, req, output) {
+export function filterHint(template, req, output) {
   if (!String(template).includes("{feature_file}")) return "";
   const featureFile = substituteGateCommand("{feature_file}", req);
   if (!featureFile) return "";
@@ -357,7 +378,10 @@ function attemptRequirement(req, ctx) {
         maxBuffer: SUBPROCESS_MAX_BUFFER,
         stdio: ["ignore", "pipe", "pipe"],
       });
-      if (agent.error && agent.error.code === "ETIMEDOUT") {
+      // Node reports a timeout as an errno-carrying Error; the base `Error`
+      // type the spawnSync signature declares does not have `code`.
+      const agentError = agent.error as NodeJS.ErrnoException | undefined;
+      if (agentError?.code === "ETIMEDOUT") {
         previousFailure = `Agent timed out after ${ctx.timeoutSeconds}s.`;
         warn(`${req.requirement}: agent timed out`);
         continue;
@@ -459,8 +483,6 @@ function processRequirement(req, ctx) {
     `csda-harness-${req.requirement}-${crypto.randomBytes(4).toString("hex")}`
   );
 
-  git(projectDir, ["worktree", "prune"]);
-
   if (branchExists(projectDir, branch)) {
     if (!force) {
       return {
@@ -508,6 +530,14 @@ function processRequirement(req, ctx) {
   }
 }
 
+/** What publishing a green branch produced, merged into the requirement's result. */
+interface PublishOutcome {
+  pushed?: boolean;
+  prCreated?: boolean;
+  prOutput?: string;
+  publishError?: string;
+}
+
 /**
  * CI mode (B7): after a green requirement, optionally push the branch and
  * open a PR/MR via a user-configured command. Publication problems never
@@ -515,7 +545,7 @@ function processRequirement(req, ctx) {
  * manually — but they are reported.
  */
 function publishBranch(projectDir, branch, req, settings) {
-  const published: any = {};
+  const published: PublishOutcome = {};
   if (!settings.push) return published;
 
   const push = git(projectDir, ["push", "--force-with-lease", "-u", settings.remote, branch]);
@@ -563,7 +593,7 @@ function publishBranch(projectDir, branch, req, settings) {
  */
 const FAILURE_TAIL_LINES = 20;
 
-function printReport(results, format) {
+export function printReport(results, format) {
   if (format === "json") {
     const summary = results.reduce((acc, r) => {
       acc[r.result] = (acc[r.result] || 0) + 1;
@@ -577,10 +607,22 @@ function printReport(results, format) {
 
   process.stdout.write("\n── harness report ──\n");
   for (const r of results) {
-    const icon = r.result === "pass" ? "✅" : r.result === "skipped" ? "⏭️ " : "❌";
+    const icon =
+      r.result === "pass"
+        ? "✅"
+        : r.result === "skipped"
+          ? "⏭️ "
+          : r.result === "blocked"
+            ? "⛔"
+            : "❌";
     process.stdout.write(
       `  ${icon} ${r.requirement}  ${r.result} (${r.attempts} attempt${r.attempts === 1 ? "" : "s"})  → ${r.branch}\n`
     );
+    if (r.result === "blocked") {
+      // Nothing ran, so there is no gate output to show — only the reason.
+      process.stdout.write(`       ${r.error}\n`);
+      continue;
+    }
     if (r.result !== "pass" && r.error) {
       // The full gate output — the test failure that explains *why* — was
       // captured and then thrown away here, leaving "Gate failed at: test
@@ -616,15 +658,258 @@ function printReport(results, format) {
   const pass = results.filter((r) => r.result === "pass").length;
   const fail = results.filter((r) => r.result === "fail").length;
   const skip = results.filter((r) => r.result === "skipped").length;
-  process.stdout.write(`\n  ${pass} passed · ${fail} failed · ${skip} skipped\n`);
+  const blocked = results.filter((r) => r.result === "blocked").length;
+  // Blocked is counted apart from failed on purpose: one broken predecessor
+  // used to produce N failures and N wasted agent invocations, which said
+  // nothing about the N-1 requirements that were never attempted.
+  const blockedNote = blocked > 0 ? ` · ${blocked} blocked` : "";
+  process.stdout.write(`\n  ${pass} passed · ${fail} failed · ${skip} skipped${blockedNote}\n`);
   if (pass > 0) {
     process.stdout.write(`  Review and merge the harness/* branches you trust.\n`);
   }
 }
 
-function main() {
+/**
+ * Run one level.
+ *
+ * At concurrency 1 this is the loop the harness has always had: one
+ * requirement, in this process, synchronously. Above 1 each requirement is
+ * handed to a worker process running this same script with `--req`, because
+ * every step inside `processRequirement` is a blocking `spawnSync` and there
+ * is no way to interleave two of them in one process without rewriting all of
+ * it.
+ *
+ * The worker is not a reduced version of the real thing: it *is* `harness run`
+ * scoped to one requirement, so a parallel run and a serial run execute the
+ * same code.
+ */
+async function dispatchLevel(runnable, byId, hintByReq, ctx, concurrency) {
+  if (concurrency <= 1) {
+    return runnable.map((id) =>
+      processRequirement(byId.get(id), { ...ctx, hint: hintByReq.get(id) })
+    );
+  }
+  return runWorkers(runnable, ctx, concurrency);
+}
+
+/**
+ * Run requirements in parallel worker processes, at most `concurrency` at a
+ * time, and collect their reports.
+ *
+ * Each worker prints a one-requirement JSON report; the parent parses it. A
+ * worker that dies without printing one is reported as a failure carrying its
+ * output, rather than vanishing from the run.
+ */
+function runWorkers(runnable, ctx, concurrency) {
+  return new Promise((resolve) => {
+    const results = [];
+    const queue = [...runnable];
+    const running = new Map();
+
+    const fill = () => {
+      while (running.size < concurrency && queue.length > 0) {
+        const id = queue.shift();
+        const child = spawn(process.execPath, [__filename, ...workerArgs(id, ctx)], {
+          env: { ...process.env, CSDA_HARNESS_WORKER: "1" },
+        });
+
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (d) => {
+          stdout += d;
+        });
+        // A worker's prose goes straight through, so a long run is not silent.
+        // Its JSON report is the only thing the parent parses.
+        child.stderr.on("data", (d) => {
+          stderr += d;
+          process.stderr.write(d);
+        });
+
+        running.set(id, child);
+        info(`${id}: started (${running.size}/${concurrency} in flight)`);
+
+        child.on("close", () => {
+          running.delete(id);
+          results.push(parseWorkerReport(id, stdout, stderr));
+          if (queue.length === 0 && running.size === 0) resolve(results);
+          else fill();
+        });
+      }
+    };
+
+    fill();
+    if (running.size === 0) resolve(results);
+  });
+}
+
+/**
+ * The argv a worker gets: this same command, scoped to one requirement and
+ * pinned to concurrency 1 so a worker never spawns workers of its own.
+ *
+ * Settings are passed explicitly rather than left to the worker's own read of
+ * `harness.config.yaml`, so a profile resolved once in the parent cannot
+ * resolve differently in a child.
+ */
+function workerArgs(id, ctx) {
+  return [
+    "--req",
+    id,
+    "--project-dir",
+    ctx.projectDir,
+    "--format",
+    "json",
+    "--concurrency",
+    "1",
+    "--base-branch",
+    ctx.baseRef,
+    "--timeout",
+    String(ctx.timeoutSeconds),
+    "--max-attempts",
+    String(ctx.settings.maxAttempts),
+    ...(ctx.force ? ["--force"] : []),
+    ...(ctx.keepWorktrees ? ["--keep-worktrees"] : []),
+    ...(ctx.settings.agent ? ["--agent", ctx.settings.agent] : []),
+    ...(ctx.settings.testCmd ? ["--test-cmd", ctx.settings.testCmd] : []),
+  ];
+}
+
+/** A worker's report, or an honest failure describing why there is none. */
+function parseWorkerReport(id, stdout, stderr) {
+  try {
+    const parsed = JSON.parse(stdout);
+    const one = (parsed.results || []).find((r) => r.requirement === id);
+    if (one) return one;
+  } catch {
+    // fall through
+  }
+  return {
+    requirement: id,
+    category: "",
+    result: "fail",
+    attempts: 0,
+    branch: `harness/${id}`,
+    error: `Worker produced no report.\n${(stderr || stdout || "").slice(-2000)}`,
+  };
+}
+
+/**
+ * Split the pending queue into levels, and say what each requirement waits for.
+ *
+ * `plan` already ordered the queue and told us what every requirement builds
+ * on (E1-01). What the harness needs on top of that is the *grouping*: a level
+ * is a set of requirements that do not depend on one another, so they are the
+ * ones that could run at the same time.
+ *
+ * Dependencies on requirements that are already DONE do not appear here —
+ * `plan` reports them under `dependsOn` but not `blockedBy`, because a
+ * finished dependency constrains nothing.
+ */
+export function scheduleLevels(pending) {
+  const pendingIds = pending.map((r) => r.requirement);
+  const inQueue = new Set(pendingIds);
+
+  const dependsOn = {};
+  for (const req of pending) {
+    // Only dependencies that are themselves in this run constrain the order.
+    // A dependency outside the queue is either done or was filtered out by
+    // `--req`, and in both cases waiting for it here would deadlock the level.
+    dependsOn[req.requirement] = (req.dependsOn || req.depends_on || []).filter((d) =>
+      inQueue.has(d)
+    );
+  }
+
+  const graph = RequirementGraph.fromDependencies(pendingIds, dependsOn);
+  return { levels: graph.levels, cycles: graph.cycles, dependsOn, graph };
+}
+
+/**
+ * Run the queue level by level.
+ *
+ * **Why concurrency 1 stays on the in-process path.** Every step of a
+ * requirement — the gate, the agent, `done`, git — is a `spawnSync`, and
+ * §12.11 of the closure plan is a list of eleven defects that only appeared
+ * when this loop ran against a real agent. Converting all of it to async so
+ * that one requirement could run "in parallel" with nothing would put the one
+ * path that has actually been exercised behind an untested rewrite. So the
+ * default path is the path it has always been, and only `--concurrency > 1`
+ * dispatches through worker processes.
+ *
+ * **Why a failure blocks rather than fails.** Without dependencies expressed,
+ * `harness run` processed the matrix in order and a broken predecessor made
+ * every successor fail too — N failures for one cause, and N wasted agent
+ * invocations. A requirement whose dependency failed has not been attempted;
+ * calling that a failure would be a lie in the report.
+ */
+export async function runLevels(pending, ctx, opts) {
+  const { concurrency, hintByReq, runOne } = opts;
+  const { levels, cycles, dependsOn, graph } = scheduleLevels(pending);
+  const byId: Map<string, any> = new Map(pending.map((r) => [r.requirement, r]));
+
+  if (cycles.length > 0) {
+    // `validate` is the gate that reports the cycle properly. Here we only
+    // have to refuse to loop forever, and say which requirements are stuck.
+    for (const cycle of cycles) {
+      warn(`Dependency cycle, not attempted: ${[...cycle, cycle[0]].join(" → ")}`);
+    }
+  }
+
+  const results = [];
+  const blocked = new Set();
+
+  for (const level of levels) {
+    const runnable = level.filter((id) => !blocked.has(id));
+
+    for (const id of level) {
+      if (!blocked.has(id)) continue;
+      const req = byId.get(id);
+      results.push({
+        requirement: id,
+        category: req ? req.category : "",
+        result: "blocked",
+        attempts: 0,
+        branch: `harness/${id}`,
+        error: `Not attempted: ${(dependsOn[id] || []).filter((d) => blocked.has(d) || results.some((r) => r.requirement === d && r.result !== "pass")).join(", ")} did not pass.`,
+      });
+    }
+
+    if (runnable.length === 0) continue;
+
+    const levelResults = await runOne(runnable, byId, hintByReq, ctx, concurrency);
+    results.push(...levelResults);
+
+    for (const r of levelResults) {
+      if (r.result !== "pass") {
+        for (const dependent of graph.transitiveDependents(r.requirement)) {
+          blocked.add(dependent);
+        }
+      }
+    }
+  }
+
+  // Requirements caught in a cycle never reach a level. Report them rather
+  // than dropping them from the run.
+  for (const cycle of cycles) {
+    for (const id of cycle) {
+      if (results.some((r) => r.requirement === id)) continue;
+      const req = byId.get(id);
+      results.push({
+        requirement: id,
+        category: req ? req.category : "",
+        result: "blocked",
+        attempts: 0,
+        branch: `harness/${id}`,
+        error: `Not attempted: caught in a dependency cycle (${cycle.join(" → ")}). Run \`csda validate\` for the fix.`,
+      });
+    }
+  }
+
+  return results;
+}
+
+async function main() {
   try {
     const args = parseArgs(process.argv.slice(2));
+    setJsonMode(args.format === "json");
     const projectDir = resolveProjectDir(args.projectDir, { requireSentinel: true });
 
     const fileConfig = readHarnessConfig(projectDir);
@@ -660,7 +945,7 @@ function main() {
       for (const req of pending) {
         const prompt = buildPrompt(req, projectDir, {
           promptPrefix: settings.promptPrefix,
-          hint: hintByReq.get(req.requirement),
+          hint: hintByReq.get(req.requirement) as string | undefined,
         });
         process.stdout.write(
           `\n${"═".repeat(72)}\n${req.requirement} (${req.category}) → branch harness/${req.requirement}\n${"═".repeat(72)}\n`
@@ -677,7 +962,17 @@ function main() {
     }
 
     const baseRef = args.baseBranch || "HEAD";
-    info(`Processing ${pending.length} requirement(s) from base ${baseRef}.`);
+    const concurrencyNote =
+      settings.concurrency > 1 ? `, up to ${settings.concurrency} at a time` : "";
+    info(`Processing ${pending.length} requirement(s) from base ${baseRef}${concurrencyNote}.`);
+
+    // One prune, in the parent, before anything is created. It used to run per
+    // requirement, which is harmless in series and a race in parallel:
+    // `git worktree prune` running while a sibling is inside
+    // `git worktree add` can remove the record of the worktree being created.
+    if (!process.env.CSDA_HARNESS_WORKER) {
+      git(projectDir, ["worktree", "prune"]);
+    }
 
     const ctx = {
       projectDir,
@@ -689,13 +984,17 @@ function main() {
       force: args.force,
     };
 
-    const results = [];
-    for (const req of pending) {
-      results.push(processRequirement(req, { ...ctx, hint: hintByReq.get(req.requirement) }));
-    }
+    const results = await runLevels(pending, ctx, {
+      concurrency: settings.concurrency,
+      hintByReq,
+      runOne: dispatchLevel,
+    });
 
     printReport(results, args.format);
 
+    // A blocked requirement was never attempted, so it is not a pass — but it
+    // is also not evidence that anything is broken beyond the failure that
+    // caused it. It still fails the run, because work was left undone.
     const failed = results.filter((r) => r.result !== "pass").length;
     process.exit(failed > 0 ? 1 : 0);
   } catch (err) {
@@ -705,13 +1004,8 @@ function main() {
 }
 
 if (require.main === module) {
-  main();
+  main().catch((err) => {
+    error(err && err.message ? err.message : String(err));
+    process.exit(1);
+  });
 }
-
-module.exports = {
-  parseArgs,
-  substituteAgentCommand,
-  substituteGateCommand,
-  filterHint,
-  printReport,
-};

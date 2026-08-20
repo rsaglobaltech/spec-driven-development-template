@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `plan` — list requirements that still need work, derived from
  * docs/specs/traceability.md and the project filesystem.
@@ -16,9 +14,10 @@
  * structure for AI agents, editors and CI dashboards.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { resolveProjectDir } = require("./lib/project-root");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { resolveProjectDir } from "./lib/project-root";
+import { RequirementGraph } from "./lib/requirement-graph";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -32,6 +31,12 @@ const c = {
   cyan: COLOR_ENABLED ? "\x1b[36m" : "",
 };
 
+/** Parsed command-line options for this command. */
+export interface PlanOptions {
+  projectDir: string;
+  format: string;
+}
+
 function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}📋 plan${c.reset}  ${c.dim}— what still needs implementation${c.reset}\n\n` +
@@ -44,8 +49,8 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
-  const opts: any = { projectDir: ".", format: "text" };
+export function parseArgs(argv) {
+  const opts: PlanOptions = { projectDir: ".", format: "text" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
@@ -78,7 +83,7 @@ function trimCell(v) {
   return (v || "").trim();
 }
 
-function parseTraceability(content) {
+export function parseTraceability(content) {
   const rows = [];
   let mode = null;
   for (const raw of content.split("\n")) {
@@ -144,7 +149,7 @@ function fileExists(projectDir, rel) {
 
 const DONE_STATUSES = new Set(["Implemented", "Verified", "Released"]);
 
-function classify(row, projectDir) {
+export function classify(row, projectDir) {
   const reqId = row.requirement || "";
   if (!/^REQ-\d+/.test(reqId)) return null;
 
@@ -179,12 +184,59 @@ function classify(row, projectDir) {
   };
 }
 
+/**
+ * Order the queue so a requirement never comes before what it builds on, and
+ * mark the ones that cannot be started yet.
+ *
+ * `blockedBy` is the actionable half. A dependency that is already DONE
+ * constrains the order and nothing else; a dependency still pending means the
+ * work cannot start, and `plan` has been recommending exactly that work
+ * because it had no way to know. That is defect H12.
+ *
+ * A project that declares no dependencies gets its rows back in matrix order
+ * with two empty arrays added, which is what makes this safe to ship.
+ */
+export function applyDependencies(items, projectDir) {
+  const ids = items.map((it) => it.requirement);
+  const graph = RequirementGraph.fromProject(projectDir, ids);
+
+  const byId: Map<string, any> = new Map(items.map((it) => [it.requirement, it]));
+  const isDone = (id) => {
+    const item = byId.get(id);
+    return Boolean(item) && item.category === "DONE";
+  };
+
+  for (const item of items) {
+    const deps = graph.dependsOn[item.requirement] || [];
+    item.depends_on = deps;
+    item.blocked_by = deps.filter((dep) => !isDone(dep));
+  }
+
+  // Requirements caught in a cycle cannot be ordered; they keep their place at
+  // the end rather than disappearing from the queue, because a requirement the
+  // plan stops mentioning is worse than one reported as tangled. `validate`
+  // is where the cycle itself is reported.
+  const ordered = [];
+  for (const id of graph.order) {
+    const item = byId.get(id);
+    if (item) ordered.push(item);
+  }
+  for (const item of items) {
+    if (!ordered.includes(item)) ordered.push(item);
+  }
+  return ordered;
+}
+
 function emitJson(items, projectDir, orphans) {
   const summary = items.reduce((acc, it) => {
     acc[it.category] = (acc[it.category] || 0) + 1;
     return acc;
   }, {});
-  const next = items.filter((it) => it.category !== "DONE").slice(0, 5);
+  // Work that cannot start yet is not a next step. Before dependencies were
+  // expressible this list happily recommended a requirement whose predecessor
+  // had not been written.
+  const actionable = items.filter((it) => it.category !== "DONE" && it.blocked_by.length === 0);
+  const next = actionable.slice(0, 5);
   process.stdout.write(
     JSON.stringify(
       {
@@ -192,6 +244,7 @@ function emitJson(items, projectDir, orphans) {
         projectDir: path.resolve(projectDir),
         total: items.length,
         pending: items.length - (summary.DONE || 0),
+        blocked: items.filter((it) => it.category !== "DONE" && it.blocked_by.length > 0).length,
         summary,
         nextSteps: next.map((it) => ({
           requirement: it.requirement,
@@ -227,6 +280,8 @@ function toCamelRequirement(item) {
     feature_exists,
     technical_exists,
     test_exists,
+    depends_on,
+    blocked_by,
     ...rest
   } = item;
   return {
@@ -238,10 +293,12 @@ function toCamelRequirement(item) {
     featureExists: feature_exists,
     technicalExists: technical_exists,
     testExists: test_exists,
+    dependsOn: depends_on || [],
+    blockedBy: blocked_by || [],
   };
 }
 
-function hintFor(item) {
+export function hintFor(item) {
   switch (item.category) {
     case "NEEDS_FEATURE":
       return `Create ${item.feature_file || "the .feature file declared in traceability"}.`;
@@ -277,7 +334,7 @@ function walkFeatures(dir, base = dir) {
   return out;
 }
 
-function detectOrphans(projectDir, items) {
+export function detectOrphans(projectDir, items) {
   const featuresDir = path.join(projectDir, "features");
   if (!fs.existsSync(featuresDir)) return [];
   const onDisk = walkFeatures(featuresDir).map((rel) => `features/${rel}`);
@@ -301,8 +358,13 @@ function emitText(items, orphans) {
   const total = items.length;
   const todo = total - buckets.DONE.length;
 
+  const blocked = items.filter(
+    (it) => it.category !== "DONE" && it.blocked_by && it.blocked_by.length > 0
+  ).length;
+  const blockedNote = blocked > 0 ? `, ${blocked} blocked` : "";
+
   process.stdout.write(
-    `\n  ${c.bold}📋 Plan${c.reset}  ${c.dim}(${total} requirement(s), ${todo} pending)${c.reset}\n`
+    `\n  ${c.bold}📋 Plan${c.reset}  ${c.dim}(${total} requirement(s), ${todo} pending${blockedNote})${c.reset}\n`
   );
 
   const groups = [
@@ -321,7 +383,13 @@ function emitText(items, orphans) {
     for (const it of list) {
       const req = it.requirement.padEnd(9);
       const scn = it.scenario_id ? ` ${c.dim}${it.scenario_id}${c.reset}` : "";
-      process.stdout.write(`    ${color}${req}${c.reset}${scn}\n`);
+      // A blocked requirement is listed where it belongs but marked, so the
+      // reader is not sent at work whose predecessor does not exist yet.
+      const blocked =
+        it.blocked_by && it.blocked_by.length > 0
+          ? ` ${c.yellow}⛔ blocked by ${it.blocked_by.join(", ")}${c.reset}`
+          : "";
+      process.stdout.write(`    ${color}${req}${c.reset}${scn}${blocked}\n`);
       if (it.category === "DONE") continue;
       if (it.feature_file) {
         const mark = it.feature_exists ? "✓" : "·";
@@ -382,7 +450,8 @@ function main() {
 
   const content = fs.readFileSync(tracePath, "utf8");
   const rows = parseTraceability(content);
-  const items = rows.map((r) => classify(r, projectDir)).filter((x) => x !== null);
+  const classified = rows.map((r) => classify(r, projectDir)).filter((x) => x !== null);
+  const items = applyDependencies(classified, projectDir);
   const orphans = detectOrphans(projectDir, items);
 
   if (opts.format === "json") emitJson(items, projectDir, orphans);
@@ -392,5 +461,3 @@ function main() {
 }
 
 if (require.main === module) main();
-
-module.exports = { parseArgs, parseTraceability, classify, hintFor, detectOrphans };

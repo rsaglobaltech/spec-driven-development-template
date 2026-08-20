@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Builds the structured prompt handed to a coding agent for one requirement.
  *
@@ -11,8 +9,9 @@
  * Pure module: string in, string out. No filesystem, no logging.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { STAGES } from "../change/instructions";
 
 function readIfExists(filePath) {
   try {
@@ -42,6 +41,18 @@ function field(req, camel, snake) {
   return value === null ? "" : value;
 }
 
+/** What the harness knows about an attempt when it builds the prompt. */
+export interface PromptOptions {
+  /** Project-wide directives prepended verbatim, from harness.config.yaml. */
+  promptPrefix?: string;
+  /** One-line guidance from `plan`. */
+  hint?: string;
+  /** Gate output from the prior attempt, so a retry is not a repeat. */
+  previousFailure?: string;
+  attempt?: number;
+  maxAttempts?: number;
+}
+
 /**
  * @param {object} req      One entry from `plan --format json` requirements[].
  * @param {string} projectDir  Worktree root the agent will edit.
@@ -54,7 +65,11 @@ function field(req, camel, snake) {
  * @param {number} [opts.attempt]         1-based attempt counter.
  * @param {number} [opts.maxAttempts]
  */
-function buildPrompt(req, projectDir, opts: any = {}) {
+export function buildPrompt(
+  req: Record<string, unknown>,
+  projectDir: string,
+  opts: PromptOptions = {}
+) {
   const parts = [];
 
   if (opts.promptPrefix && String(opts.promptPrefix).trim()) {
@@ -115,7 +130,6 @@ function buildPrompt(req, projectDir, opts: any = {}) {
   // The implementation rules come from the same place the slash commands and
   // the MCP server read them — `change instructions apply`. Restating them here
   // is how the two copies drift apart when the delta grammar moves.
-  const { STAGES } = require("../change/instructions");
   const doneRules = [
     ...STAGES.apply.rules,
     "**Do not modify** `spec.md`, `AI_RULES.md`, or any `features/**/*.feature` — they are the project's source of truth.",
@@ -138,5 +152,3 @@ function buildPrompt(req, projectDir, opts: any = {}) {
 
   return parts.join("\n");
 }
-
-module.exports = { buildPrompt };

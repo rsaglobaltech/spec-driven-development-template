@@ -91,6 +91,28 @@ Two things the validator is strict about:
 The `csda:trace` comment is optional — it is the bridge to the DDD matrix.
 Without it the requirement still archives, with `-` in those columns.
 
+**`depends=` says what a requirement builds on.** One more key in the same
+comment, and the only one `plan` and the harness read rather than the matrix:
+
+```markdown
+<!-- csda:trace uc=UC-008 feature=features/pricing/refunds.feature
+     depends=REQ-014 -->
+```
+
+Several are separated by commas — `depends=REQ-014, REQ-016`. What it changes:
+
+- **`csda plan` orders the queue** so a requirement never comes before the work
+  it needs, and marks one whose dependency is still pending as `⛔ blocked`.
+  Blocked work stops appearing under "next steps", because recommending it was
+  never useful.
+- **`csda validate` fails** on a cycle (`requirement_cycle`), on a dependency
+  that names no requirement in the project (`unknown_dependency`), and on a
+  requirement that depends on itself (`self_dependency`). Each says which ids
+  are involved and what to delete.
+
+Declaring nothing means no dependencies, so a project that never writes a
+`depends=` behaves exactly as it did before.
+
 ### 4. Validate
 
 ```bash
