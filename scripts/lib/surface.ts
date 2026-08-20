@@ -446,6 +446,16 @@ export const SURFACE: Command[] = [
           summary: "Scaffold harness.config.yaml and the prompt prefix.",
         },
       },
+      {
+        name: "report",
+        script: ["harness", "report.js"],
+        help: {
+          group: "harness",
+          icon: "📈",
+          summary: "What the harness has cost: first-attempt rate, time per delivered requirement.",
+        },
+        json: { key: "report", gate: false },
+      },
     ],
   },
 

@@ -254,6 +254,16 @@ export function substituteGateCommand(template, req) {
     .join(featureFile);
 }
 
+/** What one attempt cost, and the step it stopped at. */
+export interface AttemptRecord {
+  attempt: number;
+  endedAt: "pass" | "agent-timeout" | "agent-error" | "gate" | "done" | "commit";
+  /** Wall-clock inside the agent command alone. */
+  agentMs: number;
+  /** Wall-clock for the whole attempt: prompt, agent, gate, done, commit. */
+  totalMs: number;
+}
+
 /**
  * Warn when a gate that asked to be filtered plainly was not.
  *
@@ -329,9 +339,27 @@ function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
 function attemptRequirement(req, ctx) {
   const { worktreeDir, settings, timeoutMs, hint } = ctx;
   let previousFailure = "";
+  /**
+   * What each attempt cost and where it ended.
+   *
+   * Wall-clock, because it is the one cost the harness can measure without the
+   * agent's cooperation: an agent is any shell command, and only the agent
+   * knows what it spent in tokens. `csda harness report` is built on this.
+   */
+  const attemptLog: AttemptRecord[] = [];
 
   for (let attempt = 1; attempt <= settings.maxAttempts; attempt += 1) {
     info(`${req.requirement}: attempt ${attempt}/${settings.maxAttempts}`);
+    const attemptStart = Date.now();
+    let agentMs = 0;
+    const record = (stage: AttemptRecord["endedAt"]) => {
+      attemptLog.push({
+        attempt,
+        endedAt: stage,
+        agentMs,
+        totalMs: Date.now() - attemptStart,
+      });
+    };
 
     const prompt = buildPrompt(req, worktreeDir, {
       promptPrefix: settings.promptPrefix,
@@ -370,6 +398,7 @@ function attemptRequirement(req, ctx) {
 
     try {
       const command = substituteAgentCommand(settings.agent, promptFile);
+      const agentStart = Date.now();
       const agent = spawnSync(command, {
         shell: true,
         cwd: worktreeDir,
@@ -380,15 +409,18 @@ function attemptRequirement(req, ctx) {
       });
       // Node reports a timeout as an errno-carrying Error; the base `Error`
       // type the spawnSync signature declares does not have `code`.
+      agentMs = Date.now() - agentStart;
       const agentError = agent.error as NodeJS.ErrnoException | undefined;
       if (agentError?.code === "ETIMEDOUT") {
         previousFailure = `Agent timed out after ${ctx.timeoutSeconds}s.`;
         warn(`${req.requirement}: agent timed out`);
+        record("agent-timeout");
         continue;
       }
       if (agent.status !== 0) {
         previousFailure = `Agent exited ${agent.status}.\n${agent.stdout || ""}${agent.stderr || ""}`;
         warn(`${req.requirement}: agent exited ${agent.status}`);
+        record("agent-error");
         continue;
       }
     } finally {
@@ -401,6 +433,7 @@ function attemptRequirement(req, ctx) {
         `Gate failed at: ${gate.stage}\n\n` + (gate.hint ? `⚠ ${gate.hint}\n\n` : "") + gate.output;
       warn(`${req.requirement}: gate failed at ${gate.stage}`);
       if (gate.hint) warn(gate.hint);
+      record("gate");
       continue;
     }
 
@@ -413,6 +446,7 @@ function attemptRequirement(req, ctx) {
     if (done.status !== 0) {
       previousFailure = `done ${req.requirement} failed:\n${done.stdout}${done.stderr}`;
       warn(`${req.requirement}: done failed`);
+      record("done");
       continue;
     }
 
@@ -425,10 +459,12 @@ function attemptRequirement(req, ctx) {
     if (commit.status !== 0) {
       previousFailure = `git commit failed:\n${commit.stderr || commit.stdout}`;
       warn(`${req.requirement}: commit failed`);
+      record("commit");
       continue;
     }
 
-    return { result: "pass", attempts: attempt };
+    record("pass");
+    return { result: "pass", attempts: attempt, attemptLog };
   }
 
   // Every attempt is spent. Commit what the agent produced anyway, on the
@@ -450,7 +486,58 @@ function attemptRequirement(req, ctx) {
     attempts: settings.maxAttempts,
     error: previousFailure,
     workPreserved: preserved,
+    attemptLog,
   };
+}
+
+/** Where a run's record lands. Local to the machine — see `writeRunRecord`. */
+export const RUNS_DIR = path.join(".harness", "runs");
+
+/** One run, as it will be read back by `csda harness report`. */
+export interface RunRecord {
+  schemaVersion: number;
+  startedAt: string;
+  finishedAt: string;
+  baseRef: string;
+  concurrency: number;
+  maxAttempts: number;
+  results: unknown[];
+}
+
+/**
+ * Write what a run did, so the next question about it has an answer.
+ *
+ * The harness printed a report and forgot it. That is fine for one run and
+ * useless for the question that decides whether agent roles are worth paying
+ * for (E2-01): **what does a delivered requirement cost, and how often does the
+ * first attempt work?** Neither is answerable from memory, and both are
+ * answerable from a directory of these.
+ *
+ * The agent command is deliberately *not* recorded: it is a shell command a
+ * user composed, and it is exactly the kind of string that ends up carrying an
+ * API key.
+ *
+ * The directory ignores itself. Two reasons, and the first is not optional:
+ * the harness refuses to start on a dirty tree, so a ledger git could see
+ * would mean the first run makes the second one refuse — H2 of the closure
+ * plan, where the harness blocked itself by writing into the project. The
+ * second is that a file rewritten by every run is a merge conflict waiting to
+ * happen; these numbers are local measurements, not shared history.
+ *
+ * Best-effort — a run that produced branches must not fail over bookkeeping.
+ */
+function writeRunRecord(projectDir: string, record: RunRecord): string | null {
+  try {
+    const dir = path.join(projectDir, RUNS_DIR);
+    fs.mkdirSync(dir, { recursive: true });
+    const ignore = path.join(dir, ".gitignore");
+    if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, "*\n", "utf8");
+    const file = path.join(dir, `${record.startedAt.replace(/[:.]/g, "-")}.json`);
+    fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`, "utf8");
+    return file;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -649,6 +736,7 @@ function processRequirement(req, ctx) {
   }
 
   warnIfBaseIsStale(projectDir, req.requirement, baseRef);
+  const startedAt = Date.now();
 
   const add = git(projectDir, ["worktree", "add", "-b", branch, worktreeDir, baseRef]);
   if (add.status !== 0) {
@@ -668,6 +756,8 @@ function processRequirement(req, ctx) {
       requirement: req.requirement,
       category: req.category,
       branch,
+      base: baseRef,
+      durationMs: Date.now() - startedAt,
       ...outcome,
     };
     if (outcome.result === "pass") {
@@ -1183,13 +1273,27 @@ async function main() {
       force: args.force,
     };
 
+    const startedAt = new Date().toISOString();
     const results = await runLevels(pending, ctx, {
       concurrency: settings.concurrency,
       hintByReq,
       runOne: dispatchLevel,
     });
 
+    const recordPath = writeRunRecord(projectDir, {
+      schemaVersion: 1,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      baseRef,
+      concurrency: settings.concurrency,
+      maxAttempts: settings.maxAttempts,
+      results,
+    });
+
     printReport(results, args.format);
+    if (recordPath && args.format !== "json") {
+      info(`Run recorded in ${path.relative(projectDir, recordPath)} — \`csda harness report\``);
+    }
 
     // A blocked requirement was never attempted, so it is not a pass — but it
     // is also not evidence that anything is broken beyond the failure that

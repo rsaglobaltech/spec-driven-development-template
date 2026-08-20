@@ -522,6 +522,40 @@ en versión más nueva— y se puede soltar con `git stash drop`.
 
 ---
 
+### Lo que salió al hacer E1-04 *(2026-08-20)*
+
+**E0-01 se pagó solo, y aquí está la factura.** Añadir `harness report` fue
+**una fila** en `scripts/lib/surface.ts`: apareció sin tocar nada más en
+`--help --all`, en la completion de shell, en el contrato de agente y en el
+despachador. Era exactamente lo que E0-01 prometía y no se había puesto a
+prueba hasta ahora.
+
+**Y volví a meter H2, el defecto que el harness ya tuvo.** El registro se
+escribe en el proyecto; el harness se niega a arrancar con el árbol sucio; así
+que la primera ejecución hacía que la segunda se negara. Lo cacé ejecutando dos
+veces seguidas, no leyendo.
+
+El primer arreglo fue malo y conviene anotarlo: eximí `.harness/` del chequeo de
+árbol limpio. Pasaba, pero **debilitaba el guarda** — y la suite lo dijo, porque
+`tests/cli.test.ts` afirma *«the harness must leave the project tree clean»*.
+Ese test es el guarda de H2 y tenía razón.
+
+La solución correcta no toca ningún guarda: **el directorio se ignora a sí
+mismo** (`.harness/runs/.gitignore` con `*`). El árbol queda limpio de verdad —
+verificado con tres ejecuciones seguidas y `git status` vacío—, y los dos
+parches anteriores se revirtieron.
+
+**Qué se mide y qué no.** Reloj de pared, no tokens: un agente es un comando de
+shell cualquiera y solo él sabe lo que gastó; registrar un número que el harness
+no puede observar sería peor que no registrar ninguno. El comando del agente
+**no** se guarda: es justo la clase de cadena que acaba llevando una API key.
+
+`coste por requisito entregado` divide **todo** el tiempo —incluidos los
+intentos fallidos— entre los requisitos que de verdad aterrizaron. Es lo que
+cuesta entregar, no lo que cuesta acertar.
+
+---
+
 ### Lo que salió al hacer E1-03 *(2026-08-20)*
 
 Un requisito se corta ahora de **la rama de su dependencia**, no del HEAD de la
@@ -751,7 +785,7 @@ líneas y deja de ser un sitio donde se declara la superficie.
 | `E1-01` | `[x]` | Dependencias en el comentario `csda:trace`; `scripts/lib/requirement-graph.ts`; `plan` ordena y marca `blocked`; `validate` falla ciclos, dependencias inexistentes y autorreferencias — **cierra H12** | 1 |
 | `E1-02` | `[x]` | `harness run --concurrency N` por niveles del DAG; descendientes de un fallo marcados `blocked` con 0 intentos, no fallados; ciclos reportados sin colgarse | 1 |
 | `E1-03` | `[x]` | Base de worktree derivada del grafo (incluida integración de varias dependencias) + aviso de base obsoleta — **cierra H9** | 1 |
-| `E1-04` | `[ ]` | Registro de ejecución `.harness/runs/<ts>.json` y `csda harness report` (coste por requisito, acierto al primer intento) | 1 |
+| `E1-04` | `[x]` | Registro `.harness/runs/<ts>.json` (autoignorado) y `csda harness report`: acierto al primer intento y coste por requisito entregado | 1 |
 | `E1-05` | `[ ]` | Plugin de Claude Code: comandos + MCP + **hooks** de `validate` durante la sesión | 3 |
 | `E1-06` | `[ ]` | Proveedor `github` (issues) sobre el puerto de `E0-02` | 2 |
 | `E1-07` | `[ ]` | Antigravity: verificar formato de extensión y decidir entre los tres desenlaces de §4.4 | 3 |

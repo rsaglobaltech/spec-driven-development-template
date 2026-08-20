@@ -73,6 +73,7 @@ not run reports an `error` about itself.
 | `csda change instructions <artifact> --json` | `instructions` | no |
 | `csda specops diff --json` | `changes` | no |
 | `csda harness run --format json` | `results` | no |
+| `csda harness report --json` | `report` | no |
 
 The document key is what the payload carries on success and what is set to
 `null` on failure. Every document also carries `status`: an array of
