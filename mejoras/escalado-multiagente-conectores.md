@@ -426,8 +426,253 @@ puedan citar en los commits.
 | ID | | Tarea | Idea |
 |---|---|---|---|
 | `E0-01` | `[x]` | Registro único de superficie: despachador, ambos perfiles de ayuda, completion, contrato de agente y herramientas MCP leen una sola declaración — `06be948`, `21a435a`, `1d35caf` | 3 |
-| `E0-02` | `[ ]` | Extraer `AlmProvider` como puerto documentado, con `capabilities()` y kit de conformidad contra respuestas grabadas. Jira y Azure pasan a ser sus dos primeras implementaciones | 2 |
-| `E0-03` | `[ ]` | ADR: "el ALM es un espejo; toda entrada externa pasa por el ciclo de `change`" | 2 |
+| `E0-02` | `[x]` | `AlmProvider` extraído como puerto documentado, con capacidades declaradas, kit de conformidad sobre respuestas grabadas y `docs/alm.md`. Jira y Azure son sus dos primeras implementaciones | 2 |
+| `E0-03` | `[x]` | [ADR-0021](../docs/specs/adr/0021-alm-is-a-mirror.md) — el ALM es un espejo; el estado fluye matriz → tablero y nunca al revés; la entrada externa llega como `change`. Dos guardas ejecutables, no una declaración | 2 |
+
+### Migración TypeScript de `scripts/` — completa *(2026-08-20)*
+
+Decisión del usuario, aplicada solo a los ficheros escritos en esta sesión:
+ESM, interfaces, cero `any`, clases donde el dominio ya es una.
+
+| Fichero | Qué pasó a ser |
+|---|---|
+| `scripts/alm/port.ts` | Interfaces del contrato: `AlmClient`, `AlmProvider`, `AlmCapabilities`, `IssueRef`, `IssueStatus`, `FetchLike` |
+| `scripts/alm/providers/http-client.ts` | `abstract class HttpAlmClient` — credencial, URL base y `request/requestJson` compartidos |
+| `scripts/alm/providers/{jira,azure}.ts` | `class JiraClient extends HttpAlmClient` con `private readonly` + su descriptor `AlmProvider` |
+| `scripts/lib/requirement-graph.ts` | `class RequirementGraph` con `fromProject` / `fromDependencies`, y `transitiveDependents` traído aquí desde `harness/run.ts`, que es donde no debía estar |
+
+**Cero `any` y cero CJS en los siete ficheros**, con una excepción explicada en
+el código: `change/parser.ts` es `module.exports =` y un `import` con nombre
+contra un módulo de export-assignment no compila (TS2459), así que se cruza con
+`require()` — que es literalmente lo que `AI_RULES.md` prescribe.
+
+**No hizo falta tocar `AI_RULES.md`.** La regla dice *«match the file you are
+editing»* y reconoce que *«the newer files use ESM syntax»*: estos son ficheros
+nuevos, así que el refactor va con la regla, no contra ella. Convertir los
+ficheros ajenos sí requeriría cambiarla, y es otra decisión.
+
+**Lo que hizo el refactor seguro:** los 39 tests de ALM y los 31 del grafo y el
+scheduler existían **antes**, así que el kit de conformidad es quien prueba que
+reescribir dos conectores como clases no cambió una sola respuesta HTTP.
+Refactorizar sin esa red habría sido adivinar.
+
+**Ampliado a todo `scripts/` por decisión del usuario**, tras verificar el
+piloto. 71 ficheros, 19.688 líneas.
+
+| | Antes | Después |
+|---|---|---|
+| Ficheros con `module.exports` | 51 | **0** |
+| Ficheros con `require()` | 60 | **2** |
+| Ocurrencias de `any` | 57 | **0** |
+| Interfaces/types exportados | — | **54** |
+
+Los dos `require()` que quedan son irreductibles y están comentados: un
+especificador de `import` debe ser estático, y `ci_init.ts` y
+`expand_domain_pack.ts` leen `package.json` por una ruta que se calcula en
+tiempo de ejecución (difiere entre `scripts/` y `dist/scripts/`).
+
+**Cómo se hizo sin romper nada.** Un codemod conservador para la parte mecánica
+—`require` → `import`, `module.exports` → `export`— aplicado **en seis capas,
+de las hojas hacia arriba**, con typecheck y las 806 pruebas entre cada una. El
+orden importa: convertir un fichero a `export` no rompe a quien lo consume con
+`require()`, pero un `import` con nombre contra un módulo de export-assignment
+no compila. De abajo arriba, nunca hay un paso intermedio roto.
+
+**Lo que la migración destapó, que es el argumento para haberla hecho.** Al
+dejar de pasar por `require()` —que devuelve `any` y por tanto lo permite
+todo— aparecieron defectos latentes reales:
+
+| Defecto | Cómo se veía |
+|---|---|
+| `resolveProjectDir(explicit, opts)` declaraba `opts` obligatorio | **12 llamadas** pasan un argumento. El cuerpo hace `opts && opts.requireSentinel`: la firma era la mentira |
+| `agentIo.emit(payload, renderHuman)` igual | El cuerpo hace `else if (renderHuman)`. Dos llamadas pasaban uno |
+| `runInitWizard(io)` igual | `io` es la costura de inyección para tests; el uso interactivo no pasa nada |
+| `agent.error.code` en el harness | Node lanza un `ErrnoException`; el tipo declarado era `Error`, que no tiene `code` |
+| El AST del parser **cambia de forma a mitad de vuelo** | `text` y `body` son `string[]` mientras `parseMarkdown` acumula y `string` tras `trimBlock`. Ahora está modelado y se lee con `blockText` |
+| `UpdateResult.outcome` | Supuse `"merged"`; el tipo me corrigió: es `"updated"` |
+
+Ninguno rompía en producción hoy. Todos eran una llamada de distancia de
+hacerlo.
+
+**Piezas que pasaron a ser clases, porque el dominio ya lo era:**
+`abstract class HttpAlmClient` (credencial, URL base y `request/requestJson`
+compartidos) con `JiraClient` y `AzureClient` extendiéndola; y
+`class RequirementGraph`, que además se llevó `transitiveDependents` desde
+`harness/run.ts`, donde no debía estar. Los scripts de comando **siguen siendo
+funciones**: convertirlos a clases chocaría con «un fichero por comando, el
+despachador nunca implementa lógica».
+
+**`AI_RULES.md` sí hubo que cambiarlo esta vez.** Su sección «Module style»
+decía «match the file you are editing» y describía un árbol mixto que ya no
+existe; dejarla habría sido una regla mintiendo. Ahora dice ESM en todo
+`scripts/`, nombra los dos `require()` supervivientes, y añade una sección
+«Typing» con las dos costuras que todo atraviesa (`AgentIo`/`Diagnostic` y el
+AST de `change/parser.ts`). `strict` **sigue desactivado**: encenderlo es su
+propia decisión con su propia migración.
+
+**Verificado ejecutando, no solo compilando:** `--help --all`, `validate`,
+`status --json`, `plan --json`, `doctor --json`, `change status --json`,
+`completion zsh`, un `init` completo con `validate` sobre el proyecto generado,
+y el harness en paralelo con la cascada de bloqueo. 759 unit · 22 BDD · 89 en
+paquetes · `verify` · `selfcheck` · contrato al día.
+
+**Nota:** `git stash@{0}` conserva la conversión a medias que había en el árbol
+antes de empezar. Está enteramente superada —todo lo que contiene existe ahora
+en versión más nueva— y se puede soltar con `git stash drop`.
+
+---
+
+### Lo que salió al hacer E1-02 *(2026-08-20)*
+
+**Medido, no supuesto:** dos requisitos independientes con un agente de 3 s
+tardan 6,69 s en serie y **3,46 s con `--concurrency 2`** (193 % de CPU). Con la
+dependencia declarada, los mismos dos requisitos vuelven a ejecutarse en serie
+—correcto, porque uno espera al otro— y un fallo del predecesor deja al
+sucesor en `blocked (0 attempts)`: **el agente no se invoca para trabajo que no
+puede empezar**, que es H12 vista desde el bolsillo.
+
+**El defecto que encontró esto, y que ya estaba:** `harness run --format json`
+**violaba la regla 1 del contrato de agente**. Escribía las líneas de progreso
+en stdout junto al documento JSON, así que
+`harness run --format json 2>/dev/null | jq .` no parseaba. Y el contrato lista
+ese comando. Nadie lo había notado porque **nada lo parseaba** hasta que el pool
+de workers lo intentó. Arreglado: en modo JSON la prosa va a stderr.
+
+**Decisión de diseño, con su motivo:** a `--concurrency 1` el bucle sigue siendo
+el de siempre, en proceso y síncrono. Cada paso de un requisito —gate, agente,
+`done`, git— es un `spawnSync`, y §12.11 es una lista de once defectos que solo
+aparecieron ejecutando esto contra un agente real. Convertir todo eso a async
+para que un requisito corra «en paralelo» con nada habría puesto el único camino
+realmente ejercitado detrás de una reescritura sin probar. Por encima de 1, cada
+requisito va a un proceso trabajador que **es** `harness run --req`, no una
+versión reducida.
+
+**Una carrera evitada a tiempo:** `git worktree prune` corría por requisito.
+En serie es inofensivo; en paralelo puede borrar el registro de un worktree que
+un hermano está creando en ese momento. Ahora se poda una sola vez, en el padre,
+y los workers se saltan la poda (marca `CSDA_HARNESS_WORKER`).
+
+**Hallazgo aparte, no arreglado aquí:** sin `test_cmd` configurado, el gate es
+solo `validate --strict-tdd`, que no comprueba que los artefactos declarados
+existan. Un agente que no escribe nada pasa el gate. Es de la familia de H1 y es
+pre-existente. Merece su propia entrada.
+
+**Pendiente consciente:** `csda req add --depends-on` sigue sin existir. No es
+trivial como parecía: `req add` escribe solo la matriz y `depends=` vive en el
+spec de capacidad, que puede no existir. Media implementación sería peor que
+ninguna.
+
+---
+
+### Lo que salió al hacer E1-01 *(2026-08-20)*
+
+**Q1 se resolvió sola con un hecho, no con una preferencia.** La opción de una
+columna 11 en la matriz queda descartada porque es rotura: `RICH_HEADER` está
+hardcodeado literal en cinco ficheros, y —lo grave— `done.ts` y `alm/core.ts`
+leen el Status como **penúltima celda**. Con una columna más escribirían el
+estado en la casilla equivocada, en silencio. E1-* es 1.1, la release que debe
+probar G1; ahí no cabe una rotura de formato.
+
+Así que gana la convención que el repo ya tiene: `<!-- csda:trace ... depends=REQ-001 -->`.
+El parser acepta claves arbitrarias, así que `depends=` salió gratis, y encaja
+con el modelo que este repo aplica en todo lo demás — **el requisito declara, la
+matriz refleja** (`change archive` ya lee ese comentario para escribir la fila).
+
+Lo que cambia de verdad para quien lo usa:
+
+- `plan` ordena la cola topológicamente y marca `⛔ blocked by REQ-NNN`.
+- **Trabajo bloqueado deja de aparecer en `nextSteps`.** Antes `plan`
+  recomendaba alegremente un requisito cuyo predecesor no estaba escrito, que es
+  H12 vista desde el lado del usuario.
+- `validate` falla con tres códigos nuevos, cada uno con `fix`:
+  `requirement_cycle` (nombra el ciclo entero, `REQ-001 → REQ-002 → REQ-001`),
+  `unknown_dependency` y `self_dependency`.
+
+**Un defecto que casi se cuela:** escribí los diagnósticos con un alias local
+`diagError(...)`, y el cosechador del contrato de agente busca `error(`. Los
+tres códigos nuevos **no habrían entrado en el catálogo publicado** — presentes
+en el código, ausentes del contrato. Se vio al comprobar `harvestCodes()` a
+mano, no por un test. Vale la pena que `E1-04` o quien pase por ahí añada un
+guarda: todo código emitido por `validate` debe aparecer en el contrato.
+
+**La promesa de compatibilidad tiene su propio test:** un proyecto que no
+declara nada recibe exactamente lo que recibía antes, en el mismo orden, con dos
+arrays vacíos de más.
+
+Pendiente y consciente: `csda req add --depends-on` todavía no existe, así que
+hoy el `depends=` se escribe a mano en el spec de capacidad. Va con `E1-02`,
+que es quien de verdad consume el grafo.
+
+---
+
+### Lo que salió al hacer E0-03 *(2026-08-20)* — **fase 0 cerrada**
+
+El invariante que el ADR fija **ya era cierto en el código**: la única escritura
+en `scripts/alm/` va a `.specops/alm-map.json`; `spec.md` y
+`docs/specs/traceability.md` solo se leen. Escribir el ADR no cambió una línea
+de comportamiento. Lo que cambió es que ahora hay algo que lo rompe si alguien
+lo deshace.
+
+Y esa es la parte que importa, porque con el puerto de E0-02 **añadir un
+proveedor es una fila**: la regla que gobierna a Jira gobernará a YouTrack,
+Linear y GitHub Issues. Escribirla antes del quinto proveedor es barato;
+redescubrirla en cada uno, no.
+
+Dos guardas, ambos mutados:
+
+| Guarda | Mutación que lo prueba |
+|---|---|
+| Nada bajo `scripts/alm/` escribe en el árbol de specs | Meter un `writeFileSync` a `traceability.md` en el proveedor de Jira → falla |
+| El estado no fluye del tablero al requisito | Hacer que `sync` marque `done` un requisito porque su issue está cerrado → falla |
+
+**El coste, dicho sin rodeos** (está en el ADR y conviene que esté también
+aquí): esta herramienta no permitirá nunca dirigir la entrega solo desde Jira.
+Alguien tiene que escribir el criterio de aceptación. Un equipo que busque un
+robot de tablero a código no es el comprador.
+
+---
+
+### Lo que salió al hacer E0-02 *(2026-08-20)*
+
+Tres defectos, una sola causa: **nada declaraba qué claves de configuración lee
+cada proveedor**, así que `readAlmConfig` validaba el mínimo común y el resto
+pasaba sin que nadie lo mirara.
+
+| # | Defecto | Cómo fallaba |
+|---|---|---|
+| A1 | Config de jira **sin `user_env`** pasa la validación | Revienta luego con `Environment variable JIRA_USER is not set` — una variable que el fichero nunca nombró |
+| A2 | `alm.config.yaml` acepta **cualquier clave**, incluida `nonsense_key: 42` | Silencio. `harness.config.yaml` hace lo contrario en este mismo repo, y explica por qué: una clave que nadie lee es peor que una que falta, porque el fichero *parece* configurado |
+| A3 | **`done_state` en jira no hace nada** | Solo lo lee azure. Jira descubre la transición del workflow, así que configurar un estado destino es letra muerta |
+
+Ahora cada proveedor declara `config.required` / `config.optional`, y
+`lintAlmConfig` avisa —con un `fix` y diciendo **qué proveedor sí habría leído
+la clave**— antes de la primera petición de red.
+
+**Dos decisiones deliberadas, para que no se relean como descuidos:**
+
+1. **Avisos, no errores.** Rechazar de golpe rompería un pipeline que hoy
+   funciona por una línea de más. E0-02 se declaró seguro pre-1.0 por ser
+   refactor; endurecerlo a error es material de un major.
+2. **`linkBack` queda fuera.** §3.2 lo dibuja en el puerto, pero escribir en el
+   ALM es comportamiento nuevo, no extracción. Va con el proveedor `github` en
+   `E1-06`. Y `capabilities` es un objeto declarado, no un método: una función
+   que devuelve una constante es una constante.
+
+**El kit de conformidad es lo que hace verdad "añadir un proveedor es una
+fila".** Once comprobaciones por proveedor sobre respuestas grabadas en
+`tests/fixtures/alm/<id>.json`, incluidas las que nadie escribe hasta que
+duelen: barra final en `base_url` que no se duplique, respuesta fallida que se
+propague, credencial ausente que nombre su variable. Mutado: un proveedor que
+declara una capacidad que no tiene rompe 2 tests; uno registrado sin fixture
+rompe 5.
+
+**Un roce que conviene recordar:** documentar el puerto empujó
+`docs/automation.md` por encima del gate de 300 líneas. El gate no se toca —la
+sección se movió a `docs/alm.md`, que además es donde debía estar, porque el
+formato de `alm.config.yaml` no estaba escrito en ninguna parte salvo dentro de
+un mensaje de error.
+
+---
 
 ### Lo que salió al hacer E0-01 *(2026-08-20)*
 
@@ -471,13 +716,13 @@ líneas y deja de ser un sitio donde se declara la superficie.
 
 | ID | Tarea | Idea |
 |---|---|---|
-| `E1-01` | Dependencias entre requisitos: modelo, validación de ciclos con `fix`, y orden topológico en `plan` — **cierra H12** | 1 |
-| `E1-02` | `harness run --concurrency N` por niveles del DAG; descendientes de un fallo marcados `blocked`, no fallados | 1 |
-| `E1-03` | Base de worktree derivada del grafo + aviso cuando va por detrás de `main` — **cierra H9** | 1 |
-| `E1-04` | Registro de ejecución `.harness/runs/<ts>.json` y `csda harness report` (coste por requisito, acierto al primer intento) | 1 |
-| `E1-05` | Plugin de Claude Code: comandos + MCP + **hooks** de `validate` durante la sesión | 3 |
-| `E1-06` | Proveedor `github` (issues) sobre el puerto de `E0-02` | 2 |
-| `E1-07` | Antigravity: verificar formato de extensión y decidir entre los tres desenlaces de §4.4 | 3 |
+| `E1-01` | `[x]` | Dependencias en el comentario `csda:trace`; `scripts/lib/requirement-graph.ts`; `plan` ordena y marca `blocked`; `validate` falla ciclos, dependencias inexistentes y autorreferencias — **cierra H12** | 1 |
+| `E1-02` | `[x]` | `harness run --concurrency N` por niveles del DAG; descendientes de un fallo marcados `blocked` con 0 intentos, no fallados; ciclos reportados sin colgarse | 1 |
+| `E1-03` | `[ ]` | Base de worktree derivada del grafo + aviso cuando va por detrás de `main` — **cierra H9** | 1 |
+| `E1-04` | `[ ]` | Registro de ejecución `.harness/runs/<ts>.json` y `csda harness report` (coste por requisito, acierto al primer intento) | 1 |
+| `E1-05` | `[ ]` | Plugin de Claude Code: comandos + MCP + **hooks** de `validate` durante la sesión | 3 |
+| `E1-06` | `[ ]` | Proveedor `github` (issues) sobre el puerto de `E0-02` | 2 |
+| `E1-07` | `[ ]` | Antigravity: verificar formato de extensión y decidir entre los tres desenlaces de §4.4 | 3 |
 
 ### v2
 

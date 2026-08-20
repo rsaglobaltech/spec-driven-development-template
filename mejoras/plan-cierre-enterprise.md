@@ -1193,6 +1193,7 @@ habría llegado al 1.0.
 | H8 | **Un worktree nuevo no tiene `node_modules`** — solo lleva lo que git rastrea | No es cambio de código: la plantilla generada ahora lo dice y pone `npm ci &&` delante del gate |
 | H10 | **Nada avisaba de un gate mal configurado.** Si el filtro no filtra, el gate corre la suite entera y rechaza trabajo correcto | El harness no puede saber cuántos tests *debería* haber, pero sí nota un comando que pidió **un** feature contra una salida que habla de muchos. Avisa, no dictamina — un fallo legítimo no debe convertirse en «será config» |
 | H11 | **El agente no podía escribir** en modo no interactivo, y no había dónde enterarse | Un agente con `-p` no puede pedir permiso: sin `--allowedTools` lee el prompt, no puede escribir, y el intento se pierde. Documentado en `docs/automation.md` con alcance (`Bash(npm:*)`) en vez de saltarse permisos |
+| H12 | **Requisitos dependientes no se expresan.** REQ-002 se apoya en REQ-001 y había que saberlo y pasar `--base-branch` a mano. Cerrado el 2026-08-20 por `E1-01`: el requisito declara `depends=REQ-NNN` en su comentario `csda:trace`, `plan` ordena la cola topológicamente y marca lo bloqueado, y `validate` falla ciclos, dependencias inexistentes y autorreferencias | Sin esto, `harness run` sin `--req` procesaba en orden de matriz y fallaba en cascada. Ver `mejoras/escalado-multiagente-conectores.md` |
 
 ### Los arreglos se probaron solos, en producción
 
@@ -1221,9 +1222,11 @@ se reprodujo después— pero es una forma sucia de medir y no debería repetirs
 
 | # | Problema | Nota |
 |---|---|---|
+| H18 | **`harness run --format json` violaba la regla 1 del contrato** — prosa y documento JSON en el mismo stdout, así que `\| jq .` no parseaba. Arreglado el 2026-08-20 en `E1-02` (la prosa va a stderr en modo JSON) | Estaba desde siempre y nadie lo vio porque **nada parseaba esa salida** hasta que el pool de workers lo intentó. Lección: un comando listado en el contrato y que ningún consumidor parsea no está verificado. Falta un test que parsee la salida de cada comando del contrato |
+| H19 | **Sin `test_cmd`, el gate no comprueba que los artefactos existan.** Un agente que no escribe nada pasa `validate --strict-tdd` y el requisito se marca Implemented | Encontrado el 2026-08-20 probando `E1-02` con un agente vacío. Es de la familia de H1: el gate no verifica lo que dice verificar. Pre-existente, sin arreglar |
 | H13 | **El JSON Schema no lo aplica nadie.** ADR-0020 lo declaró «única autoridad», pero el CLI no valida contra él: es una pista `$schema` para el editor y un test contra un fixture. Los once packs curados **fallarían** el esquema — sus `aggregates` usan `bounded_context`/`responsibilities` donde el esquema exige `context`/`invariants`, y `additionalProperties: false` prohíbe los extras. Lo que sí se comprueba es `validatePackModel` + las once reglas de `pack lint`, que son reales y sustanciales | Descubierto al documentar el modelo DDD para el artículo. Dos salidas: aplicar el esquema de verdad (y migrar los packs), o rebajar ADR-0020 y dejar el esquema como ayuda de edición. **La actual es la peor: afirma autoridad que no ejerce** |
 | H9 | **`--base-branch` hereda la configuración de la base, no la de `main`.** Un arreglo en `main` no aplica a una ejecución apilada | Es correcto —así funciona git— pero se paga caro: el fallo falso de REQ-002 fue exactamente esto. El harness podría avisar cuando la base va por detrás de `main` |
-| H12 | **Requisitos dependientes no se expresan.** REQ-002 se apoya en REQ-001 y hay que saberlo y pasar `--base-branch` a mano | El pack declara `requirement_id` por escenario pero no dependencias entre requisitos. Sin esto, `harness run` sin `--req` procesa en orden de matriz y falla en cascada |
+
 
 ---
 
