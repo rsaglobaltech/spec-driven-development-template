@@ -15,6 +15,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 import { renderTemplate } from "../../packages/core/src/domain/PackSpec";
 import { resolveProjectDir } from "../lib/project-root";
 import { agentIo, wantsJson } from "../lib/agent";
@@ -217,11 +218,28 @@ export class InitCommand extends BaseCommand {
       written.push(out.dest);
     }
 
+    // Registered here because this is where a project is set up to run the
+    // harness, and the driver only matters once branches come back in parallel.
+    const driverProblem = installMergeDriver(projectDir);
+
     const status = [
       info("harness_agent_unset", "No agent is configured, deliberately.", {
         fix: 'Pass it explicitly: csda harness run --req REQ-001 --agent "<cmd> < {prompt_file}"',
       }),
     ];
+    if (driverProblem) status.push(driverProblem);
+    else
+      status.push(
+        info(
+          "merge_driver_registered",
+          "docs/specs/traceability.md now merges row by row, so parallel harness branches do not collide.",
+          {
+            target: ".gitattributes",
+            fix: "Commit .gitattributes. Every other clone and CI runs `csda harness init` once to register the driver in its own git config.",
+          }
+        )
+      );
+
     if (!testCmd) {
       status.push(
         warning(
@@ -256,6 +274,95 @@ export class InitCommand extends BaseCommand {
       }
     );
   }
+}
+
+// ── the traceability merge driver ────────────────────────────────────────────
+
+/** What `.gitattributes` must say for git to route the matrix to our driver. */
+export const MERGE_DRIVER_NAME = "csda-matrix";
+export const GITATTRIBUTES_LINE = `docs/specs/traceability.md merge=${MERGE_DRIVER_NAME}`;
+
+/**
+ * Register the row-wise merge driver for `docs/specs/traceability.md`.
+ *
+ * Parallel harness runs produce one branch per requirement, each flipping its
+ * own row. Git merges by lines and needs an unchanged line between two changed
+ * regions, so two edits one row apart collide even though they are independent
+ * — measured: rows 1 and 2 conflict, rows 1 and 5 do not. The driver merges by
+ * row instead. See `packages/core/src/domain/TraceabilityMerge.ts`.
+ *
+ * This takes two halves, and only the first is committed:
+ *
+ *   - `.gitattributes` routes the file. It is part of the repository, so every
+ *     clone gets it.
+ *   - `merge.csda-matrix.driver` is **local git config**, which nothing can
+ *     commit. Each clone and each CI job registers it, and that is why
+ *     `csda doctor` checks for the gap.
+ *
+ * Without the config git falls back to its built-in merge — the conflict a
+ * project has today. That fallback is deliberate: an unregistered checkout is
+ * never silently wrong, only unhelped, so this can be adopted one clone at a
+ * time.
+ *
+ * @returns a diagnostic when the driver could not be registered, else null
+ */
+export function installMergeDriver(projectDir: string) {
+  const attributesPath = path.join(projectDir, ".gitattributes");
+  const existing = fs.existsSync(attributesPath) ? fs.readFileSync(attributesPath, "utf8") : "";
+
+  if (!existing.includes(GITATTRIBUTES_LINE)) {
+    const separator = existing === "" || existing.endsWith("\n") ? "" : "\n";
+    fs.appendFileSync(
+      attributesPath,
+      `${separator}# Merge the traceability matrix row by row, so parallel harness\n` +
+        `# branches do not collide on adjacent rows. Needs the driver registered:\n` +
+        `#   csda harness init --project-dir .\n` +
+        `${GITATTRIBUTES_LINE}\n`,
+      "utf8"
+    );
+  }
+
+  // The driver runs from the installed CLI, so the path is resolved here rather
+  // than assumed: a project does not have csda in its own tree.
+  const driverScript = path.join(__dirname, "..", "merge-traceability.js");
+  const configured = spawnSync(
+    "git",
+    [
+      "-C",
+      projectDir,
+      "config",
+      `merge.${MERGE_DRIVER_NAME}.driver`,
+      `node ${JSON.stringify(driverScript)} %O %A %B`,
+    ],
+    { encoding: "utf8" }
+  );
+  spawnSync(
+    "git",
+    [
+      "-C",
+      projectDir,
+      "config",
+      `merge.${MERGE_DRIVER_NAME}.name`,
+      "csda traceability matrix merge",
+    ],
+    { encoding: "utf8" }
+  );
+
+  if (configured.status !== 0) {
+    return warning(
+      "merge_driver_not_registered",
+      "Could not register the traceability merge driver in git config.",
+      {
+        target: ".gitattributes",
+        fix:
+          `Run it by hand inside the project:\n` +
+          `  git config merge.${MERGE_DRIVER_NAME}.driver 'node ${driverScript} %O %A %B'\n` +
+          "Until then git uses its built-in merge, which conflicts when two " +
+          "harness branches touch adjacent rows.",
+      }
+    );
+  }
+  return null;
 }
 
 if (require.main === module) new InitCommand(process.argv.slice(2)).execute();

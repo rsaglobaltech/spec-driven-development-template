@@ -46,6 +46,53 @@ An explicit `agent:` wins over a profile, and an unknown key in
 `harness.config.yaml` is an error rather than a shrug — a key nobody reads is
 worse than a missing one, because the file looks configured.
 
+## Parallel branches and the traceability matrix
+
+Every harness branch flips its own row in `docs/specs/traceability.md`. Git
+merges by lines and needs an unchanged line between two changed regions to treat
+them as independent — and matrix rows are consecutive lines. So two branches
+that touched **different** requirements still collide, purely because their rows
+are neighbours. Measured on a three-requirement project: rows 1 and 2 conflict,
+rows 1 and 5 merge clean.
+
+`csda harness init` sets up a merge driver that merges the matrix by row instead
+of by line:
+
+```bash
+csda harness init --project-dir .   # writes .gitattributes, registers the driver
+git add .gitattributes && git commit -m "merge the matrix by row"
+```
+
+It resolves the case it exists for — two branches, two different rows — and it
+still **conflicts** when two branches set the *same* row to different values,
+because quietly discarding somebody's decision is worse than asking.
+
+**Every clone registers it once.** `.gitattributes` is committed, but
+`merge.csda-matrix.driver` is local git config that nothing can commit, so a
+fresh checkout and every CI job needs `csda harness init` too. Until then git
+falls back to its built-in merge — the conflict the project had before, never a
+silently wrong result — and `csda doctor` reports the gap rather than leaving it
+to be found mid-merge.
+
+### Resolving one by hand
+
+When two branches really did change the same row, the file gets git's usual
+markers around that one row:
+
+```
+<<<<<<< ours
+| REQ-002 | SCN-002 | … | Implemented |
+=======
+| REQ-002 | SCN-002 | … | Verified |
+>>>>>>> theirs
+```
+
+Keep exactly one of the two lines and delete the three marker lines. **Never
+keep both:** a duplicated requirement is the one corruption this file must not
+have — it is also what a naive `merge=union` produces, which is why that is not
+what csda configures. Then run `csda validate .`, which checks the statuses are
+legal and that no scenario id repeats.
+
 ## Change agent between attempts
 
 Three attempts with the same agent, the same model and only a different prompt

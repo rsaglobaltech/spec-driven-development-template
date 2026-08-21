@@ -28,6 +28,7 @@ export * from "./domain/SpecDiff";
 export * from "./domain/SpecParser";
 export * from "./domain/SpecopsManifest";
 export * from "./domain/TraceabilityFormat";
+export * from "./domain/TraceabilityMerge";
 export * from "./domain/TraceabilityMatrix";
 export * from "./domain/ValidationReport";
 export * from "./domain/YamlLite";

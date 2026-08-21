@@ -6,6 +6,7 @@ import { diagnostic } from "../../../lib/diagnostics";
 import { findUnresolvedPlaceholders } from "../../../lib/placeholders";
 import { agentIo, wantsJson, EXIT } from "../../../lib/agent";
 import { BaseCommand } from "../../../lib/command";
+import { MERGE_DRIVER_NAME } from "../../../harness/init";
 import {
   listChangeIds,
   listArchivedIds,
@@ -342,6 +343,37 @@ export class DoctorCommand extends BaseCommand {
     }
   }
 
+  /**
+   * `.gitattributes` is committed; the merge driver it names is not.
+   *
+   * `merge.csda-matrix.driver` lives in each clone's git config, so a project
+   * that set it up still merges by lines on every other machine and in CI —
+   * and the symptom is a conflict in `traceability.md` during a merge, which is
+   * a long way from the cause. Warn, never fail: without the driver git falls
+   * back to its built-in merge, which is what the project had before. Unhelped
+   * is not broken.
+   */
+  private checkMergeDriver(dir: string) {
+    const attributes = path.join(dir, ".gitattributes");
+    if (!fs.existsSync(attributes)) return;
+    if (!fs.readFileSync(attributes, "utf8").includes(`merge=${MERGE_DRIVER_NAME}`)) return;
+
+    const configured = spawnSync(
+      "git",
+      ["-C", dir, "config", "--get", `merge.${MERGE_DRIVER_NAME}.driver`],
+      { encoding: "utf8" }
+    );
+    if (configured.status === 0 && String(configured.stdout).trim()) {
+      this.ok("merge driver", "traceability.md merges row by row");
+      return;
+    }
+    this.warn(
+      "merge driver",
+      ".gitattributes routes traceability.md to the csda merge driver, but this clone has not registered it",
+      "Run `csda harness init --project-dir .` here. Until then git merges the matrix by lines, so two parallel harness branches collide on adjacent rows."
+    );
+  }
+
   private checkSampleRequirement(dir: string) {
     if (!fs.existsSync(path.join(dir, ".specops.lock"))) return;
     const traceRaw = this.readIfExists(path.join(dir, "docs/specs/traceability.md"));
@@ -438,6 +470,7 @@ export class DoctorCommand extends BaseCommand {
       this.checkChanges(dir);
       this.checkPlaceholders(dir);
       this.checkSpecops(dir);
+      this.checkMergeDriver(dir);
       this.checkSampleRequirement(dir);
     }
 

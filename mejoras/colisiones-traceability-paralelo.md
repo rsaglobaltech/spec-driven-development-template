@@ -16,7 +16,7 @@
 
 | Opción | Veredicto | Coste | Cambia el formato |
 |---|---|---|---|
-| **A · Driver de merge por filas** (`.gitattributes` + `merge=csda-matrix`) | **Recomendada** | Bajo | No |
+| **A · Driver de merge por filas** (`.gitattributes` + `merge=csda-matrix`) | **Hecha** *(2026-08-21)* | Bajo | No |
 | **B · No escribir el estado en la rama** (`done` después del merge) | **Complementaria** — resuelve por construcción, pero pierde una propiedad | Muy bajo | No |
 | **C · Registro append-only + `merge=union`, matriz derivada** | Correcta pero desproporcionada hoy | Alto | Sí, radical |
 | **D · Un fichero por requisito** | No | Muy alto | Sí, radical |
@@ -339,3 +339,45 @@ quita— y no ayuda a dos ramas que sí toquen filas vecinas de verdad. **No.**
 | T2 | ¿`init` registra el driver en la config de git del proyecto sin preguntar? Escribe configuración local de git, que es tocar algo que no es nuestro | Decisión de producto |
 | T3 | ¿`doctor` avisa o falla cuando el driver no está registrado? Avisar deja pasar el conflicto; fallar castiga a quien solo quiere leer el proyecto | Decisión de producto |
 | T4 | Filas **añadidas** en paralelo (`csda req add` en dos ramas): ¿qué orden tiene la matriz resultante? Hoy el prototipo anexa al final | Decisión de modelo |
+
+---
+
+## 11. Implementación de A *(2026-08-21)*
+
+Hecha. `packages/core/src/domain/TraceabilityMerge.ts` (dominio, puro),
+`scripts/merge-traceability.ts` (el proceso que git invoca), registro en
+`csda harness init` y aviso en `csda doctor`.
+
+**La decisión por fila no se reimplementó:** llama a `reconcile`, la misma de
+`specops sync`. Encajó sin forzar nada porque es literalmente la misma pregunta
+—base, nuestro, suyo— una granularidad más abajo. La única pieza propia es una
+`MergeFn` que siempre declara conflicto: una fila es un hecho único, un estado
+no se mezcla a medias.
+
+**Respuestas a las preguntas abiertas**, tomadas al implementar:
+
+| # | Decisión |
+|---|---|
+| T1 | Dominio en `packages/core`, ejecutable fino en `scripts/`. Git necesita un proceso; el proceso solo hace E/S |
+| T2 | `harness init` registra el driver. Es donde se prepara un proyecto para el harness, y el driver solo importa cuando vuelven ramas en paralelo |
+| T3 | `doctor` **avisa**, no falla. Sin el driver git usa su merge de siempre: el proyecto queda sin ayuda, no roto |
+| T4 | Las filas que solo tiene el otro lado se **anexan al final de la tabla**, no intercaladas. La matriz no tiene un orden total que el driver pueda respetar, e inventar uno reordenaría un fichero que nadie pidió reordenar |
+
+**Un fallo propio que conviene anotar, porque no se ve leyendo.** Puse las
+constantes del driver *después* del `if (require.main === module)` del final del
+fichero. Un `const` declarado más abajo está en zona muerta temporal cuando el
+despacho corre al cargar el módulo, así que `.gitattributes` salió con la línea
+literal `undefined` y el `git config` no se escribió. Lo cazó ejecutarlo, no
+`tsc`: los tipos estaban bien.
+
+**Verificado ejecutando, en tres niveles:** las diez pruebas de dominio; una
+prueba end-to-end que hace `git merge` de verdad; y el flujo completo desde el
+tarball empaquetado — `harness init`, tres ramas, tres merges limpios, los tres
+requisitos `Implemented`, y `doctor` diciendo `✅ merge driver`.
+
+**Los dos guardas están mutados.** Sin la línea en `.gitattributes`, falla. Con
+el driver apuntando a un script inexistente, falla. Las dos mitades cargan peso.
+
+**Pendiente, y consciente:** falta comprobar el driver contra `rebase` y
+`cherry-pick` —git también los usa ahí— y con cinco o más ramas a la vez. Y hay
+que mirar si `resolveGeneratedConflicts()` del harness ya sobra.

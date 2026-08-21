@@ -929,6 +929,81 @@ test("a review profile must declare itself advisory", { skip: !hasGit() }, () =>
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
 
+test(
+  "harness init registers a merge driver that merges parallel matrix edits",
+  { skip: !hasGit() },
+  () => {
+    // The domain merge is unit-tested; this asserts git actually routes the
+    // file to it. Without the .gitattributes line, or without the local config,
+    // git uses its line merge and these two branches conflict.
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-merge-drv-"));
+    const projectDir = makeHarnessProject(tempRoot, ["REQ-002"]);
+
+    const init = runCli(["harness", "init", "--project-dir", projectDir]);
+    assert.equal(init.status, 0, init.stderr);
+
+    const attributes = fs.readFileSync(path.join(projectDir, ".gitattributes"), "utf8");
+    assert.match(attributes, /docs\/specs\/traceability\.md merge=csda-matrix/);
+
+    const driver = spawnSync(
+      "git",
+      ["-C", projectDir, "config", "--get", "merge.csda-matrix.driver"],
+      { encoding: "utf8" }
+    );
+    assert.equal(driver.status, 0, "harness init should register the driver locally");
+
+    gitInTest(["add", "-A"], { cwd: projectDir });
+    gitInTest(["commit", "--quiet", "-m", "harness setup"], { cwd: projectDir });
+
+    // Two branches, each flipping its own row. These rows are adjacent lines,
+    // which is exactly what git's line merge cannot separate.
+    const flip = (id: string) => {
+      const file = path.join(projectDir, "docs", "specs", "traceability.md");
+      const updated = fs
+        .readFileSync(file, "utf8")
+        .split("\n")
+        .map((line) =>
+          line.includes(`| ${id} |`) ? line.replace(/Draft \|$/, "Implemented |") : line
+        )
+        .join("\n");
+      fs.writeFileSync(file, updated, "utf8");
+    };
+    for (const id of ["REQ-001", "REQ-002"]) {
+      gitInTest(["checkout", "--quiet", "-b", `flip/${id}`, "main"], { cwd: projectDir });
+      flip(id);
+      gitInTest(["commit", "--quiet", "-am", `flip ${id}`], { cwd: projectDir });
+      gitInTest(["checkout", "--quiet", "main"], { cwd: projectDir });
+    }
+
+    for (const id of ["REQ-001", "REQ-002"]) {
+      const merge = spawnSync("git", ["-C", projectDir, "merge", "--no-edit", `flip/${id}`], {
+        encoding: "utf8",
+      });
+      assert.equal(
+        merge.status,
+        0,
+        `merging flip/${id} conflicted:\n${merge.stdout}${merge.stderr}`
+      );
+    }
+
+    const matrix = fs.readFileSync(
+      path.join(projectDir, "docs", "specs", "traceability.md"),
+      "utf8"
+    );
+    for (const id of ["REQ-001", "REQ-002"]) {
+      const row = matrix.split("\n").find((l) => l.includes(`| ${id} |`));
+      assert.match(String(row), /Implemented \|$/, `${id} lost its edit in the merge`);
+      assert.equal(
+        matrix.split("\n").filter((l) => l.includes(`| ${id} |`)).length,
+        1,
+        `${id} was duplicated — the corruption a union merge produces`
+      );
+    }
+
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+);
+
 // ── pack lint --graph (visual reference graph, M-visual Phase 1) ─────────
 
 test("pack lint --graph renders the reference graph as Mermaid", () => {
