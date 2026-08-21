@@ -358,15 +358,31 @@ export class DoctorCommand extends BaseCommand {
     if (!fs.existsSync(attributes)) return;
     if (!fs.readFileSync(attributes, "utf8").includes(`merge=${MERGE_DRIVER_NAME}`)) return;
 
-    const configured = spawnSync(
-      "git",
-      ["-C", dir, "config", "--get", `merge.${MERGE_DRIVER_NAME}.driver`],
-      { encoding: "utf8" }
-    );
-    if (configured.status === 0 && String(configured.stdout).trim()) {
+    const get = (key: string) =>
+      String(
+        spawnSync("git", ["-C", dir, "config", "--get", key], { encoding: "utf8" }).stdout || ""
+      ).trim();
+
+    const driver = get(`merge.${MERGE_DRIVER_NAME}.driver`);
+    const name = get(`merge.${MERGE_DRIVER_NAME}.name`);
+
+    if (driver) {
       this.ok("merge driver", "traceability.md merges row by row");
       return;
     }
+
+    if (name) {
+      // Half-registered is the one state worse than unregistered: git refuses
+      // the merge outright with "custom merge driver ... lacks command line",
+      // so the file cannot be merged at all. An error, not a warning.
+      this.recordError(
+        "merge driver",
+        `merge.${MERGE_DRIVER_NAME}.name is set but its driver command is missing — git will refuse to merge traceability.md`,
+        `Either finish the registration with \`csda harness init --project-dir .\`, or remove the half: git config --unset merge.${MERGE_DRIVER_NAME}.name`
+      );
+      return;
+    }
+
     this.warn(
       "merge driver",
       ".gitattributes routes traceability.md to the csda merge driver, but this clone has not registered it",

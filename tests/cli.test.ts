@@ -1004,6 +1004,46 @@ test(
   }
 );
 
+test(
+  "doctor separates an unregistered merge driver from a half-registered one",
+  { skip: !hasGit() },
+  () => {
+    // Git has three states for a driver named in .gitattributes, and the middle
+    // one is a trap: with `name` set but no `driver` command it answers
+    // "fatal: custom merge driver csda-matrix lacks command line" and the file
+    // cannot be merged at all — strictly worse than the conflict the driver
+    // exists to remove. Unregistered is merely unhelped; half-registered is
+    // broken, so they cannot share a severity.
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-drv-states-"));
+    const projectDir = path.join(tempRoot, "p");
+    fs.mkdirSync(projectDir, { recursive: true });
+    gitInTest(["init", "--quiet", "--initial-branch=main", projectDir]);
+    fs.writeFileSync(path.join(projectDir, "spec.md"), "# Spec\n", "utf8");
+    fs.writeFileSync(
+      path.join(projectDir, ".gitattributes"),
+      "docs/specs/traceability.md merge=csda-matrix\n",
+      "utf8"
+    );
+
+    const doctor = () => runCli(["doctor", "--project-dir", projectDir]);
+    const line = (out: string) => out.split("\n").find((l) => l.includes("merge driver")) || "";
+
+    assert.match(line(doctor().stdout), /⚠️|has not registered it/, "neither key set: a warning");
+
+    gitInTest(["config", "merge.csda-matrix.name", "csda"], { cwd: projectDir });
+    assert.match(
+      line(doctor().stdout),
+      /refuse to merge/,
+      "name without driver must be reported as broken, not as unhelped"
+    );
+
+    gitInTest(["config", "merge.csda-matrix.driver", "node x %O %A %B"], { cwd: projectDir });
+    assert.match(line(doctor().stdout), /merges row by row/, "both set: healthy");
+
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+);
+
 // ── pack lint --graph (visual reference graph, M-visual Phase 1) ─────────
 
 test("pack lint --graph renders the reference graph as Mermaid", () => {

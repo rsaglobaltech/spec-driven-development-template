@@ -325,30 +325,33 @@ export function installMergeDriver(projectDir: string) {
   // The driver runs from the installed CLI, so the path is resolved here rather
   // than assumed: a project does not have csda in its own tree.
   const driverScript = path.join(__dirname, "..", "merge-traceability.js");
-  const configured = spawnSync(
-    "git",
-    [
-      "-C",
-      projectDir,
-      "config",
-      `merge.${MERGE_DRIVER_NAME}.driver`,
-      `node ${JSON.stringify(driverScript)} %O %A %B`,
-    ],
-    { encoding: "utf8" }
-  );
-  spawnSync(
-    "git",
-    [
-      "-C",
-      projectDir,
-      "config",
-      `merge.${MERGE_DRIVER_NAME}.name`,
-      "csda traceability matrix merge",
-    ],
-    { encoding: "utf8" }
+  const gitConfig = (key: string, value: string) =>
+    spawnSync("git", ["-C", projectDir, "config", key, value], { encoding: "utf8" });
+
+  // Order matters, and getting it wrong is worse than not doing it at all.
+  //
+  // Git has three states for a driver named in .gitattributes:
+  //
+  //   neither `name` nor `driver` set  → falls back to the built-in merge.
+  //                                      A fresh clone is here, and it is fine.
+  //   `name` set, `driver` missing     → `fatal: custom merge driver
+  //                                      csda-matrix lacks command line`. The
+  //                                      file cannot be merged AT ALL — worse
+  //                                      than the conflict this feature exists
+  //                                      to remove.
+  //   both set                         → the driver runs.
+  //
+  // So `driver` goes in first and `name` only follows if it landed; and if it
+  // did not, any stale `name` is removed rather than left pointing at nothing.
+  const configured = gitConfig(
+    `merge.${MERGE_DRIVER_NAME}.driver`,
+    `node ${JSON.stringify(driverScript)} %O %A %B`
   );
 
   if (configured.status !== 0) {
+    spawnSync("git", ["-C", projectDir, "config", "--unset", `merge.${MERGE_DRIVER_NAME}.name`], {
+      encoding: "utf8",
+    });
     return warning(
       "merge_driver_not_registered",
       "Could not register the traceability merge driver in git config.",
@@ -362,6 +365,8 @@ export function installMergeDriver(projectDir: string) {
       }
     );
   }
+
+  gitConfig(`merge.${MERGE_DRIVER_NAME}.name`, "csda traceability matrix merge");
   return null;
 }
 

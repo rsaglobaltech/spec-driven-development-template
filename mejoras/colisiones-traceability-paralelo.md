@@ -155,8 +155,20 @@ with .gitattributes but NO merge.<name>.driver:
 ```
 
 Es decir: **degrada al comportamiento de hoy, no a un merge silenciosamente
-incorrecto.** El modo de fallo es seguro, y eso es lo que hace la opción
-aceptable. Aun así hay que resolverlo:
+incorrecto.** El modo de fallo es seguro… **pero solo si no falta a medias.**
+Git tiene tres estados y el de en medio es una trampa (medido en §11.1):
+
+| `merge.csda-matrix.*` | Qué hace git |
+|---|---|
+| ni `name` ni `driver` | merge interno de siempre — el conflicto de hoy. **Seguro** |
+| `name` sí, `driver` no | `fatal: custom merge driver csda-matrix lacks command line` — **el fichero no se puede mergear en absoluto** |
+| ambos | corre el driver |
+
+Un clon recién hecho está en el primero, que es el caso real y es seguro. El
+segundo no lo alcanza nadie por accidente si el registro se hace en el orden
+correcto — y por eso el orden es parte del diseño, no un detalle.
+
+Aun así hay que resolverlo:
 
 - `csda init` registra el driver en el repo que genera;
 - un comando explícito (`csda harness setup-merge` o similar) para proyectos ya
@@ -381,3 +393,37 @@ el driver apuntando a un script inexistente, falla. Las dos mitades cargan peso.
 **Pendiente, y consciente:** falta comprobar el driver contra `rebase` y
 `cherry-pick` —git también los usa ahí— y con cinco o más ramas a la vez. Y hay
 que mirar si `resolveGeneratedConflicts()` del harness ya sobra.
+
+### 11.1 Lo que salió al verificar lo que quedaba pendiente
+
+Los tres pendientes de §11 están cerrados, y uno destapó un defecto **mío**.
+
+**Rebase, cherry-pick y cinco ramas: los tres limpios.** Git aplica el driver en
+`rebase` y `cherry-pick` igual que en `merge`, así que no hacía falta nada
+extra — pero eso había que comprobarlo, no suponerlo. Cinco ramas mergeadas en
+secuencia: cinco limpias, cinco filas `Implemented` de seis.
+
+**El defecto: `.gitattributes` sin driver puede dejar el repo peor que antes.**
+Al probar el caso multi-dependencia con el driver «sin registrar» salió
+`REQ-003 blocked — could not assemble its base`. Sin `.gitattributes` el mismo
+proyecto pasaba. O sea: lo había roto yo.
+
+La causa no era la que parecía. Git no ignora un driver declarado y ausente: si
+`merge.<name>.name` existe **sin** `driver`, aborta con `fatal: … lacks command
+line` y el fichero deja de poder mergearse — peor que el conflicto que esto
+viene a quitar. Mi primera comprobación de «fallback seguro» fue floja: quité
+solo `.driver` y dejé `.name`, es decir, medí el estado 2 creyendo medir el 1.
+
+Dos arreglos:
+
+- `installMergeDriver` escribe `driver` **primero** y `name` solo si aquello
+  funcionó; si falla, **borra** cualquier `name` que hubiera. El estado 2 deja
+  de ser alcanzable por el camino normal.
+- `doctor` distingue los tres estados: sin registrar → aviso; registrado →
+  correcto; **a medias → error**, porque ahí los merges son imposibles.
+
+**Y la respuesta al tercer pendiente: `resolveGeneratedConflicts()` NO sobra.**
+Con el driver puesto no llega a dispararse, pero un clon que no ha corrido
+`harness init` está en el estado 1 — y ahí es lo único que hace que un requisito
+con dos dependencias no se quede bloqueado. Verificado ejecutando en ambos
+estados: con driver pasa, sin driver también. Es la red, y se queda.
