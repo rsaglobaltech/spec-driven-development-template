@@ -54,6 +54,7 @@ const KNOWN_KEYS = new Set([
   "review_profile",
   "protected_paths",
   "allow_paths",
+  "message_report",
 ]);
 
 export function readHarnessConfig(projectDir) {
@@ -120,6 +121,13 @@ export function readHarnessConfig(projectDir) {
   }
   if (parsed.allow_paths !== undefined) {
     config.allowPaths = asStringList(parsed.allow_paths, "allow_paths");
+  }
+
+  // F5: where the runner writes its `--format message` stream, for projects
+  // whose test command the harness cannot safely rewrite (`npm test` may well
+  // run Cucumber, and there is no way to know from here).
+  if (parsed.message_report !== undefined) {
+    config.messageReport = String(parsed.message_report);
   }
 
   if (config.agent === undefined && parsed.agent_profile !== undefined) {
@@ -224,6 +232,7 @@ export function resolveHarnessSettings(
     // widens what the agent may edit is a flag somebody types to go green.
     protectedPaths: file.protectedPaths || [],
     allowPaths: file.allowPaths || [],
+    messageReport: file.messageReport || "",
   };
 }
 

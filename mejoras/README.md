@@ -76,7 +76,7 @@ punta) y `GATE-G4` (gate de cobertura) están **cerrados**.
 
 | ID                            | Defecto                                                                                                                                                                           | Dónde                   | Propuesta que lo cierra                     |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------- |
-| **H15** _(nuevo)_             | **Un filtro de escenario que no casa nada sale 0.** Si el agente renombra el escenario, el gate va verde sin ejecutar nada                                                        | `valoracion-bdd…` §2.2  | **F5**                                      |
+| ~~**H15**~~ **cerrado 2026-08-22** | **Un filtro de escenario que no casa nada salía 0.** Reproducido: `cucumber-js --tags '@does-not-exist'` daba `1 passed`, rama publicada y requisito cerrado. Cerrado por `F5` leyendo el protocolo de mensajes | `valoracion-bdd…` §2.2 | ~~F5~~ **hecho** |
 | ~~**H16**~~ **cerrado 2026-08-22** | **El gate no comprobaba que el agente no tocó `spec.md`, `AI_RULES.md` ni `features/**`.** El prompt lo pedía; nadie lo verificaba. Reproducido: un agente que sustituyó el escenario por `Given nothing / Then nothing is asserted` obtuvo `1 passed · 0 failed`. Cerrado por `A1` | `propuesta-harness…` A1 | ~~A1~~ **hecho** |
 | **H13**                       | El JSON Schema declara autoridad que no ejerce; los 11 packs fallarían el esquema                                                                                                 | §12.11                  | **E1** — decisión previa a tocar el formato |
 
@@ -139,7 +139,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | --- | -------------------------------------------------------------------------------- | ----- |
 | ~~F3~~ | **Hecho (2026-08-22).** `scenario_has_no_steps` y `keyword_case_invalid` son errores por sí solos, sin `--strict`, con fichero:línea y la grafía que funciona. Al ejecutarlo se destapó que `pack init` **seguía generando `GIVEN/WHEN/THEN`**: `F2` arregló los packs escritos, no el generador que los escribe. Corregido y con guarda sobre los cuatro tipos de proyecto. La parte de `validate` era `A3` | Bajo |
 | F4  | Trazabilidad por etiquetas `@REQ-NNN` / `@SCN-NNN`                               | Medio |
-| F5  | Gate del harness sobre el protocolo de mensajes _(cierra H15)_                   | Medio |
+| ~~F5~~ | **Hecho (2026-08-22), cierra `H15`.** `core/domain/CucumberMessages` lee el NDJSON de `--format message`: existe el escenario, **se ejecutó**, tenía pasos, todos `PASSED`, y cuántos corrieron. Construido contra un flujo real, no de memoria — de ahí que los pasos de *hook* no cuenten como pasos. Opcional: sin Cucumber, la puerta sigue siendo el código de salida | Medio |
 | F6  | EARS opcional en la línea de requisito                                           | Bajo  |
 
 ### 3.5 Trabajo de campo vivo
@@ -193,8 +193,8 @@ El orden importaba: extraer las reglas de calidad (`A3`) sobre el parser
 anterior habría propagado el defecto de `H14` a `validate`. Primero que el
 parser dijera la verdad, después extender su alcance.
 
-**Tanda 2 en curso:** ~~`C3`~~ ~~`C2`~~ ~~`B2`~~ **(hechos, 2026-08-22)** → `F5` → `C1`.
-**Vamos por `F5`.**
+**Tanda 2 en curso:** ~~`C3`~~ ~~`C2`~~ ~~`B2`~~ ~~`F5`~~ **(hechos, 2026-08-22)** → `C1`.
+**Vamos por `C1`.**
 
 **Tanda 2 — que el bucle rinda desatendido.** `C3` → `C2` → `B2` → `F5` → `C1`.
 Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.

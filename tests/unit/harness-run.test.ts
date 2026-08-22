@@ -1427,3 +1427,85 @@ test("a ready requirement reads as ready in plan --json", () => {
     fs.rmSync(parent, { recursive: true, force: true });
   }
 });
+
+// ── Reading what Cucumber did, not what it printed (F5) ──────────────────────
+//
+// Measured before writing it: a harness run whose test command was
+// `cucumber-js --tags '@does-not-exist'` reported
+//
+//     1 passed · 0 failed · 0 skipped
+//
+// The command exits 0 on a filter that matches nothing (§2.2), so the gate
+// approved a requirement whose scenario never ran, published the branch and
+// closed it. This runs the real cucumber-js and pins both directions.
+
+/** A project whose gate command is a real cucumber-js invocation. */
+function cucumberProject() {
+  const { parent, projectDir } = greenableProject();
+  fs.mkdirSync(path.join(projectDir, "features/step_definitions"), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectDir, "features/step_definitions/steps.js"),
+    [
+      'const { Given, When, Then } = require("@cucumber/cucumber");',
+      'Given("the backend service is running", function () {});',
+      'When("I request the {string} endpoint", function () {});',
+      'Then("the response status should be {int}", function () {});',
+      'Then("the payload should include {string} with value {string}", function () {});',
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+  // A fresh worktree carries only what git tracks, so the runner needs the
+  // repository's own installed Cucumber.
+  fs.symlinkSync(path.join(REPO_ROOT, "node_modules"), path.join(projectDir, "node_modules"));
+  const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+  git("add", "-A");
+  git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cucumber");
+  return { parent, projectDir };
+}
+
+test("a filter matching nothing exits 0, and the gate no longer believes it", () => {
+  const { parent, projectDir } = cucumberProject();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}", [
+      "--test-cmd",
+      "npx cucumber-js --tags '@does-not-exist'",
+    ]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /0 passed/, `the empty run was accepted:\n${out}`);
+    assert.match(out, /cucumber messages/);
+    assert.match(out, /never ran/);
+    assert.match(out, /exited 0, but the run it reported does not support that verdict/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a run that really covers the requirement still passes", () => {
+  // The false-positive check: if reading the stream fails honest work, the
+  // check is worse than the exit code it replaced.
+  const { parent, projectDir } = cucumberProject();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}", [
+      "--test-cmd",
+      "npx cucumber-js features/core/health.feature",
+    ]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /1 passed/, out);
+    assert.doesNotMatch(out, /cucumber messages/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a non-Cucumber command is judged by its exit code, exactly as before", () => {
+  // The harness stays runner-neutral: a project that does not use Cucumber
+  // must not be failed by a reader that never applied.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}", ["--test-cmd", "true"]);
+    assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});

@@ -145,6 +145,41 @@ your team's preference.
 The reward signal is `validate --strict-tdd` followed by the optional
 `--test-cmd`. Both must exit zero for a requirement to count as passed.
 
+### Reading what the runner did, not what it printed
+
+The gate's question has always been "did the command exit zero?", and both
+silent holes this repository found live underneath it:
+
+```
+1 scenario (1 passed) · 0 steps · exit 0     a scenario with no steps
+0 scenarios                     · exit 0     a filter that matched nothing
+```
+
+Measured: a harness run whose test command was `cucumber-js --tags
+'@does-not-exist'` reported `1 passed`, published the branch and closed the
+requirement.
+
+When the message stream is available the gate reads it instead, and checks
+that a scenario for the requirement exists, that it **ran**, that it had
+steps, and that every one of them ended `PASSED` — plus how many scenarios
+ran in total, which is the number `filterHint` used to infer with a regex
+over prose.
+
+Two ways in, and neither guesses:
+
+```yaml
+# harness.config.yaml — any runner, any command
+message_report: .harness/cucumber.ndjson
+```
+
+or a **direct** `cucumber-js` invocation, which the harness appends
+`--format message:<tmp>` to by itself. Deliberately narrow: `npm test` may
+well run Cucumber and there is no way to know from here, so it is left
+alone.
+
+None of it is required. A project that does not use Cucumber keeps the
+exit-code gate — a check that never applied must not fail anybody.
+
 **The gate is only as strong as the pack's scenarios.** A pack with weak
 or vague Gherkin lets the harness wave through weak code. Hardening
 `pack lint` to flag vague scenarios therefore matters _more_ than authoring

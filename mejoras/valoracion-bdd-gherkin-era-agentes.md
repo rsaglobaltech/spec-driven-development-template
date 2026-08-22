@@ -271,7 +271,7 @@ heurística sobre texto y pasa a ser una consulta sobre datos.
 | **F2** | Arreglar los 27 ficheros y blindar la regresión con el parser real | Bajo  | **Inmediata** |
 | ~~**F3**~~ | Paridad con Cucumber en `pack lint` — **hecho (2026-08-22)**   | Bajo  | Alta          |
 | **F4** | Trazabilidad por etiquetas `@REQ-NNN` / `@SCN-NNN`                 | Medio | Media         |
-| **F5** | El gate del harness sobre el protocolo de mensajes                 | Medio | Alta          |
+| ~~**F5**~~ | El gate del harness sobre el protocolo de mensajes — **hecho (2026-08-22)** | Medio | Alta |
 | **F6** | EARS opcional en la línea de requisito                             | Bajo  | Baja          |
 
 ## F2 · Arreglar los 27 ficheros y blindar la regresión — **hecho (2026-08-22)**
@@ -420,7 +420,7 @@ Qué desbloquea:
 Es la propuesta que más acerca la matriz y los ficheros, y la que mejor
 aprovecha algo que Cucumber ya hace y nosotros ignoramos.
 
-## F5 · El gate del harness sobre el protocolo de mensajes
+## F5 · El gate del harness sobre el protocolo de mensajes — **hecho (2026-08-22)**
 
 Cuando el comando de test es Cucumber, ejecutarlo con `--format message` y leer
 el NDJSON. El gate deja de preguntar «¿salió 0?» y pasa a comprobar:
@@ -439,6 +439,66 @@ neutral respecto del runner.
 **Es la respuesta concreta a «¿es esto moderno para agentes?»**: Cucumber lleva
 años publicando un canal legible por máquina y nosotros seguimos leyendo su
 salida para humanos con una expresión regular.
+
+### Lo que se midió
+
+El agujero de §2.2, reproducido antes de escribir nada. Comando de test
+`cucumber-js --tags '@does-not-exist'`:
+
+```
+$ npx cucumber-js --tags '@does-not-exist'
+0 scenarios
+0 steps
+exit 0
+```
+
+Y el harness, con ese comando:
+
+```
+1 passed · 0 failed · 0 skipped
+```
+
+Rama publicada, requisito cerrado, escenario jamás ejecutado. Con el flujo de
+mensajes leído, la misma ejecución falla:
+
+```
+Gate failed at: cucumber messages
+  The test command exited 0, but the run it reported does not support that verdict:
+    "API reports service as healthy" exists but never ran, so nothing about
+    REQ-000 was verified.
+    fix: Check the runner's filter and tags.
+```
+
+### Construido contra un flujo real
+
+Las formas de los sobres se sacaron de `npx cucumber-js --format message` sobre
+la suite de este propio repositorio (protocolo 33.0.4, cucumber-js 13.2.1), no
+de memoria. Un detalle que **solo aparece así**: `testCase.testSteps` incluye
+los pasos de *hook*, que no llevan `pickleStepId`. Contarlos como pasos dejaría
+que un escenario vacío con un `Before` pasara por cubierto — es decir,
+reconstruiría `H14` en un sitio nuevo. Hay test, y quitar el filtro lo rompe.
+
+### Cómo entra, sin adivinar
+
+| Vía | Para quién |
+|---|---|
+| `message_report:` en `harness.config.yaml` | Cualquier runner y cualquier comando: el proyecto escribe el flujo donde quiera y dice dónde |
+| Invocación **directa** de `cucumber-js` | El harness le añade `--format message:<tmp>` él mismo |
+
+La detección es deliberadamente estrecha: `npm test` puede perfectamente
+ejecutar Cucumber y desde aquí no hay forma de saberlo, así que no se toca.
+Añadirle una bandera sería, en el mejor caso, ignorado.
+
+**Y no falla a quien no le aplica.** Si el flujo no se entiende, la
+comprobación devuelve cero hallazgos: la puerta sigue siendo el código de
+salida y el harness sigue siendo neutral respecto del runner.
+
+### Lo que queda para F4
+
+El emparejamiento usa **etiquetas primero** (`@REQ-000` / `@SCN-000`) y cae a la
+ruta del feature cuando no las hay. Eso lo hace útil ya, antes de `F4`, porque
+la fila de la matriz nombra un fichero por requisito — y hará que `F4` funcione
+sin tocar este módulo el día que las etiquetas existan.
 
 ## F6 · EARS opcional en la línea de requisito
 

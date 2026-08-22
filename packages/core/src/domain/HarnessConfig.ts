@@ -20,6 +20,13 @@ export interface HarnessSettings {
   protectedPaths: string[];
   /** Explicit exceptions to the above. Never silent: it has to be written down. */
   allowPaths: string[];
+  /**
+   * Where the test command writes a Cucumber `--format message` NDJSON stream
+   * (F5). Set it and the gate reads what the runner did instead of trusting its
+   * exit code. Empty means the harness will offer to add the flag itself, but
+   * only to a direct `cucumber-js` invocation.
+   */
+  messageReport: string;
 }
 
 export class HarnessConfig {
@@ -38,6 +45,7 @@ export class HarnessConfig {
     profileAgents: {},
     protectedPaths: [],
     allowPaths: [],
+    messageReport: "",
   };
 
   public constructor(public readonly settings: HarnessSettings) {}
@@ -72,6 +80,7 @@ export class HarnessConfig {
       // flag somebody eventually types to make a red run go green.
       protectedPaths: file.protectedPaths || HarnessConfig.DEFAULT_SETTINGS.protectedPaths,
       allowPaths: file.allowPaths || HarnessConfig.DEFAULT_SETTINGS.allowPaths,
+      messageReport: file.messageReport || HarnessConfig.DEFAULT_SETTINGS.messageReport,
     });
   }
 }

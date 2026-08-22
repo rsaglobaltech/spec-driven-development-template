@@ -44,6 +44,12 @@ import {
 import { requirementReadiness } from "../../../../packages/core/src/domain/RequirementReadiness";
 import { RequirementPlan } from "../../../../packages/core/src/domain/RequirementPlan";
 import {
+  checkGateRun,
+  invokesCucumberDirectly,
+  parseCucumberMessages,
+  withMessageReport,
+} from "../../../../packages/core/src/domain/CucumberMessages";
+import {
   AttemptRecord,
   featureFilePath,
   planAttempt,
@@ -272,7 +278,39 @@ const SUBPROCESS_MAX_BUFFER = 64 * 1024 * 1024;
 
 /** Run the gate (validate --strict-tdd, then the optional test command). */
 
-function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
+/**
+ * What Cucumber says it did, when it can be asked (F5).
+ *
+ * The gate's question has always been "did the command exit zero?", and H14
+ * showed what that misses: `1 scenario (1 passed) · 0 steps · exit 0` is a
+ * scenario that tested nothing and reported success. Cucumber has published a
+ * machine-readable channel for years; this reads it.
+ *
+ * Two ways in, and neither guesses:
+ *
+ * - `message_report` in `harness.config.yaml` — the project writes the stream
+ *   wherever it likes and says where. Works for any command.
+ * - a **direct** `cucumber-js` invocation, which the harness appends
+ *   `--format message:<tmp>` to. Deliberately narrow: `npm test` may well run
+ *   Cucumber and there is no way to know from here, so it is left alone.
+ *
+ * Returns `null` when there is nothing to read — a project that does not use
+ * Cucumber must not be failed by a check that never applied.
+ */
+function readGateMessages(worktreeDir, reportPath) {
+  if (!reportPath) return null;
+  const file = path.isAbsolute(reportPath) ? reportPath : path.join(worktreeDir, reportPath);
+  let raw;
+  try {
+    raw = fs.readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+  const run = parseCucumberMessages(raw);
+  return run.parsed ? run : null;
+}
+
+function runGate(worktreeDir, testCmd, timeoutMs, req: any = {}, settings: any = {}) {
   const validate = spawnSync(process.execPath, [VALIDATE_SCRIPT, worktreeDir, "--strict-tdd"], {
     encoding: "utf8",
     timeout: timeoutMs,
@@ -287,7 +325,19 @@ function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
     };
   }
   if (testCmd) {
-    const resolved = substituteGateCommand(testCmd, req);
+    let resolved = substituteGateCommand(testCmd, req);
+
+    // Where the message stream will be, if there is one to have.
+    let reportPath = settings.messageReport || "";
+    if (!reportPath && invokesCucumberDirectly(resolved)) {
+      reportPath = path.join(
+        ".harness",
+        `messages-${req.requirement || "run"}-${crypto.randomBytes(3).toString("hex")}.ndjson`
+      );
+      fs.mkdirSync(path.join(worktreeDir, ".harness"), { recursive: true });
+      resolved = withMessageReport(resolved, reportPath);
+    }
+
     // A fresh worktree carries only what git tracks, so a project with
     // dependencies has no node_modules here. Verified the hard way: an agent
     // spent its first attempt installing them and timed out. The gate command
@@ -309,6 +359,32 @@ function runGate(worktreeDir, testCmd, timeoutMs, req = {}) {
         stage: `test command: ${resolved}`,
         output: test.stdout + test.stderr,
       };
+    }
+
+    // Exit zero is where the old gate stopped. This is the part that catches a
+    // suite that passed without covering the requirement at all.
+    const messages = readGateMessages(worktreeDir, reportPath);
+    if (messages) {
+      const findings = checkGateRun(messages, {
+        requirement: req.requirement,
+        scenarioId: req.scenarioId || req.scenario_id,
+        featureFile: featureFilePath(req),
+      });
+      const errors = findings.filter((f) => f.severity === "error");
+      const warnings = findings.filter((f) => f.severity !== "error");
+      if (errors.length > 0) {
+        return {
+          ok: false,
+          stage: "cucumber messages",
+          output:
+            `The test command exited 0, but the run it reported does not support ` +
+            `that verdict:\n\n` +
+            errors.map((e) => `  ${e.message}\n  fix: ${e.fix}`).join("\n\n"),
+        };
+      }
+      if (warnings.length > 0) {
+        return { ok: true, stage: "", output: "", hint: warnings[0].message };
+      }
     }
   }
   return { ok: true, stage: "", output: "", hint: "" };
@@ -605,7 +681,7 @@ function attemptRequirement(req, ctx) {
       continue;
     }
 
-    const gate = runGate(worktreeDir, settings.testCmd, timeoutMs, req);
+    const gate = runGate(worktreeDir, settings.testCmd, timeoutMs, req, settings);
     if (!gate.ok) {
       previousFailure =
         `Gate failed at: ${gate.stage}\n\n` + (gate.hint ? `⚠ ${gate.hint}\n\n` : "") + gate.output;
