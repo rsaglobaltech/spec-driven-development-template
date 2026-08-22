@@ -274,7 +274,13 @@ heurística sobre texto y pasa a ser una consulta sobre datos.
 | **F5** | El gate del harness sobre el protocolo de mensajes                 | Medio | Alta          |
 | **F6** | EARS opcional en la línea de requisito                             | Bajo  | Baja          |
 
-## F2 · Arreglar los 27 ficheros y blindar la regresión — primero
+## F2 · Arreglar los 27 ficheros y blindar la regresión — **hecho (2026-08-22)**
+
+> Los 27 ficheros pasan a palabras clave canónicas y
+> `tests/unit/shipped-gherkin.test.ts` parsea con el parser de referencia cada
+> Gherkin publicado, fallando si un escenario tiene cero pasos. Medido antes y
+> después sobre el mismo fichero: `0 steps · exit 0` → `3 steps · exit 1`.
+> El guarda se escribió **antes** de la corrección, para verlo fallar.
 
 Dos partes, y la segunda importa más que la primera:
 
@@ -294,7 +300,20 @@ renderizado, así que un proyecto que ya los tenga instalados verá deriva en
 corrección se revisa como intención, no como diff de ficheros. Merece una línea
 en el CHANGELOG diciendo que los escenarios de los packs **no se ejecutaban**.
 
-## F1 · Un solo parser, con la tabla oficial de dialectos
+## F1 · Un solo parser, con la tabla oficial de dialectos — **hecho (2026-08-22)**
+
+> Implementado por el camino **(b)**, el recomendado: parser propio en
+> `packages/core/src/domain/Gherkin.ts` (dominio puro) con la tabla vendorizada
+> en `GherkinDialects.ts`, **generada** desde `gherkin-languages.json` en vez de
+> transcrita. Cero dependencias de runtime. Dos guardas contra la deriva: la
+> tabla contra la oficial, y el parser contra `@cucumber/gherkin` sobre los 38
+> ficheros publicados más ocho casos construidos (Rule, Background, etiquetas,
+> outline, doc strings, herencia de `And`/`*`, es y pt). Atribución MIT en
+> `THIRD-PARTY-NOTICES.md`. Los tres parsers de §2.4 quedan en uno.
+>
+> **Efecto colateral:** `pack lint` gana la paridad de `F3` — el fichero que
+> aprobaba ahora falla con `only 0 step(s)` y exit 1. Lo que queda de `F3` es
+> nombrar el defecto en el mensaje.
 
 `scripts/lib/gherkin.ts`: un módulo puro que devuelva feature, reglas, fondo,
 escenarios, pasos, etiquetas y ejemplos, y que consuman los tres sitios de §2.4.

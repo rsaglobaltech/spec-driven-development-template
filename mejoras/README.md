@@ -137,8 +137,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 
 | ID  | Propuesta                                                                        | Coste |
 | --- | -------------------------------------------------------------------------------- | ----- |
-| F1  | Un solo parser de Gherkin con la tabla oficial de dialectos                      | Medio |
-| F3  | Paridad con Cucumber en `pack lint` y `validate`                                 | Bajo  |
+| F3  | Paridad con Cucumber en `pack lint` y `validate`. **`pack lint` ya la tiene por `F1`**; queda nombrar `scenario_has_no_steps` y `keyword_case_invalid` con su `fix`, para que el mensaje diga *por qué*. La parte de `validate` es en realidad `A3`: hoy `validate` no parsea Gherkin | Bajo |
 | F4  | Trazabilidad por etiquetas `@REQ-NNN` / `@SCN-NNN`                               | Medio |
 | F5  | Gate del harness sobre el protocolo de mensajes _(cierra H15)_                   | Medio |
 | F6  | EARS opcional en la línea de requisito                                           | Bajo  |
@@ -188,8 +187,8 @@ Para que no se cuenten dos veces:
 
 ## 5. El orden que recomiendo
 
-**Tanda 1 — que el gate deje de aprobar sin comprobar.** ~~`F2`~~ **(hecho,
-2026-08-22)** → `F1` → `F3` → `A3` → `A1` → `A2`. **Vamos por `F1`.**
+**Tanda 1 — que el gate deje de aprobar sin comprobar.** ~~`F2`~~ ~~`F1`~~
+**(hechos, 2026-08-22)** → `F3` → `A3` → `A1` → `A2`. **Vamos por `F3`.**
 Este orden importa: extraer las reglas de calidad (`A3`) sobre el parser actual
 propagaría el defecto de `H14` a `validate`. Primero que el parser diga la
 verdad, después extender su alcance.
@@ -212,6 +211,12 @@ Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.
 - **Fases C0 a C7 completas.** 0.6.0 publicada; npm con procedencia SLSA e
   imagen multi-arch verificadas.
 - **Los defectos H1–H8, H10 y H11** del harness, publicados en 0.5.0 y 0.6.0.
+- **`F1`** — 2026-08-22. Un solo lector de Gherkin en
+  `packages/core/src/domain/Gherkin.ts`, puro y sensible a mayúsculas, con la
+  tabla de dialectos vendorizada como datos y **cero dependencias de runtime**.
+  Dos guardas contra la deriva: tabla contra la oficial, y parser contra
+  `@cucumber/gherkin` sobre los 38 ficheros publicados más ocho casos
+  construidos. Los tres parsers de §2.4 quedan en uno.
 - **`F2` / `H14`** — 2026-08-22. Los 27 ficheros de packs pasan a palabras clave
   canónicas, y `tests/unit/shipped-gherkin.test.ts` parsea con el parser real de
   Cucumber cada Gherkin que se publica y falla si un escenario tiene cero pasos.
