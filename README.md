@@ -89,20 +89,11 @@ for every pending requirement, each in its own git worktree. It never merges.
 `csda ci init` generates the gate for GitHub, GitLab, Azure or Jenkins, and
 `csda alm sync` keeps Jira or Azure Boards in step.
 
-**Any agent CLI.** There is no built-in agent runtime and no SDK dependency: the
-agent is any shell command containing `{prompt_file}`. The harness writes the
-prompt to a temp file, substitutes the path, and reads the exit code plus the
-gate result.
-
-```bash
-csda harness run --agent "claude -p < {prompt_file}"
-csda harness run --agent "aider --yes --message-file {prompt_file}"
-csda harness run --agent "my-wrapper.sh {prompt_file}"     # anything else
-```
-
-A tool that takes its prompt some other way needs a three-line wrapper, not a
-change here. Commit the commands your team uses in `.harness/profiles.yaml` and
-pick one by name with `agent_profile:`.
+**Any agent CLI.** No agent runtime, no SDK dependency: the agent is any shell
+command containing `{prompt_file}` — `claude -p < {prompt_file}`, `aider --yes
+--message-file {prompt_file}`, or `my-wrapper.sh {prompt_file}` for anything
+else. Commit your team's commands in `.harness/profiles.yaml` and pick one by
+name.
 → [Automation](docs/automation.md) · [The harness](docs/harness.md) · [Jira and Azure Boards](docs/alm.md)
 
 **It stays current.** `csda update` refreshes the generated agent files after an
