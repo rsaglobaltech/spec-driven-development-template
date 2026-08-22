@@ -269,7 +269,7 @@ heurística sobre texto y pasa a ser una consulta sobre datos.
 | ------ | ------------------------------------------------------------------ | ----- | ------------- |
 | **F1** | Un solo parser de Gherkin, con la tabla oficial de dialectos       | Medio | Alta          |
 | **F2** | Arreglar los 27 ficheros y blindar la regresión con el parser real | Bajo  | **Inmediata** |
-| **F3** | Paridad con Cucumber en `pack lint` y `validate`                   | Bajo  | Alta          |
+| ~~**F3**~~ | Paridad con Cucumber en `pack lint` — **hecho (2026-08-22)**   | Bajo  | Alta          |
 | **F4** | Trazabilidad por etiquetas `@REQ-NNN` / `@SCN-NNN`                 | Medio | Media         |
 | **F5** | El gate del harness sobre el protocolo de mensajes                 | Medio | Alta          |
 | **F6** | EARS opcional en la línea de requisito                             | Bajo  | Baja          |
@@ -337,7 +337,7 @@ elimina. La tabla es MIT y hay que registrarla en la puerta de licencias
 `Scenario Template`, `Scenarios`, `*`, etiquetas, y las palabras clave de los
 dialectos que el CLI ofrece (`en`, `es`, `pt`) — no los 80.
 
-## F3 · Paridad con Cucumber en el linter
+## F3 · Paridad con Cucumber en el linter — **hecho (2026-08-22)**
 
 Con F1 en su sitio, dos reglas nuevas, **error siempre, no advertencia**:
 
@@ -349,6 +349,48 @@ Con F1 en su sitio, dos reglas nuevas, **error siempre, no advertencia**:
 Y una **advertencia** de deriva: escenario declarado en `pack.yaml` que no
 aparece en su plantilla con ese título — la regla de deriva de nombre ya existe,
 pero hoy la ejecuta un parser que no ve la mitad de los títulos posibles.
+
+### Lo que se hizo
+
+Las dos reglas son **error por sí solas, sin `--strict`**. Eso era el punto:
+antes eran opiniones de estilo que `--strict` ascendía, CI usaba `--strict`, y
+los packs salieron igualmente con 27 escenarios que no ejecutaban nada. Un
+ascenso condicional no era la protección que parecía.
+
+```
+❌ [ERROR] templates/features/example.feature.tpl:3: keyword_case_invalid —
+   `GIVEN` is not a Gherkin keyword; write `Given`. Cucumber reads it as prose,
+   so the line does nothing.
+❌ [ERROR] SCN-001 → "…": scenario_has_no_steps — Cucumber sees no steps here,
+   so this scenario passes without testing anything. If the steps look like they
+   are there, check their keywords: Gherkin is case-sensitive.
+```
+
+`findKeywordCaseIssues()` vive en `packages/core/src/domain/Gherkin.ts`, sin
+E/S, junto al parser cuya tabla de dialectos usa — de modo que reconoce el fallo
+en español y portugués igual que en inglés, y **no** marca `Givenchy` ni
+palabras dentro de doc strings, comentarios, etiquetas o tablas. Los 11 packs
+curados siguen pasando `--strict`: cero falsos positivos.
+
+La advertencia de deriva de nombre no hacía falta escribirla — ya existía. Lo
+que cambió es que ahora la ejecuta un parser que ve los títulos.
+
+### Lo que destapó al ejecutarlo
+
+**`pack init` seguía generando `GIVEN / WHEN / THEN`.** `F2` arregló los 27
+ficheros ya escritos; nadie miró el fichero que escribe ficheros nuevos, así que
+cada pack creado desde entonces nacía con un escenario de ejemplo que Cucumber
+veía vacío — y un escenario vacío pasa. El defecto estaba corregido en los packs
+y vivo en su generador.
+
+Corregido en `scripts/cli/commands/pack/InitPackCommand.ts`, y con la guarda que
+faltaba: un test que ejecuta el CLI real para **los cuatro tipos de proyecto**,
+exige que el pack recién generado pase `pack lint` con exit 0, y lee su Gherkin
+con el parser de Cucumber para comprobar que cada escenario tiene pasos.
+Verificado por mutación: al devolver las mayúsculas, ambos tests fallan.
+
+Es el mismo patrón que `H14` una vez más — arreglar el dato y no la fuente que
+lo produce — y la razón de que la guarda apunte al generador y no al resultado.
 
 ## F4 · Trazabilidad por etiquetas
 

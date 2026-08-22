@@ -245,12 +245,16 @@ export function templatesFor(type: string) {
     };
   }
   return {
+    // `Given`, not `GIVEN`. Gherkin keywords are case-sensitive: Cucumber reads
+    // an upper-case one as prose, so the scenario ends up with zero steps and
+    // passes without running anything. This scaffold shipped that spelling, and
+    // every pack created from it inherited a dead example (H14).
     "templates/features/example.feature.tpl":
       "Feature: TODO: feature name\n" +
       "  Scenario: TODO: first scenario title\n" +
-      "    GIVEN a precondition\n" +
-      "    WHEN something happens\n" +
-      "    THEN an outcome is observable\n",
+      "    Given a precondition\n" +
+      "    When something happens\n" +
+      "    Then an outcome is observable\n",
     "templates/AI_RULES.md.tpl":
       "# AI_RULES — {{PROJECT_NAME}}\n\nTODO: the execution contract for agents working in the {{DOMAIN}} domain.\n",
     "templates/spec.md.tpl": "# {{PROJECT_NAME}}\n\nTODO: the business manifesto for {{DOMAIN}}.\n",

@@ -124,3 +124,70 @@ test("pack with unknown sub-command exits non-zero", () => {
     (r.stderr + r.stdout).includes("unknown-sub") || (r.stderr + r.stdout).includes("Unknown")
   );
 });
+
+// ── The scaffold's own Gherkin (H14, second half) ─────────────────────────────
+//
+// F2 fixed the Gherkin already written in `packs/**`. It did not fix the file
+// that writes new Gherkin: `pack init` still scaffolded `GIVEN / WHEN / THEN`,
+// so every pack created from that day on started with an example scenario that
+// Cucumber saw as empty — and an empty scenario passes. The defect was fixed in
+// the packs and left alive in the generator that produces them.
+//
+// This runs the real CLI for every project type it offers and reads the result
+// with Cucumber's own parser, because that is the parser that decides whether a
+// step exists.
+
+test("every project type scaffolds Gherkin that Cucumber sees steps in", () => {
+  const { Parser, AstBuilder, GherkinClassicTokenMatcher } = require("@cucumber/gherkin");
+  const { IdGenerator } = require("@cucumber/messages");
+  const { PACK_PROJECT_TYPES } = require("../../packages/core/src/domain/PackSpec");
+
+  assert.ok(PACK_PROJECT_TYPES.length >= 4, "the type list looks wrong");
+
+  for (const type of PACK_PROJECT_TYPES) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `sdd-scaffold-${type}-`));
+    try {
+      const init = cli("pack", "init", "--out", dir, "--name", "Scaffold Check", "--type", type);
+      assert.equal(init.status, 0, `pack init --type ${type}: ${init.stdout}${init.stderr}`);
+
+      const lint = cli("pack", "lint", "--pack-root", dir, "--pack", `scaffold-check/${type}`);
+      assert.equal(
+        lint.status,
+        0,
+        `a freshly scaffolded ${type} pack must lint clean, otherwise the tool ` +
+          `hands people a pack it rejects:\n${lint.stdout}${lint.stderr}`
+      );
+
+      // Whatever Gherkin it wrote, Cucumber must find steps in it.
+      const features = [];
+      const walk = (d) => {
+        for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+          const full = path.join(d, e.name);
+          if (e.isDirectory()) walk(full);
+          else if (e.name.endsWith(".feature") || e.name.endsWith(".feature.tpl"))
+            features.push(full);
+        }
+      };
+      walk(dir);
+
+      for (const file of features) {
+        const parser = new Parser(
+          new AstBuilder(IdGenerator.uuid()),
+          new GherkinClassicTokenMatcher()
+        );
+        const doc = parser.parse(fs.readFileSync(file, "utf8"));
+        for (const child of doc.feature?.children || []) {
+          if (!child.scenario) continue;
+          assert.ok(
+            (child.scenario.steps || []).length > 0,
+            `${type}: scaffolded scenario "${child.scenario.name}" has no steps for ` +
+              `Cucumber, so it passes without running anything. Check the keyword ` +
+              `case in the scaffold — Gherkin is case-sensitive.`
+          );
+        }
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});

@@ -232,3 +232,95 @@ test("runLint routes scenario issues to warnings, or to errors under --strict", 
   const strict = runLint(weakPack, "/nonexistent", { strict: true });
   assert.ok(strict.errors.some((e) => e.includes("SCN-W")));
 });
+
+// ── F3: the two rules that are errors, never warnings ────────────────────────
+//
+// H14 shipped because these were style opinions. `--strict` promoted them, CI
+// used `--strict`, and the packs still went out with 27 scenarios that executed
+// nothing — so the promotion was never the protection it looked like. Both are
+// now errors on their own, and these tests assert that without passing strict.
+
+test("scenario_has_no_steps is an error without --strict", () => {
+  const root = tmpPack();
+  try {
+    writeTemplate(
+      root,
+      "templates/features/empty.feature.tpl",
+      "Feature: Flags\n  Scenario: Defining a flag emits FlagDefined\n"
+    );
+    const pack = {
+      scenarios: [{ id: "SCN-001", template: "templates/features/empty.feature.tpl" }],
+    };
+    const errors = [];
+    const issues = [];
+    lintScenarioQuality(pack, root, errors, issues);
+
+    assert.ok(
+      errors.some((e) => e.includes("scenario_has_no_steps")),
+      `expected an error, got errors=${JSON.stringify(errors)} issues=${JSON.stringify(issues)}`
+    );
+    assert.ok(
+      errors.some((e) => /case-sensitive/.test(e)),
+      "the message should point at the usual cause rather than leaving it to be guessed"
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("keyword_case_invalid is an error, and names the spelling that works", () => {
+  const root = tmpPack();
+  try {
+    writeTemplate(
+      root,
+      "templates/features/shouting.feature.tpl",
+      "Feature: Flags\n" +
+        "  Scenario: Defining a flag emits FlagDefined\n" +
+        "    GIVEN no flag exists\n" +
+        "    WHEN an operator defines one\n" +
+        "    THEN FlagDefined is emitted\n"
+    );
+    const pack = {
+      scenarios: [{ id: "SCN-001", template: "templates/features/shouting.feature.tpl" }],
+    };
+    const errors = [];
+    const issues = [];
+    lintScenarioQuality(pack, root, errors, issues);
+
+    const cased = errors.filter((e) => e.includes("keyword_case_invalid"));
+    assert.equal(cased.length, 3, `expected one per bad keyword, got ${JSON.stringify(errors)}`);
+    assert.ok(cased[0].includes("`GIVEN`"), "it should quote what was written");
+    assert.ok(cased[0].includes("`Given`"), "and what to write instead");
+    assert.ok(/:3:/.test(cased[0]), "with the line, so it can be found");
+
+    // The same file also has no steps at all, which is the consequence.
+    assert.ok(errors.some((e) => e.includes("scenario_has_no_steps")));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a well-formed scenario raises neither rule", () => {
+  const root = tmpPack();
+  try {
+    writeTemplate(
+      root,
+      "templates/features/good.feature.tpl",
+      "Feature: Flags\n" +
+        "  Scenario: Defining a flag emits FlagDefined\n" +
+        "    Given no flag with id 'new-checkout' exists\n" +
+        "    When an operator defines the flag with default=false\n" +
+        "    Then FlagDefined is emitted\n"
+    );
+    const pack = {
+      scenarios: [{ id: "SCN-001", template: "templates/features/good.feature.tpl" }],
+    };
+    const errors = [];
+    const issues = [];
+    lintScenarioQuality(pack, root, errors, issues);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(issues, []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

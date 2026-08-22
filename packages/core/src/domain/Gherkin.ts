@@ -262,3 +262,127 @@ export function parseGherkin(source: string): GherkinDocument {
 
   return { dialect: dialectTag, feature, featureTags, background, scenarios };
 }
+
+// ── Keywords that were meant to be keywords ──────────────────────────────────
+
+export interface KeywordCaseIssue {
+  readonly line: number;
+  /** The keyword as written, e.g. `GIVEN`. */
+  readonly found: string;
+  /** What it had to be, e.g. `Given`. */
+  readonly expected: string;
+  /** The whole line, trimmed, so a report can quote it. */
+  readonly text: string;
+}
+
+/** Block keywords take a colon; step keywords take a space. */
+const BLOCK_FIELDS = [
+  "feature",
+  "background",
+  "rule",
+  "scenario",
+  "scenarioOutline",
+  "examples",
+] as const;
+
+/**
+ * Lines that were trying to be Gherkin and are not.
+ *
+ * Cucumber discards these in silence — `GIVEN a flag` is prose to it, and the
+ * scenario simply ends up with fewer steps than it looks like it has. That
+ * silence is what let H14 ship 27 scenarios which executed nothing, so this
+ * exists to say out loud what the parser would otherwise swallow.
+ *
+ * Two shapes are caught:
+ *
+ *   - **wrong case** — `GIVEN`, `SCENARIO:`, `then` — matched
+ *     case-insensitively against the dialect and reported with the canonical
+ *     spelling, because "it must be `Given`" is a fix and "no steps found" is
+ *     a riddle;
+ *   - **a space before the colon** — `Feature :` — which reads as correct and
+ *     is not.
+ *
+ * Deliberately conservative: only lines the parser did *not* already accept are
+ * considered, so a correct file yields nothing, and step text is never examined
+ * — `Given Givenchy launched` is a step, not a mistake.
+ */
+export function findKeywordCaseIssues(source: string): KeywordCaseIssue[] {
+  const dialect = DIALECTS[detectDialect(source)];
+  const issues: KeywordCaseIssue[] = [];
+  let inDocString: string | null = null;
+
+  const lines = String(source).replace(/\r\n/g, "\n").split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const lineNo = i + 1;
+
+    if (inDocString !== null) {
+      if (line === inDocString) inDocString = null;
+      continue;
+    }
+    if (line.startsWith('"""') || line.startsWith("```")) {
+      inDocString = line.slice(0, 3);
+      continue;
+    }
+    if (line === "" || line.startsWith("#") || line.startsWith("@") || line.startsWith("|"))
+      continue;
+
+    // Anything the parser already accepts is correct by definition.
+    if (matchStep(line, dialect)) continue;
+    const isBlock = BLOCK_FIELDS.some((field) => matchBlock(line, dialect[field]) !== null);
+    if (isBlock) continue;
+
+    const blockIssue = findBlockCaseIssue(line, lineNo, dialect);
+    if (blockIssue) {
+      issues.push(blockIssue);
+      continue;
+    }
+    const stepIssue = findStepCaseIssue(line, lineNo, dialect);
+    if (stepIssue) issues.push(stepIssue);
+  }
+
+  return issues;
+}
+
+/** `SCENARIO: x` or `Feature : x` — a block keyword the parser refused. */
+function findBlockCaseIssue(
+  line: string,
+  lineNo: number,
+  dialect: GherkinDialect
+): KeywordCaseIssue | null {
+  const colon = line.indexOf(":");
+  if (colon <= 0) return null;
+  const head = line.slice(0, colon);
+  const written = head.trimEnd();
+
+  for (const field of BLOCK_FIELDS) {
+    for (const keyword of dialect[field]) {
+      if (written.toLowerCase() !== keyword.toLowerCase()) continue;
+      // Matched ignoring case, so either the case is wrong, or the case is
+      // right and a space crept in before the colon. Both are silent failures.
+      return { line: lineNo, found: head, expected: keyword, text: line };
+    }
+  }
+  return null;
+}
+
+/** `GIVEN a flag` — a step keyword the parser refused. */
+function findStepCaseIssue(
+  line: string,
+  lineNo: number,
+  dialect: GherkinDialect
+): KeywordCaseIssue | null {
+  const firstWord = line.split(/\s+/)[0];
+  if (!firstWord || firstWord === "*") return null;
+
+  for (const kind of STEP_KINDS) {
+    for (const keyword of dialect[kind]) {
+      const canonical = keyword.trim();
+      if (canonical === "*") continue;
+      if (firstWord.toLowerCase() === canonical.toLowerCase() && firstWord !== canonical) {
+        return { line: lineNo, found: firstWord, expected: canonical, text: line };
+      }
+    }
+  }
+  return null;
+}

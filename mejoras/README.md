@@ -137,7 +137,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 
 | ID  | Propuesta                                                                        | Coste |
 | --- | -------------------------------------------------------------------------------- | ----- |
-| F3  | Paridad con Cucumber en `pack lint` y `validate`. **`pack lint` ya la tiene por `F1`**; queda nombrar `scenario_has_no_steps` y `keyword_case_invalid` con su `fix`, para que el mensaje diga *por qué*. La parte de `validate` es en realidad `A3`: hoy `validate` no parsea Gherkin | Bajo |
+| ~~F3~~ | **Hecho (2026-08-22).** `scenario_has_no_steps` y `keyword_case_invalid` son errores por sí solos, sin `--strict`, con fichero:línea y la grafía que funciona. Al ejecutarlo se destapó que `pack init` **seguía generando `GIVEN/WHEN/THEN`**: `F2` arregló los packs escritos, no el generador que los escribe. Corregido y con guarda sobre los cuatro tipos de proyecto. La parte de `validate` era `A3` | Bajo |
 | F4  | Trazabilidad por etiquetas `@REQ-NNN` / `@SCN-NNN`                               | Medio |
 | F5  | Gate del harness sobre el protocolo de mensajes _(cierra H15)_                   | Medio |
 | F6  | EARS opcional en la línea de requisito                                           | Bajo  |
@@ -188,7 +188,8 @@ Para que no se cuenten dos veces:
 ## 5. El orden que recomiendo
 
 **Tanda 1 — que el gate deje de aprobar sin comprobar.** ~~`F2`~~ ~~`F1`~~
-**(hechos, 2026-08-22)** → `F3` → `A3` → `A1` → `A2`. **Vamos por `F3`.**
+**(hechos, 2026-08-22)** ~~`F3`~~ **(hecho, 2026-08-22)** → `A3` → `A1` → `A2`.
+**Vamos por `A3`.**
 Este orden importa: extraer las reglas de calidad (`A3`) sobre el parser actual
 propagaría el defecto de `H14` a `validate`. Primero que el parser diga la
 verdad, después extender su alcance.

@@ -6,7 +6,7 @@ import {
 } from "../../../../packages/core/src/infrastructure/DiskPackRepository";
 import { asArray } from "../../../../packages/core/src/domain/PackSpec";
 import { BaseCommand } from "../../../lib/command";
-import { parseGherkin } from "../../../../packages/core/src/domain/Gherkin";
+import { findKeywordCaseIssues, parseGherkin } from "../../../../packages/core/src/domain/Gherkin";
 import { agentIo, wantsJson } from "../../../lib/agent";
 import { error as diagError, warning as diagWarning } from "../../../lib/diagnostics";
 
@@ -259,7 +259,18 @@ function checkGherkin(where: string, gherkin: any, errors: string[], scenarioIss
   if (isGenericTitle(gherkin.title)) {
     scenarioIssues.push(`${where}: scenario title is generic — name the behaviour under test.`);
   }
-  if (gherkin.steps.length < 3) {
+  if (gherkin.steps.length === 0) {
+    // `scenario_has_no_steps` — an error, always, and never a style warning.
+    // Cucumber runs this scenario and reports `1 scenario (1 passed) · 0 steps
+    // · exit 0`: it is a test that proves nothing and says it passed. That is
+    // H14, and 27 shipped scenarios were in exactly this state while `--strict`
+    // called them fine, so it cannot be something `--strict` merely promotes.
+    errors.push(
+      `${where}: scenario_has_no_steps — Cucumber sees no steps here, so this ` +
+        `scenario passes without testing anything. If the steps look like they are ` +
+        `there, check their keywords: Gherkin is case-sensitive.`
+    );
+  } else if (gherkin.steps.length < 3) {
     scenarioIssues.push(
       `${where}: only ${gherkin.steps.length} step(s) — a real scenario needs Given/When/Then.`
     );
@@ -323,7 +334,22 @@ export function lintScenarioQuality(
       continue;
     }
 
-    const parsed = parseFeature(fs.readFileSync(templatePath, "utf8"));
+    const templateSource = fs.readFileSync(templatePath, "utf8");
+
+    // `keyword_case_invalid` — an error, always. Cucumber discards these lines
+    // in silence, which is precisely what makes them dangerous: the file looks
+    // like it has steps and behaves as if it has none. Named with the literal
+    // correction, because "it must be `Given`" is a fix and "no steps found" is
+    // a riddle.
+    for (const issue of findKeywordCaseIssues(templateSource)) {
+      errors.push(
+        `${scn.template}:${issue.line}: keyword_case_invalid — ` +
+          `\`${issue.found}\` is not a Gherkin keyword; write \`${issue.expected}\`. ` +
+          `Cucumber reads it as prose, so the line does nothing.`
+      );
+    }
+
+    const parsed = parseFeature(templateSource);
     if (parsed.length === 0) {
       scenarioIssues.push(`Scenario ${label} (${scn.template}) contains no Gherkin scenario.`);
       continue;
