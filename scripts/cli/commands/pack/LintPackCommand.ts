@@ -6,6 +6,7 @@ import {
 } from "../../../../packages/core/src/infrastructure/DiskPackRepository";
 import { asArray } from "../../../../packages/core/src/domain/PackSpec";
 import { BaseCommand } from "../../../lib/command";
+import { parseGherkin } from "../../../../packages/core/src/domain/Gherkin";
 import { agentIo, wantsJson } from "../../../lib/agent";
 import { error as diagError, warning as diagWarning } from "../../../lib/diagnostics";
 
@@ -225,42 +226,25 @@ function lintVariables(pack: any, errors: string[], _warnings: string[]) {
 const VAGUE_STEP_RE =
   /\b(works?|correctly|properly|as expected|should be fine|should work|somehow|something|some stuff|etc\.?|tbd|todo)\b|\.\.\./i;
 
-const STEP_RE = /^\s*(Given|When|Then|And|But)\b\s*(.*)$/i;
-
+/**
+ * What `pack lint` reads out of a `.feature` template.
+ *
+ * Delegates to `parseGherkin`, the one reader in this repository (F1). This is
+ * the parser that shipped H14: it matched keywords case-insensitively, so it
+ * saw three steps in a scenario where Cucumber saw none and reported the pack
+ * as fine. A linter that approves what the runner ignores is worse than no
+ * linter, because it grants a guarantee that does not exist.
+ *
+ * Reading through the shared parser makes the linter case-sensitive, which is
+ * the whole point: it now judges the file the runner will actually execute.
+ */
 export function parseFeature(content: string) {
-  const scenarios: any[] = [];
-  let current: any = null;
-  for (const raw of content.split("\n")) {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) continue;
-
-    const scenarioMatch = line.match(/^(Scenario Outline|Scenario):\s*(.*)$/i);
-    if (scenarioMatch) {
-      current = {
-        outline: /outline/i.test(scenarioMatch[1]),
-        title: scenarioMatch[2].trim(),
-        steps: [],
-        hasExamples: false,
-      };
-      scenarios.push(current);
-      continue;
-    }
-    if (!current) continue;
-
-    if (/^Examples:/i.test(line)) {
-      current.hasExamples = true;
-      continue;
-    }
-    const stepMatch = line.match(STEP_RE);
-    if (stepMatch) {
-      let keyword = stepMatch[1].toLowerCase();
-      if ((keyword === "and" || keyword === "but") && current.steps.length > 0) {
-        keyword = current.steps[current.steps.length - 1].keyword;
-      }
-      current.steps.push({ keyword, text: stepMatch[2].trim() });
-    }
-  }
-  return scenarios;
+  return parseGherkin(content).scenarios.map((scenario) => ({
+    outline: scenario.outline,
+    title: scenario.name,
+    steps: scenario.steps.map((step) => ({ keyword: step.keyword, text: step.text })),
+    hasExamples: scenario.hasExamples,
+  }));
 }
 
 export function isGenericTitle(title: string) {

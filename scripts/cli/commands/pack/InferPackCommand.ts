@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import { BaseCommand } from "../../../lib/command";
+import { parseGherkin } from "../../../../packages/core/src/domain/Gherkin";
 
 function logError(msg: string) {
   process.stderr.write(`❌ [ERROR] ${msg}\n`);
@@ -43,54 +44,27 @@ export function parseArgs(argv: string[]) {
   return opts;
 }
 
-const STEP_RE = /^(Given|When|Then|And|But)\b\s*(.*)$/i;
-
+/**
+ * What `pack infer` reads out of a `.feature` file.
+ *
+ * Delegates to `parseGherkin`, the one reader in this repository (F1). It used
+ * to carry its own regular expressions — one of three sets that disagreed with
+ * each other — and matched case-insensitively, so it would have reported steps
+ * for a file Cucumber reads as prose.
+ *
+ * The shape is kept as it was so the rest of this command is untouched.
+ */
 export function parseFeatureFile(content: string) {
-  const featureTags: string[] = [];
-  const scenarios: any[] = [];
-  let featureName = "";
-  let pendingTags: string[] = [];
-  let current: any = null;
-
-  for (const raw of content.split("\n")) {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) continue;
-
-    if (line.startsWith("@")) {
-      pendingTags.push(...line.split(/\s+/).filter((t) => t.startsWith("@")));
-      continue;
-    }
-
-    const featureMatch = line.match(/^Feature:\s*(.*)$/i);
-    if (featureMatch) {
-      featureName = featureMatch[1].trim();
-      featureTags.push(...pendingTags);
-      pendingTags = [];
-      continue;
-    }
-
-    const scenarioMatch = line.match(/^(?:Scenario Outline|Scenario):\s*(.*)$/i);
-    if (scenarioMatch) {
-      current = { title: scenarioMatch[1].trim(), tags: pendingTags.slice(), steps: [] };
-      scenarios.push(current);
-      pendingTags = [];
-      continue;
-    }
-
-    const stepMatch = line.match(STEP_RE);
-    if (stepMatch && current) {
-      let keyword = stepMatch[1].toLowerCase();
-      if ((keyword === "and" || keyword === "but") && current.steps.length > 0) {
-        keyword = current.steps[current.steps.length - 1].keyword;
-      }
-      current.steps.push({ keyword, text: stepMatch[2].trim() });
-      continue;
-    }
-
-    pendingTags = [];
-  }
-
-  return { featureName, featureTags, scenarios };
+  const doc = parseGherkin(content);
+  return {
+    featureName: doc.feature ?? "",
+    featureTags: [...doc.featureTags],
+    scenarios: doc.scenarios.map((scenario) => ({
+      title: scenario.name,
+      tags: [...scenario.tags],
+      steps: scenario.steps.map((step) => ({ keyword: step.keyword, text: step.text })),
+    })),
+  };
 }
 
 function pad(n: number) {

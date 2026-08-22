@@ -10,6 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { parseYamlLite } from "../domain/YamlLite";
+import { parseGherkin } from "../domain/Gherkin";
 import { LoadedPack, changeIdFor, renderProposal, renderTasks } from "../domain/PackDelta";
 import { Phrases } from "../domain/Language";
 
@@ -24,14 +25,17 @@ export function loadPackModel(packRoot: string, packId: string): LoadedPack {
   };
 }
 
-const GHERKIN_KEYWORD = /^\s*(Given|When|Then|And|But)\s+(.*)$/i;
-
 /**
  * Pull the real steps for a scenario out of the pack's own `.feature` template.
  *
- * Falls back to a single TODO step rather than inventing behaviour: a delta
- * that says "TODO" is reviewable; one that says something plausible but made
- * up is not.
+ * Reading is delegated to `parseGherkin`, the one reader in this repository
+ * (F1). This used to carry its own regular expression — one of three that gave
+ * three different answers about the same file — and it was the only one of the
+ * three that was case-sensitive, so it was already reading these templates the
+ * way Cucumber does while the linter approved them.
+ *
+ * Falls back to null rather than inventing behaviour: a delta that says "TODO"
+ * is reviewable; one that says something plausible but made up is not.
  */
 export function stepsForScenario(packDir, scenario) {
   const templateRel = scenario && scenario.template;
@@ -41,23 +45,18 @@ export function stepsForScenario(packDir, scenario) {
   if (!fs.existsSync(templateFile)) return null;
 
   const wanted = String(scenario.scenario || "").trim();
-  const lines = fs.readFileSync(templateFile, "utf8").split(/\r?\n/);
-  const steps = [];
-  let inside = false;
+  const doc = parseGherkin(fs.readFileSync(templateFile, "utf8"));
 
-  for (const line of lines) {
-    const scenarioHeading = /^\s*(?:Scenario|Scenario Outline|Escenario):\s*(.*)$/.exec(line);
-    if (scenarioHeading) {
-      if (inside) break;
-      const name = scenarioHeading[1].trim();
-      inside = wanted === "" || name === wanted;
-      continue;
-    }
-    if (!inside) continue;
-    const step = GHERKIN_KEYWORD.exec(line);
-    if (step) steps.push(`${step[1].toUpperCase()} ${step[2].trim()}`);
-  }
+  // An empty name means "the first scenario in the file", which is what the
+  // line-walking version did by starting `inside` true.
+  const match = wanted === "" ? doc.scenarios[0] : doc.scenarios.find((s) => s.name === wanted);
+  if (!match) return null;
 
+  // `rawKeyword`, not the normalised one: a delta keeps the step as written, so
+  // an `And` stays `AND` instead of collapsing into the `THEN` it inherits.
+  // Upper-cased because a delta renders steps as `- GIVEN …`, which is the spec
+  // format rather than Gherkin — `change archive` turns it back into a feature.
+  const steps = match.steps.map((step) => `${step.rawKeyword.toUpperCase()} ${step.text}`);
   return steps.length > 0 ? steps : null;
 }
 
