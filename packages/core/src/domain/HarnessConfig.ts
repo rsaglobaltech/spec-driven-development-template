@@ -13,6 +13,13 @@ export interface HarnessSettings {
   reviewProfile: string;
   /** Profile name to the shell command it resolves to. */
   profileAgents: Record<string, string>;
+  /**
+   * Paths the agent may not modify (A1). Empty means the built-in defaults —
+   * naming your own list replaces them, which is the point of naming it.
+   */
+  protectedPaths: string[];
+  /** Explicit exceptions to the above. Never silent: it has to be written down. */
+  allowPaths: string[];
 }
 
 export class HarnessConfig {
@@ -29,6 +36,8 @@ export class HarnessConfig {
     attemptProfiles: [],
     reviewProfile: "",
     profileAgents: {},
+    protectedPaths: [],
+    allowPaths: [],
   };
 
   public constructor(public readonly settings: HarnessSettings) {}
@@ -58,6 +67,11 @@ export class HarnessConfig {
       attemptProfiles: file.attemptProfiles || HarnessConfig.DEFAULT_SETTINGS.attemptProfiles,
       reviewProfile: file.reviewProfile || HarnessConfig.DEFAULT_SETTINGS.reviewProfile,
       profileAgents: file.profileAgents || HarnessConfig.DEFAULT_SETTINGS.profileAgents,
+      // Write scope is a repository decision, like the role ladder: it comes
+      // from the file only. A flag that relaxes what the agent may edit is a
+      // flag somebody eventually types to make a red run go green.
+      protectedPaths: file.protectedPaths || HarnessConfig.DEFAULT_SETTINGS.protectedPaths,
+      allowPaths: file.allowPaths || HarnessConfig.DEFAULT_SETTINGS.allowPaths,
     });
   }
 }

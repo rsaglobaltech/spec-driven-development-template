@@ -23,6 +23,25 @@ import { resolveProjectDir } from "../lib/project-root";
 import { agentIo, wantsJson, EXIT } from "../lib/agent";
 import { error } from "../lib/diagnostics";
 import { RUNS_DIR } from "./run";
+import {
+  FalseFailureMark,
+  HarnessReportSummary,
+  RunFile,
+  STAGE_LABELS,
+  parseFalseFailures,
+  sparkline,
+  summariseRuns,
+} from "../../packages/core/src/domain/HarnessReport";
+
+export { HarnessReportSummary } from "../../packages/core/src/domain/HarnessReport";
+
+/**
+ * Where a person's "the gate was wrong about this one" is kept.
+ *
+ * Append-only, one JSON object per line, because that is what survives a
+ * process dying mid-write — the same reason the run ledger is one file per run.
+ */
+export const FALSE_FAILURES_FILE = ".harness/false-failures.jsonl";
 
 const COLOR =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -39,37 +58,9 @@ export interface HarnessReportOptions {
   projectDir: string;
   json: boolean;
   last: number | null;
-}
-
-interface ResultRow {
-  requirement: string;
-  result: string;
-  attempts: number;
-  durationMs?: number;
-}
-
-interface RunFile {
-  startedAt: string;
-  finishedAt?: string;
-  concurrency?: number;
-  results?: ResultRow[];
-}
-
-/** Everything the report says, in the shape `--json` emits. */
-export interface HarnessReportSummary {
-  runs: number;
-  requirementsAttempted: number;
-  passed: number;
-  failed: number;
-  blocked: number;
-  /** Of the ones that passed, how many did so on attempt 1. */
-  firstAttemptPasses: number;
-  firstAttemptRate: number | null;
-  /** Wall-clock across every attempt, including the ones that failed. */
-  totalMs: number;
-  /** …divided by the requirements that actually landed. The cost of delivery. */
-  msPerDelivered: number | null;
-  worst: Array<{ requirement: string; durationMs: number; attempts: number; result: string }>;
+  /** `--mark-false-failure REQ-NNN`: record that the gate was wrong about it. */
+  markFalseFailure: string | null;
+  reason: string;
 }
 
 function usage(): void {
@@ -79,12 +70,23 @@ function usage(): void {
       `    csda harness report [--project-dir <path>] [--last <n>] [--json]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    --last <n>            Only the n most recent runs.\n` +
-      `    --json                Machine-readable summary.\n\n`
+      `    --json                Machine-readable summary.\n` +
+      `    --mark-false-failure <REQ-NNN> --reason "..."\n` +
+      `                          Record that the gate rejected good work. Nothing the\n` +
+      `                          harness stores can tell a real failure from a false\n` +
+      `                          one — only a person can, so the ratio stays unknown\n` +
+      `                          until somebody marks one.\n\n`
   );
 }
 
 export function parseArgs(argv: string[]): HarnessReportOptions {
-  const opts: HarnessReportOptions = { projectDir: ".", json: wantsJson(argv), last: null };
+  const opts: HarnessReportOptions = {
+    projectDir: ".",
+    json: wantsJson(argv),
+    last: null,
+    markFalseFailure: null,
+    reason: "",
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
@@ -92,6 +94,14 @@ export function parseArgs(argv: string[]): HarnessReportOptions {
       const n = Number(argv[++i]);
       if (!Number.isInteger(n) || n < 1) throw new Error("--last must be a positive integer");
       opts.last = n;
+    } else if (a === "--mark-false-failure" && argv[i + 1]) {
+      const req = argv[++i];
+      if (!/^REQ-\d+$/.test(req)) {
+        throw new Error(`--mark-false-failure expects REQ-NNN, got: ${req}`);
+      }
+      opts.markFalseFailure = req;
+    } else if (a === "--reason" && argv[i + 1]) {
+      opts.reason = argv[++i];
     } else if (a === "--json" || a === "--format") {
       if (a === "--format") i += 1;
     } else if (a === "--help" || a === "-h") {
@@ -100,6 +110,11 @@ export function parseArgs(argv: string[]): HarnessReportOptions {
     } else if (a.startsWith("-")) {
       throw new Error(`Unknown flag: ${a}`);
     }
+  }
+  // A mark without a reason is a number nobody can audit later. The whole point
+  // of this metric is that a person looked; the reason is what they saw.
+  if (opts.markFalseFailure && !opts.reason.trim()) {
+    throw new Error('--mark-false-failure needs --reason "why the gate was wrong"');
   }
   return opts;
 }
@@ -123,35 +138,35 @@ export function readRuns(projectDir: string, last: number | null): RunFile[] {
   return runs;
 }
 
-export function summarise(runs: RunFile[]): HarnessReportSummary {
-  const rows = runs.flatMap((r) => r.results ?? []);
-  const passed = rows.filter((r) => r.result === "pass");
-  const totalMs = rows.reduce((n, r) => n + (r.durationMs ?? 0), 0);
-  const firstAttemptPasses = passed.filter((r) => r.attempts === 1).length;
+/**
+ * The aggregation itself lives in `core/domain/HarnessReport`: it is arithmetic
+ * over records, and keeping it out of here is what lets it be tested without
+ * writing a ledger to disk. This wrapper is kept because the run tests import
+ * it by name.
+ */
+/** The marks a person has left, or none. */
+export function readFalseFailures(projectDir: string): FalseFailureMark[] {
+  const file = path.join(projectDir, ...FALSE_FAILURES_FILE.split("/"));
+  if (!fs.existsSync(file)) return [];
+  try {
+    return parseFalseFailures(fs.readFileSync(file, "utf8"));
+  } catch {
+    return [];
+  }
+}
 
-  const worst = [...rows]
-    .filter((r) => (r.durationMs ?? 0) > 0)
-    .sort((a, b) => (b.durationMs ?? 0) - (a.durationMs ?? 0))
-    .slice(0, 5)
-    .map((r) => ({
-      requirement: r.requirement,
-      durationMs: r.durationMs ?? 0,
-      attempts: r.attempts,
-      result: r.result,
-    }));
+/** Append one mark. Append-only, so a killed process loses at most its own line. */
+export function appendFalseFailure(projectDir: string, mark: FalseFailureMark): void {
+  const file = path.join(projectDir, ...FALSE_FAILURES_FILE.split("/"));
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.appendFileSync(file, `${JSON.stringify(mark)}\n`, "utf8");
+}
 
-  return {
-    runs: runs.length,
-    requirementsAttempted: rows.length,
-    passed: passed.length,
-    failed: rows.filter((r) => r.result === "fail").length,
-    blocked: rows.filter((r) => r.result === "blocked").length,
-    firstAttemptPasses,
-    firstAttemptRate: passed.length > 0 ? firstAttemptPasses / passed.length : null,
-    totalMs,
-    msPerDelivered: passed.length > 0 ? Math.round(totalMs / passed.length) : null,
-    worst,
-  };
+export function summarise(
+  runs: RunFile[],
+  falseFailures: FalseFailureMark[] = []
+): HarnessReportSummary {
+  return summariseRuns(runs, falseFailures);
 }
 
 function human(ms: number): string {
@@ -175,6 +190,52 @@ function render(summary: HarnessReportSummary): void {
       `${summary.msPerDelivered === null ? "—" : human(summary.msPerDelivered)}` +
       `  ${c.dim}wall-clock, failed attempts included${c.reset}\n`
   );
+
+  if (summary.stages.length > 0) {
+    // Where the gate rejects, which is the question C2 exists to answer. Read
+    // from every attempt, not from each requirement's final result: one that
+    // passed on attempt 3 still failed twice, and those two are the interesting
+    // ones.
+    process.stdout.write(`\n  ${c.dim}where attempts ended${c.reset}\n`);
+    for (const s of summary.stages) {
+      const label = STAGE_LABELS[s.stage] || s.stage;
+      const mark = s.stage === "pass" ? c.green : c.yellow;
+      process.stdout.write(
+        `    ${mark}${String(s.count).padStart(4)}${c.reset}  ${label} ${c.dim}[${s.stage}]${c.reset}\n`
+      );
+    }
+  }
+
+  if (summary.exhausted.length > 0) {
+    process.stdout.write(`\n  ${c.dim}spent every attempt and delivered nothing${c.reset}\n`);
+    for (const r of summary.exhausted.slice(0, 5)) {
+      process.stdout.write(
+        `    ${c.yellow}${r.requirement.padEnd(10)}${c.reset} ${human(r.durationMs).padStart(8)}` +
+          `  ${c.dim}${r.attempts} attempt(s)${c.reset}\n`
+      );
+    }
+  }
+
+  if (summary.timeline.length > 1) {
+    const first = summary.timeline[0].startedAt.slice(0, 10);
+    const last = summary.timeline[summary.timeline.length - 1].startedAt.slice(0, 10);
+    process.stdout.write(
+      `\n  ${c.dim}runs over time${c.reset}\n    ${sparkline(summary.timeline)}` +
+        `  ${c.dim}${first} → ${last}${c.reset}\n`
+    );
+  }
+
+  if (summary.failed > 0) {
+    process.stdout.write(
+      `\n  ${c.bold}${label("failures that were real")}${c.reset}` +
+        `${pct(summary.realFailureRate)}` +
+        (summary.realFailureRate === null
+          ? `  ${c.dim}nothing recorded can tell a real failure from a gate that was\n` +
+            `${" ".repeat(30)}wrong — mark one: csda harness report\n` +
+            `${" ".repeat(30)}--mark-false-failure REQ-NNN --reason "..."${c.reset}\n`
+          : `  ${c.dim}${summary.falseFailures} marked as the gate's fault${c.reset}\n`)
+    );
+  }
 
   if (summary.worst.length > 0) {
     process.stdout.write(`\n  ${c.dim}slowest${c.reset}\n`);
@@ -215,9 +276,21 @@ export function main(argv: string[]): void {
     return;
   }
 
+  if (opts.markFalseFailure) {
+    appendFalseFailure(projectDir, {
+      requirement: opts.markFalseFailure,
+      reason: opts.reason.trim(),
+      markedAt: new Date().toISOString(),
+    });
+    process.stdout.write(
+      `\n  ${c.green}✔${c.reset}  ${opts.markFalseFailure} marked as a false failure.\n` +
+        `     ${c.dim}${opts.reason.trim()}${c.reset}\n\n`
+    );
+  }
+
   const runs = readRuns(projectDir, opts.last);
   if (runs.length === 0) {
-    io.emit({ report: summarise([]), status: [] }, () => {
+    io.emit({ report: summarise([], []), status: [] }, () => {
       process.stdout.write(
         `\n  ${c.dim}No runs recorded yet. \`csda harness run\` writes one per run.${c.reset}\n\n`
       );
@@ -225,7 +298,7 @@ export function main(argv: string[]): void {
     process.exit(EXIT.OK);
   }
 
-  const summary = summarise(runs);
+  const summary = summarise(runs, readFalseFailures(projectDir));
   io.emit({ report: summary, status: [] }, () => render(summary));
   process.exit(EXIT.OK);
 }

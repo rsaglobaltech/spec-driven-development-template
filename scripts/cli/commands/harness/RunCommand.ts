@@ -35,6 +35,12 @@ import {
   readHarnessConfig,
   resolveHarnessSettings,
 } from "../../../../packages/core/src/infrastructure/HarnessConfigFile";
+import { checkWriteScope, parseGitStatus } from "../../../../packages/core/src/domain/WriteScope";
+import { checkDeclaredArtifacts } from "../../../../packages/core/src/domain/DeclaredArtifacts";
+import {
+  previousFailureFromPrompt,
+  resumePoint,
+} from "../../../../packages/core/src/domain/ResumeState";
 import {
   AttemptRecord,
   featureFilePath,
@@ -105,6 +111,11 @@ function usage() {
       "  --format <text|json>   Report format (default text).\n" +
       "  --dry-run              Build prompts and print them; never invoke the agent.\n\n" +
       "CI mode (unattended runners — a nightly job that leaves PRs to review):\n" +
+      "  --resume               Continue an interrupted run: reuse the existing\n" +
+      "                         harness/REQ-NNN branch and worktree instead of\n" +
+      "                         skipping it, and pick up at the attempt it stopped on.\n" +
+      "  --strict-artifacts     Fail an attempt whose diff never touches the paths the\n" +
+      "                         matrix declares for the requirement (default: warn).\n" +
       "  --push                 Push each green harness/REQ-NNN branch to the remote.\n" +
       "  --remote <name>        Remote to push to (default origin).\n" +
       "  --pr-cmd <cmd>         Command run after a successful push, with {branch} and\n" +
@@ -130,8 +141,10 @@ export function parseArgs(argv) {
     timeout: 1200,
     keepWorktrees: false,
     force: false,
+    resume: false,
     format: "text",
     dryRun: false,
+    strictArtifacts: false,
     push: false,
     remote: "",
     prCmd: "",
@@ -176,16 +189,29 @@ export function parseArgs(argv) {
       args.keepWorktrees = true;
     } else if (token === "--force") {
       args.force = true;
+    } else if (token === "--resume") {
+      args.resume = true;
     } else if (token === "--format") {
       args.format = argv[++i] || "";
     } else if (token === "--dry-run") {
       args.dryRun = true;
+    } else if (token === "--strict-artifacts") {
+      args.strictArtifacts = true;
     } else if (token === "--help" || token === "-h") {
       usage();
       process.exit(0);
     } else {
       throw new Error(`Unknown argument: ${token}`);
     }
+  }
+  // `--force` throws the branch away; `--resume` continues it. Asking for both
+  // is asking for two opposite things, and silently picking one is how work
+  // gets deleted after an interruption — the exact loss --resume exists to stop.
+  if (args.force && args.resume) {
+    throw new Error(
+      "--force and --resume are opposites: --force deletes the existing branch, " +
+        "--resume continues it. Pick one."
+    );
   }
   if (!["text", "json"].includes(args.format)) {
     throw new Error(`Invalid --format: ${args.format}. Expected: text | json.`);
@@ -328,9 +354,115 @@ function discardWorktreeChanges(worktreeDir: string): void {
   git(worktreeDir, ["clean", "-fd", "-e", PROMPT_ARCHIVE_DIR]);
 }
 
+/**
+ * Did the agent edit the contract it was being judged against? (A1, closes H16)
+ *
+ * The prompt asks it not to; nothing checked. An agent that cannot make the
+ * scenario pass can relax the scenario, or add a permissive line to
+ * `AI_RULES.md`, and the gate approves — `validate --strict-tdd` verifies that
+ * the feature exists and is in the matrix, never that it still says what it
+ * said. "Specs as executable contracts" stops being true the moment the
+ * executor may edit the contract.
+ *
+ * Run **before** the gate, not after: once the scenario has been loosened, a
+ * green gate means nothing, so there is no point asking it.
+ *
+ * The diff of the offending paths goes back into the next attempt's prompt.
+ * That is not politeness — in practice the agent almost always did it without
+ * meaning to, and being shown the hunk is what corrects it. A refusal with no
+ * evidence just gets repeated.
+ */
+/**
+ * What the agent wrote, as git sees it.
+ *
+ * `-uall` is not optional. Plain `--porcelain` collapses a wholly new directory
+ * into a single `?? src/` entry, so `src/Health.java` never appears and any
+ * check reading it concludes the file was never written. Found by an agent that
+ * had correctly created both declared artifacts and was reported as having
+ * touched neither.
+ */
+function worktreeChanges(worktreeDir) {
+  const status = git(worktreeDir, ["status", "--porcelain", "-uall"]);
+  if (status.status !== 0) return null;
+  return parseGitStatus(status.stdout || "");
+}
+
+function checkWriteScopeInWorktree(worktreeDir, settings) {
+  const changes = worktreeChanges(worktreeDir);
+  if (!changes) return null;
+
+  const violations = checkWriteScope(changes, {
+    protectedPaths: settings.protectedPaths.length ? settings.protectedPaths : undefined,
+    allowPaths: settings.allowPaths,
+  });
+  if (violations.length === 0) return null;
+
+  const diff = git(worktreeDir, ["diff", "--", ...violations.map((v) => v.path)]);
+  const evidence = (diff.stdout || "").trim();
+
+  return {
+    violations,
+    message:
+      `agent_touched_protected_path — the agent modified ${violations.length} file(s) it is ` +
+      `not allowed to change:\n` +
+      violations.map((v) => `  ${v.path}  (protected by \`${v.pattern}\`)`).join("\n") +
+      `\n\nThese files are the contract this requirement is judged against. Editing them ` +
+      `makes a passing gate meaningless. Revert them and satisfy the scenario as written.\n` +
+      (evidence ? `\nWhat was changed:\n\n\`\`\`diff\n${evidence}\n\`\`\`\n` : "") +
+      `\nIf the change is genuinely required, it belongs in a spec change ` +
+      `(\`csda change new\`), reviewed by a person — not in this attempt.`,
+  };
+}
+
+/**
+ * Every path the agent wrote in this worktree — added and modified alike.
+ *
+ * Shared with the write-scope guard, which is why A2 costs almost nothing: the
+ * diff was already being read.
+ */
+function touchedPaths(worktreeDir) {
+  const changes = worktreeChanges(worktreeDir);
+  return changes ? [...changes.modified, ...changes.added] : [];
+}
+
+/**
+ * Did the green diff touch what the matrix said it would? (A2)
+ *
+ * The row declares `test_artifact` and `technical_artifact` and the prompt
+ * hands both to the agent, but nothing checked the diff contained them. An
+ * agent can implement somewhere else, pass the scenario, and leave the matrix
+ * pointing at a file where the logic does not live — the documentary lie
+ * `AI_RULES.md` forbids this repository.
+ *
+ * Run after a **green** gate, because the claim being checked is about a diff
+ * that already works. A red attempt has a more urgent problem.
+ *
+ * A warning by default. An implementation can legitimately land in a shared
+ * module that already exists, and a hard failure there would be the kind of
+ * gate that rejects good work — which already cost two runs on REQ-002.
+ * `--strict-artifacts` is for a project that wants it enforced.
+ */
+function checkDeclaredArtifactsInWorktree(worktreeDir, req, strict) {
+  const findings = checkDeclaredArtifacts(
+    {
+      touched: touchedPaths(worktreeDir),
+      testArtifact: req.testArtifact || req.test_artifact,
+      technicalArtifact: req.technicalArtifact || req.technical_artifact,
+      requirement: req.requirement,
+    },
+    strict
+  );
+  return findings.length > 0 ? findings : null;
+}
+
 function attemptRequirement(req, ctx) {
   const { worktreeDir, settings, timeoutMs, hint } = ctx;
-  let previousFailure = "";
+  /**
+   * What the gate said last time, recovered from the prompt archive when this
+   * is a resumed run. Without it the agent starts the resumed attempt blind and
+   * repeats whatever it already got wrong.
+   */
+  let previousFailure = (ctx.resumeAt && ctx.resumeAt.previousFailure) || "";
   /**
    * What each attempt cost and where it ended.
    *
@@ -342,7 +474,9 @@ function attemptRequirement(req, ctx) {
   /** The reviewer's findings from the previous attempt, fed into this prompt. */
   let reviewFindings = "";
 
-  for (let attempt = 1; attempt <= settings.maxAttempts; attempt += 1) {
+  const firstAttempt = Math.max(1, (ctx.resumeAt && ctx.resumeAt.attempt) || 1);
+
+  for (let attempt = firstAttempt; attempt <= settings.maxAttempts; attempt += 1) {
     info(`${req.requirement}: attempt ${attempt}/${settings.maxAttempts}`);
     const attemptStart = Date.now();
     let agentMs = 0;
@@ -451,6 +585,17 @@ function attemptRequirement(req, ctx) {
     }
     if (stepFailed) continue;
 
+    // Before the gate: a scenario the agent has just loosened cannot fail, so a
+    // green gate proves nothing. See `checkWriteScopeInWorktree`.
+    const scope = checkWriteScopeInWorktree(worktreeDir, settings);
+    if (scope) {
+      previousFailure = scope.message;
+      warn(`${req.requirement}: ${scope.violations.length} protected path(s) modified`);
+      for (const v of scope.violations) warn(`  ${v.path} (${v.pattern})`);
+      record("write-scope");
+      continue;
+    }
+
     const gate = runGate(worktreeDir, settings.testCmd, timeoutMs, req);
     if (!gate.ok) {
       previousFailure =
@@ -461,7 +606,30 @@ function attemptRequirement(req, ctx) {
       continue;
     }
 
-    // Green — close the loop inside the worktree.
+    // Green — but does the diff contain what the row promised? (A2)
+    const artifacts = checkDeclaredArtifactsInWorktree(
+      worktreeDir,
+      req,
+      Boolean(ctx.strictArtifacts)
+    );
+    if (artifacts) {
+      for (const f of artifacts) {
+        warn(`${req.requirement}: ${f.message} [${f.code}]`);
+        if (f.fix) warn(`  fix: ${f.fix}`);
+      }
+      if (ctx.strictArtifacts) {
+        previousFailure =
+          `The gate passed, but the diff never touches the artifacts the matrix ` +
+          `declares for ${req.requirement}:\n\n` +
+          artifacts.map((f) => `  ${f.message}\n  fix: ${f.fix}`).join("\n\n") +
+          `\n\nA matrix that points at a file where the logic does not live is a ` +
+          `documentary lie. Implement it there, or correct the row.`;
+        record("artifacts");
+        continue;
+      }
+    }
+
+    // Close the loop inside the worktree.
     const done = spawnSync(
       process.execPath,
       [DONE_SCRIPT, req.requirement, "--project-dir", worktreeDir],
@@ -507,7 +675,9 @@ function attemptRequirement(req, ctx) {
 
   return {
     result: "fail",
-    attempts: settings.maxAttempts,
+    // Attempts *this* run spent. On a resume that starts at 3 of 3, one attempt
+    // was spent here, and reporting 3 would double-count the earlier run's.
+    attempts: settings.maxAttempts - firstAttempt + 1,
     error: previousFailure,
     workPreserved: preserved,
     attemptLog,
@@ -721,6 +891,71 @@ function deriveBase(projectDir, reqId, deps, passed, ctx) {
  * Returns false when there was nothing to commit — an agent that produced no
  * files at all, which is itself worth knowing and is reported as such.
  */
+/**
+ * The worktree already checked out on `branch`, if git still knows of one.
+ *
+ * After an interruption the worktree survives — the process died before its
+ * `finally` could remove it — holding the agent's uncommitted partial work.
+ * Re-using it is the difference between resuming and starting over.
+ */
+function existingWorktreeFor(projectDir, branch) {
+  const listed = git(projectDir, ["worktree", "list", "--porcelain"]);
+  if (listed.status !== 0) return null;
+
+  let current: string | null = null;
+  for (const line of (listed.stdout || "").split("\n")) {
+    if (line.startsWith("worktree ")) current = line.slice("worktree ".length).trim();
+    else if (line.trim() === `branch refs/heads/${branch}` && current) {
+      return fs.existsSync(current) ? current : null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Where a resumed run picks up, and what the gate last said.
+ *
+ * Read from the prompt archive rather than the run ledger. The ledger is
+ * written when a run *finishes*, and `--resume` is for the runs that do not —
+ * a killed run leaves `.harness/runs/` empty. Measured, not assumed.
+ *
+ * The archive is reachable the same way in both endings: still uncommitted in a
+ * surviving worktree after an interruption, and committed onto the branch by
+ * `preserveFailedAttempt` once the attempts are spent, so a freshly added
+ * worktree checks it out.
+ */
+function resumeFrom(worktreeDir, requirement) {
+  const dir = path.join(worktreeDir, ...PROMPT_ARCHIVE_DIR.split("/"));
+  let names: string[] = [];
+  try {
+    names = fs.readdirSync(dir);
+  } catch {
+    return { attempt: 1, previousFailure: "" };
+  }
+
+  // Interrupted or exhausted? The two deserve different answers, and the branch
+  // says which: `preserveFailedAttempt` leaves a `wip(...): FAILED the gate`
+  // commit when the attempts run out, and an interruption leaves none.
+  //
+  //   exhausted   → the last attempt reached a verdict → resume at the next one
+  //   interrupted → it never did → re-run it, without charging the budget
+  const head = git(worktreeDir, ["log", "-1", "--format=%s"]);
+  const lastCompleted = /^wip\([^)]*\): FAILED the gate/.test((head.stdout || "").trim());
+
+  const point = resumePoint(names, requirement, lastCompleted);
+  if (!point.latest) return { attempt: 1, previousFailure: "" };
+
+  let previousFailure = "";
+  try {
+    previousFailure = previousFailureFromPrompt(
+      fs.readFileSync(path.join(dir, point.latest.fileName), "utf8")
+    );
+  } catch {
+    /* an unreadable archive is not a reason to refuse to resume */
+  }
+  return { attempt: point.attempt, previousFailure };
+}
+
 function preserveFailedAttempt(worktreeDir, req, failure) {
   if (isGitClean(worktreeDir)) return false;
 
@@ -805,37 +1040,64 @@ function processRequirement(req, ctx) {
     `csda-harness-${req.requirement}-${crypto.randomBytes(4).toString("hex")}`
   );
 
+  // Three ways to meet an existing branch, and until C3 there were only two:
+  // skip it, or delete it with --force. After an interruption — a crash, a
+  // Ctrl-C, a spend limit — neither is what anyone wants.
+  let resuming = false;
   if (branchExists(projectDir, branch)) {
-    if (!force) {
+    if (ctx.resume) {
+      resuming = true;
+    } else if (!force) {
       return {
         requirement: req.requirement,
         category: req.category,
         result: "skipped",
         attempts: 0,
         branch,
-        error: `Branch ${branch} already exists. Re-run with --force to recreate it.`,
+        error:
+          `Branch ${branch} already exists. Re-run with --resume to continue it, ` +
+          `or --force to recreate it from scratch.`,
       };
+    } else {
+      git(projectDir, ["branch", "-D", branch]);
     }
-    git(projectDir, ["branch", "-D", branch]);
+  } else if (ctx.resume) {
+    // Nothing to resume is not an error: --resume over a whole plan should run
+    // the requirements that never started, not refuse the lot.
+    info(`${req.requirement}: nothing to resume, starting fresh`);
   }
 
   warnIfBaseIsStale(projectDir, req.requirement, baseRef);
   const startedAt = Date.now();
 
-  const add = git(projectDir, ["worktree", "add", "-b", branch, worktreeDir, baseRef]);
-  if (add.status !== 0) {
-    return {
-      requirement: req.requirement,
-      category: req.category,
-      result: "fail",
-      attempts: 0,
-      branch,
-      error: `git worktree add failed:\n${add.stderr || add.stdout}`,
-    };
+  // A surviving worktree still holds the partial work; re-attaching to it is
+  // what makes this a resume rather than a restart.
+  const survivor = resuming ? existingWorktreeFor(projectDir, branch) : null;
+  const dir = survivor || worktreeDir;
+
+  if (!survivor) {
+    const args = resuming
+      ? ["worktree", "add", dir, branch]
+      : ["worktree", "add", "-b", branch, dir, baseRef];
+    const add = git(projectDir, args);
+    if (add.status !== 0) {
+      return {
+        requirement: req.requirement,
+        category: req.category,
+        result: "fail",
+        attempts: 0,
+        branch,
+        error: `git worktree add failed:\n${add.stderr || add.stdout}`,
+      };
+    }
   }
 
   try {
-    const outcome = attemptRequirement(req, { ...ctx, worktreeDir });
+    const resumeAt = resuming ? resumeFrom(dir, req.requirement) : null;
+    if (resumeAt && resumeAt.attempt > 1) {
+      info(`${req.requirement}: resuming at attempt ${resumeAt.attempt}`);
+    }
+    const outcome = attemptRequirement(req, { ...ctx, worktreeDir: dir, resumeAt });
     const result = {
       requirement: req.requirement,
       category: req.category,
@@ -849,10 +1111,14 @@ function processRequirement(req, ctx) {
     }
     return result;
   } finally {
+    // `dir`, not `worktreeDir`: a resumed run re-attached to the worktree that
+    // survived the interruption, and `worktreeDir` names a path that was never
+    // created. Removing the wrong one leaves the real worktree registered and
+    // the next --resume unable to attach.
     if (!keepWorktrees) {
-      git(projectDir, ["worktree", "remove", "--force", worktreeDir]);
+      git(projectDir, ["worktree", "remove", "--force", dir]);
     } else {
-      info(`${req.requirement}: worktree kept at ${worktreeDir}`);
+      info(`${req.requirement}: worktree kept at ${dir}`);
     }
   }
 }
@@ -1329,6 +1595,8 @@ export class RunCommand extends BaseCommand {
         timeoutSeconds: args.timeout,
         keepWorktrees: args.keepWorktrees,
         force: args.force,
+        resume: args.resume,
+        strictArtifacts: args.strictArtifacts,
       };
 
       const startedAt = new Date().toISOString();

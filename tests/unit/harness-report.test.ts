@@ -140,3 +140,84 @@ test("--last refuses a value that is not a positive integer", () => {
   assert.throws(() => parseArgs(["--last", "x"]), /--last must be a positive integer/);
   assert.equal(parseArgs(["--last", "3"]).last, 3);
 });
+
+// ── The mark a person leaves (C2) ────────────────────────────────────────────
+//
+// A gate that rejects good work and a gate catching a genuine defect look
+// identical in the ledger. No amount of recorded data separates them; only
+// somebody who looked can say. That is why this is a command and not a
+// derivation, and why the ratio reads `—` until the first mark exists.
+
+const {
+  appendFalseFailure,
+  readFalseFailures,
+  FALSE_FAILURES_FILE,
+} = require("../../scripts/harness/report");
+
+test("--mark-false-failure demands a reason", () => {
+  // A number nobody can audit later is worse than an honest blank. The reason
+  // is the whole evidence this metric has.
+  assert.throws(() => parseArgs(["--mark-false-failure", "REQ-001"]), /--reason/);
+  assert.doesNotThrow(() =>
+    parseArgs(["--mark-false-failure", "REQ-001", "--reason", "the gate was wrong"])
+  );
+});
+
+test("--mark-false-failure refuses anything that is not a REQ id", () => {
+  assert.throws(
+    () => parseArgs(["--mark-false-failure", "the-login-thing", "--reason", "x"]),
+    /REQ-NNN/
+  );
+});
+
+test("marks round-trip through the append-only file", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-marks-"));
+  try {
+    assert.deepEqual(readFalseFailures(dir), [], "no file means no marks, not an error");
+
+    appendFalseFailure(dir, { requirement: "REQ-001", reason: "flaky test", markedAt: "t1" });
+    appendFalseFailure(dir, { requirement: "REQ-002", reason: "bad row", markedAt: "t2" });
+
+    const marks = readFalseFailures(dir);
+    assert.deepEqual(
+      marks.map((m) => m.requirement),
+      ["REQ-001", "REQ-002"],
+      "appending must not overwrite what came before"
+    );
+    assert.equal(marks[0].reason, "flaky test");
+
+    // One JSON object per line, because that is what survives a killed process.
+    const raw = fs.readFileSync(path.join(dir, ...FALSE_FAILURES_FILE.split("/")), "utf8");
+    assert.equal(raw.trim().split("\n").length, 2);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the summary reads the marks the command writes", () => {
+  // The seam between the two halves: a mark written by the command has to be
+  // the same shape the aggregation reads, or the ratio silently stays blank.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-marks-seam-"));
+  try {
+    appendFalseFailure(dir, {
+      requirement: "REQ-001",
+      reason: "the gate was wrong",
+      markedAt: "t",
+    });
+    const runs = [
+      {
+        startedAt: "2026-08-22T10:00:00Z",
+        maxAttempts: 1,
+        results: [
+          { requirement: "REQ-001", result: "fail", attempts: 1, durationMs: 10, attemptLog: [] },
+          { requirement: "REQ-002", result: "fail", attempts: 1, durationMs: 10, attemptLog: [] },
+        ],
+      },
+    ];
+    const summary = summarise(runs, readFalseFailures(dir));
+    assert.equal(summary.falseFailures, 1);
+    assert.equal(summary.realFailureRate, 0.5);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

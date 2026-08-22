@@ -76,7 +76,21 @@ export function substituteGateCommand(template, req) {
 /** What one attempt cost, and the step it stopped at. */
 export interface AttemptRecord {
   attempt: number;
-  endedAt: "pass" | "agent-timeout" | "agent-error" | "gate" | "done" | "commit";
+  /**
+   * `write-scope` is its own stage rather than a flavour of `gate`: it means the
+   * agent edited the contract it was being judged against, which `harness
+   * report` should be able to count separately from a run that simply failed.
+   */
+  endedAt:
+    | "pass"
+    | "agent-timeout"
+    | "agent-error"
+    | "write-scope"
+    | "gate"
+    /** Green gate, but the diff missed the declared artifacts (A2, --strict-artifacts). */
+    | "artifacts"
+    | "done"
+    | "commit";
   /** Wall-clock inside the agent command alone. */
   agentMs: number;
   /** Wall-clock for the whole attempt: prompt, agent, gate, done, commit. */

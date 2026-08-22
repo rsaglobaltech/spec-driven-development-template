@@ -52,6 +52,8 @@ const KNOWN_KEYS = new Set([
   "prompt_prefix_file",
   "attempt_profiles",
   "review_profile",
+  "protected_paths",
+  "allow_paths",
 ]);
 
 export function readHarnessConfig(projectDir) {
@@ -110,6 +112,16 @@ export function readHarnessConfig(projectDir) {
   // somebody eventually pays for by accident.
   //
   // An explicit `agent:` wins: the narrower statement beats the indirection.
+  // A1: which paths the agent may not modify, and the explicit exceptions.
+  // Both are lists of globs; a malformed value is rejected rather than ignored,
+  // because a guard that silently protects nothing is worse than no guard.
+  if (parsed.protected_paths !== undefined) {
+    config.protectedPaths = asStringList(parsed.protected_paths, "protected_paths");
+  }
+  if (parsed.allow_paths !== undefined) {
+    config.allowPaths = asStringList(parsed.allow_paths, "allow_paths");
+  }
+
   if (config.agent === undefined && parsed.agent_profile !== undefined) {
     config.agent = resolveProfileAgent(projectDir, String(parsed.agent_profile));
   }
@@ -208,6 +220,10 @@ export function resolveHarnessSettings(
     attemptProfiles: file.attemptProfiles || [],
     reviewProfile: file.reviewProfile || "",
     profileAgents: file.profileAgents || {},
+    // From the file only, for the same reason as the role ladder: a flag that
+    // widens what the agent may edit is a flag somebody types to go green.
+    protectedPaths: file.protectedPaths || [],
+    allowPaths: file.allowPaths || [],
   };
 }
 

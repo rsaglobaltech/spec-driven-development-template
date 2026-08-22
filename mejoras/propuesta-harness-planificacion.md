@@ -71,7 +71,7 @@ Tres carencias, en orden de gravedad:
 Sin esta tanda, todo lo demás amplifica errores más rápido. Va primero por eso,
 no por tamaño.
 
-### A1 · Guardia de alcance de escritura en el gate
+### A1 · Guardia de alcance de escritura en el gate — **hecho (2026-08-22)**
 
 **Hoy.** El prompt lo pide; nadie lo comprueba. Un agente que no consigue pasar
 el escenario puede relajar el escenario, o añadir una regla permisiva a
@@ -112,7 +112,64 @@ Un requisito legítimo que **debe** crear su feature (categoría
 permite; **modificar** uno existente, no. Esa distinción es la parte que hay que
 escribir con cuidado.
 
-### A2 · El diff verde debe tocar los artefactos declarados
+### Lo que se midió antes de escribirlo
+
+H16 no era teórico y ahora hay número. Un agente que, en vez de implementar,
+sustituyó el escenario por lo mínimo que compila:
+
+```gherkin
+Feature: Platform health baseline
+  Scenario: API reports service as healthy
+    Given nothing in particular
+    When nothing happens
+    Then nothing is asserted
+```
+
+Resultado del harness **sin** la guardia:
+
+```
+1 passed · 0 failed · 0 skipped
+```
+
+Rama publicada, requisito cerrado. Con la guardia: `0 passed · 1 failed`, con
+el fichero y el patrón que lo protege nombrados.
+
+> Montar esa medición costó una corrección: el primer proyecto de prueba nunca
+> podía ponerse verde, porque el andamio deja un `REQ-001` de plantilla en
+> `spec.md` sin fila en la matriz y `--strict-tdd` lo rechaza (TDD-3). Con eso,
+> la puerta fallaba siempre y la contraprueba no demostraba nada. El fixture de
+> la prueba lo quita, y hay un test previo que verifica que **esa puerta sí
+> puede pasar** — sin él, el test de la guardia sería verde por el motivo
+> equivocado.
+
+### Lo que se hizo
+
+- `packages/core/src/domain/WriteScope.ts`: los patrones por defecto, el
+  emparejador de globs (escrito, no instalado — cero dependencias de runtime) y
+  la lectura de `git status --porcelain`. Sin E/S: la decisión se prueba sin
+  repositorio ni agente.
+- La comprobación corre **antes** de la puerta, no después: una vez relajado el
+  escenario, una puerta verde no significa nada, así que no merece la pena
+  preguntársela.
+- El diff de las rutas tocadas vuelve al prompt del siguiente intento. No es
+  cortesía: el agente casi siempre lo hizo sin querer, y ver el hunk es lo que
+  lo corrige. Un rechazo sin prueba se repite.
+- `write-scope` es una etapa propia en `AttemptRecord`, no un sabor de `gate`,
+  para que `harness report` pueda contarla aparte.
+- `protected_paths` y `allow_paths` en `harness.config.yaml`, **solo desde el
+  fichero**. Igual que la escalera de roles: una bandera que amplía lo que el
+  agente puede editar es una bandera que alguien acaba escribiendo para que una
+  ejecución roja se ponga verde. Una lista mal formada se rechaza, no se ignora
+  — una guardia que protege silenciosamente nada es peor que ninguna guardia.
+
+**La distinción delicada, resuelta por git.** Crear un feature que no existía es
+legítimo (`NEEDS_FEATURE`); modificarlo, no. Es exactamente la línea que git ya
+traza: sin rastrear = nuevo, cambio rastreado = edición. Y es segura en la
+dirección que importa: la fila de la matriz apunta a un fichero concreto, así
+que un fichero nuevo no puede aflojar el contrato que la puerta ejecuta; borrar
+el declarado y escribir otro aparece como borrado, y se rechaza.
+
+### A2 · El diff verde debe tocar los artefactos declarados — **hecho (2026-08-22)**
 
 **Hoy.** La fila de la matriz declara `test_artifact` y `technical_artifact`, y
 el prompt se los pasa al agente (`scripts/harness/prompt.ts`, sección
@@ -130,6 +187,53 @@ fallo duro sin datos sería la clase de gate que rechaza trabajo bueno, que ya
 costó dos ejecuciones en REQ-002.
 
 **Coste.** Bajo. Reutiliza el diff de A1.
+
+### Lo que se hizo
+
+`packages/core/src/domain/DeclaredArtifacts.ts`, ejecutado **tras una puerta
+verde** —lo que se comprueba es una afirmación sobre un diff que ya funciona— y
+reutilizando el `git status` que ya leía `A1`. Aviso por defecto, error con
+`--strict-artifacts`, y `artifacts` como etapa propia en `AttemptRecord`.
+
+### La decisión que hace que esto sea usable
+
+**Solo se comparan declaraciones que nombran un fichero.** La celda de la matriz
+es markdown escrito por una persona, y la del andamio dice `` `API /health`,
+smoke test `` con `TBD` de artefacto de test. Comparar prosa contra un diff
+avisaría en **todos** los proyectos recién creados, y un aviso que casi siempre
+se equivoca es un aviso que se aprende a ignorar — que es justo cómo las reglas
+solo-`--strict` acabaron sirviendo de nada en `H14`.
+
+El heurístico está sesgado a decir que no: sin espacios, y con separador o
+extensión. `src/App.java` sí; `API /health`, `smoke test` y `TBD` no. Una celda
+mixta —`` `src/Health.java`, smoke test ``— aporta su ruta y calla lo demás.
+
+### El falso positivo que casi se cuela
+
+El primer agente honesto —creaba correctamente los dos artefactos declarados—
+fue reportado como si no hubiera tocado ninguno. La causa:
+
+```
+$ git status --porcelain
+?? src/
+
+$ git status --porcelain -uall
+?? src/Health.java
+?? src/test/HealthTest.java
+```
+
+**`--porcelain` colapsa un directorio entero nuevo en una sola entrada.** Los
+ficheros individuales no aparecen nunca, así que la comprobación concluía que no
+se habían escrito. Con `--strict-artifacts` eso rechaza trabajo correcto, que es
+exactamente el fallo que esta propuesta decía querer evitar.
+
+Corregido con `-uall` en el único sitio que lee el estado —lo comparten `A1` y
+`A2`— y fijado con un test cuyo agente crea ambos ficheros declarados: al quitar
+`-uall`, falla.
+
+**El `fix` nombra `--code`, no `--impl`.** Comprobado contra `ReqCommand` antes
+de escribirlo: un `fix` que nombra una bandera inexistente es peor que no dar
+ninguno.
 
 ### A3 · Calidad de escenario en el proyecto, no solo en el pack — **hecho (2026-08-22)**
 
@@ -324,7 +428,7 @@ barrera propia.
 **Rigor.** Neutro sobre el gate. El paralelismo no relaja ninguna comprobación:
 cada worktree pasa el mismo gate.
 
-### C2 · Historial de ejecuciones y efectividad del gate
+### C2 · Historial de ejecuciones y efectividad del gate — **hecho (2026-08-22)**
 
 **Hoy.** Cada `harness run` se olvida. Los prompts se archivan en
 `.specops/harness-prompts/`, pero **el resultado no**: no hay serie temporal, no
@@ -358,7 +462,57 @@ esto es el mismo patrón sobre otro evento.
 da a un product owner respuesta a «¿qué hizo la máquina anoche?» — que es una
 pregunta bastante mejor que la que P2 responde hoy.
 
-### C3 · `--resume`
+### Reescoped contra lo que ya existía
+
+Esta propuesta abre con «cada `harness run` se olvida». Dejó de ser cierto con
+`E1-04`, que añadió el libro de ejecuciones (`.harness/runs/*.json`) y las dos
+métricas de coste. Construir el punto 1 tal cual —un `.jsonl` nuevo por intento—
+habría sido un segundo sitio donde vive el mismo estado, que es exactamente lo
+que `sustituir-traceability-md.md` concluyó que no hay que hacer. El `attemptLog`
+del libro ya trae una entrada por intento.
+
+Lo que **sí** faltaba, y se hizo:
+
+| Pieza | Por qué importa |
+|---|---|
+| **Dónde acaban los intentos** | Contado por intento, no por veredicto: un requisito que pasó al tercero falló dos veces, y esos dos son los interesantes. Vale más ahora que cuando se escribió C2, porque `A1` y `A2` metieron dos etapas nuevas — un intento rechazado por editar la spec no es lo mismo que uno que falló sus tests |
+| **Requisitos que agotan el presupuesto** | Los que cuestan `max_attempts` × timeout y no entregan nada |
+| **Serie temporal** | Para ver moverse una tasa en vez de suponerla |
+| **`--mark-false-failure`** | La métrica que el análisis InfoQ señala como la más nuestra |
+
+### La parte que no es derivable, y por qué se queda en blanco
+
+Una puerta que rechaza trabajo bueno y una puerta que caza un defecto real
+**se ven idénticas en el libro**. Ningún dato registrado las separa: solo alguien
+que mire puede decir cuál fue. Por eso es un comando y no un cálculo, y por eso
+la tasa se muestra `—` hasta que existe la primera marca.
+
+Devolver `100%` mientras no haya marcas habría sido la mentira más halagadora
+posible sobre nuestra propia puerta. `--reason` es obligatorio por lo mismo: un
+número que nadie puede auditar después es peor que un blanco honesto.
+
+Las marcas se anexan una por línea a `.harness/false-failures.jsonl` —lo que
+sobrevive a un proceso que muere a mitad, igual que el libro— y aplican al
+**requisito**, no a una ejecución suya: lo que la persona afirma es «la puerta se
+equivocó con REQ-002».
+
+### El filtro que una mutación destapó
+
+Una marca que nombra un requisito que **pasó** no debe contar. La primera
+versión del test no distinguía nada: sin fallos en el libro, la tasa salía `null`
+con filtro y sin él. El caso que sí separa es más fino — hay un fallo real, y la
+marca nombra otro requisito que pasó: sin el filtro, `marked.size > 0` hace
+calculable la tasa y se publica **100% de fallos reales** apoyándose en una
+errata sobre otra cosa. Ahora hay test para ese caso.
+
+### Lo que se deja fuera, y por qué
+
+`--format html`. `--json` ya cubre el consumo por herramientas y la salida de
+terminal es el uso diario; una plantilla HTML nueva es coste medio para valor
+bajo comparada con las cuatro piezas de arriba. Si `P2` lo pide, se hace ahí,
+que es donde el propio texto dice que encaja.
+
+### C3 · `--resume` — **hecho (2026-08-22)**
 
 **Hoy.** Una rama `harness/REQ-NNN` existente se **salta**, salvo `--force`,
 que la **borra y la recrea** (`scripts/harness/run.ts`, `processRequirement`).
@@ -371,6 +525,59 @@ en el prompt. Con H5 ya arreglado (el intento fallido se comitea), la
 información necesaria está en la rama; solo falta el comando que la recoja.
 
 **Coste.** Bajo. Cierra directamente el escenario real que ya ocurrió.
+
+### Lo que se midió antes de escribirlo
+
+La propuesta decía leer el último fallo «del historial de C2». Se comprobó
+matando una ejecución con `kill -9` y mirando qué queda:
+
+```
+rama harness/REQ-000        existe, en base — sin commits
+worktree                    sigue registrado, con el trabajo parcial sin commitear
+.harness/runs/              vacío
+.specops/harness-prompts/   REQ-000-…-attempt-1-agent.md
+```
+
+**El libro de ejecuciones no sirve como fuente.** Se escribe cuando una
+ejecución *termina*, y `--resume` existe justo para las que no terminan.
+Haberlo usado habría dado un `--resume` que funciona en todos los casos menos
+en el suyo.
+
+Lo que sobrevive es el archivo de prompts, y da la casualidad de que lleva el
+número de intento en el nombre. Se añadió para poder revisar, no para esto —
+por eso ahora está anotado que el formato del nombre es **portante** para
+`--resume`, y fijado con test, para que nadie lo «ordene» más adelante.
+
+Se lee igual en los dos finales: sin commitear en el worktree superviviente tras
+un corte, y commiteado en la rama por `preserveFailedAttempt` cuando se agotan
+los intentos, de modo que un worktree nuevo lo saca del checkout.
+
+### Cortado y agotado no son lo mismo
+
+| Última ejecución | Evidencia | Reanuda en |
+|---|---|---|
+| Intentos agotados | commit `wip(…): FAILED the gate` | el intento siguiente |
+| Interrumpida | no hay tal commit | el intento que se cortó |
+
+Un intento que murió **nunca llegó a un veredicto**: la puerta no llegó a
+correr, así que no se aprendió nada. Cobrárselo a `max_attempts` sería gastar
+presupuesto sin información. El fallo que la puerta sí llegó a reportar se
+recupera del prompt archivado que lo llevaba, así que el intento reanudado no
+empieza a ciegas.
+
+### Detalles que costaron una corrección
+
+- **`--force` y `--resume` juntos se rechazan.** Son opuestos, y elegir uno en
+  silencio es cómo se borra el trabajo tras un corte — la pérdida que `--resume`
+  existe para evitar.
+- **`--resume` sobre un requisito que nunca empezó lo ejecuta**, no protesta:
+  sobre un plan entero, no puede convertirse en «no hagas nada salvo que todo se
+  hubiera intentado ya».
+- **La limpieza borra el worktree reenganchado, no el que se habría inventado.**
+  `git worktree remove` sobre una ruta inexistente falla en silencio, así que el
+  superviviente se habría quedado registrado tras cada resume y la lista habría
+  crecido sin límite, sin que nada lo dijera. Lo destapó una mutación que ningún
+  test cazaba; ahora hay uno.
 
 ---
 

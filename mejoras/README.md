@@ -77,7 +77,7 @@ punta) y `GATE-G4` (gate de cobertura) están **cerrados**.
 | ID                            | Defecto                                                                                                                                                                           | Dónde                   | Propuesta que lo cierra                     |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------- |
 | **H15** _(nuevo)_             | **Un filtro de escenario que no casa nada sale 0.** Si el agente renombra el escenario, el gate va verde sin ejecutar nada                                                        | `valoracion-bdd…` §2.2  | **F5**                                      |
-| **H16** _(nuevo)_             | **El gate no comprueba que el agente no tocó `spec.md`, `AI_RULES.md` ni `features/**`.** El prompt lo pide; nadie lo verifica                                                    | `propuesta-harness…` A1 | **A1**                                      |
+| ~~**H16**~~ **cerrado 2026-08-22** | **El gate no comprobaba que el agente no tocó `spec.md`, `AI_RULES.md` ni `features/**`.** El prompt lo pedía; nadie lo verificaba. Reproducido: un agente que sustituyó el escenario por `Given nothing / Then nothing is asserted` obtuvo `1 passed · 0 failed`. Cerrado por `A1` | `propuesta-harness…` A1 | ~~A1~~ **hecho** |
 | **H13**                       | El JSON Schema declara autoridad que no ejerce; los 11 packs fallarían el esquema                                                                                                 | §12.11                  | **E1** — decisión previa a tocar el formato |
 
 `H1`–`H8`, `H10`, `H11` están cerrados y publicados en 0.5.0 / 0.6.0.
@@ -119,15 +119,15 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 
 | ID  | Propuesta                                                               | Coste      |
 | --- | ----------------------------------------------------------------------- | ---------- |
-| A1  | Guardia de alcance de escritura en el gate _(cierra H16)_               | Bajo       |
-| A2  | El diff verde debe tocar los artefactos declarados                      | Bajo       |
+| ~~A1~~ | **Hecho (2026-08-22), cierra `H16`.** `core/domain/WriteScope` + comprobación en el worktree **antes** de la puerta. Medido: sin ella, un agente que vació el escenario obtuvo `1 passed`, rama publicada y requisito cerrado. Crear un feature nuevo se permite (`NEEDS_FEATURE`); modificar uno existente, no — git ya separa ambos casos | Bajo |
+| ~~A2~~ | **Hecho (2026-08-22).** `core/domain/DeclaredArtifacts`, tras puerta verde, reutilizando el diff de `A1`. Aviso por defecto, error con `--strict-artifacts`. Solo compara declaraciones que **nombran un fichero**: la fila del andamio dice `` `API /health`, smoke test `` y `TBD`, y avisar de eso sería ruido | Bajo |
 | ~~A3~~ | **Hecho (2026-08-22).** Las ocho reglas viven en `core/domain/GherkinQuality` y emiten `Diagnostic` (ADR-0017). `pack lint` las consume con salida idéntica byte a byte; `validate --strict-scenarios` las aplica sobre `features/**`; `doctor` las reporta como aviso (adopción gradual); `harness run` las exige **antes** de crear el worktree. Destapó una tercera copia de la normalización de ruta a punto de nacer | Medio-bajo |
 | B1  | `depends_on` + orden topológico + apilado automático — **`H12` y `H9` ya cerrados por `E1-01`/`E1-03`**; queda el apilado automático | Medio-alto |
 | B2  | Preparación del requisito antes de gastar tokens                        | Bajo-medio |
 | B3  | `--by-scenario` — requisito grande por partes                           | Medio      |
 | C1  | Presupuesto global y paralelismo con tope                               | Medio      |
-| C2  | Historial de ejecuciones y efectividad del gate                         | Medio-bajo |
-| C3  | `--resume` de una ejecución interrumpida                                | Bajo       |
+| ~~C2~~ | **Hecho (2026-08-22).** Reescoped: `E1-04` ya había puesto el libro y las dos métricas de coste. Se añadió lo que faltaba — dónde falla la puerta (por intento, no por veredicto), requisitos que agotan el presupuesto, serie temporal, y `--mark-false-failure` con `--reason` obligatorio. La tasa de fallo real queda en `—` hasta que alguien marca: no es derivable | Medio-bajo |
+| ~~C3~~ | **Hecho (2026-08-22).** `--resume` reengancha rama y worktree superviviente. La fuente **no** es el libro de ejecuciones —solo se escribe al terminar, y esto es para las que no terminan (medido con `kill -9`)— sino el archivo de prompts. Distingue cortado de agotado por el commit `wip(…): FAILED the gate` | Bajo |
 | D1  | Perfil de agente por requisito, no por ejecución                        | Bajo-medio |
 | D2  | Precedentes del repositorio en el prompt                                | Bajo       |
 | D3  | Verificación adversarial opcional                                       | Medio      |
@@ -187,12 +187,14 @@ Para que no se cuenten dos veces:
 
 ## 5. El orden que recomiendo
 
-**Tanda 1 — que el gate deje de aprobar sin comprobar.** ~~`F2`~~ ~~`F1`~~
-**(hechos, 2026-08-22)** ~~`F3`~~ ~~`A3`~~ **(hechos, 2026-08-22)** → `A1` → `A2`.
-**Vamos por `A1`.**
-Este orden importa: extraer las reglas de calidad (`A3`) sobre el parser actual
-propagaría el defecto de `H14` a `validate`. Primero que el parser diga la
-verdad, después extender su alcance.
+**Tanda 1 — que el gate deje de aprobar sin comprobar. CERRADA (2026-08-22).**
+~~`F2`~~ → ~~`F1`~~ → ~~`F3`~~ → ~~`A3`~~ → ~~`A1`~~ → ~~`A2`~~.
+El orden importaba: extraer las reglas de calidad (`A3`) sobre el parser
+anterior habría propagado el defecto de `H14` a `validate`. Primero que el
+parser dijera la verdad, después extender su alcance.
+
+**Tanda 2 en curso:** ~~`C3`~~ ~~`C2`~~ **(hechos, 2026-08-22)** → `B2` → `F5` → `C1`.
+**Vamos por `B2`.**
 
 **Tanda 2 — que el bucle rinda desatendido.** `C3` → `C2` → `B2` → `F5` → `C1`.
 Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.

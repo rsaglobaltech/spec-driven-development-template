@@ -15,6 +15,7 @@ const {
 } = require("../../scripts/harness/run");
 const { buildPrompt } = require("../../scripts/harness/prompt");
 const { featureFilePath } = require("../../packages/core/src/domain/HarnessRun");
+const { DEFAULT_PROTECTED_PATHS } = require("../../packages/core/src/domain/WriteScope");
 const {
   readHarnessConfig,
   resolveHarnessSettings,
@@ -838,6 +839,456 @@ test("harness run refuses a requirement whose scenario has no steps, before spen
       fs.existsSync(marker),
       false,
       "the agent was invoked against a scenario that cannot fail — the check ran too late"
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+// ── The agent may not edit the contract it is judged against (A1, H16) ───────
+//
+// Measured before it was written. An agent that replaced the scenario with
+// `Given nothing / When nothing happens / Then nothing is asserted` produced:
+//
+//     1 passed · 0 failed · 0 skipped
+//
+// The branch was published and the requirement closed. `validate --strict-tdd`
+// checks that the feature exists and is in the matrix, never that it still says
+// what it said — so "specs as executable contracts" held only for as long as
+// the executor chose not to edit the contract.
+
+/** A project whose gate can actually go green, so the guard is the only variable. */
+function greenableProject() {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "harness-a1-"));
+  const init = spawnSync(process.execPath, [CLI, "init", "--yes", "--out", parent, "--no-git"], {
+    encoding: "utf8",
+  });
+  assert.equal(init.status, 0, init.stdout + init.stderr);
+  const projectDir = path.join(parent, fs.readdirSync(parent)[0]);
+
+  // The scaffold leaves a template REQ-001 in spec.md with no matrix row, which
+  // `--strict-tdd` refuses (TDD-3). Left in place, the gate can never pass and
+  // this test would prove nothing about the guard.
+  const specPath = path.join(projectDir, "spec.md");
+  fs.writeFileSync(
+    specPath,
+    fs
+      .readFileSync(specPath, "utf8")
+      .split("\n")
+      .filter((l) => !l.includes("REQ-001"))
+      .join("\n"),
+    "utf8"
+  );
+
+  const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+  git("init", "-q");
+  git("add", "-A");
+  git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed");
+  return { parent, projectDir };
+}
+
+/** An agent that writes `script` into the worktree and exits 0. */
+function scriptedAgent(parent, script) {
+  const file = path.join(parent, "agent.sh");
+  fs.writeFileSync(file, `#!/bin/sh\n${script}\nexit 0\n`, "utf8");
+  fs.chmodSync(file, 0o755);
+  return `${file} {prompt_file} >/dev/null 2>&1`;
+}
+
+function runHarness(projectDir, agent, extra = []) {
+  return spawnSync(
+    process.execPath,
+    [
+      CLI,
+      "harness",
+      "run",
+      "--project-dir",
+      projectDir,
+      "--req",
+      "REQ-000",
+      "--agent",
+      agent,
+      "--max-attempts",
+      "1",
+      ...extra,
+    ],
+    { encoding: "utf8" }
+  );
+}
+
+test("the fixture's gate really can pass, or the guard test below proves nothing", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}");
+    assert.match(r.stdout + r.stderr, /1 passed/, `${r.stdout}${r.stderr}`);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("an agent that guts the scenario fails, and the run says which file", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(
+      parent,
+      "printf 'Feature: Platform health baseline\\n" +
+        "  Scenario: API reports service as healthy\\n" +
+        "    Given nothing in particular\\n" +
+        "    When nothing happens\\n" +
+        "    Then nothing is asserted\\n' > features/core/health.feature"
+    );
+    const r = runHarness(projectDir, agent);
+    const out = r.stdout + r.stderr;
+
+    assert.match(out, /0 passed/, `the gutted scenario passed:\n${out}`);
+    assert.match(out, /agent_touched_protected_path/);
+    assert.match(out, /features\/core\/health\.feature/);
+    // The diff goes back to the agent: it almost always did this without
+    // meaning to, and being shown the hunk is what corrects it.
+    assert.match(out, /Feature: Platform health baseline/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("writing code is not a violation — the guard protects the contract, not the repo", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(parent, "mkdir -p src && echo 'class App {}' > src/App.java");
+    const r = runHarness(projectDir, agent);
+    const out = r.stdout + r.stderr;
+    assert.doesNotMatch(out, /agent_touched_protected_path/, out);
+    assert.match(out, /1 passed/, out);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("creating a feature that did not exist is allowed (NEEDS_FEATURE)", () => {
+  // A requirement in that category is *supposed* to write its feature file. A
+  // blanket ban on features/** would fail the legitimate case; git's own
+  // tracked/untracked split is what tells the two apart.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(
+      parent,
+      "printf 'Feature: New\\n  Scenario: Something specific happens here\\n" +
+        "    Given a precondition\\n    When it runs\\n    Then it is observable\\n'" +
+        " > features/core/brand-new.feature"
+    );
+    const r = runHarness(projectDir, agent);
+    assert.doesNotMatch(r.stdout + r.stderr, /agent_touched_protected_path/, r.stdout + r.stderr);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("allow_paths in harness.config.yaml is an escape hatch that has to be written down", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    fs.writeFileSync(
+      path.join(projectDir, "harness.config.yaml"),
+      ["allow_paths:", "  - 'features/**'", ""].join("\n"),
+      "utf8"
+    );
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    git("add", "-A");
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "allow");
+
+    const agent = scriptedAgent(
+      parent,
+      "printf 'Feature: Platform health baseline\\n  Scenario: API reports service as healthy\\n" +
+        "    Given nothing\\n    When nothing\\n    Then nothing\\n' > features/core/health.feature"
+    );
+    const r = runHarness(projectDir, agent);
+    assert.doesNotMatch(
+      r.stdout + r.stderr,
+      /agent_touched_protected_path/,
+      "an explicit allow_paths entry must be honoured"
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("protected_paths and allow_paths are read from harness.config.yaml", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-scope-cfg-"));
+  try {
+    fs.writeFileSync(
+      path.join(dir, "harness.config.yaml"),
+      [
+        "agent: 'x {prompt_file}'",
+        "protected_paths:",
+        "  - 'contracts/**'",
+        "allow_paths:",
+        "  - 'features/legacy/**'",
+        "",
+      ].join("\n"),
+      "utf8"
+    );
+    const cfg = readHarnessConfig(dir);
+    assert.deepEqual(cfg.protectedPaths, ["contracts/**"]);
+    assert.deepEqual(cfg.allowPaths, ["features/legacy/**"]);
+
+    // From the file only — a flag that widens what the agent may edit is a flag
+    // somebody eventually types to turn a red run green.
+    const settings = resolveHarnessSettings(cfg, {});
+    assert.deepEqual(settings.protectedPaths, ["contracts/**"]);
+    assert.deepEqual(settings.allowPaths, ["features/legacy/**"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a malformed protected_paths is rejected, not quietly ignored", () => {
+  // A guard that silently protects nothing is worse than no guard: it reports
+  // clean over an edited spec.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-scope-bad-"));
+  try {
+    fs.writeFileSync(path.join(dir, "harness.config.yaml"), "protected_paths: spec.md\n", "utf8");
+    assert.throws(() => readHarnessConfig(dir), /protected_paths/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("no configuration means the built-in protected paths still apply", () => {
+  const settings = resolveHarnessSettings(null, {});
+  assert.deepEqual(settings.protectedPaths, [], "empty means 'use the defaults'");
+  // The defaults live in the domain, and the guard falls back to them.
+  assert.ok(DEFAULT_PROTECTED_PATHS.includes("spec.md"));
+  assert.ok(DEFAULT_PROTECTED_PATHS.includes("features/**/*.feature"));
+});
+
+// ── The green diff must touch what the matrix declared (A2) ──────────────────
+//
+// The row names `test_artifact` and `technical_artifact`, the prompt hands both
+// to the agent, and nothing checked the diff contained them. An agent can
+// implement somewhere else, pass the scenario, and leave the matrix pointing at
+// a file where the logic does not live — the documentary lie `AI_RULES.md`
+// forbids this repository.
+
+/** The same greenable project, with real paths in the row instead of prose. */
+function projectWithDeclaredPaths() {
+  const { parent, projectDir } = greenableProject();
+  const matrix = path.join(projectDir, "docs/specs/traceability.md");
+  fs.writeFileSync(
+    matrix,
+    fs
+      .readFileSync(matrix, "utf8")
+      .replace(
+        "| `API /health`, smoke test | TBD |",
+        "| `src/Health.java` | `src/test/HealthTest.java` |"
+      ),
+    "utf8"
+  );
+  const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+  git("add", "-A");
+  git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "paths");
+  return { parent, projectDir };
+}
+
+test("implementing elsewhere warns but does not fail by default", () => {
+  // A warning, deliberately: work can legitimately land in a shared module that
+  // already exists, and failing on that is the kind of gate that rejects good
+  // work — which already cost two runs on REQ-002.
+  const { parent, projectDir } = projectWithDeclaredPaths();
+  try {
+    const agent = scriptedAgent(
+      parent,
+      "mkdir -p src/other && echo 'x' > src/other/Elsewhere.java"
+    );
+    const r = runHarness(projectDir, agent);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /declared_artifact_untouched/, out);
+    assert.match(out, /src\/Health\.java/);
+    assert.match(out, /csda req link REQ-000 --code/, "the fix must name a flag that exists");
+    assert.match(out, /1 passed/, `a warning must not fail the run:\n${out}`);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--strict-artifacts turns the same warning into a failed attempt", () => {
+  const { parent, projectDir } = projectWithDeclaredPaths();
+  try {
+    const agent = scriptedAgent(
+      parent,
+      "mkdir -p src/other && echo 'x' > src/other/Elsewhere.java"
+    );
+    const r = runHarness(projectDir, agent, ["--strict-artifacts"]);
+    assert.match(r.stdout + r.stderr, /0 passed/, r.stdout + r.stderr);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("implementing where the row says passes, even under --strict-artifacts", () => {
+  // The regression that matters most here. Plain `git status --porcelain`
+  // collapses a wholly new directory into `?? src/`, so `src/Health.java` never
+  // appears and the check concludes it was never written. This agent creates
+  // both declared files correctly; without `-uall` it is reported as touching
+  // neither, and the strict gate rejects correct work.
+  const { parent, projectDir } = projectWithDeclaredPaths();
+  try {
+    const agent = scriptedAgent(
+      parent,
+      "mkdir -p src/test && echo 'x' > src/Health.java && echo 'y' > src/test/HealthTest.java"
+    );
+    const r = runHarness(projectDir, agent, ["--strict-artifacts"]);
+    const out = r.stdout + r.stderr;
+    assert.doesNotMatch(out, /declared_artifact_untouched/, out);
+    assert.match(out, /1 passed/, out);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a prose-only row says nothing — the scaffolded project must stay quiet", () => {
+  // `csda init` writes `` `API /health`, smoke test `` and `TBD`. If those ever
+  // start warning, every first harness run complains and the warning becomes
+  // noise people learn to skip.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(parent, "mkdir -p src && echo 'x' > src/App.java");
+    const r = runHarness(projectDir, agent, ["--strict-artifacts"]);
+    const out = r.stdout + r.stderr;
+    assert.doesNotMatch(out, /declared_artifact_untouched/, out);
+    assert.match(out, /1 passed/, out);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+// ── Picking a run back up where it stopped (C3) ──────────────────────────────
+//
+// Until now an existing `harness/REQ-NNN` branch left two options: skip it, or
+// delete it with `--force`. After an interruption — a crash, a Ctrl-C, a spend
+// limit — neither is what anyone wants: you either lose the work or cannot
+// continue.
+//
+// The design was measured. A run killed with `kill -9` leaves the branch (no
+// commits), the worktree with the agent's uncommitted partial work, an empty
+// `.harness/runs/`, and the prompt archive. The ledger is written when a run
+// *finishes*, so it is exactly no use for the case this exists for.
+
+test("--force and --resume are refused together", () => {
+  // They are opposites, and silently picking one is how work gets deleted after
+  // an interruption — the loss --resume exists to prevent.
+  assert.throws(() => parseArgs(["--force", "--resume"]), /opposites/);
+});
+
+test("without --resume, the skip message now offers it", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(parent, "echo x > note.txt");
+    assert.match(runHarness(projectDir, agent).stdout, /1 passed/);
+    const again = runHarness(projectDir, agent);
+    const out = again.stdout + again.stderr;
+    assert.match(out, /already exists/);
+    assert.match(out, /--resume to continue it/);
+    assert.match(out, /--force to recreate it/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--resume over a requirement that never started runs it, rather than refusing", () => {
+  // `--resume` on a whole plan must not become "do nothing unless everything
+  // was already attempted".
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(parent, "echo x > note.txt");
+    const r = runHarness(projectDir, agent, ["--resume"]);
+    assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--resume re-attaches to the interrupted worktree and keeps the partial work", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+
+    // The state a kill -9 leaves behind: branch at base, a live worktree with
+    // uncommitted work, and one archived prompt for the attempt in flight.
+    const worktree = path.join(parent, "interrupted-worktree");
+    const added = git("worktree", "add", "-b", "harness/REQ-000", worktree, "HEAD");
+    assert.equal(added.status, 0, added.stderr);
+    fs.writeFileSync(path.join(worktree, "partial-work.txt"), "half-finished\n", "utf8");
+    const archive = path.join(worktree, ".specops", "harness-prompts");
+    fs.mkdirSync(archive, { recursive: true });
+    fs.writeFileSync(
+      path.join(archive, "REQ-000-2026-08-22T10-00-00-000Z-attempt-1-agent.md"),
+      "# Implement REQ-000\n",
+      "utf8"
+    );
+
+    const r = runHarness(projectDir, scriptedAgent(parent, "echo more >> partial-work.txt"), [
+      "--resume",
+    ]);
+    assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
+
+    // The whole point: the interrupted work is on the branch, not discarded.
+    const show = git("show", "--stat", "harness/REQ-000");
+    assert.match(show.stdout, /partial-work\.txt/, "the partial work was lost");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("after exhausted attempts, --resume picks up at the next attempt", () => {
+  // Interrupted and exhausted deserve different answers, and the branch says
+  // which: `preserveFailedAttempt` leaves a `wip(...): FAILED the gate` commit
+  // when the attempts run out; an interruption leaves none. An attempt that
+  // reached a verdict is spent; one that was cut short is not.
+  const { parent, projectDir } = greenableProject();
+  try {
+    // An agent that breaks the gate: it removes the matrix row's test artifact
+    // declaration is overkill — simply failing the gate is enough, so make the
+    // agent produce nothing and break validate by emptying the feature.
+    const breaking = scriptedAgent(parent, "printf 'Feature: X\\n' > features/core/health.feature");
+    const first = runHarness(projectDir, breaking, ["--max-attempts", "2"]);
+    assert.match(first.stdout + first.stderr, /0 passed/);
+
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    const head = git("log", "-1", "--format=%s", "harness/REQ-000").stdout;
+    assert.match(head, /FAILED the gate/, "the exhausted run should have left a wip commit");
+
+    const resumed = runHarness(projectDir, "true {prompt_file}", [
+      "--resume",
+      "--max-attempts",
+      "3",
+    ]);
+    assert.match(resumed.stdout + resumed.stderr, /resuming at attempt 3/, resumed.stdout);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a resumed run cleans up the worktree it re-attached to", () => {
+  // The cleanup removes `dir`, not the path a fresh run would have invented. If
+  // it removed the latter, the surviving worktree would stay registered after
+  // every resume and the list would grow without bound — and `git worktree
+  // remove` on a path that never existed fails quietly, so nothing would say so.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    const worktree = path.join(parent, "interrupted-worktree");
+    assert.equal(git("worktree", "add", "-b", "harness/REQ-000", worktree, "HEAD").status, 0);
+    fs.writeFileSync(path.join(worktree, "partial-work.txt"), "half\n", "utf8");
+
+    const r = runHarness(projectDir, scriptedAgent(parent, "echo more >> partial-work.txt"), [
+      "--resume",
+    ]);
+    assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
+
+    const listed = git("worktree", "list", "--porcelain").stdout;
+    assert.doesNotMatch(
+      listed,
+      /interrupted-worktree/,
+      `the re-attached worktree was left registered:\n${listed}`
     );
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });

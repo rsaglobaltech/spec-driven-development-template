@@ -151,6 +151,96 @@ or vague Gherkin lets the harness wave through weak code. Hardening
 ergonomics — it is what makes the harness an amplifier of good specs
 rather than an amplifier of bad ones.
 
+Those scenario rules now run here too, not only in `pack lint`: `csda
+validate --strict-scenarios` applies them to `features/**/*.feature`, and
+`harness run` refuses a requirement whose scenario Cucumber would see as
+empty **before** creating the worktree — an attempt costs `max_attempts` ×
+the timeout, and there is no point buying that against a scenario that
+cannot fail.
+
+### Write scope
+
+Before the gate runs, the harness checks what the agent actually wrote.
+The prompt asks it not to touch the spec; that was never verified, and an
+agent that cannot make a scenario pass can relax the scenario instead. A
+measured run of exactly that reported `1 passed`, published the branch and
+closed the requirement.
+
+Protected by default:
+
+```
+spec.md            AI_RULES.md          features/**/*.feature
+docs/specs/**      .specops.lock        harness.config.yaml
+```
+
+Touch one and the attempt fails with `agent_touched_protected_path`; the
+diff of the offending paths is fed into the next attempt's prompt, because
+the agent usually did it without meaning to and seeing the hunk is what
+corrects it.
+
+**Creating a file that did not exist is not a violation.** A requirement in
+category `NEEDS_FEATURE` is supposed to write its feature file, and git
+already separates the two cases: untracked is new, a tracked change is an
+edit. Deleting the declared feature and writing a fresh one shows up as a
+deletion, and is refused.
+
+Both lists are configurable, from the file only — a flag that widens what
+the agent may edit is a flag somebody eventually types to turn a red run
+green:
+
+```yaml
+protected_paths: # naming your own list replaces the defaults
+  - "spec.md"
+  - "features/**/*.feature"
+allow_paths: # an explicit escape hatch, never a silent one
+  - "features/legacy/**"
+```
+
+### Declared artifacts
+
+After a **green** gate, the harness compares the diff with the paths the
+matrix row declares as the requirement's test and production artifacts. An
+agent can implement somewhere else, pass the scenario, and leave the row
+pointing at a file where the logic does not live.
+
+Missing → `declared_artifact_untouched`, a **warning** by default, an error
+under `--strict-artifacts`. Warning, because work can legitimately land in
+a shared module that already exists, and failing on that is the kind of
+gate that rejects good work.
+
+Only declarations that name a file are checked. A real matrix cell is
+markdown written by a person — the scaffolded one says `` `API /health`,
+smoke test `` and `TBD` — and comparing prose against a diff would warn on
+every project, which is how a warning becomes noise people skip.
+
+## Resuming an interrupted run
+
+An existing `harness/REQ-NNN` branch used to leave two options: skip it, or
+delete it with `--force`. After a crash, a Ctrl-C or a spend limit, neither
+is what you want — you either lose the work or cannot continue.
+
+`--resume` re-attaches to the branch and, when it is still registered, to
+the worktree holding the agent's uncommitted work, and picks up where the
+run stopped. `--force` and `--resume` are refused together: they are
+opposites, and quietly choosing one is how work gets deleted.
+
+Where it picks up is read from the prompt archive, not from
+`.harness/runs/`. The run ledger is written when a run *finishes*, so an
+interrupted run leaves none — measured with `kill -9`, which leaves the
+branch, the worktree, the archive, and an empty ledger.
+
+Interrupted and exhausted get different answers, and the branch says which:
+
+| Last run | Evidence | Resumes at |
+| --- | --- | --- |
+| Attempts exhausted | a `wip(…): FAILED the gate` commit | the next attempt |
+| Interrupted | no such commit | the attempt that was cut short |
+
+An attempt that was killed never reached a gate verdict, so nothing was
+learned and the budget is not charged for it. The last failure the gate did
+report is recovered from the archived prompt that carried it, so the
+resumed attempt is not started blind.
+
 ## Retries
 
 On a red gate, the harness captures the failing stage and its output,
@@ -175,6 +265,37 @@ human to pick up.
 `--format json` emits the same data as a machine-readable structure for
 CI dashboards. The command exits non-zero when any requirement did not
 pass.
+
+### `csda harness report` — what it has cost, and whether the gate is any good
+
+Reads the run ledger (`.harness/runs/*.json`) and answers four questions
+the ledger alone does not:
+
+- **where attempts end.** Counted per attempt, not per requirement: one
+  that passed on attempt 3 still failed twice, and those two are the
+  interesting ones. The stages include `write-scope` and `artifacts`, so an
+  attempt rejected for editing the spec reads differently from one that
+  failed its tests.
+- **which requirements spent every attempt and delivered nothing** — the
+  ones costing `max_attempts` × the timeout for no result.
+- **the series over time**, so a rate can be seen moving rather than
+  guessed at.
+- **how many failures were real.**
+
+That last one cannot be derived. A gate rejecting good work and a gate
+catching a genuine defect look identical in the ledger; only somebody who
+looked can say which happened. So it stays `—` until a person marks one:
+
+```bash
+csda harness report --mark-false-failure REQ-002 \
+  --reason "the shared module already implemented it; the row was wrong"
+```
+
+`--reason` is required — a number nobody can audit later is worse than an
+honest blank. Marks are appended one JSON object per line to
+`.harness/false-failures.jsonl`, which is what survives a process dying
+mid-write, and a mark applies to the **requirement**, not to one run of it:
+what a person is saying is "the gate was wrong about REQ-002".
 
 ## Limitations
 
