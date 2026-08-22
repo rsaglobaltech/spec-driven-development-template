@@ -1,0 +1,218 @@
+# Índice de `mejoras/` — qué hay abierto y dónde mirar
+
+**Actualizado:** 2026-08-22
+
+> **Empieza por aquí.** Este fichero es el mapa: qué es cada documento y **todo
+> lo que está abierto en una sola lista**. Los demás ficheros son el detalle.
+> Nada se decide aquí; se localiza.
+
+---
+
+## 1. Qué es cada fichero
+
+| Fichero                                   | Qué es                                                                                                                                             | Estado                                         | Cuándo abrirlo                                                                        |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **`plan-cierre-enterprise.md`** (1294 l.) | **El backlog vivo.** Fases C0–C9, defectos del harness (§12.11), huecos de producto (§12.12), camino a 1.0 (§12.10) y registro de decisiones (§14) | **Vivo — la autoridad**                        | Antes de empezar cualquier trabajo. Se marca en la misma sesión en que se cierra algo |
+| `propuesta-harness-planificacion.md`      | 13 propuestas (A1–E1) para planificación y bucle desatendido                                                                                       | **Propuesta, nada implementado**               | Al decidir qué construir en el harness                                                |
+| `valoracion-bdd-gherkin-era-agentes.md`   | Valoración de BDD para agentes + 6 propuestas (F1–F6). Contiene el defecto de los packs                                                            | **Propuesta + 1 defecto verificado**           | Antes de tocar Gherkin, `pack lint` o los packs                                       |
+| `analisis-infoq-sdd-enterprise.md`        | Lectura del artículo de InfoQ: qué pide y ya tenemos, qué falta, qué se rechaza                                                                    | Referencia estable                             | Para posicionamiento y para justificar prioridades                                    |
+| `openspec-benchmark-plan.md`              | Qué es OpenSpec, comparativa, valoración de SpecOps, qué **no** copiar                                                                             | Referencia estable (recortado de 768 a 413 l.) | Al comparar con la competencia o al diseñar SpecOps                                   |
+| `csda-studio-brief.md`                    | El brief del dogfood: REQ-001..015 de la app companion                                                                                             | Congelado para v0.1.0                          | Solo dentro del experimento del studio                                                |
+| `csda-studio-handoff.md`                  | **Estado vivo del dogfood.** Fases 0–10, 7 hechas, la 8 es la siguiente                                                                            | **Vivo**                                       | Al retomar el dogfood                                                                 |
+| `csda-studio-runbook.md` (1025 l.)        | El procedimiento largo del dogfood                                                                                                                 | Referencia operativa                           | Solo si ejecutas el dogfood                                                           |
+| `hie-pilot-runbook.md`                    | El piloto brownfield (Spring Boot + HAPI FHIR), adoptado a L1–L2                                                                                   | **Vivo**                                       | Al retomar el piloto                                                                  |
+
+**Ocho documentos más fueron eliminados el 2026-08-16** (§12.9 del plan de
+cierre) porque describían un pasado terminado con forma de plan. Si una
+referencia antigua los cita, están en el historial de git, no en el árbol.
+
+---
+
+## 2. Aviso: hay tres esquemas de IDs y dos colisionan
+
+Esto es probablemente parte de por qué se pierde el hilo:
+
+| Prefijo         | Qué numera                                                            | Dónde                                   |
+| --------------- | --------------------------------------------------------------------- | --------------------------------------- |
+| `C0-01`…`C9-08` | Tareas de las fases de cierre                                         | `plan-cierre-enterprise.md`             |
+| `G1`…`G5`       | **Gates de 1.0**                                                      | `plan-cierre-enterprise.md` §12.10      |
+| `G1`…`G9`       | **Brechas frente a OpenSpec** — _distinto significado, mismo prefijo_ | `openspec-benchmark-plan.md` §3         |
+| `H1`…`H13`      | Defectos del harness encontrados ejecutándolo                         | `plan-cierre-enterprise.md` §12.11      |
+| `P1`, `P2`      | Huecos de producto                                                    | `plan-cierre-enterprise.md` §12.12      |
+| `D1`…`D13`      | Decisiones tomadas                                                    | `plan-cierre-enterprise.md` §14         |
+| `A1`…`E1`       | Propuestas de harness (nuevas)                                        | `propuesta-harness-planificacion.md`    |
+| `F1`…`F6`       | Propuestas de Gherkin (nuevas)                                        | `valoracion-bdd-gherkin-era-agentes.md` |
+
+En este índice, **`GATE-G3`** siempre significa el gate de 1.0 y **`BRECHA-G3`**
+la brecha de OpenSpec. Las brechas `BRECHA-G1`..`G4` están cerradas (fases 1–3);
+el resto son de referencia histórica.
+
+---
+
+## 3. Todo lo abierto, en una lista
+
+### 3.1 Bloquea el 1.0 — dos cosas, y ninguna es código
+
+| ID                    | Qué falta                                                                                                                                                                    | Coste                  | Nota                                               |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------- |
+| **GATE-G3** (= C9-08) | **Que un equipo de fuera adopte L1–L2 y reporte.** Nadie ajeno al repo lo ha usado                                                                                           | Trabajo de campo       | Es _el_ bloqueante real. No hay test que lo cierre |
+| **GATE-G5**           | Borrar de `docs/release-process.md:38` la frase «_That is intent, not a promise, until it is written here without this sentence_» y aceptar mantener un minor más seis meses | 1 línea + una decisión | Verificado: la frase sigue ahí                     |
+
+`GATE-G1` (dos releases sin breaking), `GATE-G2` (bucle completo de punta a
+punta) y `GATE-G4` (gate de cobertura) están **cerrados**.
+
+> **Matiz que importa ahora:** G1 se cumplió con dos releases **de arreglos**.
+> La prueba real llega con la siguiente release que **añada** algo — es decir,
+> con lo primero que se implemente de las propuestas de §3.4.
+
+### 3.2 Defectos abiertos — el bucle aprueba cosas sin comprobarlas
+
+| ID                            | Defecto                                                                                                                                                                           | Dónde                   | Propuesta que lo cierra                     |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------- |
+| **H14** _(nuevo, 2026-08-22)_ | **27 de los 28 escenarios de los packs curados tienen cero pasos para Cucumber.** Palabras clave en mayúsculas; un escenario vacío pasa en verde. `pack lint --strict` lo aprueba | `valoracion-bdd…` §2.1  | **F2** (urgente)                            |
+| **H15** _(nuevo)_             | **Un filtro de escenario que no casa nada sale 0.** Si el agente renombra el escenario, el gate va verde sin ejecutar nada                                                        | `valoracion-bdd…` §2.2  | **F5**                                      |
+| **H16** _(nuevo)_             | **El gate no comprueba que el agente no tocó `spec.md`, `AI_RULES.md` ni `features/**`.** El prompt lo pide; nadie lo verifica                                                    | `propuesta-harness…` A1 | **A1**                                      |
+| **H13**                       | El JSON Schema declara autoridad que no ejerce; los 11 packs fallarían el esquema                                                                                                 | §12.11                  | **E1** — decisión previa a tocar el formato |
+| **H12**                       | Los requisitos dependientes no se expresan; `harness run` falla en cascada                                                                                                        | §12.11                  | **B1**                                      |
+| **H9**                        | `--base-branch` hereda la config de la base, no la de `main`; un arreglo en `main` no aplica                                                                                      | §12.11                  | **B1** (de regalo)                          |
+
+`H1`–`H8`, `H10`, `H11` están cerrados y publicados en 0.5.0 / 0.6.0.
+
+**H14, H15 y H16 son la misma familia que H1**: el gate aprueba sin verificar.
+Es la razón por la que la tanda 1 de §3.5 va primero.
+
+### 3.3 Huecos de producto
+
+| ID     | Hueco                                        | Estado                       | Lo que falta, concretamente                                                                                                                                              |
+| ------ | -------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **P2** | Superficie de lectura para quien no abre PRs | **Abierto y barato**         | `.github/workflows/pages.yml` publica `docs/` y el registry, pero **no** ejecuta `csda report` ni exporta `studio`. Son ~6 líneas de workflow más un enlace en el README |
+| **P1** | Orquestación multi-repo                      | **Abierto, v2 por decisión** | No es una función: identificador supra-repo, correlación de estados y matriz federada. Mientras, `alm sync` es el puente                                                 |
+
+### 3.4 Propuestas nuevas — nada de esto está implementado
+
+**De `propuesta-harness-planificacion.md`:**
+
+| ID  | Propuesta                                                               | Coste      |
+| --- | ----------------------------------------------------------------------- | ---------- |
+| A1  | Guardia de alcance de escritura en el gate _(cierra H16)_               | Bajo       |
+| A2  | El diff verde debe tocar los artefactos declarados                      | Bajo       |
+| A3  | Calidad de escenario en el proyecto, no solo en el pack                 | Medio-bajo |
+| B1  | `depends_on` + orden topológico + apilado automático _(cierra H12, H9)_ | Medio-alto |
+| B2  | Preparación del requisito antes de gastar tokens                        | Bajo-medio |
+| B3  | `--by-scenario` — requisito grande por partes                           | Medio      |
+| C1  | Presupuesto global y paralelismo con tope                               | Medio      |
+| C2  | Historial de ejecuciones y efectividad del gate                         | Medio-bajo |
+| C3  | `--resume` de una ejecución interrumpida                                | Bajo       |
+| D1  | Perfil de agente por requisito, no por ejecución                        | Bajo-medio |
+| D2  | Precedentes del repositorio en el prompt                                | Bajo       |
+| D3  | Verificación adversarial opcional                                       | Medio      |
+| E1  | Decidir H13 antes de tocar el formato de pack                           | Decisión   |
+
+**De `valoracion-bdd-gherkin-era-agentes.md`:**
+
+| ID  | Propuesta                                                                        | Coste |
+| --- | -------------------------------------------------------------------------------- | ----- |
+| F2  | Arreglar los 27 ficheros + test diferencial contra el parser real _(cierra H14)_ | Bajo  |
+| F1  | Un solo parser de Gherkin con la tabla oficial de dialectos                      | Medio |
+| F3  | Paridad con Cucumber en `pack lint` y `validate`                                 | Bajo  |
+| F4  | Trazabilidad por etiquetas `@REQ-NNN` / `@SCN-NNN`                               | Medio |
+| F5  | Gate del harness sobre el protocolo de mensajes _(cierra H15)_                   | Medio |
+| F6  | EARS opcional en la línea de requisito                                           | Bajo  |
+
+### 3.5 Trabajo de campo vivo
+
+| ID        | Qué                                                | Dónde está               | Siguiente acción concreta                                                                                    |
+| --------- | -------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| **C8-01** | Dogfood CsdaStudioApp — fases 8, 9 y 10 de 10      | `csda-studio-handoff.md` | `csda harness run --req REQ-001` … `REQ-014` sobre `csda-studio-app`, revisar las ramas, taguear y desplegar |
+| **C8-02** | Piloto HIE (brownfield, Spring Boot + HAPI FHIR)   | `hie-pilot-runbook.md`   | Adoptado a L1–L2 y `validate` pasa. Falta **conducir la implementación** con el harness                      |
+| **C8-03** | Case studies 2 y 3                                 | §11 del plan             | Solo existe `docs/case-studies/case-1.md`                                                                    |
+| **C8-04** | Vídeo demo de 90 s + vídeo del bucle bidireccional | §11 del plan             | Pendiente desde la fase 1. Es lo que cierra RISK-004                                                         |
+| **C9-05** | Telemetría opt-in                                  | §12.2 del plan           | **Decisión tuya**, no técnica                                                                                |
+
+> **C8-01 y C8-02 son los que más rinden**, y no por su valor propio: son las
+> dos únicas fuentes que han producido defectos reales del harness. Los diez de
+> §12.11 salieron de ahí. H14 salió de leer los packs que alimentan a ambos.
+
+### 3.6 Aplazado por decisión — no lo busques, no está pendiente
+
+`C7-05` Maven Central · `C7-06` Gradle Plugin Portal · `C7-07` VS Code
+Marketplace · `C7-08` scope npm `@spec-driven` · `C7-09` desplegar el registry.
+
+Todos `[-]` **por decisión D9 y D12**: son otro producto, con otras credenciales
+y otro ciclo. Van a **v2**. Cada uno está bloqueado por una credencial, no por
+código (§12.8 del plan tiene el detalle de cuál).
+
+---
+
+## 4. Duplicados ya resueltos
+
+Para que no se cuenten dos veces:
+
+| Es lo mismo que |                                                                   |
+| --------------- | ----------------------------------------------------------------- |
+| `E1`            | `H13`                                                             |
+| `B1`            | `H12` (y resuelve `H9` de paso)                                   |
+| `A1`            | `H16`                                                             |
+| `F2`            | `H14`                                                             |
+| `F5`            | `H15` (y sustituye la heurística de `H10` por un dato)            |
+| `GATE-G3`       | `C9-08`                                                           |
+| `P2`            | Recomendación nº 3 del análisis InfoQ                             |
+| `D1`            | §2.3 del análisis InfoQ («agentes especializados por dominio»)    |
+| `C2`            | §5 del análisis InfoQ («efectividad del mecanismo de validación») |
+
+---
+
+## 5. El orden que recomiendo
+
+**Tanda 1 — que el gate deje de aprobar sin comprobar.** `F2` → `F1` → `F3` →
+`A3` → `A1` → `A2`.
+Este orden importa: extraer las reglas de calidad (`A3`) sobre el parser actual
+propagaría el defecto de `H14` a `validate`. Primero que el parser diga la
+verdad, después extender su alcance.
+
+**Tanda 2 — que el bucle rinda desatendido.** `C3` → `C2` → `B2` → `F5` → `C1`.
+Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.
+
+**Tanda 3 — cambio de modelo.** `E1` (decisión) → `B1` → `C1` con paralelismo →
+`D1` → `F4`. Toca el formato de pack; post-1.0.
+
+**En paralelo, y sin depender de nada:** `P2` (una tarde), `GATE-G5` (una línea),
+`C8-01` y `C8-02` (que es de donde salen los defectos de verdad).
+
+**Sin fecha:** `B3`, `D2`, `D3`, `F6`, `C8-03`, `C8-04`.
+
+---
+
+## 6. Lo que ya está cerrado — para dejar de buscarlo
+
+- **Fases C0 a C7 completas.** 0.6.0 publicada; npm con procedencia SLSA e
+  imagen multi-arch verificadas.
+- **Los defectos H1–H8, H10 y H11** del harness, publicados en 0.5.0 y 0.6.0.
+- **Los gates GATE-G1, GATE-G2 y GATE-G4** del camino a 1.0.
+- **Las brechas BRECHA-G1..G4** frente a OpenSpec (ciclo de cambio, contrato de
+  agente, superficie de agente).
+- **RISK-001** (Windows) y **RISK-002** (formato de packs) del `spec.md`.
+- **Trece decisiones firmes** en §14 del plan de cierre. Si algo parece abierto
+  y está ahí, está decidido, no pendiente.
+
+Comprobado en esta sesión, sobre `main`: `csda validate .` pasa, la suite BDD da
+22 escenarios y 126 pasos en verde, y las dependencias de Cucumber están al día
+(13.2.1 / gherkin 42).
+
+---
+
+## 7. Cómo mantener esto
+
+Tres reglas, heredadas de `AI_RULES.md` y del §0 del plan de cierre:
+
+1. **`plan-cierre-enterprise.md` sigue siendo la autoridad.** Este índice
+   apunta; no decide ni marca nada como hecho.
+2. **Nada se marca cerrado sin comprobarlo**, y se marca en la misma sesión en
+   que se cierra.
+3. **Un ítem nuevo nace en su documento de origen** y luego aparece aquí. Si
+   aparece solo aquí, este fichero se convierte en el décimo sitio donde
+   perderse — que es exactamente el problema que viene a resolver.
+
+**Pendiente de registrar en el plan de cierre:** `H14`, `H15` y `H16` son
+defectos verificados y deberían anotarse en su §12.11 junto a los demás, no
+vivir solo en una propuesta.
