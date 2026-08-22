@@ -160,6 +160,12 @@ como tus escenarios» de advertencia en documento a comprobación en CI.
 **Coste.** Medio-bajo, y casi todo es refactor de extracción con las reglas ya
 escritas y probadas.
 
+> **Corrección posterior (2026-08-22).** Extraer las reglas **sobre el parser
+> actual propagaría un defecto**: ese parser es insensible a mayúsculas y
+> aprueba escenarios que Cucumber ve vacíos — 27 de los 28 de los packs
+> curados. Orden correcto: F2 → F1 → F3 → A3. Ver
+> [`valoracion-bdd-gherkin-era-agentes.md`](./valoracion-bdd-gherkin-era-agentes.md).
+
 **Nota de compatibilidad.** Un proyecto adoptado con `adopt` puede tener
 docenas de features flojos. Por eso es un flag, no el `validate` por defecto —
 y por eso conviene que `csda doctor` lo reporte como hallazgo con su fix, que es
