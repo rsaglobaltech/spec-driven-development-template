@@ -6,7 +6,12 @@ import {
 } from "../../../../packages/core/src/infrastructure/DiskPackRepository";
 import { asArray } from "../../../../packages/core/src/domain/PackSpec";
 import { BaseCommand } from "../../../lib/command";
-import { findKeywordCaseIssues, parseGherkin } from "../../../../packages/core/src/domain/Gherkin";
+import { parseGherkin } from "../../../../packages/core/src/domain/Gherkin";
+import {
+  analyseKeywordCase,
+  analyseScenario,
+  isGenericTitle as isGenericTitleRule,
+} from "../../../../packages/core/src/domain/GherkinQuality";
 import { agentIo, wantsJson } from "../../../lib/agent";
 import { error as diagError, warning as diagWarning } from "../../../lib/diagnostics";
 
@@ -223,9 +228,6 @@ function lintVariables(pack: any, errors: string[], _warnings: string[]) {
   }
 }
 
-const VAGUE_STEP_RE =
-  /\b(works?|correctly|properly|as expected|should be fine|should work|somehow|something|some stuff|etc\.?|tbd|todo)\b|\.\.\./i;
-
 /**
  * What `pack lint` reads out of a `.feature` template.
  *
@@ -247,49 +249,38 @@ export function parseFeature(content: string) {
   }));
 }
 
-export function isGenericTitle(title: string) {
-  if (!title) return true;
-  if (/^(test|scenario|example|untitled)\b/i.test(title)) return true;
-  return title.split(/\s+/).filter(Boolean).length < 3;
-}
+/** Re-exported so `pack lint`'s public surface is unchanged; the rule is in the domain. */
+export const isGenericTitle = isGenericTitleRule;
 
+/**
+ * The eight quality rules, applied to one scenario.
+ *
+ * The rules themselves moved to `GherkinQuality` in the domain (A3) so that
+ * `validate`, `doctor` and `harness run` judge a scenario the same way this
+ * does. What stays here is delivery: which bucket a finding lands in and how
+ * the line reads. `errors` fail the lint; `scenarioIssues` are reported and
+ * only fail under `--strict`.
+ *
+ * Severity comes from the rule, never from the caller — `scenario_has_no_steps`
+ * is an error wherever it is raised, which is the correction H14 forced.
+ */
 function checkGherkin(where: string, gherkin: any, errors: string[], scenarioIssues: string[]) {
-  const kinds = new Set(gherkin.steps.map((s: any) => s.keyword));
-
-  if (isGenericTitle(gherkin.title)) {
-    scenarioIssues.push(`${where}: scenario title is generic — name the behaviour under test.`);
-  }
-  if (gherkin.steps.length === 0) {
-    // `scenario_has_no_steps` — an error, always, and never a style warning.
-    // Cucumber runs this scenario and reports `1 scenario (1 passed) · 0 steps
-    // · exit 0`: it is a test that proves nothing and says it passed. That is
-    // H14, and 27 shipped scenarios were in exactly this state while `--strict`
-    // called them fine, so it cannot be something `--strict` merely promotes.
-    errors.push(
-      `${where}: scenario_has_no_steps — Cucumber sees no steps here, so this ` +
-        `scenario passes without testing anything. If the steps look like they are ` +
-        `there, check their keywords: Gherkin is case-sensitive.`
-    );
-  } else if (gherkin.steps.length < 3) {
-    scenarioIssues.push(
-      `${where}: only ${gherkin.steps.length} step(s) — a real scenario needs Given/When/Then.`
-    );
-  }
-  if (!kinds.has("when")) {
-    scenarioIssues.push(`${where}: no When step — the scenario exercises no action.`);
-  }
-  if (!kinds.has("then")) {
-    scenarioIssues.push(`${where}: no Then step — the scenario asserts nothing.`);
-  }
-  if (gherkin.outline && !gherkin.hasExamples) {
-    errors.push(`${where}: Scenario Outline has no Examples table.`);
-  }
-  for (const step of gherkin.steps) {
-    if (VAGUE_STEP_RE.test(step.text)) {
-      scenarioIssues.push(
-        `${where}: vague step "${step.keyword} ${step.text}" — make it concrete and falsifiable.`
-      );
-    }
+  const findings = analyseScenario(
+    {
+      name: gherkin.title || "",
+      steps: gherkin.steps,
+      outline: Boolean(gherkin.outline),
+      hasExamples: Boolean(gherkin.hasExamples),
+    },
+    where
+  );
+  for (const finding of findings) {
+    // The message carries its own code where the code is worth reading aloud
+    // (`scenario_has_no_steps`); the rest read as prose. Preserved verbatim:
+    // this extraction changes where the rules live, not what a user sees.
+    const line = `${where}: ${finding.message}`;
+    if (finding.severity === "error") errors.push(line);
+    else scenarioIssues.push(line);
   }
 }
 
@@ -341,12 +332,8 @@ export function lintScenarioQuality(
     // like it has steps and behaves as if it has none. Named with the literal
     // correction, because "it must be `Given`" is a fix and "no steps found" is
     // a riddle.
-    for (const issue of findKeywordCaseIssues(templateSource)) {
-      errors.push(
-        `${scn.template}:${issue.line}: keyword_case_invalid — ` +
-          `\`${issue.found}\` is not a Gherkin keyword; write \`${issue.expected}\`. ` +
-          `Cucumber reads it as prose, so the line does nothing.`
-      );
+    for (const finding of analyseKeywordCase(templateSource, scn.template)) {
+      errors.push(`${finding.file}:${finding.line}: ${finding.code} — ${finding.message}`);
     }
 
     const parsed = parseFeature(templateSource);

@@ -208,7 +208,8 @@ export const SURFACE: Command[] = [
     help: {
       group: "core",
       icon: "✅",
-      summary: "Check structure, traceability, Gherkin (+ --strict-tdd / --against-lock gates).",
+      summary:
+        "Check structure, traceability, Gherkin (+ --strict-tdd / --strict-scenarios / --against-lock gates).",
     },
     coreHelp: {
       group: "daily",

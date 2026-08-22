@@ -30,12 +30,14 @@ import { BaseCommand } from "../../../lib/command";
 
 import { resolveProjectDir } from "../../../lib/project-root";
 import { buildPrompt } from "../../../harness/prompt";
+import { analyseGherkinSource } from "../../../../packages/core/src/domain/GherkinQuality";
 import {
   readHarnessConfig,
   resolveHarnessSettings,
 } from "../../../../packages/core/src/infrastructure/HarnessConfigFile";
 import {
   AttemptRecord,
+  featureFilePath,
   planAttempt,
   scheduleLevels,
   substituteAgentCommand,
@@ -735,9 +737,69 @@ function preserveFailedAttempt(worktreeDir, req, failure) {
   return commit.status === 0;
 }
 
+/**
+ * Is this requirement's scenario worth spending an agent on? (A3)
+ *
+ * The harness gates a requirement by running its scenario. If Cucumber sees no
+ * steps in that scenario, the gate reports `0 steps · exit 0` and the run is
+ * recorded as a pass — the agent is paid for, the branch is published, and
+ * nothing was verified. That is H14 seen from the harness: not a weak signal, a
+ * counterfeit one.
+ *
+ * So the check runs **before** `git worktree add`, before the prompt, before
+ * the agent: an attempt costs up to `max_attempts` × the timeout, and there is
+ * no point buying that against a scenario that cannot fail.
+ *
+ * Only errors block. Warnings — a thin scenario, a vague step — are printed and
+ * allowed through: they weaken the signal without faking it, and a project
+ * brought in with `csda adopt` would otherwise be unable to run the harness at
+ * all. `csda validate --strict-scenarios` is where a project opts into the
+ * stricter reading.
+ */
+function scenarioBlockers(projectDir, req) {
+  const rel = featureFilePath(req);
+  if (!rel) return { errors: [], warnings: [] };
+  const file = path.resolve(projectDir, rel);
+  if (!fs.existsSync(file)) return { errors: [], warnings: [] };
+
+  let findings;
+  try {
+    findings = analyseGherkinSource(fs.readFileSync(file, "utf8"), rel);
+  } catch {
+    // An unreadable feature is the gate's problem to report, not a reason to
+    // refuse the run here.
+    return { errors: [], warnings: [] };
+  }
+  return {
+    errors: findings.filter((f) => f.severity === "error"),
+    warnings: findings.filter((f) => f.severity !== "error"),
+  };
+}
+
 function processRequirement(req, ctx) {
   const { projectDir, baseRef, keepWorktrees, force } = ctx;
   const branch = `harness/${req.requirement}`;
+
+  const blockers = scenarioBlockers(projectDir, req);
+  for (const w of blockers.warnings) {
+    warn(`${req.requirement}: ${w.message} [${w.code}]`);
+  }
+  if (blockers.errors.length > 0) {
+    for (const e of blockers.errors) {
+      error(`${req.requirement}: ${e.file}:${e.line} ${e.message} [${e.code}]`);
+    }
+    return {
+      requirement: req.requirement,
+      category: req.category,
+      result: "skipped",
+      attempts: 0,
+      branch,
+      error:
+        `Its scenario would pass without testing anything, so the gate could not ` +
+        `tell success from failure. Fix the ${blockers.errors.length} error(s) above, ` +
+        `or run \`csda validate <dir> --strict-scenarios\` to see them all.`,
+    };
+  }
   const worktreeDir = path.join(
     os.tmpdir(),
     `csda-harness-${req.requirement}-${crypto.randomBytes(4).toString("hex")}`

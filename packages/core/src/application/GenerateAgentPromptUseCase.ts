@@ -1,15 +1,12 @@
 import { IHarnessConfigRepository } from "./ports/IHarnessConfigRepository";
 import { AgentPrompt, PromptRequirement, PromptOptions } from "../domain/AgentPrompt";
+import { featureFilePath } from "../domain/HarnessRun";
 
 export class GenerateAgentPromptUseCase {
   constructor(private configRepo: IHarnessConfigRepository) {}
 
   public execute(req: PromptRequirement, projectDir: string, opts: PromptOptions = {}): string {
-    const featureRel = String(req.featureFile || req.feature_file || "")
-      .replace(/^`|`$/g, "")
-      .trim();
-
-    const featurePath = featureRel ? featureRel.split("#")[0] : null;
+    const featurePath = featureFilePath(req) || null;
     const featureContent = featurePath
       ? this.configRepo.readProjectFile(projectDir, featurePath)
       : null;

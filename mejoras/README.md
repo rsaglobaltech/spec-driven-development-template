@@ -121,7 +121,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | --- | ----------------------------------------------------------------------- | ---------- |
 | A1  | Guardia de alcance de escritura en el gate _(cierra H16)_               | Bajo       |
 | A2  | El diff verde debe tocar los artefactos declarados                      | Bajo       |
-| A3  | Calidad de escenario en el proyecto, no solo en el pack                 | Medio-bajo |
+| ~~A3~~ | **Hecho (2026-08-22).** Las ocho reglas viven en `core/domain/GherkinQuality` y emiten `Diagnostic` (ADR-0017). `pack lint` las consume con salida idéntica byte a byte; `validate --strict-scenarios` las aplica sobre `features/**`; `doctor` las reporta como aviso (adopción gradual); `harness run` las exige **antes** de crear el worktree. Destapó una tercera copia de la normalización de ruta a punto de nacer | Medio-bajo |
 | B1  | `depends_on` + orden topológico + apilado automático — **`H12` y `H9` ya cerrados por `E1-01`/`E1-03`**; queda el apilado automático | Medio-alto |
 | B2  | Preparación del requisito antes de gastar tokens                        | Bajo-medio |
 | B3  | `--by-scenario` — requisito grande por partes                           | Medio      |
@@ -188,8 +188,8 @@ Para que no se cuenten dos veces:
 ## 5. El orden que recomiendo
 
 **Tanda 1 — que el gate deje de aprobar sin comprobar.** ~~`F2`~~ ~~`F1`~~
-**(hechos, 2026-08-22)** ~~`F3`~~ **(hecho, 2026-08-22)** → `A3` → `A1` → `A2`.
-**Vamos por `A3`.**
+**(hechos, 2026-08-22)** ~~`F3`~~ ~~`A3`~~ **(hechos, 2026-08-22)** → `A1` → `A2`.
+**Vamos por `A1`.**
 Este orden importa: extraer las reglas de calidad (`A3`) sobre el parser actual
 propagaría el defecto de `H14` a `validate`. Primero que el parser diga la
 verdad, después extender su alcance.

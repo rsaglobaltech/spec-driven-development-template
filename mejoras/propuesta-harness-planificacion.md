@@ -131,7 +131,7 @@ costó dos ejecuciones en REQ-002.
 
 **Coste.** Bajo. Reutiliza el diff de A1.
 
-### A3 · Calidad de escenario en el proyecto, no solo en el pack
+### A3 · Calidad de escenario en el proyecto, no solo en el pack — **hecho (2026-08-22)**
 
 **Hoy.** `docs/specs/harness.md` lo dice sin rodeos: _«el gate es tan fuerte
 como los escenarios del pack»_. Y las ocho reglas que lo comprueban —paso
@@ -170,6 +170,45 @@ escritas y probadas.
 docenas de features flojos. Por eso es un flag, no el `validate` por defecto —
 y por eso conviene que `csda doctor` lo reporte como hallazgo con su fix, que es
 el camino de adopción gradual que la herramienta ya usa en todo lo demás.
+
+### Lo que se hizo
+
+Los cuatro puntos, con una desviación deliberada del primero: el motor **no**
+fue a `scripts/lib/`, fue a `packages/core/src/domain/GherkinQuality.ts`. Las
+reglas son conocimiento del dominio y no hacen E/S; ponerlas en `scripts/` las
+habría dejado en la capa de entrega, que es justo lo que
+`tests/unit/architecture.test.ts` impide.
+
+Tampoco se inventó una forma nueva para los hallazgos. ADR-0017 ya fija el sobre
+`{ severity, code, message, target?, fix?, file?, line? }`; A3 pedía reglas con
+`code` y `fix`, que es exactamente ese sobre. Se reutiliza.
+
+| Consumidor | Qué hace |
+|---|---|
+| `pack lint` | Consume el motor. Salida **idéntica byte a byte**, comparada contra un pack que dispara las ocho reglas |
+| `validate --strict-scenarios` | Las aplica sobre `features/**/*.feature`. Bajo la bandera, los avisos también fallan: pedir estricto y recibir indulgente es el error de H14 con otro traje |
+| `doctor` | Los mismos hallazgos como aviso, no como puerta |
+| `harness run` | Los exige **antes** de `git worktree add`, del prompt y del agente |
+
+**Por qué solo los errores bloquean el harness.** Un aviso —escenario flaco,
+paso vago— debilita la señal; no la falsifica. Bloquear por eso dejaría sin
+harness a cualquier repo traído con `adopt`. Un error, en cambio, significa que
+Cucumber informa `0 steps · exit 0` y la puerta aprueba el requisito sin haberlo
+comprobado. Eso no es una señal débil: es una señal falsa.
+
+La prueba que sostiene la parte del harness no comprueba el mensaje, comprueba
+**que el agente no llegó a ejecutarse**: el agente configurado escribe un
+fichero testigo, y la prueba exige que ese fichero no exista.
+
+### Lo que destapó
+
+La ruta del feature llega desde `plan --format json` **entre acentos graves** —
+`` `features/core/health.feature` `` — porque la matriz la guarda como markdown.
+Dos sitios ya tenían su propia copia de esa normalización; la comprobación nueva
+iba a ser la tercera. Es la forma de H14 otra vez: varios lectores discrepando
+sobre el mismo texto. Y aquí el fallo es **silencioso**: una ruta sin limpiar
+sencillamente no existe, así que la comprobación no encuentra nada malo y lo
+dice. Ahora hay una sola `featureFilePath()` en el dominio y la usan los tres.
 
 ---
 

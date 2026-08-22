@@ -14,6 +14,7 @@ const {
   filterHint,
 } = require("../../scripts/harness/run");
 const { buildPrompt } = require("../../scripts/harness/prompt");
+const { featureFilePath } = require("../../packages/core/src/domain/HarnessRun");
 const {
   readHarnessConfig,
   resolveHarnessSettings,
@@ -758,4 +759,87 @@ test("filterHint recognises the counts other runners print", () => {
 
 test("filterHint needs a feature file to reason about", () => {
   assert.equal(filterHint("run {feature_file}", {}, "16 scenarios (1 failed)"), "");
+});
+
+// ── A scenario that cannot fail is not worth an agent (A3) ───────────────────
+//
+// The harness gates a requirement by running its scenario. If Cucumber sees no
+// steps in that scenario, the gate reports `0 steps · exit 0`, the run is
+// recorded as a pass, and the branch is published — the agent was paid for and
+// nothing was verified. H14 from the harness's side: not a weak signal, a
+// counterfeit one.
+//
+// So the check runs before the worktree, before the prompt, before the agent.
+// The assertion that matters is the last one: the agent never ran.
+
+test("harness run refuses a requirement whose scenario has no steps, before spending the agent", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "harness-a3-"));
+  try {
+    const init = spawnSync(process.execPath, [CLI, "init", "--yes", "--out", parent, "--no-git"], {
+      encoding: "utf8",
+    });
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(parent, fs.readdirSync(parent)[0]);
+
+    spawnSync("git", ["init", "-q"], { cwd: projectDir });
+    spawnSync("git", ["add", "-A"], { cwd: projectDir });
+    spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed"], {
+      cwd: projectDir,
+    });
+
+    const planned = spawnSync(
+      process.execPath,
+      [CLI, "plan", "--project-dir", projectDir, "--format", "json"],
+      { encoding: "utf8" }
+    );
+    const req = (JSON.parse(planned.stdout).requirements || [])[0];
+    assert.ok(req, "plan returned no requirements");
+    // The matrix stores the path as markdown, so plan hands it back inside
+    // back-ticks. `featureFilePath` is the one place that knows this.
+    const featureRel = featureFilePath(req);
+    assert.ok(featureRel, "the scaffolded requirement declares no feature file");
+
+    // Shout the keywords. Cucumber now reads every step as prose.
+    const featurePath = path.join(projectDir, featureRel);
+    const shouted = fs
+      .readFileSync(featurePath, "utf8")
+      .replace(/^(\s*)(Given|When|Then|And) /gm, (_m, pad, kw) => `${pad}${kw.toUpperCase()} `);
+    fs.writeFileSync(featurePath, shouted, "utf8");
+    spawnSync("git", ["add", "-A"], { cwd: projectDir });
+    spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "shout"], {
+      cwd: projectDir,
+    });
+
+    // An agent that leaves a trace if it is ever invoked.
+    const marker = path.join(parent, "agent-ran.txt");
+    const agent = `${process.execPath} -e "require('fs').writeFileSync(${JSON.stringify(marker)},'ran')"`;
+
+    const run = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        "harness",
+        "run",
+        "--project-dir",
+        projectDir,
+        "--req",
+        req.requirement,
+        "--agent",
+        agent,
+        "--format",
+        "json",
+      ],
+      { encoding: "utf8" }
+    );
+
+    const out = run.stdout + run.stderr;
+    assert.match(out, /keyword_case_invalid|scenario_has_no_steps/, `no refusal in:\n${out}`);
+    assert.equal(
+      fs.existsSync(marker),
+      false,
+      "the agent was invoked against a scenario that cannot fail — the check ran too late"
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
 });

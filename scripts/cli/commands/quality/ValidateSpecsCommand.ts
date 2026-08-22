@@ -15,6 +15,7 @@ import { ValidateProjectUseCase } from "../../../../packages/core/src/applicatio
 import { DiskTraceabilityRepository } from "../../../../packages/core/src/infrastructure/DiskTraceabilityRepository";
 import { RICH_HEADER } from "../../../../packages/core/src/domain/TraceabilityFormat";
 import { findCliRoot } from "../../../lib/project-root";
+import { analyseGherkinSource } from "../../../../packages/core/src/domain/GherkinQuality";
 
 export class ValidateSpecsCommand extends BaseCommand {
   private io: any = null;
@@ -30,7 +31,7 @@ export class ValidateSpecsCommand extends BaseCommand {
   private usage() {
     process.stdout.write(
       "🔎 Usage:\n" +
-        "  validate_specs.js <project_dir> [--strict-tdd] [--against-lock]\n\n" +
+        "  validate_specs.js <project_dir> [--strict-tdd] [--strict-scenarios] [--against-lock]\n\n" +
         "Checks:\n" +
         "- minimum SDD structure\n" +
         "- required files\n" +
@@ -42,6 +43,10 @@ export class ValidateSpecsCommand extends BaseCommand {
         "--against-lock additionally enforces:\n" +
         "- Every requirement the locked packs declare is present in the matrix\n" +
         "- Its scenario and feature file still match what the pack declares\n\n" +
+        "--strict-scenarios additionally enforces, over features/**/*.feature:\n" +
+        "- No scenario Cucumber would see as empty (upper-case keywords are the usual cause)\n" +
+        "- Every scenario has a When and a Then, at least three steps and a title that names the behaviour\n" +
+        "- No vague, unfalsifiable step text; no Scenario Outline without Examples\n\n" +
         "--strict-tdd additionally enforces:\n" +
         "- No 'Test Artifact = TBD' when Status is In Dev or later\n" +
         "- Every requirement has at least one traceability row\n" +
@@ -68,7 +73,7 @@ export class ValidateSpecsCommand extends BaseCommand {
     process.exit(exitCode);
   }
 
-  private validateMonorepo(targetDir: string, strictTdd: boolean) {
+  private validateMonorepo(targetDir: string, strictTdd: boolean, strictScenarios: boolean) {
     const cfgPath = path.join(targetDir, "specops.config.yaml");
     if (!fs.existsSync(cfgPath)) return null;
     let cfg: any;
@@ -102,6 +107,7 @@ export class ValidateSpecsCommand extends BaseCommand {
         : path.join(root, "scripts", "validate_specs.js");
       const args = [scriptPath, subDir];
       if (strictTdd) args.push("--strict-tdd");
+      if (strictScenarios) args.push("--strict-scenarios");
       const r = spawnSync(process.execPath, args, { encoding: "utf8" });
       process.stdout.write(r.stdout || "");
       process.stderr.write(r.stderr || "");
@@ -121,11 +127,54 @@ export class ValidateSpecsCommand extends BaseCommand {
     return { failures: failures.length };
   }
 
+  /**
+   * `--strict-scenarios`: the pack's quality rules, applied where the harness
+   * actually runs (A3).
+   *
+   * `docs/specs/harness.md` says the gate is only as strong as its scenarios,
+   * and until now the rules that enforce that lived in `pack lint` and judged
+   * one thing: a `pack.yaml`. But a project's features arrive by three routes
+   * that never touch `pack lint` — `change archive`, `req add`, and a person
+   * with an editor. This closes that gap by reading the same domain rules.
+   *
+   * **Why a flag and not the default.** A project brought in with `csda adopt`
+   * can have dozens of weak features written long before this tool existed;
+   * failing its first `validate` would teach people to skip the gate. `csda
+   * doctor` reports the same findings as advisories, which is the gradual path
+   * this tool uses everywhere else. Under the flag, warnings fail too — asking
+   * for strict and getting lenient is the H14 mistake in a different costume.
+   */
+  private checkScenarioQuality(targetDir: string, featureFiles: string[]) {
+    const findings = [];
+    for (const file of featureFiles.slice().sort()) {
+      const rel = path.relative(targetDir, file).split(path.sep).join("/");
+      findings.push(...analyseGherkinSource(fs.readFileSync(file, "utf8"), rel));
+    }
+    if (findings.length === 0) return;
+
+    if (this.io.json) {
+      this.io.fail({ validation: null }, findings);
+      return;
+    }
+    const errs = findings.filter((f) => f.severity === "error");
+    this.logError(
+      `--strict-scenarios violations detected: ${findings.length} ` +
+        `(${errs.length} that make a scenario pass without testing anything)`
+    );
+    for (const f of findings) process.stderr.write(`  ${formatDiagnostic(f)}\n`);
+    this.logFix([
+      "Fix the errors first: a scenario Cucumber sees as empty reports `0 steps · exit 0`,",
+      "so the gate approves the requirement without having checked it.",
+    ]);
+    process.exit(1);
+  }
+
   public execute(): void {
     const rawArgs = this.args[0] === "validate" ? this.args.slice(1) : this.args;
     const argv = rawArgs;
     this.io = agentIo(wantsJson(argv));
     const strictTdd = argv.includes("--strict-tdd");
+    const strictScenarios = argv.includes("--strict-scenarios");
     const againstLock = argv.includes("--against-lock");
     const positional = argv.filter((a) => !a.startsWith("-"));
 
@@ -141,7 +190,7 @@ export class ValidateSpecsCommand extends BaseCommand {
       ]);
     }
 
-    const monorepo = this.validateMonorepo(targetDir, strictTdd);
+    const monorepo = this.validateMonorepo(targetDir, strictTdd, strictScenarios);
     if (monorepo !== null) {
       process.exit(monorepo.failures === 0 ? 0 : 1);
     }
@@ -222,6 +271,10 @@ export class ValidateSpecsCommand extends BaseCommand {
       ]);
     }
     const featureCount = featureFiles.length;
+
+    if (strictScenarios) {
+      this.checkScenarioQuality(targetDir, featureFiles);
+    }
 
     const offenders = findUnresolvedPlaceholders(targetDir).map((rel) => path.join(targetDir, rel));
     if (offenders.length > 0) {

@@ -42,11 +42,28 @@ export function substituteAgentCommand(template, promptFile) {
  * `{feature_file}` is the useful one in practice: most runners accept a path and
  * will run exactly that feature's scenarios.
  */
-export function substituteGateCommand(template, req) {
-  const featureFile = String(req.featureFile || req.feature_file || "")
+/**
+ * The feature file a requirement points at, as a plain relative path.
+ *
+ * The matrix stores it as markdown, so `plan --format json` hands it over
+ * still wearing its back-ticks — `` `features/core/health.feature` `` — and it
+ * may carry a `#SCN-001` fragment. Three callers needed the bare path and two
+ * of them had grown their own copy of this normalisation; a third would have
+ * been the H14 shape again, several readers disagreeing about the same text.
+ * Worse, the failure is silent: an un-stripped path simply does not exist, so a
+ * check that reads it finds nothing wrong and says so.
+ *
+ * Returns `""` when the requirement declares no feature.
+ */
+export function featureFilePath(req): string {
+  return String(req.featureFile || req.feature_file || "")
     .replace(/^`|`$/g, "")
     .split("#")[0]
     .trim();
+}
+
+export function substituteGateCommand(template, req) {
+  const featureFile = featureFilePath(req);
   return template
     .split("{req}")
     .join(req.requirement || "")

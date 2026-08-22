@@ -16,6 +16,7 @@ export * from "./domain/DomainPack";
 export * from "./domain/FileChangeSet";
 export * from "./domain/Gherkin";
 export * from "./domain/GherkinDialects";
+export * from "./domain/GherkinQuality";
 export * from "./domain/HarnessConfig";
 export * from "./domain/HarnessRun";
 export * from "./domain/Language";

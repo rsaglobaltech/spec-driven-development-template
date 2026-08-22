@@ -319,7 +319,12 @@ function dispatchValidate(validateArgs: string[]): void {
     usage();
     process.exit(2);
   }
-  const VALIDATE_FLAGS = new Set(["--strict-tdd", "--against-lock", "--json"]);
+  const VALIDATE_FLAGS = new Set([
+    "--strict-tdd",
+    "--strict-scenarios",
+    "--against-lock",
+    "--json",
+  ]);
   const unknownFlags = validateArgs.filter((a) => a.startsWith("-") && !VALIDATE_FLAGS.has(a));
   if (unknownFlags.length > 0) {
     error(`Unknown flag(s) for validate: ${unknownFlags.join(", ")}`);

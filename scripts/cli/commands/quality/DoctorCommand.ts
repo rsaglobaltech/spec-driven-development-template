@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { resolveProjectDir, findCliRoot } from "../../../lib/project-root";
 import { diagnostic } from "../../../lib/diagnostics";
 import { findUnresolvedPlaceholders } from "../../../lib/placeholders";
+import { analyseGherkinSource } from "../../../../packages/core/src/domain/GherkinQuality";
 import { agentIo, wantsJson, EXIT } from "../../../lib/agent";
 import { BaseCommand } from "../../../lib/command";
 import { MERGE_DRIVER_NAME } from "../../../harness/init";
@@ -462,6 +463,61 @@ export class DoctorCommand extends BaseCommand {
     this.ok("architecture", `${declared} — matches what the project models`);
   }
 
+  /**
+   * Scenarios that cannot fail, reported as findings rather than as a gate (A3).
+   *
+   * `csda validate --strict-scenarios` is the gate; this is the advisory. The
+   * split is deliberate: a repository brought in with `csda adopt` can carry
+   * dozens of features written before this tool existed, and failing its first
+   * `validate` teaches people to skip the gate rather than fix the scenarios.
+   * `doctor` is where this project already reports "here is what is weak, here
+   * is the fix", so that is where the gradual path belongs.
+   *
+   * Errors are reported as errors even so, because they are not weakness: a
+   * scenario Cucumber sees as empty reports `0 steps · exit 0`, so the gate
+   * approves the requirement without having checked it (H14).
+   */
+  private checkScenarioQuality(dir: string) {
+    const featuresDir = path.join(dir, "features");
+    if (!fs.existsSync(featuresDir)) return;
+
+    const files: string[] = [];
+    const walk = (d: string) => {
+      for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+        const full = path.join(d, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (entry.name.endsWith(".feature")) files.push(full);
+      }
+    };
+    walk(featuresDir);
+    if (files.length === 0) return;
+
+    let errors = 0;
+    let warnings = 0;
+    for (const file of files.sort()) {
+      const rel = path.relative(dir, file).split(path.sep).join("/");
+      for (const f of analyseGherkinSource(fs.readFileSync(file, "utf8"), rel)) {
+        const where = f.line ? `${rel}:${f.line}` : rel;
+        if (f.severity === "error") {
+          errors += 1;
+          this.recordError("scenarios", `${where} ${f.message}`, f.fix || "");
+        } else {
+          warnings += 1;
+          this.warn("scenarios", `${where} ${f.message}`, f.fix || "");
+        }
+      }
+    }
+    if (errors === 0 && warnings === 0) {
+      this.ok("scenarios", `${files.length} feature file(s), every scenario runnable`);
+    } else if (errors === 0) {
+      this.warn(
+        "scenarios",
+        `${warnings} scenario(s) could be sharper`,
+        "Run `csda validate <dir> --strict-scenarios` to gate on this."
+      );
+    }
+  }
+
   private checkSampleRequirement(dir: string) {
     if (!fs.existsSync(path.join(dir, ".specops.lock"))) return;
     const traceRaw = this.readIfExists(path.join(dir, "docs/specs/traceability.md"));
@@ -561,6 +617,7 @@ export class DoctorCommand extends BaseCommand {
       this.checkMergeDriver(dir);
       this.checkArchitectureProfile(dir);
       this.checkSampleRequirement(dir);
+      this.checkScenarioQuality(dir);
     }
 
     const errors = this.findings.filter((f) => f.level === "error").length;
