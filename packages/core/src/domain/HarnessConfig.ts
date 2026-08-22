@@ -27,6 +27,12 @@ export interface HarnessSettings {
    * only to a direct `cucumber-js` invocation.
    */
   messageReport: string;
+  /**
+   * Per-profile `cost_per_run_hint` from `.harness/profiles.yaml` (C1). A
+   * declared estimate, never a measurement: an agent is any shell command and
+   * only the agent knows what it spent.
+   */
+  costPerRunHint: Record<string, number>;
 }
 
 export class HarnessConfig {
@@ -46,6 +52,7 @@ export class HarnessConfig {
     protectedPaths: [],
     allowPaths: [],
     messageReport: "",
+    costPerRunHint: {},
   };
 
   public constructor(public readonly settings: HarnessSettings) {}
@@ -81,6 +88,7 @@ export class HarnessConfig {
       protectedPaths: file.protectedPaths || HarnessConfig.DEFAULT_SETTINGS.protectedPaths,
       allowPaths: file.allowPaths || HarnessConfig.DEFAULT_SETTINGS.allowPaths,
       messageReport: file.messageReport || HarnessConfig.DEFAULT_SETTINGS.messageReport,
+      costPerRunHint: file.costPerRunHint || HarnessConfig.DEFAULT_SETTINGS.costPerRunHint,
     });
   }
 }

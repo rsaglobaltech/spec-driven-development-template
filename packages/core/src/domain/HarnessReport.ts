@@ -28,6 +28,8 @@
  * disk, and it is the rule `tests/unit/architecture.test.ts` enforces.
  */
 
+import { estimateRunCost } from "./RunBudget";
+
 /** One attempt, as the ledger records it. */
 export interface AttemptRow {
   attempt: number;
@@ -97,6 +99,12 @@ export interface HarnessReportSummary {
   /** Failures a person has marked as the gate's fault, not the work's. */
   falseFailures: number;
   /**
+   * What the run is estimated to have cost, from the per-profile hints, or
+   * `null` when no profile declared one. An estimate wearing a label that says
+   * so — the harness cannot see an agent's tokens.
+   */
+  estimatedCost: { total: number; covered: number; uncovered: number } | null;
+  /**
    * Of the failures, the share that were genuine. `null` until somebody marks
    * one — an unmarked ledger cannot tell the two apart, and guessing 100% would
    * be the most flattering possible lie about our own gate.
@@ -118,7 +126,8 @@ export const STAGE_LABELS: Readonly<Record<string, string>> = Object.freeze({
 
 export function summariseRuns(
   runs: readonly RunFile[],
-  falseFailures: readonly FalseFailureMark[] = []
+  falseFailures: readonly FalseFailureMark[] = [],
+  costPerRunHint: Readonly<Record<string, number>> = {}
 ): HarnessReportSummary {
   const rows = runs.flatMap((r) => r.results ?? []);
   const passed = rows.filter((r) => r.result === "pass");
@@ -167,6 +176,10 @@ export function summariseRuns(
     }
   }
 
+  const attemptProfiles = rows.flatMap((row) =>
+    (row.attemptLog ?? []).map((a) => a?.profiles ?? [])
+  );
+
   const timeline = [...runs]
     .sort((a, b) => String(a.startedAt).localeCompare(String(b.startedAt)))
     .map((run) => ({
@@ -198,6 +211,7 @@ export function summariseRuns(
     stages,
     exhausted,
     timeline,
+    estimatedCost: estimateRunCost(attemptProfiles, costPerRunHint),
     falseFailures: falseCount,
     realFailureRate:
       failed.length > 0 && marked.size > 0 ? (failed.length - falseCount) / failed.length : null,

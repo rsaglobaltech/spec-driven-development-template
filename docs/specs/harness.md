@@ -280,6 +280,46 @@ signal is counterfeit and a green run would prove nothing (H14).
 settle a disagreement settles it by guessing, and the guess arrives wearing
 a green gate.
 
+## A ceiling on the run
+
+`max_attempts` was the only limit. Fourteen requirements × 3 attempts ×
+1200 s is hours of wall-clock and an unbounded bill — and the third real
+run ended because the account hit its monthly limit, which is the expensive
+way to find out there was no ceiling of our own.
+
+```bash
+csda harness run --budget-seconds 3600 --max-requirements 5
+```
+
+Both are asked **before starting** each requirement, never in the middle of
+one: interrupting an attempt in flight would throw away the money already
+spent on it. A budget bounds what a run begins.
+
+Exhausting one is not an error. The run ends the ordinary way, the
+requirements it never started are reported as `skipped` with the reason,
+and the ledger is still written — a run that dies halfway writes none, so
+`csda harness report` cannot say what the money bought.
+
+Neither relaxes anything: every worktree that does run passes the same
+gate.
+
+### What a run costs, when a profile says so
+
+The harness cannot see an agent's tokens — an agent is any shell command.
+A profile may declare roughly what a run of it costs, and `harness report`
+multiplies it out, labelled as declared rather than measured:
+
+```yaml
+# .harness/profiles.yaml
+profiles:
+  local-claude:
+    agent: "claude -p < {prompt_file}"
+    cost_per_run_hint: 0.35
+```
+
+Attempts by a profile with no hint are counted separately, so the total
+never reads as complete when part of the run is missing from it.
+
 ## Resuming an interrupted run
 
 An existing `harness/REQ-NNN` branch used to leave two options: skip it, or

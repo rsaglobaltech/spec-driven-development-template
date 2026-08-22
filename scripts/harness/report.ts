@@ -23,6 +23,7 @@ import { resolveProjectDir } from "../lib/project-root";
 import { agentIo, wantsJson, EXIT } from "../lib/agent";
 import { error } from "../lib/diagnostics";
 import { RUNS_DIR } from "./run";
+import { readCostHints } from "../../packages/core/src/infrastructure/HarnessConfigFile";
 import {
   FalseFailureMark,
   HarnessReportSummary,
@@ -164,9 +165,10 @@ export function appendFalseFailure(projectDir: string, mark: FalseFailureMark): 
 
 export function summarise(
   runs: RunFile[],
-  falseFailures: FalseFailureMark[] = []
+  falseFailures: FalseFailureMark[] = [],
+  costPerRunHint: Record<string, number> = {}
 ): HarnessReportSummary {
-  return summariseRuns(runs, falseFailures);
+  return summariseRuns(runs, falseFailures, costPerRunHint);
 }
 
 function human(ms: number): string {
@@ -190,6 +192,16 @@ function render(summary: HarnessReportSummary): void {
       `${summary.msPerDelivered === null ? "—" : human(summary.msPerDelivered)}` +
       `  ${c.dim}wall-clock, failed attempts included${c.reset}\n`
   );
+
+  if (summary.estimatedCost) {
+    const { total, covered, uncovered } = summary.estimatedCost;
+    process.stdout.write(
+      `    ${label("estimated spend")}${total.toFixed(2)}` +
+        `  ${c.dim}declared by profile, not measured` +
+        (uncovered > 0 ? ` — ${uncovered} of ${covered + uncovered} attempts have no hint` : "") +
+        `${c.reset}\n`
+    );
+  }
 
   if (summary.stages.length > 0) {
     // Where the gate rejects, which is the question C2 exists to answer. Read
@@ -298,7 +310,20 @@ export function main(argv: string[]): void {
     process.exit(EXIT.OK);
   }
 
-  const summary = summarise(runs, readFalseFailures(projectDir));
+  // C1: what each profile declares a run of it costs. Read from the project's
+  // own profiles, and absent unless somebody wrote one.
+  // Read from `.harness/profiles.yaml` directly, not through the config
+  // reader: a project may declare profiles and never write a
+  // `harness.config.yaml`, and going via the config made the estimate silently
+  // absent there.
+  let costHints: Record<string, number> = {};
+  try {
+    costHints = readCostHints(projectDir);
+  } catch {
+    /* a broken profiles file is `harness run`'s problem, not this read-only command's */
+  }
+
+  const summary = summarise(runs, readFalseFailures(projectDir), costHints);
   io.emit({ report: summary, status: [] }, () => render(summary));
   process.exit(EXIT.OK);
 }

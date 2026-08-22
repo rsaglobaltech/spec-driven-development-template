@@ -1509,3 +1509,138 @@ test("a non-Cucumber command is judged by its exit code, exactly as before", () 
     fs.rmSync(parent, { recursive: true, force: true });
   }
 });
+
+// ── A ceiling on what one run may spend (C1) ─────────────────────────────────
+//
+// `max_attempts` was the only limit the harness had. Fourteen requirements ×
+// 3 attempts × 1200 s is hours of wall-clock and an unbounded bill, and the
+// third real run ended because the account hit its monthly limit — the
+// expensive way to find out there was no ceiling of our own.
+//
+// Exhausting a budget is not an error: the run ends the ordinary way, names
+// what it never started, and still writes its ledger. A run that dies halfway
+// never writes one, so `harness report` cannot say what the money bought.
+
+/** A project with three independent requirements — so they share one level. */
+function threeRequirementProject() {
+  const { parent, projectDir } = greenableProject();
+  const matrixPath = path.join(projectDir, "docs/specs/traceability.md");
+  const matrix = fs.readFileSync(matrixPath, "utf8");
+  const row = matrix.split("\n").find((l) => l.startsWith("| REQ-000"));
+  assert.ok(row, "the scaffolded matrix no longer has a REQ-000 row");
+
+  const extra = ["001", "002"].map((n) =>
+    row
+      .replace("REQ-000", `REQ-${n}`)
+      .replace("SCN-000", `SCN-${n}`)
+      .replace("features/core/health.feature", `features/core/f${n}.feature`)
+  );
+  fs.writeFileSync(matrixPath, matrix.replace(row, [row, ...extra].join("\n")), "utf8");
+  for (const n of ["001", "002"]) {
+    fs.copyFileSync(
+      path.join(projectDir, "features/core/health.feature"),
+      path.join(projectDir, `features/core/f${n}.feature`)
+    );
+  }
+  const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+  git("add", "-A");
+  git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "three");
+  return { parent, projectDir };
+}
+
+function runAll(projectDir, agent, extra = []) {
+  return spawnSync(
+    process.execPath,
+    [
+      CLI,
+      "harness",
+      "run",
+      "--project-dir",
+      projectDir,
+      "--agent",
+      agent,
+      "--max-attempts",
+      "1",
+      ...extra,
+    ],
+    { encoding: "utf8" }
+  );
+}
+
+test("without a ceiling every requirement runs — the baseline the rest is measured against", () => {
+  const { parent, projectDir } = threeRequirementProject();
+  try {
+    const r = runAll(projectDir, "true {prompt_file}");
+    assert.match(r.stdout + r.stderr, /3 passed/, r.stdout + r.stderr);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--max-requirements stops the run inside a single level, not only between levels", () => {
+  // The defect this test exists for: independent requirements all land in one
+  // level, which is the common case. A ceiling checked only between levels let
+  // all three run past `--max-requirements 2`. Measured before it was fixed.
+  const { parent, projectDir } = threeRequirementProject();
+  try {
+    const r = runAll(projectDir, "true {prompt_file}", ["--max-requirements", "2"]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /2 passed/, out);
+    assert.match(out, /1 skipped/, out);
+    assert.match(out, /--max-requirements 2 reached/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("the same ceiling holds when the level runs in parallel", () => {
+  // The worker path dispatches its own requirements, so it asks the same
+  // question before starting each one.
+  const { parent, projectDir } = threeRequirementProject();
+  try {
+    const r = runAll(projectDir, "true {prompt_file}", [
+      "--max-requirements",
+      "2",
+      "--concurrency",
+      "3",
+    ]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /2 passed/, out);
+    assert.match(out, /1 skipped/, out);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--budget-seconds stops the run and still writes the ledger", () => {
+  const { parent, projectDir } = threeRequirementProject();
+  try {
+    const slow = scriptedAgent(parent, "sleep 3");
+    const r = runAll(projectDir, slow, ["--budget-seconds", "2"]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /1 passed/, out);
+    assert.match(out, /2 skipped/, out);
+    assert.match(out, /--budget-seconds 2 exhausted/);
+
+    // A run that dies halfway never writes a record, so `harness report`
+    // cannot say what the money bought. Stopping is not dying.
+    // `.json` only — the directory also carries the `.gitignore` the ledger
+    // writes so run records stay local to the machine.
+    const runsDir = path.join(projectDir, ".harness", "runs");
+    const runs = fs.readdirSync(runsDir).filter((f) => f.endsWith(".json"));
+    assert.equal(runs.length, 1, "the ledger must survive a budget stop");
+    const record = JSON.parse(fs.readFileSync(path.join(runsDir, runs[0]), "utf8"));
+    assert.equal(record.bounded, true, "the record should say the run had a ceiling");
+    assert.equal(record.results.length, 3, "every requirement is accounted for, run or not");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a ceiling of zero or less is refused rather than read as 'no limit'", () => {
+  // `--max-requirements 0` meaning "unlimited" would be a quiet way to remove
+  // the ceiling somebody thought they had set.
+  assert.throws(() => parseArgs(["--max-requirements", "0"]), /positive integer/);
+  assert.throws(() => parseArgs(["--budget-seconds", "0"]), /positive integer/);
+  assert.throws(() => parseArgs(["--budget-seconds", "-5"]), /positive integer/);
+});

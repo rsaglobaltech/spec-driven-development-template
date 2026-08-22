@@ -221,3 +221,117 @@ test("the summary reads the marks the command writes", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ── Declared cost, which is an estimate and says so (C1) ─────────────────────
+//
+// The harness cannot see an agent's tokens — an agent is any shell command.
+// A profile may declare roughly what a run of it costs, and the report
+// multiplies that out, labelled as declared rather than measured.
+
+const { readCostHints } = require("../../packages/core/src/infrastructure/HarnessConfigFile");
+
+test("cost hints are read from profiles.yaml, with no harness.config.yaml in sight", () => {
+  // The gap this test exists for: reaching the hints through the config reader
+  // made the estimate silently absent in a project that declares profiles but
+  // never wrote a harness config. Measured — the line simply did not appear.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-hints-"));
+  try {
+    fs.mkdirSync(path.join(dir, ".harness"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, ".harness", "profiles.yaml"),
+      [
+        "profiles_version: 1",
+        "profiles:",
+        "  agent:",
+        '    agent: "claude -p < {prompt_file}"',
+        "    cost_per_run_hint: 0.35",
+        "  reviewer:",
+        '    agent: "claude -p < {prompt_file}"',
+        "    advisory: true",
+        "    cost_per_run_hint: 0.1",
+        "",
+      ].join("\n"),
+      "utf8"
+    );
+    assert.ok(!fs.existsSync(path.join(dir, "harness.config.yaml")));
+    assert.deepEqual(readCostHints(dir), { agent: 0.35, reviewer: 0.1 });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a profile with no hint, or a nonsense one, is left out rather than guessed at", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-hints-bad-"));
+  try {
+    fs.mkdirSync(path.join(dir, ".harness"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, ".harness", "profiles.yaml"),
+      [
+        "profiles:",
+        "  plain:",
+        '    agent: "x {prompt_file}"',
+        "  nonsense:",
+        '    agent: "x {prompt_file}"',
+        '    cost_per_run_hint: "quite a lot"',
+        "  negative:",
+        '    agent: "x {prompt_file}"',
+        "    cost_per_run_hint: -3",
+        "",
+      ].join("\n"),
+      "utf8"
+    );
+    // A wrong estimate must not stop a run, so these are ignored, not fatal.
+    assert.deepEqual(readCostHints(dir), {});
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("no profiles file at all means no hints, and no estimate in the summary", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-hints-none-"));
+  try {
+    assert.deepEqual(readCostHints(dir), {});
+    const runs = [
+      {
+        startedAt: "2026-08-22T10:00:00Z",
+        maxAttempts: 1,
+        results: [
+          {
+            requirement: "REQ-001",
+            result: "pass",
+            attempts: 1,
+            durationMs: 10,
+            attemptLog: [{ attempt: 1, endedAt: "pass", profiles: ["agent"] }],
+          },
+        ],
+      },
+    ];
+    assert.equal(summarise(runs, [], readCostHints(dir)).estimatedCost, null);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the estimate multiplies the hint over the attempts each profile ran", () => {
+  const runs = [
+    {
+      startedAt: "2026-08-22T10:00:00Z",
+      maxAttempts: 2,
+      results: [
+        {
+          requirement: "REQ-001",
+          result: "pass",
+          attempts: 2,
+          durationMs: 10,
+          attemptLog: [
+            { attempt: 1, endedAt: "gate", profiles: ["agent"] },
+            { attempt: 2, endedAt: "pass", profiles: ["reviewer", "agent"] },
+          ],
+        },
+      ],
+    },
+  ];
+  const cost = summarise(runs, [], { agent: 0.5, reviewer: 0.1 }).estimatedCost;
+  assert.equal(cost.total, 1.1);
+  assert.equal(cost.uncovered, 0);
+});

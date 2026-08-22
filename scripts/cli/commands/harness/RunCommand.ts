@@ -43,6 +43,7 @@ import {
 } from "../../../../packages/core/src/domain/ResumeState";
 import { requirementReadiness } from "../../../../packages/core/src/domain/RequirementReadiness";
 import { RequirementPlan } from "../../../../packages/core/src/domain/RequirementPlan";
+import { budgetVerdict, hasBudget } from "../../../../packages/core/src/domain/RunBudget";
 import {
   checkGateRun,
   invokesCucumberDirectly,
@@ -122,6 +123,9 @@ function usage() {
       "  --resume               Continue an interrupted run: reuse the existing\n" +
       "                         harness/REQ-NNN branch and worktree instead of\n" +
       "                         skipping it, and pick up at the attempt it stopped on.\n" +
+      "  --budget-seconds <n>   Wall-clock ceiling for the whole run. On reaching it\n" +
+      "                         the run stops cleanly and still reports what it did.\n" +
+      "  --max-requirements <n> Attempt at most n requirements in this run.\n" +
       "  --skip-not-ready       Skip requirements an agent could not succeed at — no\n" +
       "                         feature, an unrunnable scenario, unmet dependencies,\n" +
       "                         Deprecated or Needs Clarification. Default: warn and\n" +
@@ -158,6 +162,8 @@ export function parseArgs(argv) {
     dryRun: false,
     strictArtifacts: false,
     skipNotReady: false,
+    budgetSeconds: 0,
+    maxRequirements: 0,
     push: false,
     remote: "",
     prCmd: "",
@@ -212,6 +218,18 @@ export function parseArgs(argv) {
       args.strictArtifacts = true;
     } else if (token === "--skip-not-ready") {
       args.skipNotReady = true;
+    } else if (token === "--budget-seconds") {
+      const n = Number(argv[++i]);
+      if (!Number.isInteger(n) || n < 1) {
+        throw new Error("--budget-seconds must be a positive integer");
+      }
+      args.budgetSeconds = n;
+    } else if (token === "--max-requirements") {
+      const n = Number(argv[++i]);
+      if (!Number.isInteger(n) || n < 1) {
+        throw new Error("--max-requirements must be a positive integer");
+      }
+      args.maxRequirements = n;
     } else if (token === "--help" || token === "-h") {
       usage();
       process.exit(0);
@@ -780,6 +798,8 @@ export interface RunRecord {
   baseRef: string;
   concurrency: number;
   maxAttempts: number;
+  /** Whether the run had a budget ceiling (C1). A short run reads differently. */
+  bounded?: boolean;
   results: unknown[];
 }
 
@@ -1416,15 +1436,39 @@ export function printReport(results, format) {
  */
 async function dispatchLevel(runnable, byId, hintByReq, ctx, concurrency) {
   if (concurrency <= 1) {
-    return runnable.map((id) =>
-      processRequirement(byId.get(id), {
-        ...ctx,
-        baseRef: ctx.baseFor ? ctx.baseFor(id) : ctx.baseRef,
-        hint: hintByReq.get(id),
-      })
-    );
+    const results = [];
+    for (const id of runnable) {
+      // Asked before each one, not once for the level. Independent
+      // requirements all land in a single level — the common case — so a
+      // ceiling checked only between levels never fires. Measured: a
+      // `--budget-seconds 2` run of three 3-second agents ran all three.
+      if (ctx.mayStart && !ctx.mayStart()) {
+        results.push(notAttempted(byId.get(id), id, ctx.stopReason()));
+        continue;
+      }
+      results.push(
+        processRequirement(byId.get(id), {
+          ...ctx,
+          baseRef: ctx.baseFor ? ctx.baseFor(id) : ctx.baseRef,
+          hint: hintByReq.get(id),
+        })
+      );
+    }
+    return results;
   }
-  return runWorkers(runnable, ctx, concurrency);
+  return runWorkers(runnable, byId, ctx, concurrency);
+}
+
+/** A requirement the budget never let start. Not a failure — it was not tried. */
+function notAttempted(req, id, reason) {
+  return {
+    requirement: id,
+    category: req ? req.category : "",
+    result: "skipped",
+    attempts: 0,
+    branch: `harness/${id}`,
+    error: `Not attempted: ${reason}`,
+  };
 }
 
 /**
@@ -1435,7 +1479,7 @@ async function dispatchLevel(runnable, byId, hintByReq, ctx, concurrency) {
  * worker that dies without printing one is reported as a failure carrying its
  * output, rather than vanishing from the run.
  */
-function runWorkers(runnable, ctx, concurrency) {
+function runWorkers(runnable, byId, ctx, concurrency) {
   return new Promise((resolve) => {
     const results = [];
     const queue = [...runnable];
@@ -1444,6 +1488,12 @@ function runWorkers(runnable, ctx, concurrency) {
     const fill = () => {
       while (running.size < concurrency && queue.length > 0) {
         const id = queue.shift();
+        // Same question as the sequential path: a worker already in flight is
+        // never interrupted, but the next one need not be started.
+        if (ctx.mayStart && !ctx.mayStart()) {
+          results.push(notAttempted(byId ? byId.get(id) : null, id, ctx.stopReason()));
+          continue;
+        }
         const child = spawn(process.execPath, [WORKER_ENTRY, ...workerArgs(id, ctx)], {
           env: { ...process.env, CSDA_HARNESS_WORKER: "1" },
         });
@@ -1547,6 +1597,19 @@ function parseWorkerReport(id, stdout, stderr) {
  */
 export async function runLevels(pending, ctx, opts) {
   const { concurrency, hintByReq, runOne } = opts;
+  /**
+   * The run's ceiling (C1). Checked before starting a level, never inside one:
+   * interrupting an attempt mid-flight would throw away the money already spent
+   * on it and leave a worktree nobody asked for. A budget bounds what a run
+   * *begins*.
+   */
+  const limits = {
+    budgetSeconds: ctx.budgetSeconds || 0,
+    maxRequirements: ctx.maxRequirements || 0,
+  };
+  const budgetStartedAt = Date.now();
+  let started = 0;
+  let stoppedBy = null;
   const { levels, cycles, dependsOn, graph } = scheduleLevels(pending);
   const byId: Map<string, any> = new Map(pending.map((r) => [r.requirement, r]));
 
@@ -1611,11 +1674,37 @@ export async function runLevels(pending, ctx, opts) {
 
     if (attemptable.length === 0) continue;
 
+    if (stoppedBy) break;
+    // The ceiling bites *inside* the level, through `mayStart` below —
+    // independent requirements all land in one level, which is the common
+    // case, so a check that only ran between levels would let a run of
+    // fourteen sail past `--max-requirements 2`. Measured: it did exactly
+    // that, and again with `--budget-seconds`.
     const levelResults = await runOne(
       attemptable,
       byId,
       hintByReq,
-      { ...ctx, baseFor: (id) => bases.get(id) },
+      {
+        ...ctx,
+        baseFor: (id) => bases.get(id),
+        // The level asks before starting each requirement. `started` counts
+        // what was actually begun, so the count ceiling and the clock agree.
+        mayStart: () => {
+          if (stoppedBy) return false;
+          const verdict = budgetVerdict(
+            limits,
+            { startedAt: budgetStartedAt, started },
+            Date.now()
+          );
+          if (verdict.stop) {
+            stoppedBy = verdict;
+            return false;
+          }
+          started += 1;
+          return true;
+        },
+        stopReason: () => (stoppedBy ? stoppedBy.reason : ""),
+      },
       concurrency
     );
     results.push(...levelResults);
@@ -1629,6 +1718,17 @@ export async function runLevels(pending, ctx, opts) {
         for (const dependent of graph.transitiveDependents(r.requirement)) {
           blocked.add(dependent);
         }
+      }
+    }
+  }
+
+  // Once the budget is spent, later levels are not even walked: their
+  // requirements are named as not attempted, with the same reason.
+  if (stoppedBy) {
+    for (const level of levels) {
+      for (const id of level) {
+        if (results.some((r) => r.requirement === id)) continue;
+        results.push(notAttempted(byId.get(id), id, stoppedBy.reason));
       }
     }
   }
@@ -1735,6 +1835,8 @@ export class RunCommand extends BaseCommand {
         force: args.force,
         resume: args.resume,
         skipNotReady: args.skipNotReady,
+        budgetSeconds: args.budgetSeconds,
+        maxRequirements: args.maxRequirements,
         strictArtifacts: args.strictArtifacts,
       };
 
@@ -1758,6 +1860,12 @@ export class RunCommand extends BaseCommand {
             baseRef,
             concurrency: settings.concurrency,
             maxAttempts: settings.maxAttempts,
+            // Whether this run had a ceiling at all. Reading the ledger later,
+            // a short run is a different thing depending on the answer.
+            bounded: hasBudget({
+              budgetSeconds: args.budgetSeconds,
+              maxRequirements: args.maxRequirements,
+            }),
             results,
           });
 

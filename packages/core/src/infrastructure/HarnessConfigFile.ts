@@ -161,6 +161,11 @@ export function readHarnessConfig(projectDir) {
     config.profileAgents = { ...(config.profileAgents || {}), [name]: agent };
   }
 
+  // C1: what each profile says a run of it costs. Read once, from the same
+  // file the agents come from.
+  const hints = readCostHints(projectDir);
+  if (Object.keys(hints).length > 0) config.costPerRunHint = hints;
+
   // Anything left is a key nobody reads. Silently ignoring it is how the HIE
   // pilot ended up configured against a feature that did not exist: the file
   // named a profile, the CLI never looked, and `harness run` reported no agent
@@ -233,6 +238,7 @@ export function resolveHarnessSettings(
     protectedPaths: file.protectedPaths || [],
     allowPaths: file.allowPaths || [],
     messageReport: file.messageReport || "",
+    costPerRunHint: file.costPerRunHint || {},
   };
 }
 
@@ -248,6 +254,36 @@ function asStringList(value, key: string): string[] {
 }
 
 /** Does this profile declare itself advisory? */
+/**
+ * `cost_per_run_hint` for every profile that declares one (C1).
+ *
+ * Optional and per profile, so a team can say "this ladder costs about this
+ * much" without the harness pretending to measure tokens it cannot see. A
+ * hint that is not a finite number is ignored rather than fatal — a wrong
+ * estimate must not stop a run.
+ *
+ * Exported and independent of `harness.config.yaml`: the hints live in
+ * `profiles.yaml`, and `harness report` needs them in projects that never wrote
+ * a harness config at all. Reaching them through the config reader made the
+ * estimate silently absent there.
+ */
+export function readCostHints(projectDir): Record<string, number> {
+  const profilesPath = path.join(projectDir, ".harness", "profiles.yaml");
+  if (!fs.existsSync(profilesPath)) return {};
+  let doc;
+  try {
+    doc = parseYamlLite(fs.readFileSync(profilesPath, "utf8")) || {};
+  } catch {
+    return {};
+  }
+  const hints: Record<string, number> = {};
+  for (const [name, profile] of Object.entries((doc.profiles || {}) as Record<string, any>)) {
+    const value = Number(profile && profile.cost_per_run_hint);
+    if (Number.isFinite(value) && value >= 0) hints[name] = value;
+  }
+  return hints;
+}
+
 function isAdvisoryProfile(projectDir, profileName): boolean {
   const profilesPath = path.join(projectDir, ".harness", "profiles.yaml");
   const doc = parseYamlLite(fs.readFileSync(profilesPath, "utf8")) || {};

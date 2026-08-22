@@ -125,7 +125,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | B1  | `depends_on` + orden topológico + apilado automático — **`H12` y `H9` ya cerrados por `E1-01`/`E1-03`**; queda el apilado automático | Medio-alto |
 | ~~B2~~ | **Hecho (2026-08-22).** `core/domain/RequirementReadiness`: `ready` + `blockers[]` con `fix` en `plan --json`, y `harness run --skip-not-ready`. Por defecto avisa y ejecuta (es una minor); el escenario no ejecutable salta siempre, que es la guarda de `A3`. Se añadió `Needs Clarification` como bloqueante: un agente al que se le pide zanjar una discusión la zanja adivinando | Bajo-medio |
 | B3  | `--by-scenario` — requisito grande por partes                           | Medio      |
-| C1  | Presupuesto global y paralelismo con tope                               | Medio      |
+| ~~C1~~ | **Hecho (2026-08-22).** El paralelismo con niveles ya existía; faltaba el techo: `--budget-seconds`, `--max-requirements` y `cost_per_run_hint` por perfil. Se pregunta **antes de empezar** cada requisito, nunca a mitad. Agotarlo no es error: parada limpia, lo no empezado se nombra, y el libro se escribe igual | Medio |
 | ~~C2~~ | **Hecho (2026-08-22).** Reescoped: `E1-04` ya había puesto el libro y las dos métricas de coste. Se añadió lo que faltaba — dónde falla la puerta (por intento, no por veredicto), requisitos que agotan el presupuesto, serie temporal, y `--mark-false-failure` con `--reason` obligatorio. La tasa de fallo real queda en `—` hasta que alguien marca: no es derivable | Medio-bajo |
 | ~~C3~~ | **Hecho (2026-08-22).** `--resume` reengancha rama y worktree superviviente. La fuente **no** es el libro de ejecuciones —solo se escribe al terminar, y esto es para las que no terminan (medido con `kill -9`)— sino el archivo de prompts. Distingue cortado de agotado por el commit `wip(…): FAILED the gate` | Bajo |
 | D1  | Perfil de agente por requisito, no por ejecución                        | Bajo-medio |
@@ -193,8 +193,9 @@ El orden importaba: extraer las reglas de calidad (`A3`) sobre el parser
 anterior habría propagado el defecto de `H14` a `validate`. Primero que el
 parser dijera la verdad, después extender su alcance.
 
-**Tanda 2 en curso:** ~~`C3`~~ ~~`C2`~~ ~~`B2`~~ ~~`F5`~~ **(hechos, 2026-08-22)** → `C1`.
-**Vamos por `C1`.**
+**Tanda 2 — CERRADA (2026-08-22).** ~~`C3`~~ → ~~`C2`~~ → ~~`B2`~~ → ~~`F5`~~ → ~~`C1`~~.
+
+**Siguiente: tanda 3 — `E1` (decisión) → `B1` → `D1` → `F4`.**
 
 **Tanda 2 — que el bucle rinda desatendido.** `C3` → `C2` → `B2` → `F5` → `C1`.
 Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.
