@@ -6,6 +6,34 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
+## [Unreleased]
+
+### Fixed
+
+- **The scenarios shipped in the curated packs were never executed.** 27 of the
+  28 scenarios under `packs/**` wrote their keywords in upper case —
+  `GIVEN` / `WHEN` / `THEN` — and Gherkin keywords are case-sensitive. Cucumber
+  read those lines as the scenario's *description*, so the scenario existed with
+  **zero steps**, and an empty scenario passes: `1 scenario (1 passed) · 0 steps
+  · exit 0`.
+
+  Every project seeded with `csda specops add` therefore inherited an acceptance
+  criterion that approves anything, and a harness run over those requirements
+  was not verifying them. Measured on one file before and after: 0 steps and
+  exit 0 became 3 steps and exit 1.
+
+  `csda pack lint --strict` had approved them, because its own matcher is
+  case-insensitive and saw three steps where the runner saw none. A new test
+  parses every `.feature` and `.feature.tpl` this repository ships with
+  `@cucumber/gherkin` — the parser that will actually run them — and fails on
+  any scenario with no steps, so this cannot come back. Bringing the linter
+  itself to parity with Cucumber is separate work.
+
+  **If you already installed a pack**, `csda specops diff` will report drift in
+  the rendered feature files. That is this correction arriving. Reviewing it as
+  intent rather than as a file diff is what `csda specops diff --as-change` is
+  for.
+
 ## [0.6.0] — 2026-08-18
 
 ### Fixed

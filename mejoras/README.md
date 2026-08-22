@@ -76,17 +76,16 @@ punta) y `GATE-G4` (gate de cobertura) están **cerrados**.
 
 | ID                            | Defecto                                                                                                                                                                           | Dónde                   | Propuesta que lo cierra                     |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------- |
-| **H14** _(nuevo, 2026-08-22)_ | **27 de los 28 escenarios de los packs curados tienen cero pasos para Cucumber.** Palabras clave en mayúsculas; un escenario vacío pasa en verde. `pack lint --strict` lo aprueba | `valoracion-bdd…` §2.1  | **F2** (urgente)                            |
 | **H15** _(nuevo)_             | **Un filtro de escenario que no casa nada sale 0.** Si el agente renombra el escenario, el gate va verde sin ejecutar nada                                                        | `valoracion-bdd…` §2.2  | **F5**                                      |
 | **H16** _(nuevo)_             | **El gate no comprueba que el agente no tocó `spec.md`, `AI_RULES.md` ni `features/**`.** El prompt lo pide; nadie lo verifica                                                    | `propuesta-harness…` A1 | **A1**                                      |
 | **H13**                       | El JSON Schema declara autoridad que no ejerce; los 11 packs fallarían el esquema                                                                                                 | §12.11                  | **E1** — decisión previa a tocar el formato |
-| **H12**                       | Los requisitos dependientes no se expresan; `harness run` falla en cascada                                                                                                        | §12.11                  | **B1**                                      |
-| **H9**                        | `--base-branch` hereda la config de la base, no la de `main`; un arreglo en `main` no aplica                                                                                      | §12.11                  | **B1** (de regalo)                          |
 
 `H1`–`H8`, `H10`, `H11` están cerrados y publicados en 0.5.0 / 0.6.0.
+`H9`, `H12` y `H14` también, en la rama actual: `E1-03`, `E1-01` y `F2`.
 
-**H14, H15 y H16 son la misma familia que H1**: el gate aprueba sin verificar.
-Es la razón por la que la tanda 1 de §3.5 va primero.
+**H15 y H16 son la misma familia que H1**: el gate aprueba sin verificar. Es la
+razón por la que la tanda 1 de §3.5 va primero. **H14 se cerró el 2026-08-22**
+con `F2` — ver §6.
 
 ### 3.3 Huecos de producto
 
@@ -123,7 +122,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | A1  | Guardia de alcance de escritura en el gate _(cierra H16)_               | Bajo       |
 | A2  | El diff verde debe tocar los artefactos declarados                      | Bajo       |
 | A3  | Calidad de escenario en el proyecto, no solo en el pack                 | Medio-bajo |
-| B1  | `depends_on` + orden topológico + apilado automático _(cierra H12, H9)_ | Medio-alto |
+| B1  | `depends_on` + orden topológico + apilado automático — **`H12` y `H9` ya cerrados por `E1-01`/`E1-03`**; queda el apilado automático | Medio-alto |
 | B2  | Preparación del requisito antes de gastar tokens                        | Bajo-medio |
 | B3  | `--by-scenario` — requisito grande por partes                           | Medio      |
 | C1  | Presupuesto global y paralelismo con tope                               | Medio      |
@@ -138,7 +137,6 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 
 | ID  | Propuesta                                                                        | Coste |
 | --- | -------------------------------------------------------------------------------- | ----- |
-| F2  | Arreglar los 27 ficheros + test diferencial contra el parser real _(cierra H14)_ | Bajo  |
 | F1  | Un solo parser de Gherkin con la tabla oficial de dialectos                      | Medio |
 | F3  | Paridad con Cucumber en `pack lint` y `validate`                                 | Bajo  |
 | F4  | Trazabilidad por etiquetas `@REQ-NNN` / `@SCN-NNN`                               | Medio |
@@ -190,8 +188,8 @@ Para que no se cuenten dos veces:
 
 ## 5. El orden que recomiendo
 
-**Tanda 1 — que el gate deje de aprobar sin comprobar.** `F2` → `F1` → `F3` →
-`A3` → `A1` → `A2`.
+**Tanda 1 — que el gate deje de aprobar sin comprobar.** ~~`F2`~~ **(hecho,
+2026-08-22)** → `F1` → `F3` → `A3` → `A1` → `A2`. **Vamos por `F1`.**
 Este orden importa: extraer las reglas de calidad (`A3`) sobre el parser actual
 propagaría el defecto de `H14` a `validate`. Primero que el parser diga la
 verdad, después extender su alcance.
@@ -214,6 +212,10 @@ Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.
 - **Fases C0 a C7 completas.** 0.6.0 publicada; npm con procedencia SLSA e
   imagen multi-arch verificadas.
 - **Los defectos H1–H8, H10 y H11** del harness, publicados en 0.5.0 y 0.6.0.
+- **`F2` / `H14`** — 2026-08-22. Los 27 ficheros de packs pasan a palabras clave
+  canónicas, y `tests/unit/shipped-gherkin.test.ts` parsea con el parser real de
+  Cucumber cada Gherkin que se publica y falla si un escenario tiene cero pasos.
+  Medido antes y después: `0 steps · exit 0` → `3 steps · exit 1`.
 - **Los gates GATE-G1, GATE-G2 y GATE-G4** del camino a 1.0.
 - **Las brechas BRECHA-G1..G4** frente a OpenSpec (ciclo de cambio, contrato de
   agente, superficie de agente).
