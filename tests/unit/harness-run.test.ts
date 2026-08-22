@@ -1294,3 +1294,136 @@ test("a resumed run cleans up the worktree it re-attached to", () => {
     fs.rmSync(parent, { recursive: true, force: true });
   }
 });
+
+// ── Is this requirement fit to hand to an agent? (B2) ────────────────────────
+//
+// `plan` has always known that a requirement's feature does not exist, that its
+// dependencies are unmet, or that its row is Deprecated. `harness run` never
+// used any of it as a filter, so the agent found out halfway through and the
+// run paid `max_attempts` × the timeout to discover it.
+//
+// Default stays warn-and-run — this ships in a minor, and a person who wants to
+// point an agent at a half-ready requirement is allowed to. The one exception
+// is an unrunnable scenario, which skips regardless: Cucumber passes an empty
+// scenario, so a green run would prove nothing (H14).
+
+/** The greenable project, with its row pointing at a feature that is not there. */
+function projectWithMissingFeature() {
+  const { parent, projectDir } = greenableProject();
+  const matrix = path.join(projectDir, "docs/specs/traceability.md");
+  fs.writeFileSync(
+    matrix,
+    fs
+      .readFileSync(matrix, "utf8")
+      .replace("`features/core/health.feature`", "`features/core/missing.feature`"),
+    "utf8"
+  );
+  const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+  git("add", "-A");
+  git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "missing feature");
+  return { parent, projectDir };
+}
+
+test("a requirement with no feature warns, with a fix, and still runs by default", () => {
+  const { parent, projectDir } = projectWithMissingFeature();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}");
+    const out = r.stdout + r.stderr;
+    assert.match(out, /requirement_has_no_feature/, out);
+    assert.match(out, /csda req link REQ-000 --feature/, "a blocker without a fix just stops you");
+    // Not `/skipped/` — the summary line always contains the word. The count is
+    // what says whether the default changed.
+    assert.match(out, /0 skipped/, "the default must not change behaviour in a minor");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--skip-not-ready skips it instead, naming the blocker", () => {
+  const { parent, projectDir } = projectWithMissingFeature();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}", ["--skip-not-ready"]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /1 skipped/, out);
+    assert.match(out, /Not ready for an agent: requirement_has_no_feature/);
+    assert.match(out, /drop --skip-not-ready to run it anyway/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("an unrunnable scenario skips even without --skip-not-ready", () => {
+  // Not a preference. An empty scenario passes, so the reward signal is
+  // counterfeit and a green run proves nothing — the A3 guard, kept.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const feature = path.join(projectDir, "features/core/health.feature");
+    fs.writeFileSync(
+      feature,
+      fs
+        .readFileSync(feature, "utf8")
+        .replace(/^(\s*)(Given|When|Then|And) /gm, (_m, pad, kw) => `${pad}${kw.toUpperCase()} `),
+      "utf8"
+    );
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    git("add", "-A");
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "shout");
+
+    const r = runHarness(projectDir, "true {prompt_file}");
+    const out = r.stdout + r.stderr;
+    assert.match(out, /1 skipped/, out);
+    assert.match(out, /requirement_scenario_unrunnable/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a ready requirement runs clean, with no readiness noise", () => {
+  // The false-positive check. If a scaffolded project cannot pass its own
+  // readiness rules, the rules are wrong.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}", ["--skip-not-ready"]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /1 passed/, out);
+    assert.doesNotMatch(out, /requirement_has_no_feature/);
+    assert.doesNotMatch(out, /requirement_scenario_unrunnable/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("plan --json carries ready and blockers, each blocker with a fix", () => {
+  // Where B2 says the answer belongs: calculated, in the plan, rather than the
+  // intuition of whoever typed the run command.
+  const { parent, projectDir } = projectWithMissingFeature();
+  try {
+    const planned = spawnSync(
+      process.execPath,
+      [CLI, "plan", "--project-dir", projectDir, "--format", "json"],
+      { encoding: "utf8" }
+    );
+    const req = JSON.parse(planned.stdout).requirements[0];
+    assert.equal(req.ready, false);
+    const codes = req.blockers.map((b) => b.code);
+    assert.ok(codes.includes("requirement_has_no_feature"), codes.join(", "));
+    for (const b of req.blockers) assert.ok(b.fix, `${b.code} has no fix`);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a ready requirement reads as ready in plan --json", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const planned = spawnSync(
+      process.execPath,
+      [CLI, "plan", "--project-dir", projectDir, "--format", "json"],
+      { encoding: "utf8" }
+    );
+    const req = JSON.parse(planned.stdout).requirements[0];
+    assert.equal(req.ready, true, JSON.stringify(req.blockers));
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});

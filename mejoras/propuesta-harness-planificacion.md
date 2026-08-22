@@ -348,7 +348,7 @@ pack con requisitos encadenados no es viable sin conducción manual.
 **Prerrequisito.** E1 (H13). Añadir un campo al formato mientras el esquema que
 se declara autoridad no se aplica agranda el problema.
 
-### B2 · Preparación del requisito antes de gastar tokens
+### B2 · Preparación del requisito antes de gastar tokens — **hecho (2026-08-22)**
 
 **Hoy.** `plan` ya clasifica `NEEDS_FEATURE` / `NEEDS_EVERYTHING`
 (`scripts/plan.ts:158-166`), pero `harness run` no lo usa como filtro: entrega
@@ -376,6 +376,49 @@ comportamiento en una minor).
 **Qué compra de verdad.** Convierte «planificación» en algo comprobable. Hoy la
 respuesta a _«¿está esto listo para un agente?»_ es la intuición de quien lanza
 el comando.
+
+### Lo que se hizo
+
+`packages/core/src/domain/RequirementReadiness.ts` — sin E/S: si un fichero
+existe y qué dicen sus escenarios son **hechos** que reúne quien llama; si esos
+hechos suman «listo» es una **regla**. `plan --json` expone `ready` y
+`blockers[]`, cada bloqueador con su `fix`, y `harness run --skip-not-ready`
+los usa como filtro.
+
+### Dos desviaciones deliberadas
+
+**`Needs Clarification` también bloquea.** No estaba en la tabla —la propuesta
+decía `Deprecated` / `Wont`, y `Wont` ni siquiera existe en
+`ALLOWED_STATUS`— pero es el mismo tipo de fallo: un agente al que se le pide
+zanjar una discusión la zanja **adivinando**, y la adivinanza llega vestida de
+puerta verde.
+
+**Los avisos de artefacto son dos, no uno.** La tabla dice «la fila declara test
+y artefacto técnico». La primera versión avisaba solo si faltaban ambos, que es
+más silenciosa pero menos útil: «no hay artefacto de test» y «no hay artefacto
+de producción» tienen `fix` distintos, y un aviso vago se contesta vago.
+
+Y no es el ruido que `A2` tuvo que evitar: ahí el problema era tratar prosa como
+ruta, un falso positivo. Aquí `TBD` en la columna de test es un **hecho cierto**
+sobre una fila incompleta, y TDD dice que esa columna es la primera que se
+rellena.
+
+### La guarda de A3, absorbida sin perder nada
+
+`A3` ya bloqueaba por escenario no ejecutable. Se unificó con esta comprobación,
+pero el reparto no es uniforme:
+
+- **escenario no ejecutable → salta siempre**, con bandera o sin ella. Cucumber
+  aprueba un escenario vacío, así que la señal de recompensa es falsa y una
+  ejecución verde no probaría nada (`H14`).
+- **cualquier otro bloqueador → avisa y ejecuta**, salvo `--skip-not-ready`. El
+  comportamiento por defecto no cambia: esto sale en una minor.
+
+Al unificarlas se coló una regresión que un test cazó: el bloqueador de
+preparación dice *que* el escenario no puede fallar, pero los hallazgos de `A3`
+decían **qué línea y qué palabra clave**. Colapsarlos en un resumen habría
+costado la única parte sobre la que una persona puede actuar directamente. Ahora
+se imprimen los dos.
 
 ### B3 · `--by-scenario` — entregar un requisito grande por partes
 

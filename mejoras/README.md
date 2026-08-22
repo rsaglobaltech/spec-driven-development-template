@@ -123,7 +123,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | ~~A2~~ | **Hecho (2026-08-22).** `core/domain/DeclaredArtifacts`, tras puerta verde, reutilizando el diff de `A1`. Aviso por defecto, error con `--strict-artifacts`. Solo compara declaraciones que **nombran un fichero**: la fila del andamio dice `` `API /health`, smoke test `` y `TBD`, y avisar de eso sería ruido | Bajo |
 | ~~A3~~ | **Hecho (2026-08-22).** Las ocho reglas viven en `core/domain/GherkinQuality` y emiten `Diagnostic` (ADR-0017). `pack lint` las consume con salida idéntica byte a byte; `validate --strict-scenarios` las aplica sobre `features/**`; `doctor` las reporta como aviso (adopción gradual); `harness run` las exige **antes** de crear el worktree. Destapó una tercera copia de la normalización de ruta a punto de nacer | Medio-bajo |
 | B1  | `depends_on` + orden topológico + apilado automático — **`H12` y `H9` ya cerrados por `E1-01`/`E1-03`**; queda el apilado automático | Medio-alto |
-| B2  | Preparación del requisito antes de gastar tokens                        | Bajo-medio |
+| ~~B2~~ | **Hecho (2026-08-22).** `core/domain/RequirementReadiness`: `ready` + `blockers[]` con `fix` en `plan --json`, y `harness run --skip-not-ready`. Por defecto avisa y ejecuta (es una minor); el escenario no ejecutable salta siempre, que es la guarda de `A3`. Se añadió `Needs Clarification` como bloqueante: un agente al que se le pide zanjar una discusión la zanja adivinando | Bajo-medio |
 | B3  | `--by-scenario` — requisito grande por partes                           | Medio      |
 | C1  | Presupuesto global y paralelismo con tope                               | Medio      |
 | ~~C2~~ | **Hecho (2026-08-22).** Reescoped: `E1-04` ya había puesto el libro y las dos métricas de coste. Se añadió lo que faltaba — dónde falla la puerta (por intento, no por veredicto), requisitos que agotan el presupuesto, serie temporal, y `--mark-false-failure` con `--reason` obligatorio. La tasa de fallo real queda en `—` hasta que alguien marca: no es derivable | Medio-bajo |
@@ -193,8 +193,8 @@ El orden importaba: extraer las reglas de calidad (`A3`) sobre el parser
 anterior habría propagado el defecto de `H14` a `validate`. Primero que el
 parser dijera la verdad, después extender su alcance.
 
-**Tanda 2 en curso:** ~~`C3`~~ ~~`C2`~~ **(hechos, 2026-08-22)** → `B2` → `F5` → `C1`.
-**Vamos por `B2`.**
+**Tanda 2 en curso:** ~~`C3`~~ ~~`C2`~~ ~~`B2`~~ **(hechos, 2026-08-22)** → `F5` → `C1`.
+**Vamos por `F5`.**
 
 **Tanda 2 — que el bucle rinda desatendido.** `C3` → `C2` → `B2` → `F5` → `C1`.
 Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.

@@ -41,6 +41,8 @@ import {
   previousFailureFromPrompt,
   resumePoint,
 } from "../../../../packages/core/src/domain/ResumeState";
+import { requirementReadiness } from "../../../../packages/core/src/domain/RequirementReadiness";
+import { RequirementPlan } from "../../../../packages/core/src/domain/RequirementPlan";
 import {
   AttemptRecord,
   featureFilePath,
@@ -114,6 +116,10 @@ function usage() {
       "  --resume               Continue an interrupted run: reuse the existing\n" +
       "                         harness/REQ-NNN branch and worktree instead of\n" +
       "                         skipping it, and pick up at the attempt it stopped on.\n" +
+      "  --skip-not-ready       Skip requirements an agent could not succeed at — no\n" +
+      "                         feature, an unrunnable scenario, unmet dependencies,\n" +
+      "                         Deprecated or Needs Clarification. Default: warn and\n" +
+      "                         run them anyway.\n" +
       "  --strict-artifacts     Fail an attempt whose diff never touches the paths the\n" +
       "                         matrix declares for the requirement (default: warn).\n" +
       "  --push                 Push each green harness/REQ-NNN branch to the remote.\n" +
@@ -145,6 +151,7 @@ export function parseArgs(argv) {
     format: "text",
     dryRun: false,
     strictArtifacts: false,
+    skipNotReady: false,
     push: false,
     remote: "",
     prCmd: "",
@@ -197,6 +204,8 @@ export function parseArgs(argv) {
       args.dryRun = true;
     } else if (token === "--strict-artifacts") {
       args.strictArtifacts = true;
+    } else if (token === "--skip-not-ready") {
+      args.skipNotReady = true;
     } else if (token === "--help" || token === "-h") {
       usage();
       process.exit(0);
@@ -991,23 +1000,59 @@ function preserveFailedAttempt(worktreeDir, req, failure) {
  * all. `csda validate --strict-scenarios` is where a project opts into the
  * stricter reading.
  */
-function scenarioBlockers(projectDir, req) {
+/**
+ * Is this requirement fit to hand to an agent? (B2, and A3's guard folded in)
+ *
+ * `plan` has always known that a requirement's feature does not exist, that its
+ * dependencies are unmet, or that its row is Deprecated. `harness run` never
+ * used any of it as a filter, so the agent found out halfway through and the
+ * run paid `max_attempts` × the timeout to discover it. That is the worst
+ * cost-to-result attempt in the loop.
+ *
+ * The rules are in `core/domain/RequirementReadiness`; what happens here is
+ * delivery, and it is not uniform:
+ *
+ * - **an unrunnable scenario always skips**, flag or no flag. That guard came
+ *   from A3 and is not a matter of preference: Cucumber passes an empty
+ *   scenario, so the reward signal is counterfeit and a green run would prove
+ *   nothing (H14).
+ * - **every other blocker warns and runs anyway**, unless `--skip-not-ready`.
+ *   Default behaviour stays what it was — this ships in a minor — and a person
+ *   who wants to point an agent at a half-ready requirement is allowed to.
+ */
+function readinessOf(projectDir, req) {
   const rel = featureFilePath(req);
-  if (!rel) return { errors: [], warnings: [] };
-  const file = path.resolve(projectDir, rel);
-  if (!fs.existsSync(file)) return { errors: [], warnings: [] };
+  const file = rel ? path.resolve(projectDir, rel) : "";
+  const featureExists = Boolean(file && fs.existsSync(file));
 
-  let findings;
-  try {
-    findings = analyseGherkinSource(fs.readFileSync(file, "utf8"), rel);
-  } catch {
-    // An unreadable feature is the gate's problem to report, not a reason to
-    // refuse the run here.
-    return { errors: [], warnings: [] };
+  let scenarioFindings = [];
+  if (featureExists) {
+    try {
+      scenarioFindings = analyseGherkinSource(fs.readFileSync(file, "utf8"), rel);
+    } catch {
+      // An unreadable feature is the gate's problem to report, not a reason to
+      // refuse the run here.
+    }
   }
+
+  const readiness = requirementReadiness({
+    requirement: req.requirement,
+    status: req.status || "",
+    featureFile: rel,
+    // `plan` decides whether a feature is missing; when the harness is handed a
+    // requirement some other way, fall back to looking.
+    featureExists: req.featureExists !== undefined ? Boolean(req.featureExists) : featureExists,
+    scenarioFindings,
+    blockedBy: req.blockedBy || req.blocked_by || [],
+    technicalDeclared: RequirementPlan.isMeaningful(
+      req.technicalArtifact || req.technical_artifact
+    ),
+    testDeclared: RequirementPlan.isMeaningful(req.testArtifact || req.test_artifact),
+  });
+
   return {
-    errors: findings.filter((f) => f.severity === "error"),
-    warnings: findings.filter((f) => f.severity !== "error"),
+    ...readiness,
+    scenarioErrors: scenarioFindings.filter((f) => f.severity === "error"),
   };
 }
 
@@ -1015,24 +1060,41 @@ function processRequirement(req, ctx) {
   const { projectDir, baseRef, keepWorktrees, force } = ctx;
   const branch = `harness/${req.requirement}`;
 
-  const blockers = scenarioBlockers(projectDir, req);
-  for (const w of blockers.warnings) {
-    warn(`${req.requirement}: ${w.message} [${w.code}]`);
+  const readiness = readinessOf(projectDir, req);
+  const unrunnable = readiness.blockers.find((b) => b.code === "requirement_scenario_unrunnable");
+  const hardStop = unrunnable || (ctx.skipNotReady && !readiness.ready);
+
+  for (const b of readiness.blockers) {
+    const line = `${req.requirement}: ${b.message} [${b.code}]`;
+    if (b.severity === "error") error(line);
+    else warn(line);
+    if (b.fix) warn(`  fix: ${b.fix}`);
   }
-  if (blockers.errors.length > 0) {
-    for (const e of blockers.errors) {
-      error(`${req.requirement}: ${e.file}:${e.line} ${e.message} [${e.code}]`);
+
+  // The readiness blocker says *that* the scenario cannot fail; these say
+  // which line and which keyword. Collapsing A3's findings into one summary
+  // would have cost the only part a person can act on directly.
+  if (unrunnable) {
+    for (const f of readiness.scenarioErrors || []) {
+      error(`${req.requirement}: ${f.file}:${f.line} ${f.message} [${f.code}]`);
     }
+  }
+
+  if (hardStop) {
     return {
       requirement: req.requirement,
       category: req.category,
       result: "skipped",
       attempts: 0,
       branch,
-      error:
-        `Its scenario would pass without testing anything, so the gate could not ` +
-        `tell success from failure. Fix the ${blockers.errors.length} error(s) above, ` +
-        `or run \`csda validate <dir> --strict-scenarios\` to see them all.`,
+      error: unrunnable
+        ? `Its scenario would pass without testing anything, so the gate could not ` +
+          `tell success from failure. Run \`csda validate <dir> --strict-scenarios\` ` +
+          `to see every one.`
+        : `Not ready for an agent: ${readiness.blockers
+            .filter((b) => b.severity === "error")
+            .map((b) => b.code)
+            .join(", ")}. Fix the blockers above, or drop --skip-not-ready to run it anyway.`,
     };
   }
   const worktreeDir = path.join(
@@ -1596,6 +1658,7 @@ export class RunCommand extends BaseCommand {
         keepWorktrees: args.keepWorktrees,
         force: args.force,
         resume: args.resume,
+        skipNotReady: args.skipNotReady,
         strictArtifacts: args.strictArtifacts,
       };
 

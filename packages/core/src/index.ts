@@ -29,6 +29,7 @@ export * from "./domain/PackSpec";
 export * from "./domain/Reconciliation";
 export * from "./domain/RequirementGraph";
 export * from "./domain/RequirementPlan";
+export * from "./domain/RequirementReadiness";
 export * from "./domain/ResumeState";
 export * from "./domain/SpecDiff";
 export * from "./domain/SpecParser";

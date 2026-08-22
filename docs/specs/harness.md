@@ -213,6 +213,38 @@ markdown written by a person — the scaffolded one says `` `API /health`,
 smoke test `` and `TBD` — and comparing prose against a diff would warn on
 every project, which is how a warning becomes noise people skip.
 
+## Is the requirement ready for an agent?
+
+`plan` has always known when a requirement's feature does not exist, its
+dependencies are unmet, or its row is `Deprecated`. The harness never used
+any of it as a filter, so the agent found out halfway through and the run
+paid `max_attempts` × the timeout to discover it.
+
+`csda plan --format json` now carries `ready` and `blockers[]` per
+requirement, each blocker with a `fix`:
+
+| Check | Effect |
+| --- | --- |
+| The feature file exists | blocks |
+| Its scenarios are ones Cucumber could fail | **always skips** |
+| Dependencies are done | blocks |
+| Status is not `Deprecated` | blocks |
+| Status is not `Needs Clarification` | blocks |
+| The row declares a test artifact | warns |
+| The row declares a production artifact | warns |
+
+"Blocks" means `harness run --skip-not-ready` will pass it over. Without
+the flag the harness warns and runs it anyway: the default is unchanged,
+and someone who wants to point an agent at a half-ready requirement may.
+
+The scenario check is the exception and skips regardless of the flag. That
+is not a preference — Cucumber passes an empty scenario, so the reward
+signal is counterfeit and a green run would prove nothing (H14).
+
+`Needs Clarification` blocks for a reason worth stating: an agent asked to
+settle a disagreement settles it by guessing, and the guess arrives wearing
+a green gate.
+
 ## Resuming an interrupted run
 
 An existing `harness/REQ-NNN` branch used to leave two options: skip it, or

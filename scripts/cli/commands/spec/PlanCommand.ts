@@ -7,6 +7,8 @@ import { DiskTraceabilityRepository } from "../../../../packages/core/src/infras
 import { GeneratePlanUseCase } from "../../../../packages/core/src/application/GeneratePlanUseCase";
 import { DiskRequirementGraphRepository } from "../../../../packages/core/src/infrastructure/DiskRequirementGraphRepository";
 import { RequirementPlan, PlanItem } from "../../../../packages/core/src/domain/RequirementPlan";
+import { requirementReadiness } from "../../../../packages/core/src/domain/RequirementReadiness";
+import { analyseGherkinSource } from "../../../../packages/core/src/domain/GherkinQuality";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -172,6 +174,44 @@ export function detectOrphans(projectDir: string, items: any[]): string[] {
     .filter((rel) => !declared.has(rel));
 }
 
+/**
+ * Is this row fit to hand to an agent, and if not, why (B2)?
+ *
+ * The scenario check is the expensive half — it reads and parses the feature —
+ * so it is skipped entirely when the file is not there, which is already a
+ * blocker on its own.
+ */
+function readinessFor(projectDir: string, it: any) {
+  const featureRel = String(it.feature_file ?? it.featureFile ?? "")
+    .replace(/`/g, "")
+    .split("#")[0]
+    .trim();
+  const featureExists = Boolean(it.feature_exists ?? it.featureExists);
+
+  let scenarioFindings: any[] = [];
+  if (featureExists && featureRel) {
+    try {
+      scenarioFindings = analyseGherkinSource(
+        fs.readFileSync(path.join(projectDir, featureRel), "utf8"),
+        featureRel
+      );
+    } catch {
+      /* an unreadable feature is the gate's problem to report, not planning's */
+    }
+  }
+
+  return requirementReadiness({
+    requirement: it.requirement,
+    status: it.status ?? "",
+    featureFile: featureRel,
+    featureExists,
+    scenarioFindings,
+    blockedBy: it.blocked_by ?? it.blockedBy ?? [],
+    technicalDeclared: RequirementPlan.isMeaningful(it.technical_artifact ?? it.technicalArtifact),
+    testDeclared: RequirementPlan.isMeaningful(it.test_artifact ?? it.testArtifact),
+  });
+}
+
 function emitJson(items: PlanItem[], projectDir: string, orphans: string[]): void {
   const summary = items.reduce((acc: any, it) => {
     acc[it.category] = (acc[it.category] || 0) + 1;
@@ -195,6 +235,13 @@ function emitJson(items: PlanItem[], projectDir: string, orphans: string[]): voi
     category: it.category,
     dependsOn: it.depends_on ?? it.dependsOn ?? [],
     blockedBy: it.blocked_by ?? it.blockedBy ?? [],
+    // B2: whether an agent could succeed at this, and what stands in the way.
+    // Every blocker carries a `fix`, because a blocker without one just stops
+    // you.
+    ...(() => {
+      const r = readinessFor(projectDir, it);
+      return { ready: r.ready, blockers: r.blockers };
+    })(),
   }));
 
   const doc = {
