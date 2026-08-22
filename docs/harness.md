@@ -27,6 +27,34 @@ Other agents take the prompt differently — `aider --yes --message-file
 {prompt_file}`, `opencode run "$(cat {prompt_file})"`. The harness only requires
 that the command contain `{prompt_file}`.
 
+A tool whose invocation fits none of those shapes needs a wrapper, not a change
+to the harness:
+
+```bash
+#!/bin/sh
+# my-wrapper.sh — $1 is the prompt file
+exec some-agent --instructions "$(cat "$1")"
+```
+
+```bash
+csda harness run --agent "./my-wrapper.sh {prompt_file}"
+```
+
+**A command without `{prompt_file}` is refused, not silently run:**
+
+```
+❌ The agent command must contain the {prompt_file} placeholder,
+   e.g. --agent "claude -p < {prompt_file}"
+```
+
+**The agent works in a fresh worktree, which carries only what git tracks.**
+There is no `node_modules`, no `target/`, no `.venv` — whatever your build
+normally leaves lying around is absent. An agent that needs dependencies
+installed must not spend its attempt installing them: put that in the gate
+command (`--test-cmd "npm ci && npm test"`), which is the only part that knows
+how. This was found the expensive way — an agent spent its first attempt on
+`npm install` and timed out.
+
 Or commit the commands your team uses and pick one by name:
 
 ```yaml
@@ -41,6 +69,11 @@ profiles:
   ci:
     agent: "aider --yes --message-file {prompt_file}"
 ```
+
+Write profiles in block form, as above. The reader is a small YAML subset with
+no runtime dependencies, and an inline mapping — `local-claude: { agent: "…" }`
+— parses as a *string*, so the profile ends up with no `agent` and the run stops
+with "no profile … with an `agent`".
 
 An explicit `agent:` wins over a profile, and an unknown key in
 `harness.config.yaml` is an error rather than a shrug — a key nobody reads is
