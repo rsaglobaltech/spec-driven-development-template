@@ -283,3 +283,52 @@ andamiaje lo parecía.**
 - [Herberto Graça — DDD, Hexagonal, Onion, Clean, CQRS: cómo encajan](https://herbertograca.com/2017/11/16/explicit-architecture-01-ddd-hexagonal-onion-clean-cqrs-how-i-put-it-all-together/)
 - [Quarkus Insights #248 — introducción a DDD y hexagonal](https://quarkus.io/blog/quarkus-insights-248-ddd-hexagonal-architecture/)
 - [Aplicando DDD táctico, hexagonal y CQRS — y dónde se pasa de rosca](https://medium.com/@lesimoes/architecture-with-nest-applying-tactical-ddd-hexagonal-and-cqrs-part-i-36bccd209993)
+
+---
+
+## 10. Implementación *(2026-08-21)*
+
+Hecho todo salvo el cambio de defecto, que sigue siendo decisión de versión.
+
+| # | Tarea | Estado |
+|---|---|---|
+| 1 | [ADR-0022](../docs/specs/adr/0022-patterns-are-optional-principles-are-not.md) | `[x]` |
+| 2 | Clave `ARCHITECTURE` con tres perfiles y validación | `[x]` |
+| 3 | `AI_RULES.md` generado por perfil | `[x]` |
+| 4 | `doctor`: perfil declarado contra realidad | `[x]` |
+| 5 | Cambiar el defecto a `layered` | `[ ]` **— rotura, va con un major** |
+
+**Cómo quedó:**
+
+- `ARCHITECTURE_DOCS` declara qué documentos conserva cada perfil, y
+  `applyArchitectureProfile` quita el resto — el mismo patrón que
+  `applyRuntimeSupportFlags` ya usaba para Docker: se renderiza todo y se retira
+  lo que la configuración no pidió, así hay **un** camino de renderizado y no
+  tres.
+- `architectureSections()` genera los bloques de `AI_RULES.md`. Es donde vivía
+  la obligación real, y por eso era la tarea de mayor efecto por lo que cuesta.
+- El perfil queda escrito en `AI_RULES.md` (`- Architecture: layered`), junto a
+  Stack y Domain. No había ningún fichero de configuración persistido en el
+  proyecto generado, y crear uno solo para esto habría sido inventar estado.
+
+**Verificado, no supuesto:** los tres perfiles generan lo que declaran, y
+**`validate` pasa idéntico en los tres** — el invariante del ADR tiene su propio
+test. Comprobado también desde el tarball empaquetado.
+
+**Lo que se decidió sobre la marcha, y por qué:**
+
+`doctor` mira **la matriz, no los documentos de dominio**. La primera versión
+miraba si `aggregates.md` tenía filas — y decía «coincide» en un proyecto recién
+generado, porque las plantillas traen filas de ejemplo (`AGG-001 | CoreAggregate`,
+`CMD-001 | ExampleCommand`). O sea: «el fichero tiene contenido» es cierto desde
+el primer minuto y no dice nada. Las columnas Aggregate y Event de la matriz
+llevan `-` hasta que alguien las usa, que es exactamente la pregunta. Y el aviso
+de `tactical-ddd` sin dominio solo sale con más de un requisito: un proyecto
+recién creado no ha modelado nada todavía, y eso no es deriva.
+
+**Los dos guardas están mutados:** si `minimal` deja de quitar los documentos,
+falla; si `minimal` recibe los gates de DDD, falla.
+
+**Pendiente consciente:** `adopt` no infiere el perfil (P5), y `templates/adopt/`
+sigue con su propio `AI_RULES` sin perfil. Un proyecto adoptado no declara
+arquitectura hoy.

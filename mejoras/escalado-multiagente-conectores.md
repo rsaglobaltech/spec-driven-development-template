@@ -915,6 +915,217 @@ habla HTTP. Media implementación sería peor que ninguna — la misma razón po
 que `req add --depends-on` sigue pendiente. Necesita decisión, no código.
 
 
+---
+
+### Lo que salió al hacer E1-07 *(2026-08-21)*
+
+**Primero verificar, que era literalmente la tarea.** §4.4 decía que la primera
+tarea era una hora de documentación, no código, y acertaba: los tres desenlaces
+que planteaba no eran excluyentes. Antigravity **habla MCP y además tiene rutas
+propias**, así que el desenlace real fue el 1 y el 3 a la vez — y salió barato
+justo por lo que §4.5 predijo: el registro único ya existía.
+
+Lo que dice su documentación, y que es lo único en lo que se apoya el código:
+
+| | |
+|---|---|
+| Reglas del workspace | `.agents/rules/` — **plural**. Sigue aceptando `.agent/rules` en singular, y por eso el plural va escrito a propósito |
+| MCP | `.agents/mcp_config.json`, descubierto por el IDE **y** por la CLI, con la misma forma `mcpServers` que usa Claude Code |
+| Límite | **12.000 caracteres** por fichero de reglas |
+
+**Lo que no se dio por bueno.** Varias guías de terceros afirman que Antigravity
+lee `AGENTS.md`. Su documentación oficial **no lo menciona**, así que nada del
+código depende de eso — si resulta cierto, es un extra, no un cimiento. Su
+convención propia `GEMINI.md` ya la cubría la fila `gemini`.
+
+**«Añadir una herramienta es una fila» volvió a ser cierto**, como en E1-06 con
+el puerto ALM: una entrada en `TOOLS` y aparece en `--help`, en los defectos y
+en el bucle de escritura sin tocar nada más.
+
+**Una duplicación evitada a tiempo:** el objeto `mcpServers` estaba escrito
+dentro del generador del plugin de Claude. Antigravity necesitaba el mismo, y
+copiarlo habría creado dos definiciones del mismo servidor que se separarían en
+cuanto una cambiara. Extraído a `mcpServerConfig()`, con un test que compara las
+dos salidas.
+
+**El límite de 12.000 tiene su propio test.** El fichero generado ronda los 700,
+así que hoy sobra sitio — pero un fichero por encima del tope se trunca en
+silencio, y un rulebook truncado es peor que ninguno porque parece completo.
+
+---
+
+### Lo que salió al hacer E2-02 *(2026-08-21)*
+
+**El rol no cabía en el bucle del harness, y forzarlo habría sido el error.**
+`harness run` gira alrededor de un requisito: un worktree por REQ, una rama con
+su nombre, y una puerta de `validate --strict-tdd` más los tests del proyecto.
+Un `change` **todavía no tiene requisito** —escribirlo es el trabajo—, así que
+`spec-author` necesitaba su propio bucle, su propio alcance y su propia puerta:
+`csda change validate`. Salió como `csda change author`.
+
+**El prompt no se inventó.** `change instructions` ya sabía para qué sirve cada
+artefacto, qué reglas debe cumplir, qué desbloquea y qué rango de REQ está
+reservado. `change author` renderiza **esa misma** estructura para un agente en
+vez de para una persona, así que no hay dos descripciones del mismo artefacto
+que puedan separarse.
+
+**El alcance se impone, no se pide.** Es la parte que justifica el rol: un
+agente al que se le pide *describir* un cambio, y que puede editar el spec de
+capacidad que describe, puede **hacer el cambio innecesario en lugar de
+proponerlo** — en silencio, en un diff que parece el trabajo. Así que lo que
+escriba fuera de `docs/specs/changes/<id>/` se deshace antes de que nadie lo
+lea. El agente del test se sale a propósito.
+
+**Y ahí metí un defecto destructivo, que es el hallazgo del día.** La primera
+versión hacía `git checkout -- <ruta>` y **después** `rmSync` de la misma ruta:
+restauraba el fichero y acto seguido lo borraba. Resultado medido:
+`traceability.md` desapareció del proyecto. Habría borrado ficheros versionados
+del usuario.
+
+La causa fue tirar información: de `git status --porcelain` me quedé solo con la
+ruta y descarté el código de estado, que es justo lo que distingue `??` (lo creó
+el agente → borrar) de ` M` (ya existía → restaurar). Ahora se conserva el
+código y cada caso se deshace como corresponde. El test lo fija y está mutado:
+volviendo al borrado incondicional, falla.
+
+**Exige árbol limpio**, como `harness run`. No es ceremonia: imponer el alcance
+significa revertir lo que el agente escribió fuera, y en un árbol sucio eso no
+se distingue de lo que tenías a medias. Con el árbol limpio, revertir solo puede
+tocar el trabajo del propio agente.
+
+**E0-01 vuelve a pagar:** una fila en `surface.ts` y `change author` apareció en
+`--help`, en la completion, en el despachador y en el contrato de agente con sus
+cinco códigos nuevos.
+
+---
+
+### Lo que salió al hacer E2-03 *(2026-08-21)*
+
+**El hallazgo del día es que la promesa del ADR no era cierta todavía.**
+ADR-0021 §4 dice que una issue entra como `change` con los escenarios
+deliberadamente vacíos, y que el cambio pasa por `change validate` como
+cualquier otro. Lo implementé, y al probarlo **`change validate` daba verde**
+sobre un cambio con el escenario sin escribir.
+
+Es decir: había construido justo la alternativa que el propio ADR-0021 rechaza
+por escrito — *«fabrica filas que satisfacen `validate` sin describir
+comportamiento, lo que convierte la puerta en una formalidad»*.
+
+La causa no era mía: `- GIVEN <!-- la precondición -->` **es** Gherkin por
+forma. El validador comprobaba que hubiera pasos y que alguno empezara por
+GIVEN/WHEN/THEN, y eso lo cumplía. El hueco era anterior — un `- WHEN TODO`
+escrito a mano también colaba. Ahora existe `scenario_steps_unwritten`: un
+escenario cuyos pasos son solo palabra clave, comentario o `TODO` no asserta
+nada y la puerta lo dice. Mutado por los dos lados: si la puerta deja de
+rechazarlo, falla; si `pull` escribe pasos ya rellenos, falla.
+
+**Dónde vive el comando, y por qué no en `scripts/alm/`.** El guarda de
+ADR-0021 prohíbe *cualquier* escritura desde ese directorio, y un `pull` tiene
+que producir ficheros. En vez de abrir una excepción en el guarda —debilitarlo
+para que quepa lo nuevo— el flujo se parte por la misma línea que dibuja el ADR:
+**el ALM lee el tablero** (`listIssues` en el puerto) y **el ciclo de `change`
+escribe**. El guarda se queda intacto y el reparto es mejor de todos modos.
+
+**El puerto necesitaba saber leer.** `createIssue`, `getIssueStatus` y
+`closeIssue` direccionan una issue cuya clave ya tienes; buscar es otra cosa, y
+es donde los proveedores dejan de parecerse: Jira usa JQL, GitHub parámetros de
+consulta, Azure WIQL. Así que `listIssues` es una **capacidad declarada**:
+`github` y `jira` la tienen, `azure` dice que no y `alm pull` degrada con un
+mensaje que explica cómo hacerlo a mano. El compilador obligó a los tres a
+pronunciarse al añadirla al tipo.
+
+Dos detalles que salieron al implementar y que sin ejecutar no se ven: GitHub
+devuelve los pull requests por el endpoint de issues —cada PR es una issue— así
+que se filtran; y Jira Cloud devuelve `description` en Atlassian Document
+Format, un árbol, no una cadena, así que se aplana y una forma desconocida da
+`""` en vez de `[object Object]`.
+
+**Idempotente a propósito:** un segundo `pull` salta los cambios que ya existen,
+porque para entonces alguien puede haber empezado a editarlos. Hay test.
+
+---
+
+### Lo que salió al hacer E2-04 *(2026-08-21)*
+
+**Lo primero fue leer bien la tarea.** El título dice «YouTrack, Linear, GitLab,
+Jira DC», pero §3.3 no pide cuatro conectores: pide **el modelo de dos niveles**
+que permite que existan sin vivir aquí. Implementar los cuatro habría sido
+justo lo que el plan quiere evitar — atar la cadencia de este repositorio a
+cuatro APIs ajenas. Lo entregado es el mecanismo; los cuatro son ejemplos de lo
+que ahora puede escribir cualquiera.
+
+`provider: npm:csda-alm-youtrack` se resuelve desde el `node_modules` **del
+proyecto**, no del CLI, y el resto del árbol no se entera: `makeClient`,
+`readAlmConfig` y `lintAlmConfig` siguen hablando con `AlmProvider`.
+
+**Esto es una funcionalidad de seguridad, y conviene decirlo así.** Un fichero
+de configuración commiteado puede provocar que se ejecute código de terceros —
+y ese código recibe **el token del ALM**, porque un conector no puede hablar con
+un tablero sin él. El modelo de confianza es el de una `devDependency`. Tres
+guardas para que no sea *peor* que eso:
+
+| Guarda | Por qué |
+|---|---|
+| **Nunca se instala solo** | Si instalara bajo demanda, editar un YAML pasaría a ser ejecutar código nuevo. Sigue siendo una decisión de dependencia, revisada |
+| **Tiene que ser un nombre de paquete** | Sin esto, `npm:../../../etc/passwd` haría que un `require` cargue cualquier fichero del disco. Probado, y mutado |
+| **Se valida contra el puerto antes de llamar a nada** | Un paquete que no es un proveedor —o que declara una capacidad que no tiene— falla con un diagnóstico que lo nombra, no con un stack trace a mitad de un `sync` |
+
+Los dos últimos están mutados: quitando la comprobación del nombre, falla el
+test de rutas; quitando la validación de la declaración, fallan dos.
+
+**Lo que hizo barato todo esto fue E0-02.** `checkProviderDeclaration` ya
+existía —se escribió para comprobar los proveedores del árbol— y resultó ser
+exactamente la aduana que hacía falta para uno de fuera. No hubo que escribir
+validación nueva.
+
+**Verificado con un paquete real**, no con un mock: un `node_modules/csda-alm-youtrack`
+completo, con su `package.json` y su `index.js`, resuelto desde el tarball
+publicado.
+
+---
+
+### Lo que salió al hacer E2-05 *(2026-08-21)*
+
+**La conclusión contradice la premisa de §3.1, y conviene que quede escrito.**
+Aquella sección decía que un puerto ALM bien hecho convertiría el apaño
+supra-repo en una capacidad declarada y sería «el único camino barato hacia P1
+antes de v2». Con el puerto ya hecho: la primera mitad es cierta, la segunda no.
+**El identificador era la parte fácil.** Lo caro de P1 —correlación de estados y
+matriz federada— sigue igual de caro.
+
+Y hay una razón de fondo para no tirar por ahí: el issue identifica *trabajo*, no
+*requisitos*. Construir P1 sobre él sería hacer del tablero la fuente de verdad
+del modelo de requisitos, que es exactamente lo que **ADR-0021 prohíbe**. El
+apaño vale como apaño; deja de valer en cuanto se le pide definir qué es un
+requisito.
+
+**Lo que sí destapó medirlo: una parte de P1 ya funciona y nadie lo había
+anotado.** `projects:` de `specops.config.yaml` acepta rutas relativas y no
+comprueba que apunten dentro del repositorio, así que **`validate` ya recorre
+repos hermanos**. Probado con dos repos git independientes: 2/2 passed. La pieza
+que de verdad importaba —que CI pueda decir la verdad sobre N repos— estaba
+hecha, escondida detrás de un mensaje que dice «🗂️ Monorepo».
+
+**Y una inconsistencia real, que es la tarea barata que queda:** solo
+`ValidateSpecsCommand` lee `projects:`. `plan` ve 1 requisito y `status` ve 0
+sobre el mismo árbol donde `validate` recorre tres proyectos. Quien configura
+`projects:` espera razonablemente que `status` cubra lo mismo. Sale como
+`E2-06`, y no es cambio de modelo: cada proyecto sigue respondiendo por sí mismo
+y el comando agrega, igual que `validate` ya hace.
+
+**Algo que decidí no «arreglar»:** dos repos declarando ambos `REQ-001` validan
+limpio, y **hacen bien**. Hoy la unidad es el proyecto y cada uno es su propio
+espacio de nombres. Reportarlo como deriva habría sido inventar un defecto. Se
+convierte en uno el día que exista vista federada — y ese día es el cambio de
+modelo.
+
+**Para cuando se aborde P1**, la revisión deja escrita la decisión que hay que
+tomar antes de escribir código: de dónde sale el identificador supra-repo. La
+opción que encaja con lo que este repositorio ya cree es que **el requisito lo
+declare** —`<!-- csda:trace implements=acme/billing#REQ-014 -->`— porque
+`csda:trace` ya es el punto de extensión, ya acepta claves arbitrarias y ya lo
+usa `depends=`. Merece ADR propio.
+
 ### 1.1 — la primera release que añade cosas (y por tanto la prueba real de G1)
 
 | ID | Tarea | Idea |
@@ -925,17 +1136,18 @@ que `req add --depends-on` sigue pendiente. Necesita decisión, no código.
 | `E1-04` | `[x]` | Registro `.harness/runs/<ts>.json` (autoignorado) y `csda harness report`: acierto al primer intento y coste por requisito entregado | 1 |
 | `E1-05` | `[x]` | Plugin de Claude Code generado desde la misma definición: 6 comandos + MCP + hook `Stop` que bloquea con el gate en rojo, una vez por prompt | 3 |
 | `E1-06` | `[x]` | Proveedor `github` (issues) sobre el puerto de `E0-02`: `repo` en vez de `project_key`, `base_url` opcional, y *cerrado no siempre es hecho* | 2 |
-| `E1-07` | `[ ]` | Antigravity: verificar formato de extensión y decidir entre los tres desenlaces de §4.4 | 3 |
+| `E1-07` | `[x]` | Antigravity: verificado contra su documentación — habla MCP **y** tiene rutas propias. Una fila en `TOOLS`: `.agents/rules/csda.md` + `.agents/mcp_config.json` | 3 |
 
 ### v2
 
 | ID | | Tarea | Idea |
 |---|---|---|---|
 | `E2-01` | `[x]` | Roles como perfiles: `attempt_profiles` (escalera por intento) + `review_profile` asesor cuyo trabajo se descarta; un agente sigue atado a un solo REQ | 1 |
-| `E2-02` | `[ ]` | Rol `spec-author` acotado a `changes/<id>/` | 1 |
-| `E2-03` | `[ ]` | `alm pull --as-change` (escenarios deliberadamente vacíos) | 2 |
-| `E2-04` | `[ ]` | Proveedores de comunidad resueltos por paquete: YouTrack, Linear, GitLab, Jira DC | 2 |
-| `E2-05` | `[ ]` | Revisar P1 (multi-repo) ahora que el puerto ALM da un identificador supra-repo declarado en vez del apaño actual | 2 |
+| `E2-02` | `[x]` | Rol `spec-author` como `csda change author`: alcance **impuesto** a `changes/<id>/`, puerta `change validate`, exige árbol limpio | 1 |
+| `E2-03` | `[x]` | `csda alm pull`: un change por issue etiquetada, escenario vacío **y la puerta ahora lo rechaza** | 2 |
+| `E2-04` | `[x]` | Modelo de dos niveles: `provider: npm:<paquete>` resuelto desde el `node_modules` del proyecto, validado contra el puerto y **nunca instalado solo** | 2 |
+| `E2-05` | `[x]` | Revisado: el puerto **no** desbloquea P1 — el identificador era la parte fácil. Ver [p1-multirepo-revision.md](p1-multirepo-revision.md) | 2 |
+| `E2-06` | `[ ]` | `plan`, `status` y `report` honran `projects:` como ya hace `validate` — sale de la revisión de E2-05, y no es cambio de modelo | 2 |
 
 ---
 
@@ -966,7 +1178,7 @@ Cosas que hay que decidir o verificar, no cosas que hay que programar.
 |---|---|---|
 | Q1 | ¿Dónde se declaran las dependencias entre requisitos: columna nueva en la matriz, o campo en el pack? La matriz es donde vive el estado; el pack es donde vive el modelo reutilizable. Probablemente el pack declara y la matriz refleja | Decisión de modelo — merece ADR |
 | Q2 | ¿El paralelismo por defecto es 1 para siempre, o sube cuando el registro de ejecución demuestre que la tasa de acierto al primer intento se mantiene? | Datos de `E1-04` |
-| Q3 | Formato de extensión de Antigravity CLI — sin verificar | `E1-07`, una hora de lectura |
+| Q3 | ~~Formato de extensión de Antigravity CLI~~ — **resuelto en E1-07**: habla MCP (`.agents/mcp_config.json`) y tiene reglas propias (`.agents/rules/`) | Cerrada |
 | Q4 | ¿El plugin de Claude Code se publica en un marketplace propio o se instala desde el repositorio? Afecta a credenciales y ciclo de release, igual que D9/D12 | Decisión de distribución |
 | Q5 | ¿`alm pull` genera un `change` por issue, o uno por lote? Uno por issue es más limpio de revisar; uno por lote es más realista con un backlog de cincuenta tickets | Se decide con un piloto real, no en abstracto |
 

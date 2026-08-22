@@ -1241,7 +1241,7 @@ así que quedaron sin sitio. Aquí tienen sitio.
 
 | ID | Hueco | Estado y coste |
 |---|---|---|
-| **P1** | **Orquestación multi-repositorio.** Una spec no se descompone en trabajo across varios repos. La unidad es el proyecto | **Abierto, v2.** No es una función: implica un identificador por encima del repo, correlación de estados y una matriz federada. Es cambio de modelo. Mientras, `alm sync` usa el issue de Jira/Azure como identificador supra-repo — feo y barato |
+| **P1** | **Orquestación multi-repositorio.** Una spec no se descompone en trabajo across varios repos. La unidad es el proyecto | **Abierto, v2 — revisado el 2026-08-21**, ver [p1-multirepo-revision.md](p1-multirepo-revision.md). De seis piezas, dos ya estaban hechas: `projects:` cruza repositorios y `validate` ya se despliega sobre ellos. Sigue siendo cambio de modelo lo caro — identificador supra-repo, correlación y matriz federada — y el apaño del issue **no** sirve de base, porque haría del tablero la fuente de verdad que ADR-0021 prohíbe |
 | **P2** | **Superficie de lectura para quien no abre PRs.** Las specs viven en git a propósito, porque es lo que permite que CI verifique algo; pero un product owner no entra ahí | **Abierto, barato.** `csda studio` (HTML local de solo lectura) y `csda report` (dashboard autocontenido) ya existen. Falta publicarlos — Pages ya funciona en este repo. Es la crítica más certera del artículo de InfoQ y la que menos cuesta atacar |
 
 **Por qué importan para 1.0:** ninguno bloquea. P1 está explícitamente fuera de
