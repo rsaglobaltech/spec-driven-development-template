@@ -6,11 +6,16 @@ import type {
   FetchLike,
   IssueRef,
   IssueStatus,
+  IssueSummary,
 } from "../port";
 
 /** The slices of GitHub's issue responses this connector reads. */
 interface GitHubIssue {
   readonly number: number;
+  readonly title?: string;
+  readonly body?: string | null;
+  /** Present when the "issue" is really a pull request. */
+  readonly pull_request?: unknown;
   readonly html_url?: string;
   readonly state?: string;
   /** "completed" | "not_planned" | "reopened" | null — only on closed issues. */
@@ -44,7 +49,12 @@ const API_VERSION = "2022-11-28";
  * which is what ADR-0021 asks for.
  */
 class GitHubClient extends HttpAlmClient {
-  readonly capabilities: AlmCapabilities = { create: true, readStatus: true, close: true };
+  readonly capabilities: AlmCapabilities = {
+    create: true,
+    readStatus: true,
+    close: true,
+    listIssues: true,
+  };
 
   private readonly headers: Readonly<Record<string, string>>;
   private readonly repo: string;
@@ -109,6 +119,29 @@ class GitHubClient extends HttpAlmClient {
     return issue.state_reason === "not_planned" ? "open" : "done";
   }
 
+  /**
+   * Open issues carrying a label.
+   *
+   * `pulls` are filtered out: GitHub's issues endpoint returns pull requests
+   * too — every PR is an issue — and a pull request is not a requirement
+   * somebody proposed.
+   */
+  async listIssues(label: string): Promise<IssueSummary[]> {
+    const issues = await this.requestJson<GitHubIssue[]>(
+      `/repos/${this.repo}/issues?state=open&labels=${encodeURIComponent(label)}&per_page=100`,
+      `GitHub list issues labelled ${label}`,
+      { headers: this.headers }
+    );
+    return (issues || [])
+      .filter((issue) => !issue.pull_request)
+      .map((issue) => ({
+        key: String(issue.number),
+        title: String(issue.title ?? ""),
+        body: String(issue.body ?? ""),
+        url: issue.html_url ?? null,
+      }));
+  }
+
   async closeIssue(issueKey: string): Promise<void> {
     await this.request(`/repos/${this.repo}/issues/${issueKey}`, `GitHub close issue ${issueKey}`, {
       method: "PATCH",
@@ -128,7 +161,7 @@ export const githubProvider: AlmProvider = {
     // Only GitHub Enterprise Server needs a base URL; github.com is the default.
     optional: ["base_url"],
   },
-  capabilities: { create: true, readStatus: true, close: true },
+  capabilities: { create: true, readStatus: true, close: true, listIssues: true },
   create: (cfg, fetchImpl) => new GitHubClient(cfg, fetchImpl),
 };
 

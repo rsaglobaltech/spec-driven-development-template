@@ -15,7 +15,12 @@ import * as path from "node:path";
 import { BaseCommand } from "../../../lib/command";
 
 import { resolveProjectDir } from "../../../lib/project-root";
-import { error, hasErrors, printDiagnostics } from "../../../lib/diagnostics";
+import * as os from "node:os";
+import { spawnSync } from "node:child_process";
+import { error, warning, hasErrors, printDiagnostics } from "../../../lib/diagnostics";
+import { buildInstructions } from "../../../change/instructions";
+import { readHarnessConfig } from "../../../../packages/core/src/infrastructure/HarnessConfigFile";
+import { changeScope, judgeScope } from "../../../../packages/core/src/domain/AuthoringScope";
 import { agentIo } from "../../../lib/agent";
 import { phrases } from "../../../../packages/core/src/infrastructure/DiskLanguageRepository";
 import { ARTIFACTS, artifactState } from "../../../change/artifacts";
@@ -79,12 +84,13 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}🔄 change${c.reset}  ${c.dim}— propose, review and archive a change${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda change${c.reset} <new|list|show|status|instructions|validate|archive> [options]\n\n` +
+      `    ${c.cyan}csda change${c.reset} <new|list|show|status|instructions|author|validate|archive> [options]\n\n` +
       `  ${c.bold}SUBCOMMANDS${c.reset}\n` +
       `    ${c.green}new <id>${c.reset}       ${c.dim}Scaffold a change folder (proposal, tasks, delta skeleton).${c.reset}\n` +
       `    ${c.green}list${c.reset}           ${c.dim}Active changes with task progress.${c.reset}\n` +
       `    ${c.green}show <id>${c.reset}      ${c.dim}Proposal, deltas and what they touch.${c.reset}\n` +
       `    ${c.green}status [id]${c.reset}    ${c.dim}Which artefact to write next.${c.reset}\n` +
+      `    ${c.green}author <id>${c.reset}    ${c.dim}Have an agent write one artefact, confined to the change.${c.reset}\n` +
       `    ${c.green}validate [id]${c.reset}  ${c.dim}Check the deltas against the capability specs.${c.reset}\n` +
       `    ${c.green}archive <id>${c.reset}   ${c.dim}Merge deltas into the specs, sync traceability, archive.${c.reset}\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
@@ -92,6 +98,9 @@ function usage() {
       `    ${c.green}--json${c.reset}                ${c.dim}One JSON document on stdout; prose on stderr.${c.reset}\n` +
       `    ${c.green}--capability <name>${c.reset}   ${c.dim}(new) Seed a delta for this capability.${c.reset}\n` +
       `    ${c.green}--full${c.reset}                ${c.dim}(new) Full rigor — also scaffold design.md.${c.reset}\n` +
+      `    ${c.green}--artifact <name>${c.reset}     ${c.dim}(author) Which artefact to write. Default: proposal.${c.reset}\n` +
+      `    ${c.green}--agent <cmd>${c.reset}         ${c.dim}(author) Agent command; must contain {prompt_file}.${c.reset}\n` +
+      `    ${c.green}--agent-profile <n>${c.reset}   ${c.dim}(author) A profile from .harness/profiles.yaml.${c.reset}\n` +
       `    ${c.green}--reserve <n>${c.reset}         ${c.dim}(new) Reserve n REQ ids for this change (default 3).${c.reset}\n` +
       `    ${c.green}--strict${c.reset}              ${c.dim}(validate) Treat advisory warnings as failures.${c.reset}\n` +
       `    ${c.green}--dry-run${c.reset}             ${c.dim}(archive) Print the plan, write nothing.${c.reset}\n` +
@@ -111,6 +120,9 @@ export interface ChangeOptions {
   schema?: string;
   reserve: number;
   yes?: boolean;
+  artifact?: string;
+  agent?: string;
+  agentProfile?: string;
   positional: string[];
 }
 
@@ -132,6 +144,9 @@ function parseArgs(argv) {
     else if (a === "--capability" && argv[i + 1]) opts.capability = argv[++i];
     else if (a === "--schema" && argv[i + 1]) opts.schema = argv[++i];
     else if (a === "--reserve" && argv[i + 1]) opts.reserve = parseInt(argv[++i], 10) || 3;
+    else if (a === "--artifact" && argv[i + 1]) opts.artifact = argv[++i];
+    else if (a === "--agent" && argv[i + 1]) opts.agent = argv[++i];
+    else if (a === "--agent-profile" && argv[i + 1]) opts.agentProfile = argv[++i];
     else if (a === "--json") opts.json = true;
     else if (a === "--strict") opts.strict = true;
     else if (a === "--dry-run") opts.dryRun = true;
@@ -422,6 +437,236 @@ function cmdStatus(opts) {
 
 // ── validate ──────────────────────────────────────────────────────────────────
 
+/**
+ * `csda change author` — hand one change artefact to an agent, then hold it to
+ * the same gate a human would face.
+ *
+ * This is the `spec-author` role of the multi-agent harness (E2-02), and it is
+ * deliberately *not* part of `harness run`. That loop is built around a
+ * requirement: a worktree per REQ, a branch named for it, and a gate of
+ * `validate --strict-tdd` plus the project's tests. A change has no requirement
+ * yet — writing one is the whole job — so it needs its own loop, its own scope
+ * and its own gate: `csda change validate`.
+ *
+ * The prompt is not invented here either. `change instructions` already knows
+ * what each artefact is for, what rules it must satisfy, what it may unlock and
+ * which REQ ids are reserved; this renders that same structure for an agent
+ * rather than for a person.
+ *
+ * **The tree must be clean before it runs.** That is not ceremony: enforcing the
+ * scope means reverting whatever the agent wrote outside the change directory,
+ * and on a dirty tree "whatever the agent wrote" cannot be told apart from
+ * whatever you were in the middle of. Clean first, and reverting can only ever
+ * discard the agent's own work.
+ */
+function cmdAuthor(opts) {
+  const projectDir = resolveProjectDir(opts.projectDir);
+  const changeId = opts.positional[0];
+  const artifact = opts.artifact || "proposal";
+  const NULL_SHAPE = { change: null, artifact: null, wrote: [], reverted: [] };
+
+  if (!changeId) {
+    return fail(opts, NULL_SHAPE, [
+      error("change_required", "change author needs a change id.", {
+        fix: "csda change author <id> [--artifact proposal|specs|design|tasks]",
+      }),
+    ]);
+  }
+
+  const p = paths(projectDir);
+  if (!fs.existsSync(p.change(changeId))) {
+    return fail(opts, NULL_SHAPE, [
+      error("change_not_found", `Change "${changeId}" does not exist.`, {
+        target: changeId,
+        fix: `Create it first: csda change new ${changeId}`,
+      }),
+    ]);
+  }
+
+  const agentCommand = resolveAuthorAgent(projectDir, opts);
+  if (!agentCommand) {
+    return fail(opts, NULL_SHAPE, [
+      error("author_agent_unset", "No agent is configured for change author.", {
+        fix: 'Pass --agent "<cmd with {prompt_file}>", or --agent-profile <name> from .harness/profiles.yaml.',
+      }),
+    ]);
+  }
+
+  const status = spawnSync("git", ["-C", projectDir, "status", "--porcelain"], {
+    encoding: "utf8",
+  });
+  if (status.status !== 0) {
+    return fail(opts, NULL_SHAPE, [
+      error("author_needs_git", "change author needs a git repository.", {
+        fix: "Run it inside the project's repository — the scope is enforced with git.",
+      }),
+    ]);
+  }
+  if (String(status.stdout).trim() !== "") {
+    return fail(opts, NULL_SHAPE, [
+      error("author_tree_dirty", "The working tree has uncommitted changes.", {
+        fix: "Commit or stash first. The scope is enforced by reverting what the agent wrote outside the change, and on a dirty tree that would take your work with it.",
+      }),
+    ]);
+  }
+
+  const instructions = buildInstructions(projectDir, artifact, changeId, TEMPLATES);
+  const prompt = authorPrompt(changeId, artifact, instructions);
+
+  if (opts.dryRun) {
+    return emit(opts, { change: changeId, artifact, wrote: [], reverted: [], prompt }, () =>
+      process.stdout.write(`${prompt}\n`)
+    );
+  }
+
+  const promptFile = path.join(os.tmpdir(), `csda-author-${changeId}-${artifact}-${Date.now()}.md`);
+  fs.writeFileSync(promptFile, prompt, "utf8");
+  try {
+    const command = agentCommand.split("{prompt_file}").join(promptFile);
+    const agent = spawnSync(command, {
+      shell: true,
+      cwd: projectDir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (agent.status !== 0) {
+      return fail(opts, NULL_SHAPE, [
+        error("author_agent_failed", `The agent exited ${agent.status}.`, {
+          fix:
+            `${agent.stdout || ""}${agent.stderr || ""}`.trim().slice(-500) ||
+            "Re-run with --dry-run to see the prompt it was given.",
+        }),
+      ]);
+    }
+  } finally {
+    fs.rmSync(promptFile, { force: true });
+  }
+
+  const touched = spawnSync("git", ["-C", projectDir, "status", "--porcelain"], {
+    encoding: "utf8",
+  });
+  // Keep git's status code, not just the path. `??` means untracked — the agent
+  // created it, so undoing means deleting. Anything else means the file existed
+  // and was modified, so undoing means restoring it. Losing that distinction is
+  // how a revert deletes a file the project already had.
+  const entries = String(touched.stdout)
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => ({ code: line.slice(0, 2), file: line.slice(3).trim() }))
+    .filter((e) => e.file);
+
+  const { allowed, strayed } = judgeScope(
+    entries.map((e) => e.file),
+    changeId
+  );
+  const untracked = new Set(entries.filter((e) => e.code === "??").map((e) => e.file));
+
+  // The boundary is enforced, not requested. An agent asked to *describe* a
+  // change, and able to edit the capability spec it describes, can make the
+  // change unnecessary instead of proposing it — quietly, and in a diff nobody
+  // reads because it looks like the work.
+  for (const stray of strayed) {
+    if (untracked.has(stray)) {
+      const full = path.join(projectDir, stray);
+      if (fs.existsSync(full)) fs.rmSync(full, { recursive: true, force: true });
+    } else {
+      spawnSync("git", ["-C", projectDir, "checkout", "--", stray], { encoding: "utf8" });
+    }
+  }
+
+  const validation = new ValidateChangeUseCase(new DiskProjectRepository(projectDir)).execute(
+    changeId,
+    { strict: opts.strict }
+  );
+  const diagnostics = [...validation.diagnostics];
+  if (strayed.length > 0) {
+    diagnostics.push(
+      warning("author_out_of_scope", `The agent wrote outside ${changeScope(changeId)}.`, {
+        target: strayed[0],
+        fix: `Reverted: ${strayed.join(", ")}. Only the change's own directory is the author's to write; \`change archive\` is what moves a delta into a capability spec.`,
+      })
+    );
+  }
+
+  if (hasErrors(diagnostics)) {
+    return fail(
+      opts,
+      { change: changeId, artifact, wrote: allowed, reverted: strayed },
+      diagnostics
+    );
+  }
+
+  return emit(
+    opts,
+    { change: changeId, artifact, wrote: allowed, reverted: strayed, status: diagnostics },
+    () => {
+      process.stdout.write(
+        `\n  ${c.bold}${changeId}${c.reset} — ${artifact} written by the agent\n\n`
+      );
+      for (const f of allowed) process.stdout.write(`    ${c.green}+${c.reset} ${f}\n`);
+      for (const f of strayed)
+        process.stdout.write(
+          `    ${c.yellow}~${c.reset} ${f} ${c.dim}(out of scope, reverted)${c.reset}\n`
+        );
+      if (diagnostics.length > 0) printDiagnostics(diagnostics);
+      process.stdout.write(
+        `\n  Next: read it, then ${c.cyan}csda change validate ${changeId}${c.reset}\n\n`
+      );
+    }
+  );
+}
+
+/** The agent command for authoring: explicit flag, then profile, then harness config. */
+function resolveAuthorAgent(projectDir: string, opts): string | null {
+  if (opts.agent) return opts.agent;
+  const config = readHarnessConfig(projectDir) || {};
+  if (opts.agentProfile) {
+    return config.profileAgents?.[opts.agentProfile] || null;
+  }
+  return config.agent || null;
+}
+
+/**
+ * The instructions `change instructions` already produces, rendered for an
+ * agent rather than for a person.
+ */
+function authorPrompt(changeId: string, artifact: string, instructions: any): string {
+  const parts = [
+    `# Write the ${artifact} for change \`${changeId}\``,
+    "",
+    `You are a specification author. Write **only** inside \`${changeScope(changeId)}\`.`,
+    "Anything you write elsewhere will be reverted before it is read — the capability",
+    "specs and the traceability matrix are moved by `csda change archive`, after a",
+    "human has reviewed this proposal. Describe the change; do not make it.",
+    "",
+  ];
+
+  if (instructions.outputPath) parts.push(`## Write to\n\n\`${instructions.outputPath}\`\n`);
+  if (instructions.rules?.length) {
+    parts.push("## Rules\n", ...instructions.rules.map((r: string) => `- ${r}`), "");
+  }
+  const ctx = instructions.context || {};
+  if (ctx.reservedReqRange) {
+    parts.push(
+      `## Reserved requirement ids\n\n\`${ctx.reservedReqRange[0]}\`…\`${ctx.reservedReqRange[1]}\` — use these and no others.\n`
+    );
+  }
+  if (ctx.proposal) {
+    parts.push(
+      "## The proposal this must stay faithful to\n",
+      "```markdown",
+      ctx.proposal.trim(),
+      "```",
+      ""
+    );
+  }
+  if (instructions.template) {
+    parts.push("## Template\n", "```markdown", String(instructions.template).trim(), "```", "");
+  }
+  parts.push(`When finished, the change must pass \`csda change validate ${changeId}\`.`);
+  return parts.join("\n");
+}
+
 function cmdValidate(opts) {
   const projectDir = resolveProjectDir(opts.projectDir);
   const requested = opts.positional[0];
@@ -590,6 +835,7 @@ export class CliCommand extends BaseCommand {
       status: cmdStatus,
       validate: cmdValidate,
       archive: cmdArchive,
+      author: cmdAuthor,
     };
 
     const handler = table[sub];

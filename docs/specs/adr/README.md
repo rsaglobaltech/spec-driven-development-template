@@ -29,6 +29,7 @@ for the policy on when and how to write an ADR.
 | [0019](0019-studio-surface.md)                 | One studio surface — `csda studio`, not a standalone app | Accepted              | 2026-08-16 |
 | [0020](0020-pack-format-standard.md)           | One pack format, with the JSON Schema as its authority   | Accepted               | 2026-08-17 |
 | [0021](0021-alm-is-a-mirror.md)                | The ALM is a mirror; inbound work enters through a change | Accepted              | 2026-08-20 |
+| [0022](0022-patterns-are-optional-principles-are-not.md) | Patterns are optional; principles are not         | Accepted              | 2026-08-21 |
 
 ## Template
 

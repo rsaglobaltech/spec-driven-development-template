@@ -1044,6 +1044,281 @@ test(
   }
 );
 
+// ── change author — the spec-author role (E2-02) ─────────────────────────
+
+/** A project with one change ready to be authored, committed and clean. */
+function makeAuthorProject() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-author-"));
+  const projectDir = path.join(tempRoot, "project");
+  fs.mkdirSync(path.join(projectDir, "features"), { recursive: true });
+  fs.mkdirSync(path.join(projectDir, "docs", "specs", "adr"), { recursive: true });
+
+  fs.writeFileSync(path.join(projectDir, "spec.md"), "# Spec\n\n## REQ-001 — A\n", "utf8");
+  fs.writeFileSync(path.join(projectDir, "AI_RULES.md"), "# AI Rules\n", "utf8");
+  fs.writeFileSync(path.join(projectDir, "README.md"), "# R\n", "utf8");
+  fs.writeFileSync(path.join(projectDir, "docs", "specs", "adr", "README.md"), "# ADRs\n", "utf8");
+  fs.writeFileSync(
+    path.join(projectDir, "features", "f.feature"),
+    "Feature: F\n  Scenario: ok\n    Given x\n    Then y\n",
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(projectDir, "docs", "specs", "traceability.md"),
+    [
+      "# Traceability Matrix",
+      "",
+      "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |",
+      "|---|---|---|---|---|---|---|---|---|---|",
+      "| REQ-001 | SCN-001 | `features/f.feature` | U | C | A | E | `s.ts` | `t.ts` | Draft |",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+
+  gitInTest(["init", "--quiet", "--initial-branch=main", projectDir]);
+  gitInTest(["config", "user.email", "t@e.com"], { cwd: projectDir });
+  gitInTest(["config", "user.name", "T"], { cwd: projectDir });
+  gitInTest(["config", "commit.gpgsign", "false"], { cwd: projectDir });
+  gitInTest(["add", "."], { cwd: projectDir });
+  gitInTest(["commit", "--quiet", "-m", "base"], { cwd: projectDir });
+
+  const created = runCli(["change", "new", "add-pricing", "--project-dir", projectDir]);
+  assert.equal(created.status, 0, created.stderr);
+  gitInTest(["add", "-A"], { cwd: projectDir });
+  gitInTest(["commit", "--quiet", "-m", "change"], { cwd: projectDir });
+
+  return { tempRoot, projectDir };
+}
+
+/** An agent script that writes its proposal and also strays out of scope. */
+function writeRogueAgent(tempRoot: string) {
+  const file = path.join(tempRoot, "rogue.js");
+  fs.writeFileSync(
+    file,
+    [
+      "const fs = require('node:fs');",
+      "fs.writeFileSync('docs/specs/changes/add-pricing/proposal.md',",
+      "  '# Proposal: add-pricing\\n\\n## Intent\\n\\nCharge per use.\\n\\n## Scope\\n\\nIn scope:\\n\\n- Tariffs\\n\\nOut of scope:\\n\\n- Invoicing\\n');",
+      "fs.writeFileSync('docs/specs/traceability.md', '# wiped\\n');",
+      "fs.writeFileSync('rogue.txt', 'x');",
+    ].join("\n"),
+    "utf8"
+  );
+  return file;
+}
+
+test("change author enforces the scope instead of asking for it", { skip: !hasGit() }, () => {
+  // An agent asked to *describe* a change, and able to edit what it describes,
+  // can make the change unnecessary instead of proposing it — in a diff that
+  // looks like the work. So the boundary is enforced, not requested.
+  const { tempRoot, projectDir } = makeAuthorProject();
+  const rogue = writeRogueAgent(tempRoot);
+
+  const result = runCli([
+    "change",
+    "author",
+    "add-pricing",
+    "--project-dir",
+    projectDir,
+    "--agent",
+    `node ${rogue} {prompt_file}`,
+  ]);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+
+  // The legitimate work survived.
+  const proposal = fs.readFileSync(
+    path.join(projectDir, "docs", "specs", "changes", "add-pricing", "proposal.md"),
+    "utf8"
+  );
+  assert.match(proposal, /Charge per use/);
+
+  // The stray untracked file is gone...
+  assert.equal(fs.existsSync(path.join(projectDir, "rogue.txt")), false);
+
+  // ...and the tracked file it overwrote was RESTORED, not deleted. The first
+  // implementation ran `git checkout` and then removed the path anyway, which
+  // deleted a file the project already had.
+  const matrix = path.join(projectDir, "docs", "specs", "traceability.md");
+  assert.ok(fs.existsSync(matrix), "an out-of-scope tracked file must be restored, never deleted");
+  assert.match(fs.readFileSync(matrix, "utf8"), /^# Traceability Matrix/);
+
+  assert.match(result.stdout + result.stderr, /author_out_of_scope|out of scope/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("change author refuses to run on a dirty tree", { skip: !hasGit() }, () => {
+  // Enforcing the scope means reverting what the agent wrote outside it, and on
+  // a dirty tree that cannot be told apart from what you were in the middle of.
+  const { tempRoot, projectDir } = makeAuthorProject();
+  fs.writeFileSync(path.join(projectDir, "work-in-progress.txt"), "mine\n", "utf8");
+
+  const result = runCli([
+    "change",
+    "author",
+    "add-pricing",
+    "--project-dir",
+    projectDir,
+    "--agent",
+    "true",
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /uncommitted changes/);
+  assert.equal(
+    fs.readFileSync(path.join(projectDir, "work-in-progress.txt"), "utf8"),
+    "mine\n",
+    "refusing must not touch the work it refused over"
+  );
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("change author --dry-run shows the prompt and writes nothing", { skip: !hasGit() }, () => {
+  const { tempRoot, projectDir } = makeAuthorProject();
+  const result = runCli([
+    "change",
+    "author",
+    "add-pricing",
+    "--project-dir",
+    projectDir,
+    "--dry-run",
+    "--agent",
+    "true",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Write \*\*only\*\* inside `docs\/specs\/changes\/add-pricing\/`/);
+  assert.match(result.stdout, /REQ-002/, "the reserved range is stated, and not double-prefixed");
+  assert.doesNotMatch(result.stdout, /REQ-REQ-/);
+
+  const status = spawnSync("git", ["-C", projectDir, "status", "--porcelain"], {
+    encoding: "utf8",
+  });
+  assert.equal(status.stdout.trim(), "", "--dry-run must leave the tree clean");
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("change author needs an agent, and says how to give it one", { skip: !hasGit() }, () => {
+  const { tempRoot, projectDir } = makeAuthorProject();
+  const result = runCli(["change", "author", "add-pricing", "--project-dir", projectDir]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /author_agent_unset|No agent is configured/);
+  assert.match(result.stderr, /--agent-profile/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+// ── architecture profiles (ADR-0022) ────────────────────────────────────
+
+const DOMAIN_DOCS = [
+  "domain-model.md",
+  "use-cases.md",
+  "commands.md",
+  "aggregates.md",
+  "events.md",
+  "status-model.md",
+];
+
+const specDocs = (projectDir: string) =>
+  DOMAIN_DOCS.filter((doc) => fs.existsSync(path.join(projectDir, "docs", "specs", doc)));
+
+test("each architecture profile scaffolds only the vocabulary it declares", () => {
+  // ADR-0022: a static site handed aggregates.md is not untidy, it is an agent
+  // being told the system has aggregates. The profile decides what gets written.
+  const { projectDir: minimal } = initRuntimeProject(['ARCHITECTURE="minimal"']);
+  assert.deepEqual(specDocs(minimal), [], "minimal should scaffold no domain vocabulary");
+
+  const { projectDir: layered } = initRuntimeProject(['ARCHITECTURE="layered"']);
+  assert.deepEqual(specDocs(layered), ["use-cases.md"]);
+
+  const { projectDir: ddd } = initRuntimeProject(['ARCHITECTURE="tactical-ddd"']);
+  assert.deepEqual(specDocs(ddd).sort(), [...DOMAIN_DOCS].sort());
+});
+
+test("the gate is identical under every architecture profile", () => {
+  // The invariant the whole ADR rests on: profiles change what is scaffolded
+  // and what the rulebook demands, never what `validate` accepts. If this ever
+  // fails, "patterns are optional" has quietly become "the gate is optional".
+  for (const profile of ["minimal", "layered", "tactical-ddd"]) {
+    const { projectDir: dir } = initRuntimeProject([`ARCHITECTURE="${profile}"`]);
+    const result = runCli(["validate", dir]);
+    assert.equal(result.status, 0, `${profile} failed validate:\n${result.stdout}${result.stderr}`);
+  }
+});
+
+test("the rulebook demands aggregates only where the profile does", () => {
+  // Where the obligation actually lives: nothing checks AI_RULES.md, and the
+  // agent obeys it on every prompt.
+  const read = (dir: string) => fs.readFileSync(path.join(dir, "AI_RULES.md"), "utf8");
+
+  const minimal = read(initRuntimeProject(['ARCHITECTURE="minimal"']).projectDir);
+  assert.doesNotMatch(minimal, /maps to (an )?aggregate/i);
+  assert.doesNotMatch(minimal, /Use case maps to command/i);
+
+  const layered = read(initRuntimeProject(['ARCHITECTURE="layered"']).projectDir);
+  assert.match(layered, /Scenario maps to a use case/);
+  assert.doesNotMatch(layered, /maps to aggregate|aggregate or read model/i);
+
+  const ddd = read(initRuntimeProject(['ARCHITECTURE="tactical-ddd"']).projectDir);
+  assert.match(ddd, /Command\/query maps to aggregate/);
+
+  // The principles are not negotiable, so they survive in every profile.
+  for (const rules of [minimal, layered, ddd]) {
+    assert.match(rules, /Requirement has ID/);
+    assert.match(rules, /Traceability row is complete/);
+    assert.match(rules, /business logic out of framework code/i);
+  }
+});
+
+test("the declared profile is recorded where the agent reads it", () => {
+  const { projectDir: dir } = initRuntimeProject(['ARCHITECTURE="layered"']);
+  assert.match(
+    fs.readFileSync(path.join(dir, "AI_RULES.md"), "utf8"),
+    /^- Architecture: layered$/m
+  );
+});
+
+test("an unknown architecture profile is refused with the supported list", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-arch-bad-"));
+  const configPath = path.join(tempRoot, "project.config");
+  fs.writeFileSync(
+    configPath,
+    [...RUNTIME_BASE_CONFIG, 'ARCHITECTURE="hexagonal-ish"'].join("\n") + "\n",
+    "utf8"
+  );
+  const result = runCli(["init", "--config", configPath, "--out", tempRoot, "--no-git", "--force"]);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stdout + result.stderr,
+    /ARCHITECTURE 'hexagonal-ish' is not supported.*minimal, layered, tactical-ddd/s
+  );
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("doctor reports a project that has outgrown its declared profile", () => {
+  const { projectDir: dir } = initRuntimeProject(['ARCHITECTURE="minimal"']);
+
+  const clean = runCli(["doctor", "--project-dir", dir]);
+  assert.match(clean.stdout, /architecture: minimal — matches/);
+
+  // The matrix is the signal, not the domain documents: those ship with
+  // placeholder rows, so "the file has content" is true from the first minute.
+  const matrixPath = path.join(dir, "docs", "specs", "traceability.md");
+  const withAggregate = fs
+    .readFileSync(matrixPath, "utf8")
+    .split("\n")
+    .map((line) => {
+      if (!/\| REQ-/.test(line)) return line;
+      const cells = line.split("|");
+      cells[6] = " AGG-Policy ";
+      return cells.join("|");
+    })
+    .join("\n");
+  fs.writeFileSync(matrixPath, withAggregate, "utf8");
+
+  const drifted = runCli(["doctor", "--project-dir", dir]);
+  assert.match(drifted.stdout, /profile is 'minimal' but requirements name aggregates/);
+});
+
 // ── pack lint --graph (visual reference graph, M-visual Phase 1) ─────────
 
 test("pack lint --graph renders the reference graph as Mermaid", () => {

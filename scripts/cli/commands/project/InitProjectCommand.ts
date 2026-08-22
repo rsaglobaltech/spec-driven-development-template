@@ -12,6 +12,107 @@ const TEMPLATES_DIR = path.join(ROOT_DIR, "templates");
 
 export const PROJECT_TYPES = ["backend", "frontend", "mobile"];
 
+/**
+ * How much architectural vocabulary a project asks to be scaffolded with.
+ *
+ * ADR-0022: patterns are optional, principles are not. The gate is identical
+ * for all three — `validate` never asks which profile a project chose — so this
+ * decides what `init` writes and what the agent's rulebook demands, nothing
+ * more.
+ */
+export const ARCHITECTURES = ["minimal", "layered", "tactical-ddd"];
+
+/**
+ * Domain documents each profile keeps. Every profile is a subset of the one
+ * below it, which is why raising a profile is additive and lowering it is not.
+ */
+export const ARCHITECTURE_DOCS: Record<string, string[]> = {
+  minimal: [],
+  layered: ["use-cases.md"],
+  "tactical-ddd": [
+    "domain-model.md",
+    "use-cases.md",
+    "commands.md",
+    "aggregates.md",
+    "events.md",
+    "status-model.md",
+  ],
+};
+
+/** Every domain document `templates/base` ships, so the rest can be removed. */
+const ALL_DOMAIN_DOCS = ARCHITECTURE_DOCS["tactical-ddd"];
+
+/**
+ * The agent's rulebook, per profile.
+ *
+ * This is where the obligation people actually feel lives. `validate` never
+ * asks for an aggregate; `AI_RULES.md` does, on every prompt, and the agent
+ * obeys prose no machine checks. So the profile has to reach here or it changes
+ * nothing that matters (ADR-0022).
+ *
+ * Two lines appear in every profile because they are principles rather than
+ * patterns: work is traceable, and business logic stays out of framework code.
+ * The second is not DDD — a business rule inside a controller is equally wrong
+ * without aggregates — and it is the part teams believe DDD is giving them.
+ */
+export function architectureSections(cfg: any): Record<string, string> {
+  const profile = cfg.ARCHITECTURE;
+  const isFrontend = cfg.PROJECT_TYPE === "frontend" || cfg.PROJECT_TYPE === "mobile";
+  const target = isFrontend
+    ? "aggregate, read model, or UI state model"
+    : "aggregate or read model";
+
+  const invariantRules = [
+    "- Do not implement anything that has no requirement and no scenario.",
+    "- Keep business logic out of framework code: no business rules in controllers, components, or infrastructure adapters.",
+    "- If a new business rule appears during implementation, update the feature scenario first.",
+  ];
+
+  const modeling: Record<string, string[]> = {
+    minimal: invariantRules,
+    layered: [
+      "- Do not implement a flow that is not listed in `docs/specs/use-cases.md` or `docs/specs/traceability.md`.",
+      ...invariantRules,
+    ],
+    "tactical-ddd": [
+      "- Do not implement a use case that is not listed in `docs/specs/use-cases.md` or `docs/specs/traceability.md`.",
+      "- Do not create a command without mapping it to a use case.",
+      "- Do not emit a domain event that is not listed in `docs/specs/events.md`.",
+      "- Keep domain logic independent from HTTP, database, queues, and framework code.",
+      ...invariantRules,
+    ],
+  };
+
+  const invariantGates = ["- [ ] Requirement has ID.", "- [ ] Scenario has ID."];
+  const gates: Record<string, string[]> = {
+    minimal: [...invariantGates, "- [ ] Traceability row is complete."],
+    layered: [
+      ...invariantGates,
+      "- [ ] Scenario maps to a use case.",
+      "- [ ] Traceability row is complete.",
+    ],
+    "tactical-ddd": [
+      ...invariantGates,
+      "- [ ] Scenario maps to a use case.",
+      "- [ ] Use case maps to command or query.",
+      `- [ ] Command/query maps to ${target}.`,
+      "- [ ] Domain events are listed when state changes matter.",
+      "- [ ] Traceability row is complete.",
+    ],
+  };
+
+  const docs = ARCHITECTURE_DOCS[profile] || [];
+  const reads = docs.length
+    ? `2. Read ${docs.map((d) => `\`docs/specs/${d}\``).join(", ")}.`
+    : "2. Read `docs/specs/traceability.md`.";
+
+  return {
+    ARCHITECTURE_MODELING_RULES: (modeling[profile] || modeling["tactical-ddd"]).join("\n"),
+    ARCHITECTURE_GATES: (gates[profile] || gates["tactical-ddd"]).join("\n"),
+    ARCHITECTURE_READS: reads,
+  };
+}
+
 function logInfo(msg: string) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
 }
@@ -98,6 +199,7 @@ export const KNOWN_KEYS = new Set([
   "PROJECT_NAME",
   "PROJECT_SLUG",
   "PROJECT_TYPE",
+  "ARCHITECTURE",
   "DOMAIN",
   "LANG",
   "STACK",
@@ -372,6 +474,17 @@ export function validateConfig(cfg: any) {
     process.exit(2);
   }
 
+  // Unchanged default on purpose: ADR-0022 records the reasoning for `layered`
+  // being the better recommendation, and leaves moving the default to a major,
+  // because it changes what an unchanged command produces.
+  cfg.ARCHITECTURE = cfg.ARCHITECTURE || "tactical-ddd";
+  if (!ARCHITECTURES.includes(cfg.ARCHITECTURE)) {
+    logError(
+      `ARCHITECTURE '${cfg.ARCHITECTURE}' is not supported. Supported: ${ARCHITECTURES.join(", ")}`
+    );
+    process.exit(2);
+  }
+
   const SUPPORTED_ENGINES = ["postgres"];
   if (!SUPPORTED_ENGINES.includes(cfg.DATABASE_ENGINE)) {
     logError(
@@ -392,6 +505,7 @@ export function validateConfig(cfg: any) {
   cfg.DATABASE_URL_FEATURE = dbUrl(cfg.DATABASE_NAME_FEATURE);
   cfg.DATABASE_URL_PROD = dbUrl(cfg.DATABASE_NAME_PROD);
 
+  Object.assign(cfg, architectureSections(cfg));
   cfg.RUNTIME_DOCKER_SECTION = runtimeDockerSection(cfg);
   cfg.RUNTIME_ENV_TABLE = runtimeEnvTable(cfg);
   cfg.RUNTIME_DATABASE_SECTION = runtimeDatabaseSection(cfg);
@@ -490,6 +604,32 @@ function applyRuntimeSupportFlags(projectDir: string, cfg: any, dryRun: boolean)
     }
     const dc = path.join(projectDir, ".devcontainer");
     if (fs.existsSync(dc)) fs.rmSync(dc, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Keep only the domain documents the declared profile asks for.
+ *
+ * Same shape as `applyRuntimeSupportFlags`: the templates render in full and
+ * what the configuration did not ask for is removed, so there is one rendering
+ * path rather than three.
+ *
+ * A static site given `aggregates.md` is not merely untidy — an agent reads it
+ * as a description of the system and invents aggregates to fill it. Removing
+ * the file is the point, not tidiness (ADR-0022).
+ */
+function applyArchitectureProfile(projectDir: string, cfg: any, dryRun: boolean) {
+  const keep = new Set(ARCHITECTURE_DOCS[cfg.ARCHITECTURE] || ALL_DOMAIN_DOCS);
+  const drop = ALL_DOMAIN_DOCS.filter((doc) => !keep.has(doc));
+  if (drop.length === 0) return;
+
+  if (dryRun) {
+    logInfo(`[dry-run] ${cfg.ARCHITECTURE}: skip ${drop.join(", ")}`);
+    return;
+  }
+  for (const doc of drop) {
+    const full = path.join(projectDir, "docs", "specs", doc);
+    if (fs.existsSync(full)) fs.rmSync(full);
   }
 }
 
@@ -601,6 +741,7 @@ export class InitProjectCommand extends BaseCommand {
     logInfo("🧩 Rendering base template");
     renderTree(path.join(TEMPLATES_DIR, "base"), projectDir, cfg, opts.dryRun);
     applyRuntimeSupportFlags(projectDir, cfg, opts.dryRun);
+    applyArchitectureProfile(projectDir, cfg, opts.dryRun);
 
     logInfo(`🛠️ Applying project type template: ${cfg.PROJECT_TYPE}`);
     renderFile(

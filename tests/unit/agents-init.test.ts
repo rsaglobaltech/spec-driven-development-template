@@ -164,3 +164,60 @@ test("no generated file copies the delta grammar", () => {
     }
   }
 });
+
+// ── Antigravity (E1-07) ──────────────────────────────────────────────────────
+//
+// Its extension format was verified against Google's own documentation before
+// any of this was written, because committing to a guessed format is the
+// cheapest way to produce work that does not load. What the docs state, and
+// what these tests pin:
+//
+//   - workspace rules live in `.agents/rules/` — it still accepts the older
+//     singular `.agent/rules`, so the plural is deliberate, not a typo;
+//   - MCP servers are configured in `.agents/mcp_config.json`, discovered by
+//     both the IDE and the CLI, in the same `mcpServers` shape Claude Code uses;
+//   - a rule file is capped at 12,000 characters.
+//
+// Its own `GEMINI.md` is already covered by the `gemini` row. Third-party
+// guides also claim it reads `AGENTS.md`; its documentation does not say so, so
+// nothing here relies on it.
+
+test("antigravity is registered and writes to the paths its docs state", () => {
+  assert.ok(ALL_TOOLS.includes("antigravity"));
+  assert.ok(
+    DEFAULT_TOOLS.includes("antigravity"),
+    "it belongs inside a project, so it is not opt-in"
+  );
+
+  const paths = TOOLS.antigravity.files().map((f: any) => f.path.split(path.sep).join("/"));
+  assert.deepEqual(paths.sort(), [".agents/mcp_config.json", ".agents/rules/csda.md"]);
+});
+
+test("antigravity's MCP config is the same server Claude Code is given", () => {
+  // One definition, two hosts. Two copies would drift into describing
+  // different servers, and only one of them would be the real one.
+  const config = TOOLS.antigravity.files().find((f: any) => f.path.endsWith("mcp_config.json"));
+  const parsed = JSON.parse(config.contents);
+
+  assert.ok(parsed.mcpServers["spec-driven"], "the csda server must be declared");
+  assert.equal(parsed.mcpServers["spec-driven"].command, "npx");
+
+  const plugin = TOOLS["claude-plugin"].files().find((f: any) => f.path.endsWith(".mcp.json"));
+  assert.deepEqual(
+    parsed.mcpServers,
+    JSON.parse(plugin.contents).mcpServers,
+    "the two hosts must be pointed at the same server"
+  );
+});
+
+test("every rule file stays under Antigravity's 12,000 character limit", () => {
+  // A documented hard limit, so it is worth a check rather than a hope: a rule
+  // file over it is silently truncated, and a truncated rulebook is worse than
+  // none because it looks complete.
+  for (const file of TOOLS.antigravity.files()) {
+    assert.ok(
+      file.contents.length < 12000,
+      `${file.path} is ${file.contents.length} characters, over Antigravity's limit`
+    );
+  }
+});

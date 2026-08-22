@@ -390,6 +390,78 @@ export class DoctorCommand extends BaseCommand {
     );
   }
 
+  /**
+   * Does the declared architecture profile still describe this project?
+   *
+   * ADR-0022 makes the profile a declaration rather than an inference, which
+   * only stays honest if something notices when it stops being true: a
+   * `minimal` project that has grown a domain model, or a `tactical-ddd` one
+   * whose `aggregates.md` has been an empty heading for six months. Both are
+   * warnings — the profile is a statement of intent, and a project is allowed
+   * to be mid-move.
+   */
+  private checkArchitectureProfile(dir: string) {
+    const rules = path.join(dir, "AI_RULES.md");
+    if (!fs.existsSync(rules)) return;
+    const declared = /^-\s*Architecture:\s*(\S+)/m.exec(fs.readFileSync(rules, "utf8"))?.[1];
+    if (!declared) return;
+
+    const known = ["minimal", "layered", "tactical-ddd"];
+    if (!known.includes(declared)) {
+      this.warn(
+        "architecture",
+        `AI_RULES.md declares an unknown architecture profile '${declared}'`,
+        `Use one of: ${known.join(", ")}.`
+      );
+      return;
+    }
+
+    // The signal is the matrix, not the domain documents.
+    //
+    // Those documents ship with placeholder rows — `AGG-001 | CoreAggregate`,
+    // `CMD-001 | ExampleCommand` — so "the file has table rows" is true the
+    // moment a project is generated and says nothing about whether anyone
+    // modelled anything. The matrix is the artefact the project actually
+    // maintains, and its Aggregate and Event columns hold `-` until they are
+    // used, which is exactly the question being asked.
+    const matrix = path.join(dir, "docs", "specs", "traceability.md");
+    if (!fs.existsSync(matrix)) return;
+
+    const rows = fs
+      .readFileSync(matrix, "utf8")
+      .split("\n")
+      .filter((l) => l.trim().startsWith("|") && !l.includes("---") && /REQ-/.test(l));
+
+    const modelsDomain = rows.some((row) => {
+      const cells = row.split("|").map((c) => c.trim());
+      const [aggregate, event] = [cells[6], cells[7]];
+      const stated = (v: string) => v && v !== "-" && v !== "TBD";
+      return stated(aggregate) || stated(event);
+    });
+
+    if (declared === "minimal" && modelsDomain) {
+      this.warn(
+        "architecture",
+        "profile is 'minimal' but requirements name aggregates or events in the matrix",
+        "Move to `layered` or `tactical-ddd` in AI_RULES.md. A profile the project has outgrown tells the agent the wrong thing."
+      );
+      return;
+    }
+
+    // Only worth saying once a project has substance: a freshly generated one
+    // has modelled nothing yet, and that is not drift, it is Tuesday.
+    if (declared === "tactical-ddd" && !modelsDomain && rows.length > 1) {
+      this.warn(
+        "architecture",
+        `profile is 'tactical-ddd' but none of its ${rows.length} requirements names an aggregate or event`,
+        "Either model the domain, or declare `layered` — the rulebook is telling the agent to map every command to an aggregate the project does not have."
+      );
+      return;
+    }
+
+    this.ok("architecture", `${declared} — matches what the project models`);
+  }
+
   private checkSampleRequirement(dir: string) {
     if (!fs.existsSync(path.join(dir, ".specops.lock"))) return;
     const traceRaw = this.readIfExists(path.join(dir, "docs/specs/traceability.md"));
@@ -487,6 +559,7 @@ export class DoctorCommand extends BaseCommand {
       this.checkPlaceholders(dir);
       this.checkSpecops(dir);
       this.checkMergeDriver(dir);
+      this.checkArchitectureProfile(dir);
       this.checkSampleRequirement(dir);
     }
 

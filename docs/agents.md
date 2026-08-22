@@ -3,7 +3,7 @@
 Twelve commands speak JSON — `status`, `plan`, `validate`, `report`, `doctor`,
 `fix`, `req list`, `change`, `schema which`, `onboard`, `update` and `done` —
 and the loop can be driven entirely from Claude Code, Cursor, Copilot,
-Windsurf, Aider, Gemini, Cline or Codex.
+Windsurf, Aider, Gemini, Cline, Codex or Antigravity.
 
 `pack lint` and `specops diff` do not yet, and will say so rather than printing
 prose at a caller that asked for a document.
@@ -13,7 +13,7 @@ prose at a caller that asked for a document.
 ## Wire it in
 
 ```bash
-csda agents init                          # all eight tools
+csda agents init                          # every tool below
 csda agents init --tool claude,cursor     # or pick
 csda agents init --dry-run                # list destinations, write nothing
 ```
@@ -24,6 +24,37 @@ instruction file each tool reads — `.cursor/rules/csda.mdc`,
 `.github/copilot-instructions.md`, `CONVENTIONS.md`, `AGENTS.md` and so on.
 
 Existing files are never overwritten without `--force`.
+
+---
+
+## Antigravity
+
+Antigravity gets two files, because it reads both halves of what csda offers:
+
+```
+.agents/rules/csda.md        the workspace rulebook
+.agents/mcp_config.json      a live MCP connection to the project's own specs
+```
+
+The MCP half is the one that matters. An instruction file is a snapshot that
+starts drifting the moment it is written; the MCP server answers from the
+current spec tree, so an agent asking what `REQ-014` requires gets today's
+answer rather than the one that was true when the file was generated.
+
+Three details taken from Antigravity's own documentation rather than assumed:
+
+- the rules directory is `.agents/rules/` — plural. The older `.agent/rules`
+  still works, which is exactly why the plural is written deliberately;
+- `.agents/mcp_config.json` is discovered by the IDE *and* the CLI, in the same
+  `mcpServers` shape Claude Code uses — so both hosts are pointed at one server
+  definition, and a test asserts they never diverge;
+- a rule file is capped at **12,000 characters**. The generated rulebook is
+  around 700, and a test keeps it that way, because a file over the cap is
+  truncated silently and a truncated rulebook is worse than none.
+
+Antigravity's own `GEMINI.md` convention is already covered by the `gemini`
+row. Some third-party guides say it also reads `AGENTS.md`; its documentation
+does not, so nothing here depends on that.
 
 ---
 

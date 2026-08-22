@@ -159,11 +159,7 @@ function claudePluginFiles(version: string) {
     },
   };
 
-  const mcp = {
-    mcpServers: {
-      "spec-driven": { command: "npx", args: ["-y", "@spec-driven/mcp-server"] },
-    },
-  };
+  const mcp = mcpServerConfig();
 
   return [
     { path: path.join(".claude-plugin", "plugin.json"), contents: json(manifest) },
@@ -229,6 +225,21 @@ function pluginReadme(): string {
 }
 
 /**
+ * How a host is told to start the csda MCP server.
+ *
+ * The same object for every host, because the format is the same one: Claude
+ * Code reads it from `.mcp.json`, Antigravity from `.agents/mcp_config.json`.
+ * Written once so the two cannot drift into describing different servers.
+ */
+export function mcpServerConfig() {
+  return {
+    mcpServers: {
+      "spec-driven": { command: "npx", args: ["-y", "@spec-driven/mcp-server"] },
+    },
+  };
+}
+
+/**
  * What each tool expects, and where.
  *
  * Adding a tool is one row: the loop below does not know any tool's name.
@@ -283,6 +294,26 @@ export const TOOLS = {
   codex: {
     label: "Codex",
     files: () => [{ path: "AGENTS.md", contents: instructionsBody("Agent instructions") }],
+  },
+  antigravity: {
+    label: "Antigravity",
+    // Two files, because Antigravity reads both halves of what csda offers:
+    // workspace rules, and a live MCP connection to the project's own specs.
+    //
+    // Paths are the ones its documentation states — `.agents/rules/` (it still
+    // accepts the older `.agent/rules`, singular, which is why the plural is
+    // written deliberately here) and `.agents/mcp_config.json`, which the IDE
+    // and the CLI both discover. Its docs also cap a rule file at 12,000
+    // characters; `cursorRuleBody()` is an order of magnitude under, and a test
+    // keeps it that way.
+    //
+    // Its own `GEMINI.md` convention is already covered by the `gemini` row,
+    // and third-party guides say it reads `AGENTS.md` too — but its
+    // documentation does not, so nothing here depends on that.
+    files: () => [
+      { path: path.join(".agents", "rules", "csda.md"), contents: cursorRuleBody() },
+      { path: path.join(".agents", "mcp_config.json"), contents: json(mcpServerConfig()) },
+    ],
   },
 };
 

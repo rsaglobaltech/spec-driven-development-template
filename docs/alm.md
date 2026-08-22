@@ -66,6 +66,87 @@ requirement open, and the disagreement shows up as drift for a person to
 settle — which is what [ADR-0021](specs/adr/0021-alm-is-a-mirror.md) asks for:
 the board is a mirror, and it never advances a requirement on its own.
 
+## Two tiers: core and community
+
+`jira`, `azure` and `github` are **core** — maintained in this repository and
+exercised by the conformance kit on every CI run. Anything else is resolved by
+package name:
+
+```yaml
+# alm.config.yaml
+provider: npm:csda-alm-youtrack
+```
+
+```bash
+npm install --save-dev csda-alm-youtrack   # you install it; csda never does
+```
+
+The split is not a preference. Every connector is somebody else's API, changing
+on their schedule: carrying six here would tie this repository's release cadence
+to six vendors, and carrying none would make the tool useless to a team on
+YouTrack. So the port is the contract, and anyone can implement it.
+
+### What you are agreeing to
+
+**A community provider is code that runs in your process, and it is handed your
+ALM credential** — a connector cannot talk to a board without one. The trust
+model is exactly that of a devDependency, and it deserves the same scrutiny:
+read it, pin it, and treat an update like any other dependency update.
+
+Three things the CLI does so that it is no *worse* than a devDependency:
+
+- **Nothing is ever installed automatically.** The package must already be in
+  your `node_modules`. Editing a config file can never fetch and run new code —
+  adding a provider stays a dependency decision, made deliberately.
+- **The name must be a package name.** No paths, no URLs, no `..`. A committed
+  config file cannot be made to load an arbitrary file from your disk.
+- **The module is checked against the port before anything is called.** A
+  package that is not a provider, or one that claims a capability it has no
+  method for, fails with a diagnostic naming the problem — not with a stack
+  trace from inside `sync`, halfway through a run.
+
+### Writing one
+
+Export an object satisfying `AlmProvider` — `id`, `label`, `config`,
+`capabilities` and a `create(cfg, fetchImpl)` factory. Taking `fetchImpl` is
+what lets the conformance kit exercise a provider against recorded responses,
+with no network; the three core providers are worth reading as examples, and
+`scripts/alm/port.ts` documents every field and why it exists.
+
+Declare capabilities honestly. `capabilities.listIssues: false` is a supported
+answer — `azure` gives it — and it makes `alm pull` degrade with a message
+rather than fail at the first request.
+
+## Bringing work in: `alm pull`
+
+The request every team makes after seeing `sync` is the other direction — *the
+product owner opens the ticket, make it appear in the repo*. It does, as a
+**change**, never as a matrix row:
+
+```bash
+csda alm pull --label spec-driven            # one change per labelled issue
+csda alm pull --label spec-driven --dry-run  # see what it would open
+```
+
+Each pulled issue becomes `docs/specs/changes/alm-<key>/` with a proposal
+quoting the issue verbatim — not summarised, so a reviewer reads the reporter's
+words and not this tool's paraphrase — and a delta carrying one requirement.
+
+**The scenario is left unwritten, and `change validate` refuses the change until
+you write it.** That is the design, not a gap. A ticket has a title, a
+description and a status; it has no executable acceptance criterion. Generating
+Gherkin from prose would invent the one thing the spec exists to pin down, and
+the gate would then be checking fiction. The empty scenario marks the only work
+that cannot be automated — yours, or the `spec-author` role's via
+[`csda change author`](reviewing-changes.md).
+
+Pulling twice is safe: a change that already exists is skipped, so edits you
+have started are never overwritten.
+
+**Searching is a declared capability.** `github` and `jira` can filter by label;
+`azure` cannot, because Azure searches with WIQL — a different shape entirely —
+and says so rather than failing at the first request.
+
 ## Run
 
 ```bash

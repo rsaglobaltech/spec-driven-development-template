@@ -67,7 +67,7 @@ export function readAlmConfig(projectDir) {
   // Which keys are required is the provider's business, not this function's.
   // Asking every provider for the same four was how a Jira config with no
   // `user_env` passed here and failed at network time instead.
-  const provider = getProvider(cfg.provider);
+  const provider = getProvider(cfg.provider, projectDir);
   for (const key of provider.config.required) {
     if (!cfg[key]) {
       throw new Error(
@@ -92,8 +92,8 @@ export function readAlmConfig(projectDir) {
  *
  * @returns {object[]} diagnostics, empty when every key is read
  */
-export function lintAlmConfig(cfg) {
-  const provider = getProvider(cfg.provider);
+export function lintAlmConfig(cfg, projectDir?: string) {
+  const provider = getProvider(cfg.provider, projectDir);
   const read = new Set([
     ...CORE_CONFIG_KEYS,
     ...provider.config.required,

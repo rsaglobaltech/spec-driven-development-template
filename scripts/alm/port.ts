@@ -50,6 +50,17 @@ export interface AlmCapabilities {
   readonly create: boolean;
   readonly readStatus: boolean;
   readonly close: boolean;
+  /**
+   * Can it hand back the issues carrying a label?
+   *
+   * `alm pull` needs to read the board, which every other operation does not:
+   * create, read-status and close all address one issue whose key we already
+   * hold. Searching is where the providers stop resembling each other — Jira
+   * has JQL, GitHub has query parameters, Azure has WIQL — so it is declared
+   * rather than assumed, and a provider without it degrades with a message
+   * instead of failing at the first request.
+   */
+  readonly listIssues: boolean;
 }
 
 /** Which keys of `alm.config.yaml` a provider reads. */
@@ -73,12 +84,29 @@ export interface AlmConfig {
   [key: string]: unknown;
 }
 
-/** The narrow half: three async methods and no provider vocabulary. */
+/**
+ * One issue as `alm pull` reads it.
+ *
+ * Title and body and nothing else, because that is all a board holds. There is
+ * deliberately no field for an acceptance criterion: a ticket does not contain
+ * one, and inventing a place to put it would invite pretending otherwise
+ * (ADR-0021).
+ */
+export interface IssueSummary {
+  readonly key: string;
+  readonly title: string;
+  readonly body: string;
+  readonly url: string | null;
+}
+
+/** The narrow half: four async methods and no provider vocabulary. */
 export interface AlmClient {
   readonly capabilities: AlmCapabilities;
   createIssue(reqId: string, title: string): Promise<IssueRef>;
   getIssueStatus(issueKey: string): Promise<IssueStatus>;
   closeIssue(issueKey: string): Promise<void>;
+  /** Present only when `capabilities.listIssues` is true. */
+  listIssues?(label: string): Promise<IssueSummary[]>;
 }
 
 /** The subset of `fetch` the providers use, so tests can replay recordings. */
@@ -100,13 +128,19 @@ export interface AlmProvider {
 }
 
 /** Every capability name, for the checks that iterate them. */
-export const CAPABILITIES: readonly (keyof AlmCapabilities)[] = ["create", "readStatus", "close"];
+export const CAPABILITIES: readonly (keyof AlmCapabilities)[] = [
+  "create",
+  "readStatus",
+  "close",
+  "listIssues",
+];
 
 /** The client method each capability promises. */
 export const CAPABILITY_METHOD: Readonly<Record<keyof AlmCapabilities, keyof AlmClient>> = {
   create: "createIssue",
   readStatus: "getIssueStatus",
   close: "closeIssue",
+  listIssues: "listIssues",
 };
 
 /** Config keys the core itself reads, whatever the provider. */

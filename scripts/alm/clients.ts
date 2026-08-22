@@ -13,8 +13,8 @@ import type { AlmClient, AlmConfig, FetchLike } from "./port";
  * what an ALM cannot do — `syncRequirements` reports a requirement it cannot
  * close rather than throwing — and the client is the only thing it holds.
  */
-export function makeClient(cfg: AlmConfig, fetchImpl?: FetchLike): AlmClient {
-  return getProvider(cfg.provider).create(cfg, fetchImpl);
+export function makeClient(cfg: AlmConfig, fetchImpl?: FetchLike, projectDir?: string): AlmClient {
+  return getProvider(cfg.provider, projectDir).create(cfg, fetchImpl);
 }
 
 // The two provider-specific factories, kept under the names they have always

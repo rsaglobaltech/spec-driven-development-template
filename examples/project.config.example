@@ -8,5 +8,12 @@ API_STYLE="REST and GraphQL with DTO boundaries"
 TESTING="Quarkus Test, Testcontainers, JUnit 5, Cucumber"
 
 # Optional
+# How much architectural vocabulary to scaffold (ADR-0022). The gate is the
+# same for all three — this decides what `init` writes and what the agent's
+# rulebook demands, nothing more.
+#   minimal      scripts, landing pages, prototypes — no domain documents
+#   layered      most work: CRUD APIs, frontends, services — use-cases.md only
+#   tactical-ddd complex domains, several teams — the full domain model
+ARCHITECTURE="tactical-ddd"
 LANG="en"
 MODULES=""  # Optional. Example: "auth,dashboard,billing"

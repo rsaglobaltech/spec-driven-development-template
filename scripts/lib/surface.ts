@@ -199,6 +199,7 @@ export const SURFACE: Command[] = [
       },
       { name: "link" },
       { name: "status" },
+      { name: "pull", json: { key: "pulled", gate: false } },
     ],
   },
   {
@@ -302,6 +303,7 @@ export const SURFACE: Command[] = [
       { name: "validate", json: { key: "change", gate: true, args: "<id>" } },
       { name: "archive", json: { key: "archive", gate: true, args: "<id>" } },
       { name: "instructions", json: { key: "instructions", gate: false, args: "<artifact>" } },
+      { name: "author", json: { key: "change", gate: true, args: "<id>" } },
     ],
     help: {
       group: "core",

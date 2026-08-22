@@ -61,6 +61,7 @@ not run reports an `error` about itself.
 |---|---|---|
 | `csda doctor --json` | `doctor` | yes |
 | `csda status --json` | `status` | no |
+| `csda alm pull --json` | `pulled` | no |
 | `csda validate <dir> --json` | `validation` | yes |
 | `csda plan --json` | `plan` | no |
 | `csda report --json` | `report` | no |
@@ -71,6 +72,7 @@ not run reports an `error` about itself.
 | `csda change validate <id> --json` | `change` | yes |
 | `csda change archive <id> --json` | `archive` | yes |
 | `csda change instructions <artifact> --json` | `instructions` | no |
+| `csda change author <id> --json` | `change` | yes |
 | `csda specops diff --json` | `changes` | no |
 | `csda harness run --format json` | `results` | no |
 | `csda harness report --json` | `report` | no |
@@ -100,10 +102,16 @@ computed — `strict_tdd_*` covers `strict_tdd_1` through `strict_tdd_3`.
 | `use_cases_header_missing` | `scripts/validate_specs.ts` |
 | `archive_change_name_required` | `scripts/cli/commands/change/ChangeCommand.ts` |
 | `archive_spec_update_failed` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `author_agent_failed` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `author_agent_unset` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `author_needs_git` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `author_out_of_scope` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `author_tree_dirty` | `scripts/cli/commands/change/ChangeCommand.ts` |
 | `change_error` | `scripts/cli/commands/change/ChangeCommand.ts` |
 | `change_exists` | `scripts/cli/commands/change/ChangeCommand.ts` |
 | `change_id_required` | `scripts/cli/commands/change/ChangeCommand.ts` |
 | `change_not_found` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `change_required` | `scripts/cli/commands/change/ChangeCommand.ts` |
 | `invalid_change_id` | `scripts/cli/commands/change/ChangeCommand.ts` |
 | `missing_proposal` | `packages/core/src/application/ValidateChangeUseCase.ts` |
 | `no_deltas` | `packages/core/src/application/ValidateChangeUseCase.ts` |
@@ -115,6 +123,7 @@ computed — `strict_tdd_*` covers `strict_tdd_1` through `strict_tdd_3`.
 | `requirement_already_exists` | `packages/core/src/domain/DeltaSpec.ts` |
 | `requirement_without_scenario` | `packages/core/src/domain/DeltaSpec.ts` |
 | `scenario_not_gherkin` | `packages/core/src/domain/DeltaSpec.ts` |
+| `scenario_steps_unwritten` | `packages/core/src/domain/DeltaSpec.ts` |
 | `scenario_without_steps` | `packages/core/src/domain/DeltaSpec.ts` |
 | `unknown_requirement` | `packages/core/src/domain/DeltaSpec.ts` |
 | `archive_capability_retired` | `packages/core/src/application/ArchiveChangeUseCase.ts` |

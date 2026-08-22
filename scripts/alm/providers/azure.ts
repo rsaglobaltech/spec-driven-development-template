@@ -28,7 +28,16 @@ const API_VERSION = "api-version=7.1";
  * which is why this provider, and only this one, declares `done_state`.
  */
 class AzureClient extends HttpAlmClient {
-  readonly capabilities: AlmCapabilities = { create: true, readStatus: true, close: true };
+  readonly capabilities: AlmCapabilities = {
+    create: true,
+    readStatus: true,
+    close: true,
+    // Azure searches with WIQL — a POST carrying a query language, then a
+    // second request to hydrate each id. That is a different shape from the
+    // other two, and declaring `false` degrades `alm pull` with a message
+    // rather than pretending and failing at the first request.
+    listIssues: false,
+  };
 
   private readonly authorization: string;
   private readonly projectKey: string;
@@ -99,7 +108,7 @@ export const azureProvider: AlmProvider = {
     required: ["base_url", "project_key", "token_env"],
     optional: ["issue_type", "done_state"],
   },
-  capabilities: { create: true, readStatus: true, close: true },
+  capabilities: { create: true, readStatus: true, close: true, listIssues: false },
   create: (cfg, fetchImpl) => new AzureClient(cfg, fetchImpl),
 };
 

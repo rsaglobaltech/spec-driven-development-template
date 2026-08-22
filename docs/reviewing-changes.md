@@ -113,6 +113,40 @@ Several are separated by commas — `depends=REQ-014, REQ-016`. What it changes:
 Declaring nothing means no dependencies, so a project that never writes a
 `depends=` behaves exactly as it did before.
 
+### 3b. Or have an agent draft it
+
+```bash
+csda change author add-dynamic-pricing --artifact proposal --agent "claude -p < {prompt_file}"
+csda change author add-dynamic-pricing --artifact specs   --agent-profile local-claude
+```
+
+This is the `spec-author` role of the multi-agent harness, and it is a separate
+loop from `csda harness run` on purpose. That loop is built around a
+requirement — a worktree per REQ, a branch named for it, a gate of
+`validate --strict-tdd` plus your tests. A change has no requirement yet;
+writing one is the job. So authoring has its own scope and its own gate.
+
+The prompt is not a second description of what an artefact is for: it is
+`csda change instructions` rendered for an agent, so the rules, the reserved
+REQ range and the template are the same ones a person is shown.
+
+**The scope is enforced, not requested.** The agent may write inside
+`docs/specs/changes/<id>/` and nowhere else. Anything it writes elsewhere is
+put back before you see it: a file it created is deleted, a file it modified is
+restored from git. An agent asked to *describe* a change, and able to edit the
+capability spec it is describing, can make the change unnecessary instead of
+proposing it — quietly, in a diff that looks like the work. `csda change
+archive` is what moves a delta into a capability spec, after a human has read
+it.
+
+**It refuses to run on a dirty tree**, and that is not ceremony. Enforcing the
+scope means reverting what the agent wrote outside it, and on a dirty tree that
+cannot be told apart from what you were in the middle of. Commit or stash
+first, and the revert can only ever discard the agent's own work.
+
+`--dry-run` prints the prompt and writes nothing, which is the cheap way to see
+what an agent would be asked before paying for it.
+
 ### 4. Validate
 
 ```bash

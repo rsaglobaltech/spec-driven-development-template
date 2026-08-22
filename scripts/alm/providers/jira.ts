@@ -6,6 +6,7 @@ import type {
   FetchLike,
   IssueRef,
   IssueStatus,
+  IssueSummary,
 } from "../port";
 
 /** The slices of Jira's REST responses this connector reads. */
@@ -22,6 +23,12 @@ interface JiraTransition {
 interface JiraTransitions {
   readonly transitions?: readonly JiraTransition[];
 }
+interface JiraSearchResult {
+  readonly issues?: readonly {
+    readonly key: string;
+    readonly fields?: { readonly summary?: string; readonly description?: unknown };
+  }[];
+}
 
 /**
  * Jira Cloud.
@@ -33,7 +40,12 @@ interface JiraTransitions {
  * `done_state` — configuring one would be read by nobody.
  */
 class JiraClient extends HttpAlmClient {
-  readonly capabilities: AlmCapabilities = { create: true, readStatus: true, close: true };
+  readonly capabilities: AlmCapabilities = {
+    create: true,
+    readStatus: true,
+    close: true,
+    listIssues: true,
+  };
 
   private readonly headers: Readonly<Record<string, string>>;
   private readonly projectKey: string;
@@ -82,6 +94,31 @@ class JiraClient extends HttpAlmClient {
     return issue.fields?.status?.statusCategory?.key === "done" ? "done" : "open";
   }
 
+  /**
+   * Open issues carrying a label, via JQL.
+   *
+   * The project is pinned as well as the label: a label is global in Jira, so
+   * searching on it alone reaches across every project the credential can see.
+   *
+   * Jira Cloud returns `description` as Atlassian Document Format — a document
+   * tree, not a string — so the text is flattened out of it. A body that does
+   * not flatten comes back empty rather than as `[object Object]`.
+   */
+  async listIssues(label: string): Promise<IssueSummary[]> {
+    const jql = `project = "${this.projectKey}" AND labels = "${label}" AND statusCategory != Done`;
+    const result = await this.requestJson<JiraSearchResult>(
+      `/rest/api/3/search?jql=${encodeURIComponent(jql)}&fields=summary,description&maxResults=100`,
+      `Jira search for issues labelled ${label}`,
+      { headers: this.headers }
+    );
+    return (result.issues ?? []).map((issue) => ({
+      key: issue.key,
+      title: String(issue.fields?.summary ?? ""),
+      body: flattenAdf(issue.fields?.description),
+      url: `${this.baseUrl}/browse/${issue.key}`,
+    }));
+  }
+
   async closeIssue(issueKey: string): Promise<void> {
     const transition = await this.findDoneTransition(issueKey);
     await this.request(`/rest/api/3/issue/${issueKey}/transitions`, `Jira transition ${issueKey}`, {
@@ -106,6 +143,25 @@ class JiraClient extends HttpAlmClient {
   }
 }
 
+/**
+ * The plain text inside an Atlassian Document Format value.
+ *
+ * ADF nests content nodes arbitrarily; only the `text` leaves matter here, and
+ * a shape this does not recognise yields "" rather than a stringified object.
+ */
+function flattenAdf(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  const node = value as { text?: unknown; content?: unknown };
+  if (typeof node.text === "string") return node.text;
+  if (!Array.isArray(node.content)) return "";
+  return node.content
+    .map((child) => flattenAdf(child))
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
 export const jiraProvider: AlmProvider = {
   id: "jira",
   label: "Jira Cloud",
@@ -115,7 +171,7 @@ export const jiraProvider: AlmProvider = {
     // variable in the config is better, not compulsory.
     optional: ["user_env", "issue_type"],
   },
-  capabilities: { create: true, readStatus: true, close: true },
+  capabilities: { create: true, readStatus: true, close: true, listIssues: true },
   create: (cfg, fetchImpl) => new JiraClient(cfg, fetchImpl),
 };
 

@@ -11,6 +11,24 @@ export const VALID_SECTIONS = [
 export const RFC2119 = /\b(SHALL|MUST|SHOULD|MAY|DEBE|DEBERÁ|DEBERA)\b/;
 export const GHERKIN_STEP = /^\s*(GIVEN|WHEN|THEN|AND|BUT|DADO|CUANDO|ENTONCES|Y)\b/i;
 
+/**
+ * A step that names a keyword and then says nothing.
+ *
+ * `GIVEN <!-- the precondition -->` and `WHEN TODO` are Gherkin by shape and
+ * empty by content. They are what a generator writes when it has no acceptance
+ * criterion to offer — `alm pull` writes them deliberately — and what a person
+ * writes when they mean to come back later.
+ */
+export function isPlaceholderStep(step: string): boolean {
+  const withoutComments = String(step).replace(/<!--[\s\S]*?-->/g, " ");
+  // The parser hands steps over without their bullet, but this is exported and
+  // a caller may well pass the raw line, so both forms have to read the same.
+  const withoutBullet = withoutComments.replace(/^\s*[-*]\s*/, "");
+  const body = withoutBullet.replace(GHERKIN_STEP, "").trim();
+  if (body === "") return true;
+  return /^(todo|tbd|\.\.\.|…|<[^>]*>)$/i.test(body);
+}
+
 export class DeltaSpec {
   public static validate(deltaSource: string, opts?: any) {
     const o = opts || {};
@@ -96,6 +114,29 @@ export class DeltaSpec {
               target: sc.name,
               fix: "Add `- GIVEN …`, `- WHEN …`, `- THEN …` bullets under the scenario.",
             })
+          );
+        } else if (sc.steps.every((s: string) => isPlaceholderStep(s))) {
+          // Every step is a keyword with nothing behind it — `GIVEN <!-- the
+          // precondition -->`, or a bare `WHEN TODO`. These pass the checks
+          // above because they *are* Gherkin, and that is the problem: the
+          // scenario satisfies the gate without describing any behaviour, which
+          // turns the gate from a check into a formality.
+          //
+          // ADR-0021 rejected exactly this shape when it refused to import
+          // tickets with placeholder scenarios. `alm pull` writes deltas in
+          // precisely this state on purpose, so the gate has to be the thing
+          // that keeps them from being archived.
+          diags.push(
+            error(
+              "scenario_steps_unwritten",
+              `Scenario "${sc.name}" has placeholder steps, so it asserts nothing.`,
+              {
+                file,
+                line: sc.line,
+                target: sc.name,
+                fix: "Write what actually has to hold: `- GIVEN a customer on the flat tariff`, not `- GIVEN <!-- the precondition -->`.",
+              }
+            )
           );
         } else if (!sc.steps.some((s: string) => GHERKIN_STEP.test(s))) {
           diags.push(

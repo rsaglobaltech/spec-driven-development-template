@@ -35,6 +35,7 @@ Each command takes `--json`. See [the agent contract](specs/agent-contract.md).
 | `csda change new <id> [--lite\|--full] [--schema <name>]` | Open a change. Reserves a `REQ` range so two changes in flight never collide. |
 | `csda change status` | Which artefact to write next, in dependency order. |
 | `csda change instructions <artifact>` | The template, the rules the validator enforces, the project's stack, and what writing it unblocks. |
+| `csda change author <id>` | Have an agent write one artefact, confined to the change directory and gated by `change validate`. |
 | `csda change validate` | Check the deltas. Runs inside `csda validate` too. |
 | `csda change archive <id>` | Merge the delta into the specs, write the matrix rows, materialise the feature files. `--dry-run` first. |
 
@@ -73,7 +74,7 @@ Each command takes `--json`. See [the agent contract](specs/agent-contract.md).
 
 | Command | What it does |
 | --- | --- |
-| `csda agents init [--tool <names>]` | Slash commands and instruction files for Claude Code, Cursor, Copilot, Windsurf, Aider, Gemini, Cline and Codex. |
+| `csda agents init [--tool <names>]` | Slash commands and instruction files for Claude Code, Cursor, Copilot, Windsurf, Aider, Gemini, Cline, Codex and Antigravity. |
 | `csda update` | Refresh those generated files after a CLI upgrade, three-way merging your edits. Conflicts are reported, never resolved silently. |
 
 → [Agents](agents.md)
