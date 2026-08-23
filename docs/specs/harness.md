@@ -280,6 +280,59 @@ signal is counterfeit and a green run would prove nothing (H14).
 settle a disagreement settles it by guessing, and the guess arrives wearing
 a green gate.
 
+## An agent profile per requirement
+
+`agent_profile` resolved one profile for the whole run, so an infrastructure
+requirement and a domain one got the same prompt prefix and the same allowed
+tools — and the allowances had to be the greatest common denominator of
+everything in the plan.
+
+A profile that declares `match:` selects itself instead:
+
+```yaml
+profiles:
+  infra:
+    agent: "claude -p --allowedTools Read Write Edit 'Bash(terraform:*)' < {prompt_file}"
+    match: { bounded_context: Platform }
+  domain:
+    agent: "claude -p --allowedTools Read Write Edit 'Bash(npm:*)' < {prompt_file}"
+    match: { bounded_context: "*" }
+```
+
+First match wins, so order in the file is the priority. No match uses the
+run's default — that is not an error. A profile with **no** `match:` is not
+a rule: it is chosen by name through `agent_profile`, and treating an absent
+`match:` as "matches everything" would make the first profile in the file
+swallow every requirement the moment somebody added a rule to another.
+
+Matchable keys are `bounded_context`, `requirement`, `feature` and
+`category`. `*` matches any value; an unknown key matches **nothing** rather
+than being ignored, so `bounded_contex:` — one letter short — cannot quietly
+become a rule that matches everything. A role named by `attempt_profiles`
+still wins for its own step: a step that says which role it is has already
+answered the question.
+
+### Where the bounded context comes from
+
+It is derived, not declared. Measured across the eleven curated packs: **no
+scenario names an aggregate** — not directly, and not through its use case —
+so matching on the bounded context would have matched nothing and used the
+default every time.
+
+The link exists one step further round. Use case → command → aggregate →
+bounded context resolves for **all twenty-seven** scenarios, so `csda expand`
+follows it and records the result beside the matrix, by name rather than by
+id:
+
+```
+<!-- csda:trace REQ-002 depends=REQ-001 context=Payments -->
+```
+
+`Payments` is what a person writes in `match:`; `BC-002` is an identifier
+they never chose. Same line as B1's `depends=`, because a trace line carries
+keys and a second regular expression would have agreed with the first only
+by luck.
+
 ## A ceiling on the run
 
 `max_attempts` was the only limit. Fourteen requirements × 3 attempts ×

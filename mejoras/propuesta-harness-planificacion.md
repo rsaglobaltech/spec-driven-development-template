@@ -673,7 +673,7 @@ empieza a ciegas.
 
 ## D. Contexto del agente
 
-### D1 · Perfil por requisito, no por ejecución
+### D1 · Perfil por requisito, no por ejecución — **hecho (2026-08-23)**
 
 **Hoy.** `.harness/profiles.yaml` existe y `agent_profile` resuelve **uno** para
 toda la ejecución (`scripts/harness/config.ts:118-141`). Un requisito de
@@ -703,6 +703,61 @@ el máximo común denominador de todos los requisitos. Un requisito de dominio n
 necesita `Bash(terraform:*)`.
 
 **Coste.** Bajo-medio.
+
+### El criterio no existía, y medirlo lo demostró
+
+La propuesta dice «el bounded context —que ya está en el modelo— como criterio
+natural». Está en el modelo del **pack**; no era alcanzable desde un requisito.
+Medido sobre los once packs curados:
+
+```
+escenarios: 27 | con aggregate propio: 0 | via use case: 0
+packs: 11 | con bounded_contexts declarados: 10
+```
+
+Diez packs declaran contextos y **ningún escenario** enlaza con un agregado, ni
+directamente ni por su caso de uso. Emparejar por ese criterio no habría casado
+nunca: caída al perfil por defecto siempre, con la configuración escrita y sin
+efecto. Una función que parece funcionar y no hace nada — la familia de `H14`
+otra vez.
+
+El enlace sí existe una vuelta más allá: **caso de uso → comando → agregado →
+contexto** resuelve para **los 27**. Así que `expand` lo deriva y lo escribe
+junto a la matriz, reutilizando la línea `csda:trace` que `B1` acababa de
+introducir:
+
+```
+<!-- csda:trace REQ-002 depends=REQ-001 context=Payments -->
+```
+
+Por **nombre**, no por id: `Payments` es lo que una persona escribe en `match:`;
+`BC-002` es un identificador que nunca eligió.
+
+### Decisiones que merecen constar
+
+- **Un perfil sin `match:` no es una regla.** Se elige por nombre con
+  `agent_profile`. Tratar la ausencia como «casa con todo» haría que el primer
+  perfil del fichero se tragara todos los requisitos en cuanto alguien añadiera
+  una regla a otro.
+- **Una clave desconocida no casa nada**, en vez de ignorarse: `bounded_contex:`
+  —una letra de menos— no puede convertirse en silencio en una regla que casa
+  con todo.
+- **`*` significa «cualquier contexto», no «sin contexto».** Un requisito que la
+  herramienta no supo situar cae al perfil por defecto, en lugar de recibir las
+  herramientas del último perfil del fichero.
+- **La escalera de roles gana en su paso.** Si `attempt_profiles` nombra un
+  perfil para *ese* paso, el paso ya ha respondido a la pregunta.
+
+### El mismo fallo silencioso, por tercera vez
+
+Las reglas viven en `.harness/profiles.yaml`, pero se leían **a través** del
+lector de `harness.config.yaml`. Un proyecto con perfiles y sin config —que es
+exactamente el que se usa para probar— no veía ninguna regla, y el emparejado
+sencillamente no ocurría, sin decir nada.
+
+Es la tercera vez que aparece este patrón: pasó con `cost_per_run_hint` en `C1`
+y con los hints del informe. Ahora hay test que ejecuta el harness en un
+proyecto **sin** `harness.config.yaml` y exige que el emparejado funcione.
 
 ### D2 · Precedentes del repositorio en el prompt
 

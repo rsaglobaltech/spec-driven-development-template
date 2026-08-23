@@ -128,7 +128,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | ~~C1~~ | **Hecho (2026-08-22).** El paralelismo con niveles ya existía; faltaba el techo: `--budget-seconds`, `--max-requirements` y `cost_per_run_hint` por perfil. Se pregunta **antes de empezar** cada requisito, nunca a mitad. Agotarlo no es error: parada limpia, lo no empezado se nombra, y el libro se escribe igual | Medio |
 | ~~C2~~ | **Hecho (2026-08-22).** Reescoped: `E1-04` ya había puesto el libro y las dos métricas de coste. Se añadió lo que faltaba — dónde falla la puerta (por intento, no por veredicto), requisitos que agotan el presupuesto, serie temporal, y `--mark-false-failure` con `--reason` obligatorio. La tasa de fallo real queda en `—` hasta que alguien marca: no es derivable | Medio-bajo |
 | ~~C3~~ | **Hecho (2026-08-22).** `--resume` reengancha rama y worktree superviviente. La fuente **no** es el libro de ejecuciones —solo se escribe al terminar, y esto es para las que no terminan (medido con `kill -9`)— sino el archivo de prompts. Distingue cortado de agotado por el commit `wip(…): FAILED the gate` | Bajo |
-| D1  | Perfil de agente por requisito, no por ejecución                        | Bajo-medio |
+| ~~D1~~ | **Hecho (2026-08-23).** Un perfil con `match:` se elige solo; primera coincidencia gana. El criterio de la propuesta —el bounded context— **no era alcanzable** desde un requisito: 0 de 27 escenarios enlazan con un agregado. `expand` lo deriva ahora por caso de uso → comando → agregado y lo escribe junto a la matriz | Bajo-medio |
 | D2  | Precedentes del repositorio en el prompt                                | Bajo       |
 | D3  | Verificación adversarial opcional                                       | Medio      |
 | ~~E1~~ | **Decidido y hecho (2026-08-23).** Opción B: el esquema describe el formato que existe, y los 11 packs enviados se validan contra él en la suite. Enmienda a ADR-0020. Destapó dos defectos más, arreglados aparte | Decisión |
@@ -195,8 +195,8 @@ parser dijera la verdad, después extender su alcance.
 
 **Tanda 2 — CERRADA (2026-08-22).** ~~`C3`~~ → ~~`C2`~~ → ~~`B2`~~ → ~~`F5`~~ → ~~`C1`~~.
 
-**Tanda 3 en curso:** ~~`E1`~~ ~~`B1`~~ **(hechos, 2026-08-23)** → `D1` → `F4`.
-**Vamos por `D1`.**
+**Tanda 3 en curso:** ~~`E1`~~ ~~`B1`~~ ~~`D1`~~ **(hechos, 2026-08-23)** → `F4`.
+**Vamos por `F4`.**
 
 **Tanda 2 — que el bucle rinda desatendido.** `C3` → `C2` → `B2` → `F5` → `C1`.
 Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.

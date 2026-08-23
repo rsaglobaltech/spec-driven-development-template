@@ -33,7 +33,9 @@ import { buildPrompt } from "../../../harness/prompt";
 import { analyseGherkinSource } from "../../../../packages/core/src/domain/GherkinQuality";
 import {
   readHarnessConfig,
+  readProfileRules,
   resolveHarnessSettings,
+  resolveProfileAgent,
 } from "../../../../packages/core/src/infrastructure/HarnessConfigFile";
 import { checkWriteScope, parseGitStatus } from "../../../../packages/core/src/domain/WriteScope";
 import { checkDeclaredArtifacts } from "../../../../packages/core/src/domain/DeclaredArtifacts";
@@ -42,6 +44,8 @@ import {
   resumePoint,
 } from "../../../../packages/core/src/domain/ResumeState";
 import { requirementReadiness } from "../../../../packages/core/src/domain/RequirementReadiness";
+import { selectProfile } from "../../../../packages/core/src/domain/ProfileMatch";
+import { parseMatrixContexts } from "../../../../packages/core/src/domain/TraceabilityFormat";
 import { RequirementPlan } from "../../../../packages/core/src/domain/RequirementPlan";
 import { budgetVerdict, hasBudget } from "../../../../packages/core/src/domain/RunBudget";
 import {
@@ -625,14 +629,17 @@ function attemptRequirement(req, ctx) {
         fs.writeFileSync(promptFile, prompt, "utf8");
         archivePrompt(worktreeDir, req.requirement, attempt, step, prompt);
 
-        const agentCommand = step.profile
-          ? settings.profileAgents[step.profile] || settings.agent
+        // D1: a profile chosen by matching this requirement, when one matches.
+        // The role ladder still wins — `attempt_profiles` names a profile for
+        // *this step*, and a step that says which role it is has already
+        // answered the question.
+        const profile = step.profile || ctx.matchedProfile || null;
+        const agentCommand = profile
+          ? settings.profileAgents[profile] || settings.agent
           : settings.agent;
         const command = substituteAgentCommand(agentCommand, promptFile);
-        if (step.profile) {
-          info(
-            `${req.requirement}: ${step.advisory ? "reviewing" : "running"} as '${step.profile}'`
-          );
+        if (profile) {
+          info(`${req.requirement}: ${step.advisory ? "reviewing" : "running"} as '${profile}'`);
         }
         const agentStart = Date.now();
         const agent = spawnSync(command, {
@@ -646,7 +653,7 @@ function attemptRequirement(req, ctx) {
         // Node reports a timeout as an errno-carrying Error; the base `Error`
         // type the spawnSync signature declares does not have `code`.
         agentMs += Date.now() - agentStart;
-        profilesUsed.push(step.profile ?? (step.advisory ? "reviewer" : "agent"));
+        profilesUsed.push(profile ?? (step.advisory ? "reviewer" : "agent"));
 
         fs.rmSync(promptFile, { force: true });
         const agentError = agent.error as NodeJS.ErrnoException | undefined;
@@ -1162,9 +1169,40 @@ function readinessOf(projectDir, req) {
   };
 }
 
+/** The settings a context carries, tolerating the worker path's shape. */
+function settingsOf(ctx: any) {
+  return (ctx && ctx.settings) || {};
+}
+
+/**
+ * The bounded context a requirement belongs to, as `expand` wrote it (D1).
+ *
+ * Read from the matrix rather than the pack: a project may install several
+ * packs, and the matrix is its own record of what it has.
+ */
+function contextOfRequirement(projectDir: string, requirement: string): string {
+  const matrix = path.join(projectDir, "docs", "specs", "traceability.md");
+  try {
+    return parseMatrixContexts(fs.readFileSync(matrix, "utf8"))[requirement] || "";
+  } catch {
+    return "";
+  }
+}
+
 function processRequirement(req, ctx) {
   const { projectDir, baseRef, keepWorktrees, force } = ctx;
   const branch = `harness/${req.requirement}`;
+
+  // D1: which profile this requirement matches, resolved once. The bounded
+  // context comes from the matrix, where `expand` derived it — see
+  // `boundedContextOf`.
+  const matchedProfile = selectProfile(settingsOf(ctx).profileRules || [], {
+    requirement: req.requirement,
+    boundedContext: contextOfRequirement(projectDir, req.requirement),
+    featureFile: featureFilePath(req),
+    category: req.category,
+  });
+  if (matchedProfile) info(`${req.requirement}: profile '${matchedProfile}' matched`);
 
   const readiness = readinessOf(projectDir, req);
   const unrunnable = readiness.blockers.find((b) => b.code === "requirement_scenario_unrunnable");
@@ -1265,7 +1303,12 @@ function processRequirement(req, ctx) {
     if (resumeAt && resumeAt.attempt > 1) {
       info(`${req.requirement}: resuming at attempt ${resumeAt.attempt}`);
     }
-    const outcome = attemptRequirement(req, { ...ctx, worktreeDir: dir, resumeAt });
+    const outcome = attemptRequirement(req, {
+      ...ctx,
+      worktreeDir: dir,
+      resumeAt,
+      matchedProfile,
+    });
     const result = {
       requirement: req.requirement,
       category: req.category,
@@ -1772,6 +1815,23 @@ export class RunCommand extends BaseCommand {
 
       const fileConfig = readHarnessConfig(projectDir);
       const settings = resolveHarnessSettings(fileConfig, args);
+
+      // D1: profile match rules live in `.harness/profiles.yaml`, and a project
+      // may declare profiles without ever writing a `harness.config.yaml`.
+      // Reaching them through the config reader made them silently absent
+      // there — the same gap the cost hints had, found the same way.
+      if (settings.profileRules.length === 0) {
+        const rules = readProfileRules(projectDir);
+        if (rules.length > 0) {
+          settings.profileRules = rules;
+          settings.profileAgents = { ...settings.profileAgents };
+          for (const rule of rules) {
+            if (!settings.profileAgents[rule.name]) {
+              settings.profileAgents[rule.name] = resolveProfileAgent(projectDir, rule.name);
+            }
+          }
+        }
+      }
 
       // A ladder of per-attempt profiles configures agents just as much as a
       // single `agent:` does, so a project that declares one is configured.

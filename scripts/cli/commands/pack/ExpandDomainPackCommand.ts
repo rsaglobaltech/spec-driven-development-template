@@ -318,6 +318,50 @@ export function renderDomainDocs(pack: any, projectDir: string, dryRun: boolean)
   }
 }
 
+/**
+ * The bounded context a scenario belongs to, worked out from the pack model.
+ *
+ * A scenario rarely names an aggregate — none of the twenty-seven across the
+ * curated packs does — but it names a use case, the use case names a command,
+ * and an aggregate lists the commands it owns. That chain resolves for all of
+ * them, which is what makes matching an agent profile on bounded context (D1)
+ * useful rather than a rule that never fires.
+ *
+ * Returns "" when the pack does not carry enough to place it, which is a fact
+ * about the pack rather than an error.
+ */
+function boundedContextOf(pack: any, aggregateRef: any, commandRef: any, queryRef: any): string {
+  const aggregates = asArray(pack.aggregates);
+  const contexts = asArray(pack.bounded_contexts);
+
+  // The **name**, not the id. `match: { bounded_context: Invoicing }` is what a
+  // person writes; `BC-001` is an identifier they never chose and would have to
+  // look up. Falls back to whatever the aggregate points at when the context is
+  // not declared.
+  const contextOf = (aggregate: any) => {
+    const ref = String((aggregate && (aggregate.bounded_context || aggregate.context)) || "");
+    if (!ref) return "";
+    const declared = contexts.find((c: any) => c && (c.id === ref || c.name === ref));
+    return String((declared && declared.name) || ref);
+  };
+
+  const named = aggregates.find(
+    (a: any) => a && (a.id === aggregateRef || a.name === aggregateRef)
+  );
+  if (named) return contextOf(named);
+
+  for (const ref of [commandRef, queryRef]) {
+    if (!ref) continue;
+    const owner = aggregates.find((a: any) =>
+      asArray(a && a.commands)
+        .concat(asArray(a && a.queries))
+        .some((c: any) => String(c) === String(ref))
+    );
+    if (owner) return contextOf(owner);
+  }
+  return "";
+}
+
 export function renderTraceability(
   pack: any,
   projectDir: string,
@@ -388,10 +432,18 @@ export function renderTraceability(
       // the harness can see it. The pack is where a pack author declares it;
       // the matrix is where the project reads it back.
       const requirementItem = requirements.get(requirementRef);
+
+      // D1: which bounded context this requirement belongs to, so a per-context
+      // agent profile can match it. Derived rather than declared — measured
+      // across the curated packs, no scenario links to an aggregate directly
+      // (0 of 27), but use case → command → aggregate → bounded context
+      // resolves for every one of them.
+      const contextRef = boundedContextOf(pack, aggregateRef, commandRef, queryRef);
       const row: any = {
         dependsOn: asArray(requirementItem && requirementItem.depends_on).map((d: any) =>
           String(d)
         ),
+        context: contextRef,
         requirement: resolveLabel(requirements, requirementRef, requirementRef || "-"),
         scenarioId: scenario.id,
         featureFile: featureCell,

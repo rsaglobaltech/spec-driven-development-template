@@ -21,7 +21,7 @@ import {
   buildTraceabilityMarkdown,
   parseMatrixDependencies,
   parseTraceabilityRows,
-  renderMatrixDependencies,
+  renderMatrixTraceLines,
 } from "../../src/domain/TraceabilityFormat";
 
 const row = (requirement: string, extra: any = {}) => ({
@@ -77,11 +77,11 @@ test("the rows still parse — the annotation is not mistaken for one", () => {
 });
 
 test("several dependencies read back in order, and blank ones are dropped", () => {
-  assert.deepEqual(renderMatrixDependencies({ "REQ-003": ["REQ-001", "REQ-002"] }), [
+  assert.deepEqual(renderMatrixTraceLines({ "REQ-003": { dependsOn: ["REQ-001", "REQ-002"] } }), [
     "",
     "<!-- csda:trace REQ-003 depends=REQ-001,REQ-002 -->",
   ]);
-  assert.deepEqual(renderMatrixDependencies({ "REQ-003": [] }), []);
+  assert.deepEqual(renderMatrixTraceLines({ "REQ-003": { dependsOn: [] } }), []);
   assert.deepEqual(
     parseMatrixDependencies("<!-- csda:trace REQ-003 depends=REQ-001, REQ-002 -->"),
     { "REQ-003": ["REQ-001", "REQ-002"] }

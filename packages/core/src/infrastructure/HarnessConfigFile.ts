@@ -166,6 +166,19 @@ export function readHarnessConfig(projectDir) {
   const hints = readCostHints(projectDir);
   if (Object.keys(hints).length > 0) config.costPerRunHint = hints;
 
+  // D1: a profile selected by `match:` still needs its command resolved, and
+  // nothing names it in `harness.config.yaml` — that is the point of matching.
+  const rules = readProfileRules(projectDir);
+  if (rules.length > 0) {
+    config.profileRules = rules;
+    config.profileAgents = { ...(config.profileAgents || {}) };
+    for (const rule of rules) {
+      if (!config.profileAgents[rule.name]) {
+        config.profileAgents[rule.name] = resolveProfileAgent(projectDir, rule.name);
+      }
+    }
+  }
+
   // Anything left is a key nobody reads. Silently ignoring it is how the HIE
   // pilot ended up configured against a feature that did not exist: the file
   // named a profile, the CLI never looked, and `harness run` reported no agent
@@ -186,7 +199,7 @@ export function readHarnessConfig(projectDir) {
 /**
  * Resolve a named profile from `.harness/profiles.yaml` to its agent command.
  */
-function resolveProfileAgent(projectDir, profileName) {
+export function resolveProfileAgent(projectDir, profileName) {
   const profilesPath = path.join(projectDir, ".harness", "profiles.yaml");
   if (!fs.existsSync(profilesPath)) {
     throw new Error(
@@ -239,6 +252,7 @@ export function resolveHarnessSettings(
     allowPaths: file.allowPaths || [],
     messageReport: file.messageReport || "",
     costPerRunHint: file.costPerRunHint || {},
+    profileRules: file.profileRules || [],
   };
 }
 
@@ -267,6 +281,38 @@ function asStringList(value, key: string): string[] {
  * a harness config at all. Reaching them through the config reader made the
  * estimate silently absent there.
  */
+/**
+ * The `match:` rules profiles declare, in file order (D1).
+ *
+ * Order is the priority — first match wins — so the file's order is preserved
+ * rather than sorted. A profile with no `match:` is not a rule and does not
+ * appear here: it is selected by name through `agent_profile`, and treating an
+ * absent `match:` as "matches everything" would make the first profile in the
+ * file swallow every requirement the moment somebody adds a rule to another.
+ */
+export function readProfileRules(
+  projectDir
+): Array<{ name: string; match: Record<string, string> }> {
+  const profilesPath = path.join(projectDir, ".harness", "profiles.yaml");
+  if (!fs.existsSync(profilesPath)) return [];
+  let doc;
+  try {
+    doc = parseYamlLite(fs.readFileSync(profilesPath, "utf8")) || {};
+  } catch {
+    return [];
+  }
+
+  const rules: Array<{ name: string; match: Record<string, string> }> = [];
+  for (const [name, profile] of Object.entries((doc.profiles || {}) as Record<string, any>)) {
+    const match = profile && profile.match;
+    if (!match || typeof match !== "object" || Array.isArray(match)) continue;
+    const criteria: Record<string, string> = {};
+    for (const [key, value] of Object.entries(match)) criteria[key] = String(value);
+    if (Object.keys(criteria).length > 0) rules.push({ name, match: criteria });
+  }
+  return rules;
+}
+
 export function readCostHints(projectDir): Record<string, number> {
   const profilesPath = path.join(projectDir, ".harness", "profiles.yaml");
   if (!fs.existsSync(profilesPath)) return {};

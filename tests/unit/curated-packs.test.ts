@@ -225,7 +225,9 @@ test("a pack's depends_on reaches plan and stacks the harness branch", () => {
 
     // The matrix carries it, beneath the table where a rebuild will not lose it.
     const matrix = fs.readFileSync(path.join(projectDir, "docs/specs/traceability.md"), "utf8");
-    assert.match(matrix, /<!-- csda:trace REQ-002 depends=REQ-001 -->/, matrix.slice(-400));
+    // The key, not the whole line: a trace line carries several keys (D1 added
+    // `context=`), and pinning the exact text would break every time one grew.
+    assert.match(matrix, /<!-- csda:trace REQ-002 [^>]*depends=REQ-001\b/, matrix.slice(-400));
 
     // `plan` reads it, and orders REQ-002 behind REQ-001.
     const planned = spawnSync(
@@ -274,6 +276,112 @@ test("a pack's depends_on reaches plan and stacks the harness branch", () => {
       /REQ-002: it depends on REQ-001, which is not done/,
       "a stale blocker would skip work the scheduler had correctly unblocked"
     );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+// ── An agent profile per requirement, not per run (D1) ───────────────────────
+//
+// `agent_profile` resolved one profile for the whole run, so the allowed tools
+// had to be the greatest common denominator of everything in the plan.
+//
+// The criterion took measuring. The proposal named the bounded context, "which
+// is already in the model" — it is in the *pack* model and was not reachable
+// from a requirement: **zero of the twenty-seven** scenarios across the curated
+// packs link to an aggregate. Matching on it would have matched nothing and
+// used the default every time. Use case → command → aggregate → bounded context
+// resolves for all twenty-seven, so `expand` derives it and writes it.
+
+test("a requirement's bounded context is derived and matched to a profile", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-profilematch-"));
+  try {
+    const init = spawnSync(
+      process.execPath,
+      [CLI, "init", "--yes", "--no-sample-req", "--out", parent, "--no-git"],
+      { encoding: "utf8" }
+    );
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(parent, fs.readdirSync(parent)[0]);
+
+    const expand = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        "expand",
+        "--pack-root",
+        PACKS_DIR,
+        "--pack",
+        "billing/backend",
+        "--project-dir",
+        projectDir,
+        "--var",
+        "PROJECT_NAME=Ctx",
+        "--var",
+        "PROJECT_SLUG=ctx",
+        "--var",
+        "DOMAIN=ctx",
+      ],
+      { encoding: "utf8" }
+    );
+    assert.equal(expand.status, 0, expand.stdout + expand.stderr);
+
+    // Derived from the pack model and written by name — `Invoicing`, not
+    // `BC-001`: the name is what a person writes in `match:`.
+    const matrix = fs.readFileSync(path.join(projectDir, "docs/specs/traceability.md"), "utf8");
+    assert.match(matrix, /<!-- csda:trace REQ-001 context=Invoicing -->/, matrix.slice(-400));
+    assert.match(matrix, /<!-- csda:trace REQ-002 context=Payments -->/);
+
+    fs.mkdirSync(path.join(projectDir, ".harness"), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, ".harness", "profiles.yaml"),
+      [
+        "profiles_version: 1",
+        "profiles:",
+        "  payments:",
+        '    agent: "true {prompt_file}"',
+        "    match:",
+        "      bounded_context: Payments",
+        "  everything-else:",
+        '    agent: "true {prompt_file}"',
+        "    match:",
+        '      bounded_context: "*"',
+        "",
+      ].join("\n"),
+      "utf8"
+    );
+
+    const git = (...args: string[]) =>
+      spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    git("init", "-q");
+    git("add", "-A");
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed");
+
+    const run = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        "harness",
+        "run",
+        "--project-dir",
+        projectDir,
+        "--agent",
+        "true {prompt_file}",
+        "--max-attempts",
+        "1",
+      ],
+      { encoding: "utf8" }
+    );
+    const out = run.stdout + run.stderr;
+
+    // The whole point: different requirements, different profiles, in one run.
+    assert.match(out, /REQ-001: profile 'everything-else' matched/, out);
+    assert.match(out, /REQ-002: profile 'payments' matched/, out);
+
+    // And it works with no `harness.config.yaml` at all — the rules live in
+    // profiles.yaml, and reaching them through the config reader made them
+    // silently absent in exactly this project shape.
+    assert.equal(fs.existsSync(path.join(projectDir, "harness.config.yaml")), false);
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
   }

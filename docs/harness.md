@@ -27,11 +27,9 @@ Other agents take the prompt differently — `aider --yes --message-file
 {prompt_file}`, `opencode run "$(cat {prompt_file})"`. The harness only requires
 that the command contain `{prompt_file}`.
 
-A tool that fits none of those shapes needs a wrapper, not a change here —
-`--agent "./my-wrapper.sh {prompt_file}"`, where `$1` is the prompt file.
-
-A command **without** `{prompt_file}` is refused with that message, not silently
-run.
+A tool that fits none of those shapes needs a wrapper — `--agent
+"./my-wrapper.sh {prompt_file}"`, where `$1` is the prompt file. A command
+**without** `{prompt_file}` is refused, not silently run.
 
 **The agent works in a fresh worktree, which carries only what git tracks** — no
 `node_modules`, no `target/`, no `.venv`. An agent must not spend its attempt
@@ -58,9 +56,10 @@ Write profiles in block form, as above: the reader is a dependency-free YAML
 subset, and an inline mapping (`local-claude: { agent: "…" }`) parses as a
 *string*, leaving the profile with no `agent`.
 
-An explicit `agent:` wins over a profile, and an unknown key in
-`harness.config.yaml` is an error rather than a shrug — a key nobody reads is
-worse than a missing one, because the file looks configured.
+A profile may also declare `match:` and select itself, so one run gives
+different requirements different agents — and different tool allowances —
+rather than the greatest common denominator of the whole plan.
+→ [A profile per requirement](specs/harness.md)
 
 ## Parallel branches and the traceability matrix
 

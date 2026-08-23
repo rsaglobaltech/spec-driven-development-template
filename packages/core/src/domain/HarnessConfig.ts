@@ -33,6 +33,12 @@ export interface HarnessSettings {
    * only the agent knows what it spent.
    */
   costPerRunHint: Record<string, number>;
+  /**
+   * Profiles that select themselves by matching a requirement (D1), in file
+   * order — first match wins. Empty means every requirement gets the run's
+   * single profile, as before.
+   */
+  profileRules: Array<{ name: string; match: Record<string, string> }>;
 }
 
 export class HarnessConfig {
@@ -53,6 +59,7 @@ export class HarnessConfig {
     allowPaths: [],
     messageReport: "",
     costPerRunHint: {},
+    profileRules: [],
   };
 
   public constructor(public readonly settings: HarnessSettings) {}
@@ -89,6 +96,7 @@ export class HarnessConfig {
       allowPaths: file.allowPaths || HarnessConfig.DEFAULT_SETTINGS.allowPaths,
       messageReport: file.messageReport || HarnessConfig.DEFAULT_SETTINGS.messageReport,
       costPerRunHint: file.costPerRunHint || HarnessConfig.DEFAULT_SETTINGS.costPerRunHint,
+      profileRules: file.profileRules || HarnessConfig.DEFAULT_SETTINGS.profileRules,
     });
   }
 }

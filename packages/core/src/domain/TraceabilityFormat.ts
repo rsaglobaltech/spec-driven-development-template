@@ -75,9 +75,14 @@ export function parseTraceabilityRows(existingContent) {
   // The dependency lines are read back with the rows so a rebuild carries them
   // forward. Attached to the row as well, because that is what `expand` writes
   // from.
+  const declaredContexts = parseMatrixContexts(existingContent);
   for (const row of rows) {
-    if (row.requirement && declaredDependencies[row.requirement]) {
+    if (!row.requirement) continue;
+    if (declaredDependencies[row.requirement]) {
       row.dependsOn = declaredDependencies[row.requirement];
+    }
+    if (declaredContexts[row.requirement]) {
+      row.context = declaredContexts[row.requirement];
     }
   }
 
@@ -100,33 +105,83 @@ export function parseTraceabilityRows(existingContent) {
  *
  *     <!-- csda:trace REQ-002 depends=REQ-001 -->
  */
-const RE_TRACE_DEPENDS = /^\s*<!--\s*csda:trace\s+(REQ-[A-Za-z0-9.]+)\s+depends=([^>]+?)\s*-->\s*$/;
+const RE_TRACE_LINE = /^\s*<!--\s*csda:trace\s+(REQ-[A-Za-z0-9.]+)\s+(.+?)\s*-->\s*$/;
+
+/**
+ * Every `key=value` a matrix trace line carries, per requirement.
+ *
+ * One line, several keys: `depends=` came first (B1) and `context=` followed
+ * (D1). Keeping the parse general is what stops a third key from arriving as a
+ * third regular expression that agrees with the other two by luck.
+ */
+export function parseMatrixTraceLines(content: string): Record<string, Record<string, string>> {
+  const found: Record<string, Record<string, string>> = {};
+  for (const line of String(content || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")) {
+    const match = RE_TRACE_LINE.exec(line);
+    if (!match) continue;
+    const entry = found[match[1]] || (found[match[1]] = {});
+    // A token with no `=` continues the value before it, so a person who writes
+    // `depends=REQ-001, REQ-002` with a space keeps both. Splitting on
+    // whitespace alone would drop the second silently, which is the failure
+    // mode this repository keeps finding — the value looks written and is not
+    // there.
+    let key = "";
+    for (const token of match[2].split(/\s+/)) {
+      const at = token.indexOf("=");
+      if (at > 0) {
+        key = token.slice(0, at);
+        entry[key] = token.slice(at + 1);
+      } else if (key && token) {
+        entry[key] = `${entry[key]}${token}`;
+      }
+    }
+  }
+  return found;
+}
 
 /** Every dependency the matrix declares, requirement to its predecessors. */
 export function parseMatrixDependencies(content: string): Record<string, string[]> {
   const found: Record<string, string[]> = {};
-  for (const line of String(content || "")
-    .replace(/\r\n/g, "\n")
-    .split("\n")) {
-    const match = RE_TRACE_DEPENDS.exec(line);
-    if (!match) continue;
-    const deps = match[2]
+  const traced = parseMatrixTraceLines(content);
+  for (const id of Object.keys(traced)) {
+    const deps = String(traced[id].depends || "")
       .split(/[,\s]+/)
       .map((d) => d.trim())
       .filter(Boolean);
-    if (deps.length > 0) found[match[1]] = deps;
+    if (deps.length > 0) found[id] = deps;
+  }
+  return found;
+}
+
+/**
+ * The bounded context each requirement belongs to, as `expand` derived it (D1).
+ *
+ * Not a column: an eleventh was rejected once already, and the trace line B1
+ * introduced is the extension point that exists.
+ */
+export function parseMatrixContexts(content: string): Record<string, string> {
+  const found: Record<string, string> = {};
+  const traced = parseMatrixTraceLines(content);
+  for (const id of Object.keys(traced)) {
+    if (traced[id].context) found[id] = traced[id].context;
   }
   return found;
 }
 
 /** The lines above, rendered. Empty when nothing declares a dependency. */
-export function renderMatrixDependencies(dependsOn: Record<string, string[]>): string[] {
-  const ids = Object.keys(dependsOn || {}).sort();
+export function renderMatrixTraceLines(
+  perRequirement: Record<string, { dependsOn?: string[]; context?: string }>
+): string[] {
   const lines: string[] = [];
-  for (const id of ids) {
-    const deps = (dependsOn[id] || []).filter(Boolean);
-    if (deps.length === 0) continue;
-    lines.push(`<!-- csda:trace ${id} depends=${deps.join(",")} -->`);
+  for (const id of Object.keys(perRequirement || {}).sort()) {
+    const entry = perRequirement[id] || {};
+    const parts: string[] = [];
+    const deps = (entry.dependsOn || []).filter(Boolean);
+    if (deps.length > 0) parts.push(`depends=${deps.join(",")}`);
+    if (entry.context) parts.push(`context=${entry.context}`);
+    if (parts.length > 0) lines.push(`<!-- csda:trace ${id} ${parts.join(" ")} -->`);
   }
   return lines.length > 0 ? ["", ...lines] : [];
 }
@@ -157,14 +212,15 @@ export function buildTraceabilityMarkdown(rows, mode = "legacy") {
       ])
       .map((cells) => `| ${cells.join(" | ")} |`);
 
-    const dependsOn: Record<string, string[]> = {};
+    const traced: Record<string, { dependsOn?: string[]; context?: string }> = {};
     for (const row of rows) {
-      if (row.requirement && row.dependsOn && row.dependsOn.length > 0) {
-        dependsOn[row.requirement] = row.dependsOn;
-      }
+      if (!row.requirement) continue;
+      const entry = traced[row.requirement] || (traced[row.requirement] = {});
+      if (row.dependsOn && row.dependsOn.length > 0) entry.dependsOn = row.dependsOn;
+      if (row.context) entry.context = row.context;
     }
 
-    return `${header.concat(body, renderMatrixDependencies(dependsOn)).join("\n")}\n`;
+    return `${header.concat(body, renderMatrixTraceLines(traced)).join("\n")}\n`;
   }
 
   const header = [
