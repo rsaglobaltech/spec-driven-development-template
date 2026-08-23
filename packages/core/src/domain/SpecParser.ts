@@ -27,19 +27,22 @@
  */
 
 /**
- * These patterns are line-oriented, so they use `[ \t]` rather than `\s` and
- * capture greedily to the end of the line.
+ * Line-oriented, and written so no two adjacent quantifiers can match the same
+ * character.
  *
- * `\s` matches a newline, and a lazy `(.+?)` followed by `\s*$` backtracks
- * quadratically on a long run of whitespace — CodeQL's `js/polynomial-redos`,
- * and a real cost on a spec file somebody pasted from a word processor.
- * Capturing to end-of-line and trimming in code says the same thing in linear
- * time.
+ * Two things caused `js/polynomial-redos` here. `\s` matches a newline, which
+ * makes a line pattern span lines; and `[ \t]+(.*)` is ambiguous, because `.`
+ * matches a space too, so the engine can split a run of spaces between the two
+ * in every possible way.
+ *
+ * So each pattern consumes exactly one separator and captures the rest of the
+ * line. What the regex no longer trims, the code does — the same meaning, in
+ * linear time.
  */
-const RE_H1 = /^#[ \t]+(.*)$/;
-const RE_H2 = /^##[ \t]+(.*)$/;
-const RE_REQUIREMENT = /^###[ \t]+Requirement:[ \t]*(.*)$/;
-const RE_SCENARIO = /^####[ \t]+Scenario:[ \t]*(.*)$/;
+const RE_H1 = /^#[ \t]+([^ \t].*)?$/;
+const RE_H2 = /^##[ \t]+([^ \t].*)?$/;
+const RE_REQUIREMENT = /^###[ \t]+Requirement:[ \t]*([^ \t].*)?$/;
+const RE_SCENARIO = /^####[ \t]+Scenario:[ \t]*([^ \t].*)?$/;
 const RE_TRACE_OPEN = /^\s*<!--\s*csda:trace\b/;
 const RE_STEP = /^[ \t]*[-*][ \t]+(.*)$/;
 
@@ -50,8 +53,7 @@ const RE_STEP = /^[ \t]*[-*][ \t]+(.*)$/;
 // The prefix list is closed on purpose. A permissive `[A-Z]{2,4}-\w+` would
 // read "TOTP-based two-factor auth" as an id of "TOTP-based", silently
 // mangling every requirement whose name starts with an acronym.
-const RE_LABEL_WITH_ID =
-  /^((?:REQ|SCN|UC|CMD|QRY|AGG|EVT)-[A-Za-z0-9.]+)[ \t]*(?:[—–:-][ \t]*)?(.*)$/;
+const RE_LABEL_ID = /^((?:REQ|SCN|UC|CMD|QRY|AGG|EVT)-[A-Za-z0-9.]+)/;
 
 export const REQ_ID = /^REQ-\d+$/;
 export const SCN_ID = /^SCN-[A-Za-z0-9.-]+$/;
@@ -67,10 +69,19 @@ export function slug(text) {
 }
 
 export function splitLabel(label) {
-  const m = RE_LABEL_WITH_ID.exec(String(label).trim());
-  if (m && m[2]) return { id: m[1], name: m[2].trim() };
-  if (m && !m[2]) return { id: m[1], name: m[1] };
-  return { id: null, name: String(label).trim() };
+  // The id by pattern, the rest by index. One regex covering both meant a
+  // quantifier for the id sitting next to one for the name, which is the
+  // ambiguity `js/polynomial-redos` reports — and `REQ-014 — Title` is easier
+  // to read as two steps anyway.
+  const text = String(label).trim();
+  const m = RE_LABEL_ID.exec(text);
+  if (!m) return { id: null, name: text };
+
+  const rest = text
+    .slice(m[1].length)
+    .replace(/^[ \t]+/, "")
+    .replace(/^[—–:-][ \t]*/, "");
+  return { id: m[1], name: rest.trim() || m[1] };
 }
 
 /**
@@ -239,7 +250,7 @@ export function parseMarkdown(source: string): DocumentNode {
     let m;
 
     if ((m = RE_H1.exec(line)) !== null) {
-      if (doc.title === null) doc.title = m[1].trimEnd();
+      if (doc.title === null) doc.title = (m[1] || "").trim();
       closeRequirement();
       section = null;
       continue;
@@ -248,7 +259,7 @@ export function parseMarkdown(source: string): DocumentNode {
     if ((m = RE_H2.exec(line)) !== null) {
       closeRequirement();
       section = {
-        heading: m[1].trimEnd(),
+        heading: (m[1] || "").trim(),
         line: lineNo,
         body: [],
         requirements: [],
@@ -259,7 +270,7 @@ export function parseMarkdown(source: string): DocumentNode {
 
     if ((m = RE_REQUIREMENT.exec(line)) !== null) {
       closeRequirement();
-      const { id, name } = splitLabel(m[1].trimEnd());
+      const { id, name } = splitLabel((m[1] || "").trim());
       requirement = {
         id,
         name,
@@ -279,7 +290,7 @@ export function parseMarkdown(source: string): DocumentNode {
     }
 
     if ((m = RE_SCENARIO.exec(line)) !== null) {
-      const heading = m[1].trimEnd();
+      const heading = (m[1] || "").trim();
       const { id, name } = splitLabel(heading);
       scenario = { id, name, heading, line: lineNo, steps: [] };
       if (requirement) requirement.scenarios.push(scenario);

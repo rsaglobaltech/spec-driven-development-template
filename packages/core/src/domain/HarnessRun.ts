@@ -124,7 +124,10 @@ export function filterHint(template, req, output) {
   if (!featureFile) return "";
 
   // "16 scenarios", "42 tests", "7 examples" — the common shapes.
-  const counted = /(\d+)[ \t]+(scenarios|tests|examples|specs)\b/i.exec(output);
+  // `\b` before the digits: without it the engine restarts inside a long run of
+  // them, which is the polynomial case CodeQL reports. One separator, because
+  // `[ \t]+` before a word is another way to say the same scan twice.
+  const counted = /\b(\d+)[ \t](scenarios|tests|examples|specs)\b/i.exec(output);
   if (!counted || Number(counted[1]) <= 1) return "";
 
   return (

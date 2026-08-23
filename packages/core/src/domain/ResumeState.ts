@@ -117,6 +117,14 @@ export function previousFailureFromPrompt(promptText: string): string {
   const heading = /^#{1,6}[ \t]*Previous attempt failed[^\n]*$/m.exec(promptText || "");
   if (!heading) return "";
   const after = promptText.slice(heading.index + heading[0].length);
-  const fenced = /```\n([\s\S]*?)\n```/.exec(after);
-  return fenced ? fenced[1].trim() : "";
+  // Located with `indexOf`, not a lazy `[\s\S]*?` between two fences: the class
+  // matches the newline the pattern then requires, so the engine can split the
+  // text between them in every possible way (js/polynomial-redos). Two index
+  // lookups say the same thing and cannot backtrack at all.
+  const open = after.indexOf("```\n");
+  if (open === -1) return "";
+  const bodyStart = open + 4;
+  const close = after.indexOf("\n```", bodyStart);
+  if (close === -1) return "";
+  return after.slice(bodyStart, close).trim();
 }
