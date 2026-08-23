@@ -205,7 +205,14 @@ test("the search index covers what the sidebar offers", () => {
 test("the assets the pages ask for are published", () => {
   const { dir } = site();
   try {
-    for (const asset of ["assets/docs.css", "assets/docs.js", "assets/home.css", "index.html"]) {
+    for (const asset of [
+      "assets/docs.css",
+      "assets/docs.js",
+      "assets/home.css",
+      "assets/terminal.css",
+      "assets/terminal-demo.json",
+      "index.html",
+    ]) {
       assert.ok(fs.existsSync(path.join(dir, asset)), `missing ${asset}`);
     }
     // Jekyll would eat the assets directory and any file starting with an
@@ -310,7 +317,7 @@ test("no page ships a mermaid block, because nothing on this site renders one", 
   assert.deepEqual(
     offenders,
     [],
-    `Replace the block with a diagram in docs/assets/diagrams/ and a\n` +
+    `Replace the block with a diagram in docs/diagrams/ and a\n` +
       `  <!-- csda:diagram NAME --> marker:\n  ${offenders.join("\n  ")}`
   );
 });
@@ -318,7 +325,7 @@ test("no page ships a mermaid block, because nothing on this site renders one", 
 test("every diagram the pages ask for exists, and every diagram is asked for", () => {
   const { diagrams } = require("../../scripts/docs/blocks");
   const available = diagrams(DOCS);
-  assert.ok(available.size > 0, "found no diagrams — docs/assets/diagrams/ is missing");
+  assert.ok(available.size > 0, "found no diagrams — docs/diagrams/ is missing");
 
   const requested = new Set();
   const sources = [
@@ -330,12 +337,12 @@ test("every diagram the pages ask for exists, and every diagram is asked for", (
   }
 
   const missing = [...requested].filter((name) => !available.has(name)).sort();
-  assert.deepEqual(missing, [], `asked for but not in docs/assets/diagrams/: ${missing.join(", ")}`);
+  assert.deepEqual(missing, [], `asked for but not in docs/diagrams/: ${missing.join(", ")}`);
 
   // The other direction: a diagram nobody shows is 3 KB published for nothing,
   // and is how the last two dead stylesheets got there.
   const unused = [...available.keys()].filter((name) => !requested.has(name)).sort();
-  assert.deepEqual(unused, [], `in docs/assets/diagrams/ and shown nowhere: ${unused.join(", ")}`);
+  assert.deepEqual(unused, [], `in docs/diagrams/ and shown nowhere: ${unused.join(", ")}`);
 });
 
 test("an inlined diagram reaches the page as markup, not as escaped text", () => {

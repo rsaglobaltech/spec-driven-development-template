@@ -4,7 +4,7 @@
 
   Medium does not render Mermaid. Two options per diagram:
     The two `<!-- csda:diagram … -->` markers are replaced with inline SVG when
-    the site is built (see docs/assets/diagrams/). For Medium, screenshot them
+    the site is built (see docs/diagrams/). For Medium, screenshot them
     from the published page, or link to the section on the docs site.
 
   Suggested tags: ai-agents, spec-driven-development, software-testing,

@@ -13,6 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./assets/docs.css">
 <link rel="stylesheet" href="./assets/home.css">
+<link rel="stylesheet" href="./assets/terminal.css">
 <script>
   (function () {
     var t = localStorage.getItem("csda-theme");
@@ -126,6 +127,125 @@
     </ol>
   </div>
 </section>
+
+<!-- ── What it prints ───────────────────────────────────────────────────── -->
+<section class="band" id="watch">
+  <div class="wrap">
+    <h2>What it actually prints</h2>
+    <p class="band__lede">
+      Not a mockup. This is stdout from a real run — scaffold, pack, plan,
+      harness, gate — captured by <code>npm run docs:terminal</code> and committed
+      to the repository. A test checks it was recorded from this version of the CLI.
+    </p>
+
+    <figure class="term" data-term-src="./assets/terminal-demo.json">
+      <figcaption class="term__bar">
+        <span class="term__dots" aria-hidden="true"></span>
+        <span class="term__title">smart-parking</span>
+        <span class="term__controls">
+          <button class="term__btn term__btn--toggle" type="button" hidden>Pause</button>
+          <button class="term__btn term__btn--skip" type="button" hidden>Show all</button>
+          <button class="term__btn term__btn--replay" type="button" hidden>Replay</button>
+        </span>
+      </figcaption>
+      <div class="term__screen" aria-hidden="true"></div>
+      <p class="term__caption" aria-hidden="true"></p>
+<!-- csda:terminal:begin — generated; edit the source, not this block -->
+<pre class="term__transcript"><code>~ $ cat smart-parking.yaml
+PROJECT_NAME: Smart Parking
+PROJECT_SLUG: smart-parking
+PROJECT_TYPE: backend
+DOMAIN: parking operations
+STACK: Node 20, Express, PostgreSQL
+API_STYLE: REST with DTO boundaries
+TESTING: node:test
+
+~ $ csda init --config ./smart-parking.yaml --out . --no-git
+ℹ️ [INFO] 🧩 Rendering base template
+ℹ️ [INFO] 🛠️ Applying project type template: backend
+ℹ️ [INFO] 🧩 No optional modules selected. Generating base + project-type features only.
+ℹ️ [INFO] 📋 Summary
+ℹ️ [INFO] - Project: Smart Parking
+ℹ️ [INFO] - Slug: smart-parking
+ℹ️ [INFO] - Type: backend
+ℹ️ [INFO] - Domain: parking operations
+ℹ️ [INFO] - Output: ~/smart-parking
+ℹ️ [INFO] - Dry-run: false
+ℹ️ [INFO] - Git: skipped
+ℹ️ [INFO] ✅ Generation completed
+
+~/smart-parking $ csda specops add --pack-root ~/packs --pack multi-tenant/backend --var &quot;PROJECT_NAME=Smart Parking&quot; --var PROJECT_SLUG=smart-parking --var &quot;DOMAIN=parking operations&quot;
+ℹ  Adding multi-tenant/backend to ~/smart-parking
+ℹ️ [INFO] Using pack: ~/packs/multi-tenant/backend/pack.yaml
+ℹ️ [INFO] Generated 3 scenario file(s).
+ℹ️ [INFO] Domain pack expansion completed.
+
+~/smart-parking $ csda plan
+  Needs Feature + Test + Code
+    REQ-002   SCN-001
+      ✓ feature: `features/multi-tenant/provisioning_a_tenant_emits_tenantprovisioned.feature`
+    REQ-001   SCN-002
+      ✓ feature: `features/multi-tenant/cross_tenant_read_attempts_are_rejected.feature`
+    REQ-003   SCN-003
+      ✓ feature: `features/multi-tenant/exceeding_a_quota_emits_quotaexceeded.feature`
+
+  Needs Implementation
+    REQ-000   SCN-000
+      ✓ feature: `features/core/health.feature`
+      · code:    `API /health`, smoke test
+
+~/smart-parking $ cat harness.config.yaml
+harness_version: 1
+agent: 'csda-stub-agent {prompt_file}'
+test_cmd: 'node --test test/*.test.js'
+max_attempts: 1
+
+~/smart-parking $ csda harness run --req REQ-000
+ℹ️  [harness] Processing 1 requirement(s) from base HEAD.
+⚠️  [harness] REQ-000: the row declares no test artifact, so the agent chooses where the test goes and the matrix will point somewhere else. [requirement_declares_no_test_artifact]
+⚠️  [harness]   fix: csda req link REQ-000 --test &lt;path&gt;
+ℹ️  [harness] REQ-000: attempt 1/1
+
+── harness report ──
+  ✅ REQ-000  pass (1 attempt)  → harness/REQ-000
+
+  1 passed · 0 failed · 0 skipped
+  Review and merge the harness/* branches you trust.
+ℹ️  [harness] Run recorded in .harness/runs/2026-01-01T00-00-00-000Z.json — `csda harness report`
+
+~/smart-parking $ git diff --stat main harness/REQ-000
+ .../REQ-000-2026-01-01T00-00-00-000Z-attempt-1-agent.md | 83 +++++++++++++++++++++++++
+ docs/specs/traceability.md                              |  2 +-
+ src/health.js                                           |  9 +++
+ test/health.test.js                                     | 10 +++
+ 4 files changed, 103 insertions(+), 1 deletion(-)
+
+~/smart-parking $ git switch -q harness/REQ-000 &amp;&amp; node --test test/*.test.js
+✔ GET /health reports the service as UP (12ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1.234
+
+~/smart-parking $ csda validate .
+ℹ️ [INFO] ✅ Validation passed
+ℹ️ [INFO] - Features detected: 4
+ℹ️ [INFO] - Base SDD structure: complete
+ℹ️ [INFO] - Traceability mode: rich
+</code></pre>
+<!-- csda:terminal:end -->
+    </figure>
+
+    <p class="term__meta">
+      Recorded from <strong>v0.7.0</strong>. <a href="./tutorial.html">The same run, explained →</a>
+    </p>
+  </div>
+</section>
+
 
 <!-- ── Agents ───────────────────────────────────────────────────────────── -->
 <section class="band">

@@ -14,8 +14,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-/** Where the diagram sources live. One directory, one mechanism. */
-export const DIAGRAM_DIR = "assets/diagrams";
+/**
+ * Where the diagram sources live. One directory, one mechanism.
+ *
+ * Outside `assets/`, which is published wholesale: these are sources that get
+ * inlined, so shipping them as separate files would be three more requests
+ * nobody makes.
+ */
+export const DIAGRAM_DIR = "diagrams";
 
 export function beginMarker(name: string): string {
   return `<!-- csda:${name}:begin — generated; edit the source, not this block -->`;
