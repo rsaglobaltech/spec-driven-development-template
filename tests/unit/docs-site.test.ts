@@ -367,3 +367,39 @@ test("a diagram's colours come from the token system", () => {
   }
   assert.deepEqual(offenders, [], `use var(--…) instead:\n  ${offenders.join("\n  ")}`);
 });
+
+test("every csda command the landing page names is a command the CLI has", () => {
+  // Written after the page claimed `csda sbom` and `csda license check`, neither
+  // of which exists — the SBOM is an npm script and a CI job. A landing page
+  // that invents commands is worse than one that says less.
+  const { SURFACE } = require("../../scripts/lib/surface");
+  const known = new Set();
+  for (const command of SURFACE) {
+    known.add(command.name);
+    for (const sub of command.subcommands || []) known.add(`${command.name} ${sub.name}`);
+  }
+
+  const html = fs.readFileSync(path.join(DOCS, "index.html"), "utf8");
+  const invented = new Set();
+  for (const m of html.matchAll(/<code[^>]*>csda ([a-z][a-z0-9 -]*)/g)) {
+    const words = m[1].trim().split(/\s+/);
+    // Longest match wins: `harness run --req` is `harness run`.
+    const named = known.has(`${words[0]} ${words[1]}`)
+      ? `${words[0]} ${words[1]}`
+      : words[0];
+    if (!known.has(named)) invented.add(named);
+  }
+  assert.deepEqual(
+    [...invented].sort(),
+    [],
+    `the landing page names commands that do not exist: ${[...invented].join(", ")}`
+  );
+});
+
+test("the landing page lists every agent tool it claims a number for", () => {
+  const { ALL_TOOLS } = require("../../scripts/agents/init");
+  const html = fs.readFileSync(path.join(DOCS, "index.html"), "utf8");
+  assert.ok(html.includes(`<dt>${ALL_TOOLS.length}</dt>`), `agent-tool count is not ${ALL_TOOLS.length}`);
+  const missing = ALL_TOOLS.filter((tool) => !html.includes(`<code>${tool}</code>`));
+  assert.deepEqual(missing, [], `counted but not listed: ${missing.join(", ")}`);
+});

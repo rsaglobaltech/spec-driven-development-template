@@ -312,10 +312,27 @@ function markdownFiles(dir: string, prefix = ""): string[] {
   return out.sort();
 }
 
-function copyVerbatim(outDir: string): void {
+/**
+ * The hand-written parts of the site, copied across.
+ *
+ * `index.html` gets one transformation on the way: its `csda:diagram` markers
+ * are resolved, the same way a markdown page's are. The diagram is a source
+ * file in the repository and the marker is one line, so there is nothing to go
+ * stale between them — unlike the terminal recording, which needs the CLI to
+ * regenerate and is therefore committed into the file rather than injected here.
+ */
+function copyVerbatim(outDir: string, available: Map<string, string>): void {
   for (const name of VERBATIM) {
     const from = path.join(DOCS, name);
     if (!fs.existsSync(from)) continue;
+    if (name === "index.html") {
+      fs.writeFileSync(
+        path.join(outDir, name),
+        inlineDiagrams(fs.readFileSync(from, "utf8"), available),
+        "utf8"
+      );
+      continue;
+    }
     fs.cpSync(from, path.join(outDir, name), { recursive: true });
   }
 }
@@ -406,7 +423,7 @@ export function buildSite(outDir: string): { pages: number; orphans: string[] } 
 
   fs.mkdirSync(path.join(outDir, "assets"), { recursive: true });
   fs.writeFileSync(path.join(outDir, "assets", "search-index.json"), JSON.stringify(index), "utf8");
-  copyVerbatim(outDir);
+  copyVerbatim(outDir, available);
   fs.writeFileSync(path.join(outDir, ".nojekyll"), "", "utf8");
 
   // Depth used to exempt a page, which is how `articles/` and `case-studies/`
