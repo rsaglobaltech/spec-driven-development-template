@@ -124,7 +124,7 @@ export function filterHint(template, req, output) {
   if (!featureFile) return "";
 
   // "16 scenarios", "42 tests", "7 examples" — the common shapes.
-  const counted = /(\d+)\s+(scenarios|tests|examples|specs)\b/i.exec(output);
+  const counted = /(\d+)[ \t]+(scenarios|tests|examples|specs)\b/i.exec(output);
   if (!counted || Number(counted[1]) <= 1) return "";
 
   return (

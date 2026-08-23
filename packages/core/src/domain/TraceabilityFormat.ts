@@ -114,6 +114,9 @@ const RE_TRACE_LINE = /^\s*<!--\s*csda:trace\s+(REQ-[A-Za-z0-9.]+)\s+(.+?)\s*-->
  * (D1). Keeping the parse general is what stops a third key from arriving as a
  * third regular expression that agrees with the other two by luck.
  */
+/** Keys that reach the prototype instead of the object. */
+const UNSAFE_KEY = /^(__proto__|constructor|prototype)$/;
+
 export function parseMatrixTraceLines(content: string): Record<string, Record<string, string>> {
   const found: Record<string, Record<string, string>> = {};
   for (const line of String(content || "")
@@ -131,8 +134,13 @@ export function parseMatrixTraceLines(content: string): Record<string, Record<st
     for (const token of match[2].split(/\s+/)) {
       const at = token.indexOf("=");
       if (at > 0) {
-        key = token.slice(0, at);
-        entry[key] = token.slice(at + 1);
+        // The key comes out of a file, so it is not allowed to be `__proto__`
+        // or `constructor`: assigning those reaches the prototype rather than
+        // the object. Nothing legitimate is named that, and CodeQL was right to
+        // flag it even though the obvious payload happens to be inert.
+        const candidate = token.slice(0, at);
+        key = UNSAFE_KEY.test(candidate) ? "" : candidate;
+        if (key) entry[key] = token.slice(at + 1);
       } else if (key && token) {
         entry[key] = `${entry[key]}${token}`;
       }

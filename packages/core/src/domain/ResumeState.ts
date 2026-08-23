@@ -111,7 +111,10 @@ export function resumePoint(
  * is the normal case for attempt 1.
  */
 export function previousFailureFromPrompt(promptText: string): string {
-  const heading = /^#+\s*Previous attempt failed[^\n]*$/m.exec(promptText || "");
+  // `[ \t]*` rather than `\s*`: `\s` matches a newline, so with `#+` in front
+  // the engine can backtrack across lines on a long prompt. A heading's
+  // whitespace is spaces and tabs.
+  const heading = /^#{1,6}[ \t]*Previous attempt failed[^\n]*$/m.exec(promptText || "");
   if (!heading) return "";
   const after = promptText.slice(heading.index + heading[0].length);
   const fenced = /```\n([\s\S]*?)\n```/.exec(after);

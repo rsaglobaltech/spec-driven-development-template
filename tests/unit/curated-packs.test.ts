@@ -244,6 +244,10 @@ test("a pack's depends_on reaches plan and stacks the harness branch", () => {
     const git = (...args: string[]) =>
       spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
     git("init", "-q");
+    // In the repo, not with `-c`: the harness commits on its own, and CI has no
+    // global identity. `-c` covers only the command it is written on.
+    git("config", "user.email", "harness-test@example.com");
+    git("config", "user.name", "Harness Test");
     git("add", "-A");
     git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed");
 
@@ -354,6 +358,10 @@ test("a requirement's bounded context is derived and matched to a profile", () =
     const git = (...args: string[]) =>
       spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
     git("init", "-q");
+    // In the repo, not with `-c`: the harness commits on its own, and CI has no
+    // global identity. `-c` covers only the command it is written on.
+    git("config", "user.email", "harness-test@example.com");
+    git("config", "user.name", "Harness Test");
     git("add", "-A");
     git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed");
 

@@ -783,6 +783,8 @@ test("harness run refuses a requirement whose scenario has no steps, before spen
     const projectDir = path.join(parent, fs.readdirSync(parent)[0]);
 
     spawnSync("git", ["init", "-q"], { cwd: projectDir });
+    spawnSync("git", ["config", "user.email", "harness-test@example.com"], { cwd: projectDir });
+    spawnSync("git", ["config", "user.name", "Harness Test"], { cwd: projectDir });
     spawnSync("git", ["add", "-A"], { cwd: projectDir });
     spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed"], {
       cwd: projectDir,
@@ -882,6 +884,8 @@ function greenableProject() {
 
   const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
   git("init", "-q");
+  git("config", "user.email", "harness-test@example.com");
+  git("config", "user.name", "Harness Test");
   git("add", "-A");
   git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed");
   return { parent, projectDir };
@@ -1648,4 +1652,41 @@ test("a ceiling of zero or less is refused rather than read as 'no limit'", () =
   assert.throws(() => parseArgs(["--max-requirements", "0"]), /positive integer/);
   assert.throws(() => parseArgs(["--budget-seconds", "0"]), /positive integer/);
   assert.throws(() => parseArgs(["--budget-seconds", "-5"]), /positive integer/);
+});
+
+test("a repository with no git identity is refused before the agent runs", () => {
+  // Found by CI, which has no global git identity. The harness commits on every
+  // requirement it lands, so without one it failed at the commit step — after
+  // the agent had run and the gate had passed. A whole attempt, agent time
+  // included, thrown away by a one-line config.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    git("config", "--unset", "user.email");
+    git("config", "--unset", "user.name");
+
+    const marker = path.join(parent, "agent-ran.txt");
+    const agent = `${process.execPath} -e "require('fs').writeFileSync(${JSON.stringify(marker)},'ran')"`;
+    const r = spawnSync(
+      process.execPath,
+      [CLI, "harness", "run", "--project-dir", projectDir, "--agent", `${agent} {prompt_file}`],
+      {
+        encoding: "utf8",
+        // Neutralise this machine's global identity — CI has none, and without
+        // this the test would pass everywhere except the place that found it.
+        env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" },
+      }
+    );
+
+    const out = r.stdout + r.stderr;
+    assert.match(out, /git has no user\.name and user\.email configured/, out);
+    assert.match(out, /git config user\.name/, "a refusal without the fix just stops you");
+    assert.equal(
+      fs.existsSync(marker),
+      false,
+      "the agent ran before the harness noticed it could not commit"
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
 });

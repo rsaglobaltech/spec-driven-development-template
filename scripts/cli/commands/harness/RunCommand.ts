@@ -1189,6 +1189,28 @@ function contextOfRequirement(projectDir: string, requirement: string): string {
   }
 }
 
+/**
+ * Can git commit here? Returns the problem, or `""`.
+ *
+ * Asked before the first worktree rather than at the commit step. The harness
+ * commits for every green requirement and again to preserve a failed attempt,
+ * so a missing identity costs a whole attempt — agent time included — to
+ * discover something a single command fixes.
+ */
+function gitIdentityProblem(projectDir: string): string {
+  const missing = ["user.name", "user.email"].filter((key) => {
+    const r = git(projectDir, ["config", "--get", key]);
+    return r.status !== 0 || !String(r.stdout || "").trim();
+  });
+  if (missing.length === 0) return "";
+
+  return (
+    `git has no ${missing.join(" and ")} configured, and the harness commits on ` +
+    `every requirement it lands. It would fail after the agent had already run.\n` +
+    `Fix: git config user.name "Your Name" && git config user.email "you@example.com"`
+  );
+}
+
 function processRequirement(req, ctx) {
   const { projectDir, baseRef, keepWorktrees, force } = ctx;
   const branch = `harness/${req.requirement}`;
@@ -1881,6 +1903,15 @@ export class RunCommand extends BaseCommand {
           "Working tree is not clean. Commit or stash your changes before running the harness."
         );
       }
+
+      // Git needs to know who is committing, and the harness commits — once per
+      // green requirement, and again to preserve a failed attempt. Without an
+      // identity it discovers this *after* the agent has run and the gate has
+      // passed, so a full attempt is paid for and thrown away by a one-line
+      // config. Found by CI, which has no global git identity and produced
+      // `Author identity unknown` at the commit step of every requirement.
+      const identity = gitIdentityProblem(projectDir);
+      if (identity) throw new Error(identity);
 
       const baseRef = args.baseBranch || "HEAD";
       const concurrencyNote =
