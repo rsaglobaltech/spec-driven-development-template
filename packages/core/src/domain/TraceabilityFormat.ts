@@ -12,6 +12,9 @@ export function parseTraceabilityRows(existingContent) {
   const rows = [];
   const seen = new Set();
   let mode = "legacy";
+  // Carried alongside the rows so a rebuild does not drop it — see
+  // `parseMatrixDependencies` for why it cannot live in a cell.
+  const declaredDependencies = parseMatrixDependencies(existingContent);
 
   const lines = existingContent.replace(/\r\n/g, "\n").split("\n");
   for (const line of lines) {
@@ -69,7 +72,63 @@ export function parseTraceabilityRows(existingContent) {
     rows.push(row);
   }
 
-  return { mode, rows };
+  // The dependency lines are read back with the rows so a rebuild carries them
+  // forward. Attached to the row as well, because that is what `expand` writes
+  // from.
+  for (const row of rows) {
+    if (row.requirement && declaredDependencies[row.requirement]) {
+      row.dependsOn = declaredDependencies[row.requirement];
+    }
+  }
+
+  return { mode, rows, dependsOn: declaredDependencies };
+}
+
+/**
+ * Requirement dependencies, carried alongside the matrix (B1).
+ *
+ * The matrix is the one place a pack's requirements land, so it is where a
+ * pack's `depends_on` has to arrive. It cannot ride in a cell: the row parser
+ * splits on `|` and requires exactly ten cells, so anything appended to a row
+ * makes an eleventh and the row stops parsing — the annotation would survive one
+ * write and vanish on the next `expand`.
+ *
+ * So it goes on its own line beneath the table. Lines that do not start with
+ * `|` are already ignored by the row parser, which makes the round trip safe by
+ * construction rather than by care. `csda:trace` is the extension point this
+ * repository already uses for exactly this kind of declaration.
+ *
+ *     <!-- csda:trace REQ-002 depends=REQ-001 -->
+ */
+const RE_TRACE_DEPENDS = /^\s*<!--\s*csda:trace\s+(REQ-[A-Za-z0-9.]+)\s+depends=([^>]+?)\s*-->\s*$/;
+
+/** Every dependency the matrix declares, requirement to its predecessors. */
+export function parseMatrixDependencies(content: string): Record<string, string[]> {
+  const found: Record<string, string[]> = {};
+  for (const line of String(content || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")) {
+    const match = RE_TRACE_DEPENDS.exec(line);
+    if (!match) continue;
+    const deps = match[2]
+      .split(/[,\s]+/)
+      .map((d) => d.trim())
+      .filter(Boolean);
+    if (deps.length > 0) found[match[1]] = deps;
+  }
+  return found;
+}
+
+/** The lines above, rendered. Empty when nothing declares a dependency. */
+export function renderMatrixDependencies(dependsOn: Record<string, string[]>): string[] {
+  const ids = Object.keys(dependsOn || {}).sort();
+  const lines: string[] = [];
+  for (const id of ids) {
+    const deps = (dependsOn[id] || []).filter(Boolean);
+    if (deps.length === 0) continue;
+    lines.push(`<!-- csda:trace ${id} depends=${deps.join(",")} -->`);
+  }
+  return lines.length > 0 ? ["", ...lines] : [];
 }
 
 export function buildTraceabilityMarkdown(rows, mode = "legacy") {
@@ -98,7 +157,14 @@ export function buildTraceabilityMarkdown(rows, mode = "legacy") {
       ])
       .map((cells) => `| ${cells.join(" | ")} |`);
 
-    return `${header.concat(body).join("\n")}\n`;
+    const dependsOn: Record<string, string[]> = {};
+    for (const row of rows) {
+      if (row.requirement && row.dependsOn && row.dependsOn.length > 0) {
+        dependsOn[row.requirement] = row.dependsOn;
+      }
+    }
+
+    return `${header.concat(body, renderMatrixDependencies(dependsOn)).join("\n")}\n`;
   }
 
   const header = [

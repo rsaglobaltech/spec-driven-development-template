@@ -180,6 +180,25 @@ it did. No pack changed, and none had to — this amendment relaxes and corrects
 so nothing that validated before stops validating, and the eleven packs keep
 declaring `1.3.0`.
 
+**`depends_on` (B1, 2026-08-23).** Optional on `requirements[]`: which
+requirements must land before this one, so the harness stacks a dependent's
+branch on its predecessor's instead of on the run's base. Validated here rather
+than at run time — a dependency naming nothing, or a cycle, is a defect in the
+pack, and `runLevels` discovering it mid-run means the pack is installed and an
+agent already paid for.
+
+It reaches the project through the matrix, on its own line beneath the table:
+
+```
+<!-- csda:trace REQ-002 depends=REQ-001 -->
+```
+
+Not inside a cell. The row parser splits on `|` and requires exactly ten cells,
+so anything appended to a row makes an eleventh and the row stops parsing — the
+annotation would survive one write and vanish on the next `expand`. Beneath the
+table it is ignored by the row parser by construction, which is round-trip
+safety rather than round-trip carefulness.
+
 **Two defects found on the way, fixed separately** because they stand on their
 own: `validatePackModel` cross-referenced `aggregate.context` and was therefore
 inert on all eleven packs, and `parseYamlLite` split inline flow sequences on

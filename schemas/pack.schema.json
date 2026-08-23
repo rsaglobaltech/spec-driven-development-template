@@ -106,6 +106,14 @@
           },
           "status": {
             "$ref": "#/$defs/status"
+          },
+          "depends_on": {
+            "description": "Requirements in this pack that must land before this one. Optional: a pack whose requirements are independent says nothing, and every pack written before this key stays valid. The harness stacks a dependent's branch on its predecessor's rather than on the run's base.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^REQ-[A-Za-z0-9.]+$"
+            }
           }
         }
       }

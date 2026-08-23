@@ -1139,7 +1139,17 @@ function readinessOf(projectDir, req) {
     // requirement some other way, fall back to looking.
     featureExists: req.featureExists !== undefined ? Boolean(req.featureExists) : featureExists,
     scenarioFindings,
-    blockedBy: req.blockedBy || req.blocked_by || [],
+    // Deliberately **not** `blockedBy`. That comes from the plan snapshot taken
+    // before the run, so a requirement whose predecessor passed *in this run*
+    // still reads as blocked — and with `--skip-not-ready` it would be skipped
+    // after the scheduler had correctly unblocked it. Measured: REQ-002 was
+    // reported "depends on REQ-001, which is not done" moments after REQ-001
+    // passed and its branch became REQ-002's base.
+    //
+    // `runLevels` owns ordering during a run: it schedules by level and marks
+    // dependents `blocked` when a predecessor actually fails. Readiness answers
+    // the questions the scheduler cannot.
+    blockedBy: [],
     technicalDeclared: RequirementPlan.isMeaningful(
       req.technicalArtifact || req.technical_artifact
     ),

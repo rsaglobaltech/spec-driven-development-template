@@ -122,7 +122,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | ~~A1~~ | **Hecho (2026-08-22), cierra `H16`.** `core/domain/WriteScope` + comprobación en el worktree **antes** de la puerta. Medido: sin ella, un agente que vació el escenario obtuvo `1 passed`, rama publicada y requisito cerrado. Crear un feature nuevo se permite (`NEEDS_FEATURE`); modificar uno existente, no — git ya separa ambos casos | Bajo |
 | ~~A2~~ | **Hecho (2026-08-22).** `core/domain/DeclaredArtifacts`, tras puerta verde, reutilizando el diff de `A1`. Aviso por defecto, error con `--strict-artifacts`. Solo compara declaraciones que **nombran un fichero**: la fila del andamio dice `` `API /health`, smoke test `` y `TBD`, y avisar de eso sería ruido | Bajo |
 | ~~A3~~ | **Hecho (2026-08-22).** Las ocho reglas viven en `core/domain/GherkinQuality` y emiten `Diagnostic` (ADR-0017). `pack lint` las consume con salida idéntica byte a byte; `validate --strict-scenarios` las aplica sobre `features/**`; `doctor` las reporta como aviso (adopción gradual); `harness run` las exige **antes** de crear el worktree. Destapó una tercera copia de la normalización de ruta a punto de nacer | Medio-bajo |
-| B1  | `depends_on` + orden topológico + apilado automático — **`H12` y `H9` ya cerrados por `E1-01`/`E1-03`**; queda el apilado automático | Medio-alto |
+| ~~B1~~ | **Hecho (2026-08-23).** Orden topológico, apilado y aviso de base obsoleta ya existían; faltaba que un **pack** pudiera declarar `depends_on`. Ahora viaja pack → `expand` → matriz → `plan` → harness, y `REQ-002` se corta de la rama de `REQ-001`. Ciclos y referencias rotas se rechazan al validar el pack, no en ejecución | Medio-alto |
 | ~~B2~~ | **Hecho (2026-08-22).** `core/domain/RequirementReadiness`: `ready` + `blockers[]` con `fix` en `plan --json`, y `harness run --skip-not-ready`. Por defecto avisa y ejecuta (es una minor); el escenario no ejecutable salta siempre, que es la guarda de `A3`. Se añadió `Needs Clarification` como bloqueante: un agente al que se le pide zanjar una discusión la zanja adivinando | Bajo-medio |
 | B3  | `--by-scenario` — requisito grande por partes                           | Medio      |
 | ~~C1~~ | **Hecho (2026-08-22).** El paralelismo con niveles ya existía; faltaba el techo: `--budget-seconds`, `--max-requirements` y `cost_per_run_hint` por perfil. Se pregunta **antes de empezar** cada requisito, nunca a mitad. Agotarlo no es error: parada limpia, lo no empezado se nombra, y el libro se escribe igual | Medio |
@@ -195,8 +195,8 @@ parser dijera la verdad, después extender su alcance.
 
 **Tanda 2 — CERRADA (2026-08-22).** ~~`C3`~~ → ~~`C2`~~ → ~~`B2`~~ → ~~`F5`~~ → ~~`C1`~~.
 
-**Tanda 3 en curso:** ~~`E1`~~ **(hecho, 2026-08-23)** → `B1` → `D1` → `F4`.
-**Vamos por `B1`.**
+**Tanda 3 en curso:** ~~`E1`~~ ~~`B1`~~ **(hechos, 2026-08-23)** → `D1` → `F4`.
+**Vamos por `D1`.**
 
 **Tanda 2 — que el bucle rinda desatendido.** `C3` → `C2` → `B2` → `F5` → `C1`.
 Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.

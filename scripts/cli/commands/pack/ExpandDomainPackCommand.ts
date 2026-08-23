@@ -384,7 +384,14 @@ export function renderTraceability(
           ? asArray(scenario.events)
           : asArray(useCase && useCase.emits);
 
-      const row = {
+      // B1: the requirement's `depends_on`, carried to the matrix so `plan` and
+      // the harness can see it. The pack is where a pack author declares it;
+      // the matrix is where the project reads it back.
+      const requirementItem = requirements.get(requirementRef);
+      const row: any = {
+        dependsOn: asArray(requirementItem && requirementItem.depends_on).map((d: any) =>
+          String(d)
+        ),
         requirement: resolveLabel(requirements, requirementRef, requirementRef || "-"),
         scenarioId: scenario.id,
         featureFile: featureCell,

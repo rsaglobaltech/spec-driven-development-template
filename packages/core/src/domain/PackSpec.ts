@@ -112,6 +112,40 @@ export function hasStructuredDomainModel(pack) {
  */
 export type TemplateExists = (absolutePath: string) => boolean;
 
+/**
+ * Refuse a `depends_on` graph that never terminates.
+ *
+ * Depth-first, reporting the first cycle with the way round it goes — "REQ-001
+ * → REQ-002 → REQ-001" is a fix; "there is a cycle" is a puzzle. `runLevels`
+ * already declines to loop forever, but it discovers this at run time, with the
+ * pack installed and an agent about to be paid for.
+ */
+function assertNoDependencyCycle(dependsOn: Map<string, string[]>, fail: (m: string) => void) {
+  const state = new Map<string, "visiting" | "done">();
+  const stack: string[] = [];
+
+  const walk = (id: string): boolean => {
+    if (state.get(id) === "done") return false;
+    if (state.get(id) === "visiting") {
+      const from = stack.indexOf(id);
+      fail(`Requirement dependency cycle: ${[...stack.slice(from), id].join(" → ")}.`);
+      return true;
+    }
+    state.set(id, "visiting");
+    stack.push(id);
+    for (const dep of dependsOn.get(id) || []) {
+      if (walk(dep)) return true;
+    }
+    stack.pop();
+    state.set(id, "done");
+    return false;
+  };
+
+  for (const id of dependsOn.keys()) {
+    if (walk(id)) return;
+  }
+}
+
 export function validatePackModel(pack, packRoot, templateExists: TemplateExists) {
   if (!pack || typeof pack !== "object" || Array.isArray(pack)) {
     fail("Invalid pack format. Root must be an object.");
@@ -310,6 +344,31 @@ export function validatePackModel(pack, packRoot, templateExists: TemplateExists
   for (const item of Array.isArray(pack.queries) ? pack.queries : []) {
     remember("queries", item, "query");
   }
+
+  // `depends_on` (B1): which requirements must land before this one, so the
+  // harness can stack a dependent's branch on its predecessor's instead of on
+  // the run's base. Checked here rather than at run time — a dependency naming
+  // nothing is a defect in the pack, and `runLevels` finding out mid-run means
+  // the pack is already installed and an agent already paid for.
+  const requirementIds = new Set(
+    (Array.isArray(pack.requirements) ? pack.requirements : [])
+      .map((r) => r && r.id)
+      .filter(Boolean)
+  );
+  const dependsOn = new Map<string, string[]>();
+  for (const item of Array.isArray(pack.requirements) ? pack.requirements : []) {
+    const declared = asArray(item.depends_on).map((d) => String(d));
+    if (declared.length === 0) continue;
+    for (const dep of declared) {
+      if (dep === item.id) {
+        fail(`Requirement '${item.id}' depends on itself.`);
+      } else if (!requirementIds.has(dep)) {
+        fail(`Requirement '${item.id}' depends on unknown requirement '${dep}'.`);
+      }
+    }
+    dependsOn.set(item.id, declared);
+  }
+  assertNoDependencyCycle(dependsOn, fail);
 
   for (const item of Array.isArray(pack.aggregates) ? pack.aggregates : []) {
     remember("aggregates", item, "aggregate");

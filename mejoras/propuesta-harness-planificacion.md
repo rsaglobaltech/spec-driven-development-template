@@ -318,7 +318,7 @@ dice. Ahora hay una sola `featureFilePath()` en el dominio y la usan los tres.
 
 ## B. Planificación
 
-### B1 · `depends_on` y orden topológico
+### B1 · `depends_on` y orden topológico — **hecho (2026-08-23)**
 
 **Hoy** (H12, abierto). El pack declara `requirement_id` por escenario pero no
 dependencias entre requisitos. `harness run` sin `--req` procesa en orden de
@@ -347,6 +347,53 @@ pack con requisitos encadenados no es viable sin conducción manual.
 
 **Prerrequisito.** E1 (H13). Añadir un campo al formato mientras el esquema que
 se declara autoridad no se aplica agranda el problema.
+
+### Lo que ya estaba
+
+Tres de las cuatro partes. `plan` emite `dependsOn` y ordena; `runLevels`
+programa por niveles y bloquea a los dependientes de un fallo; `deriveBase`
+apila sobre la rama del predecesor y `warnIfBaseIsStale` avisa cuando la base va
+por detrás — el «regalo de H9». Lo que faltaba era la parte 1: que **un pack**
+pudiera declararlo.
+
+### Por dónde viaja, y por qué no por donde parecía
+
+Los requisitos de un pack **no llegan como specs de capacidad** —el documento de
+capacidad que cada pack instala es su propia plantilla, y remite a la matriz—,
+así que el lector de dependencias, que solo mira `capabilities/<dir>/spec.md`, no
+los ve nunca. La matriz es el único sitio donde aterrizan.
+
+Pero la anotación **no puede ir en una celda**. El parser de filas parte por `|`
+y exige exactamente diez celdas: cualquier cosa añadida a la fila crea una
+undécima y la fila deja de parsear. La anotación sobreviviría a una escritura y
+desaparecería en el siguiente `expand` — el peor tipo de fallo, porque funciona
+cuando lo pruebas.
+
+Va en su propia línea bajo la tabla:
+
+```
+<!-- csda:trace REQ-002 depends=REQ-001 -->
+```
+
+Las líneas que no empiezan por `|` ya las ignora el parser de filas, así que la
+ida y vuelta es segura **por construcción** y no por cuidado. Hay test de la
+segunda vuelta, que es la que se pierde.
+
+### El defecto que destapó al ejecutarlo
+
+`B2` pasaba `blockedBy` a la comprobación de preparación. Ese dato viene del
+plan tomado **antes** de la ejecución, así que un requisito cuyo predecesor
+acababa de pasar *en esa misma ejecución* seguía leyéndose como bloqueado:
+
+```
+❌ REQ-002: it depends on REQ-001, which is not done.
+   …instantes después de que REQ-001 pasara y su rama fuera la base de REQ-002
+```
+
+Con `--skip-not-ready` eso habría saltado trabajo que el planificador había
+desbloqueado correctamente. `runLevels` es la autoridad sobre el orden durante
+una ejecución; la preparación responde a las preguntas que el planificador no
+puede. Quitado, con test.
 
 ### B2 · Preparación del requisito antes de gastar tokens — **hecho (2026-08-22)**
 

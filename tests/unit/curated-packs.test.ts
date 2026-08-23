@@ -157,3 +157,124 @@ test("no shipped pack uses `rules` for domain rules", () => {
     );
   }
 });
+
+// ── `depends_on`, from the pack to the harness (B1) ──────────────────────────
+//
+// The last piece of B1. Ordering, stacking and the stale-base warning already
+// existed; what was missing was a way for a *pack* to say REQ-002 builds on
+// REQ-001. This walks the whole path: pack → expand → matrix → plan → harness.
+
+test("a pack's depends_on reaches plan and stacks the harness branch", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-dependson-"));
+  try {
+    // A curated pack with one dependency added. Using a real pack rather than a
+    // fixture keeps this honest about the shape packs actually have.
+    const packRoot = path.join(parent, "packs");
+    fs.mkdirSync(packRoot, { recursive: true });
+    fs.cpSync(path.join(PACKS_DIR, "billing"), path.join(packRoot, "billing"), {
+      recursive: true,
+    });
+    const packYaml = path.join(packRoot, "billing", "backend", "pack.yaml");
+    fs.writeFileSync(
+      packYaml,
+      fs
+        .readFileSync(packYaml, "utf8")
+        .replace("  - id: REQ-002\n", "  - id: REQ-002\n    depends_on: [REQ-001]\n"),
+      "utf8"
+    );
+
+    const lint = spawnSync(
+      process.execPath,
+      [CLI, "pack", "lint", "--pack-root", packRoot, "--pack", "billing/backend"],
+      { encoding: "utf8" }
+    );
+    assert.equal(lint.status, 0, `depends_on must not break lint:\n${lint.stdout}${lint.stderr}`);
+
+    const init = spawnSync(
+      process.execPath,
+      [CLI, "init", "--yes", "--no-sample-req", "--out", parent, "--no-git"],
+      { encoding: "utf8" }
+    );
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(
+      parent,
+      fs.readdirSync(parent).find((d) => d !== "packs")
+    );
+
+    const expand = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        "expand",
+        "--pack-root",
+        packRoot,
+        "--pack",
+        "billing/backend",
+        "--project-dir",
+        projectDir,
+        "--var",
+        "PROJECT_NAME=Dep",
+        "--var",
+        "PROJECT_SLUG=dep",
+        "--var",
+        "DOMAIN=dep",
+      ],
+      { encoding: "utf8" }
+    );
+    assert.equal(expand.status, 0, expand.stdout + expand.stderr);
+
+    // The matrix carries it, beneath the table where a rebuild will not lose it.
+    const matrix = fs.readFileSync(path.join(projectDir, "docs/specs/traceability.md"), "utf8");
+    assert.match(matrix, /<!-- csda:trace REQ-002 depends=REQ-001 -->/, matrix.slice(-400));
+
+    // `plan` reads it, and orders REQ-002 behind REQ-001.
+    const planned = spawnSync(
+      process.execPath,
+      [CLI, "plan", "--project-dir", projectDir, "--format", "json"],
+      { encoding: "utf8" }
+    );
+    const plan = JSON.parse(planned.stdout);
+    const req002 = plan.requirements.find((r: any) => r.requirement === "REQ-002");
+    assert.deepEqual(req002.dependsOn, ["REQ-001"]);
+    assert.deepEqual(req002.blockedBy, ["REQ-001"], "REQ-001 has not been done yet");
+
+    // And the harness cuts REQ-002 from REQ-001's branch, not from the base.
+    const git = (...args: string[]) =>
+      spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    git("init", "-q");
+    git("add", "-A");
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed");
+
+    const run = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        "harness",
+        "run",
+        "--project-dir",
+        projectDir,
+        "--agent",
+        "true {prompt_file}",
+        "--max-attempts",
+        "1",
+      ],
+      { encoding: "utf8" }
+    );
+    const log = git("log", "--oneline", "harness/REQ-002").stdout;
+    assert.match(
+      log,
+      /feat\(REQ-001\)/,
+      `REQ-002 was not cut from its predecessor's branch:\n${log}\n${run.stdout}${run.stderr}`
+    );
+
+    // And it is never reported as blocked by a predecessor that passed in this
+    // very run — the plan's `blockedBy` is a snapshot taken before it started.
+    assert.doesNotMatch(
+      run.stdout + run.stderr,
+      /REQ-002: it depends on REQ-001, which is not done/,
+      "a stale blocker would skip work the scheduler had correctly unblocked"
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});

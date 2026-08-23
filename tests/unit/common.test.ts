@@ -193,6 +193,40 @@ test("validatePackModel rejects an aggregate pointing at a context that does not
   assert.throws(() => validatePackModel(pack, packRoot), /BC-999/);
 });
 
+test("validatePackModel refuses a depends_on pointing at a requirement that does not exist", () => {
+  // A dependency naming nothing is worse than none: the harness would stack a
+  // branch on a predecessor it can never find, and the failure would surface
+  // as a base that does not exist rather than as the typo it is.
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  pack.requirements[0].depends_on = ["REQ-999"];
+  assert.throws(() => validatePackModel(pack, packRoot), /REQ-999/);
+});
+
+test("validatePackModel refuses a requirement that depends on itself", () => {
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  const id = pack.requirements[0].id;
+  pack.requirements[0].depends_on = [id];
+  assert.throws(() => validatePackModel(pack, packRoot), /itself/);
+});
+
+test("validatePackModel refuses a cycle, and names the way round", () => {
+  // `runLevels` already refuses to loop forever, but it finds out at run time
+  // after the packs are installed. A cycle is a defect in the pack, and the
+  // pack is where it should be reported.
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  assert.ok(pack.requirements.length >= 2, "the fixture needs two requirements");
+  const [a, b] = pack.requirements;
+  a.depends_on = [b.id];
+  b.depends_on = [a.id];
+  assert.throws(() => validatePackModel(pack, packRoot), /cycle/i);
+});
+
+test("a pack whose requirements declare no dependencies is unaffected", () => {
+  // `depends_on` is optional, so every pack written before it stays valid.
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  assert.doesNotThrow(() => validatePackModel(pack, packRoot));
+});
+
 test("validatePackModel still honours `context`, the name the schema used", () => {
   // Both spellings are accepted while the schema catches up: a pack authored
   // against the published schema must not silently lose the check either.
