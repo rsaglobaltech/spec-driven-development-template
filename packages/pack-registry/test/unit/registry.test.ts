@@ -113,8 +113,26 @@ test("renderIndex shows verified count", () => {
   const html = renderIndex(packs);
   // count badge shows total visible packs
   assert.ok(html.includes("2 shown"));
-  // KPI tile for verified (lintStatus=pass) shows 1
-  assert.ok(html.includes('>1</span><span class="kpi__label">Verified</span>'));
+
+  // One of the two passes lint. Asserted on the fact rather than on the markup
+  // that carries it — the previous version pinned the KPI tile's class names
+  // and broke when the page adopted the documentation site's shell, which was
+  // a presentation change and not a behaviour one.
+  assert.match(html, /<dt>1<\/dt><dd>passing lint<\/dd>/);
+  assert.match(html, /<dt>2<\/dt><dd>packs<\/dd>/);
+});
+
+test("the registry wears the same shell as the rest of the site", () => {
+  // It used to carry its own top bar, its own footer and a second hardcoded
+  // palette that ignored the theme, so following a link to it looked like
+  // arriving at a different product.
+  const html = renderIndex([]);
+  assert.match(html, /<link rel="stylesheet" href="\.\.\/assets\/docs\.css">/);
+  assert.match(html, /class="top"/, "no site header");
+  assert.match(html, /class="top__theme"/, "no theme toggle, so the page cannot follow the site");
+  assert.match(html, /class="foot"/, "no site footer");
+  assert.match(html, /href="\.\.\/docs\.html"/, "no way back into the documentation");
+  assert.doesNotMatch(html, /--bg:\s*#/, "a second hardcoded palette has come back");
 });
 
 // ── scanPacks (integration with the real packs/ dir) ──────────────────────────
