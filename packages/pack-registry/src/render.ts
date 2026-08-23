@@ -124,251 +124,211 @@ function renderIndex(packs, options: any = {}) {
 </script>
 <style>
   /*
-   * The registry keeps its own layout — a card grid is not a documentation
-   * page — but takes its colours from the site's tokens rather than a second
-   * hardcoded palette. It was the one page that ignored the theme and used a
-   * different blue, which is what made the site feel like two sites.
+   * The registry is a card grid, so it needs layout of its own — but the
+   * header, footer, colours, fonts and theme all come from assets/docs.css,
+   * the same file every documentation page uses. It used to carry a second
+   * palette and a second top bar, which is what made it read as a different
+   * site.
    */
-  :root {
-    --surface: var(--bg-soft);
-    --card:    var(--bg-soft);
-    --border:  var(--line);
-    --border2: var(--line);
-    --muted:   var(--fg-soft);
-    --accent2: var(--accent);
-    --shadow:  0 4px 24px rgb(0 0 0 / 0.14);
+
+  .registry { padding: 2.5rem 0 4rem; }
+
+  .registry h1 {
+    font-size: clamp(1.8rem, 4vw, 2.4rem);
+    letter-spacing: -0.02em;
+    margin: 0 0 0.75rem;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Space Grotesk', -apple-system, sans-serif;
-    background: var(--bg);
+
+  .registry__lede {
+    max-width: 42rem;
+    color: var(--fg-soft);
+    line-height: 1.7;
+    margin: 0 0 2rem;
+  }
+  .registry__lede code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--bg-code);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 0.1em 0.35em;
     color: var(--fg);
-    min-height: 100vh;
-    line-height: 1.6;
   }
 
-  /* ── Sticky nav ── */
-  .topbar {
-    position: sticky; top: 0; z-index: 50;
-    background: rgba(11,15,23,0.85);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-    padding: 0.7rem 0;
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: 1.25rem;
+    margin: 0 0 3rem;
+    padding: 1.5rem 0;
+    border-block: 1px solid var(--line);
   }
-  .topbar__inner {
-    max-width: 1180px; margin: 0 auto; padding: 0 1.5rem;
-    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  .stats div { text-align: center; }
+  .stats dt {
+    font-family: var(--mono);
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--accent);
+    line-height: 1;
   }
-  .topbar__back {
-    color: var(--muted); text-decoration: none; font-size: 0.82rem; font-weight: 600;
-    display: flex; align-items: center; gap: 0.35rem;
-    transition: color 0.2s; flex-shrink: 0;
-  }
-  .topbar__back:hover { color: var(--fg); }
-  .topbar__title {
-    font-weight: 700; font-size: 0.95rem;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    flex-shrink: 0;
-  }
-  .topbar__search {
-    margin-left: auto;
-    display: flex; align-items: center; gap: 0.5rem;
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: 999px;
-    padding: 0.4rem 0.9rem;
-    min-width: 220px;
-  }
-  .topbar__search svg { color: var(--muted); flex-shrink: 0; }
-  .topbar__search input {
-    background: none; border: none; outline: none;
-    color: var(--fg); font-family: inherit; font-size: 0.9rem; width: 100%;
-  }
-  .topbar__search input::placeholder { color: var(--muted); }
+  .stats dd { margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--fg-soft); }
 
-  /* ── Hero / stats bar ── */
-  .hero {
-    background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(6,182,212,0.1));
-    border-bottom: 1px solid var(--border);
-    padding: 2.5rem 1.5rem 2rem;
-  }
-  .hero__inner { max-width: 1180px; margin: 0 auto; }
-  .hero h1 {
-    font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 700; line-height: 1.1;
-    background: linear-gradient(90deg, #a5b4fc, var(--accent2));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    margin-bottom: 0.4rem;
-  }
-  .hero__sub { color: var(--muted); font-size: 0.95rem; margin-bottom: 1.5rem; }
-  .hero__kpis {
-    display: flex; gap: 1.5rem; flex-wrap: wrap;
-  }
-  .kpi {
-    background: var(--card);
-    border: 1px solid var(--border2);
-    border-radius: 12px;
-    padding: 0.7rem 1.2rem;
-    display: flex; flex-direction: column; align-items: center;
-  }
-  .kpi__val { font-size: 1.7rem; font-weight: 700; line-height: 1; }
-  .kpi__label { font-size: 0.75rem; color: var(--muted); margin-top: 0.1rem; text-transform: uppercase; letter-spacing: 0.06em; }
-
-  /* ── Main grid ── */
-  .main { max-width: 1180px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
   .grid-header {
-    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-    margin-bottom: 1.2rem; flex-wrap: wrap;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
   }
-  .grid-header h2 { font-size: 1rem; font-weight: 600; color: var(--muted); }
+  .grid-header h2 { font-size: 1.2rem; margin: 0; }
   .count-badge {
-    background: var(--surface); border: 1px solid var(--border2);
-    border-radius: 999px; padding: 0.2rem 0.7rem; font-size: 0.8rem; font-weight: 700;
-    color: var(--accent2);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--fg-soft);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
   }
+
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 1.2rem;
+    grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+    gap: 1rem;
   }
 
-  /* ── Pack card ── */
   .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1.25rem;
-    display: flex; flex-direction: column; gap: 0.75rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.15rem;
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
   }
-  .card:hover { border-color: var(--border2); box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+  .card:hover { border-color: var(--accent); }
   .card.hidden { display: none; }
 
-  .card__head {
-    display: flex; align-items: flex-start; gap: 0.8rem;
-  }
-  .card__icon { font-size: 2rem; line-height: 1; flex-shrink: 0; }
+  .card__head { display: flex; align-items: flex-start; gap: 0.7rem; }
+  .card__icon { font-size: 1.3rem; line-height: 1.2; }
   .card__title-block { flex: 1; min-width: 0; }
-  .card__name {
-    font-size: 1.05rem; font-weight: 700; color: var(--fg); line-height: 1.2;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
+  .card__name { font-size: 1rem; margin: 0; }
   .card__id {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--muted);
-    display: block; margin-top: 0.1rem;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--fg-faint);
   }
+
   .badge {
-    flex-shrink: 0; border-radius: 999px; padding: 0.2rem 0.6rem;
-    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 999px;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid var(--line);
+    color: var(--fg-soft);
+    white-space: nowrap;
   }
-  .card__tagline { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+  .badge--pass { color: var(--green); border-color: color-mix(in srgb, var(--green) 45%, transparent); }
+  .badge--fail { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
 
-  .card__stats {
-    display: flex; gap: 0.6rem; flex-wrap: wrap;
-  }
-  .stat {
-    display: flex; flex-direction: column; align-items: center;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 0.35rem 0.7rem; min-width: 54px;
-  }
-  .stat__val {
-    font-size: 1.05rem; font-weight: 700; color: var(--stat-color, var(--fg)); line-height: 1;
-  }
-  .stat__label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+  .card__tagline { margin: 0; font-size: 0.88rem; color: var(--fg-soft); line-height: 1.55; }
 
-  .card__cmd-wrap { position: relative; }
+  .card__stats { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
+  .stat { font-size: 0.78rem; color: var(--fg-soft); }
+  .stat__val { font-family: var(--mono); font-weight: 600; color: var(--fg); }
+  .stat__label { margin-left: 0.25rem; }
+
+  .card__cmd-wrap { position: relative; margin-top: auto; }
   .card__cmd {
-    background: var(--bg); border: 1px solid var(--border);
-    border-radius: 10px; padding: 0.75rem 0.9rem;
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem;
-    color: #94a3b8; white-space: pre-wrap; word-break: break-all; line-height: 1.6;
+    margin: 0;
+    padding: 0.6rem 4rem 0.6rem 0.7rem;
+    background: var(--bg-code);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 0.74rem;
     overflow-x: auto;
+    white-space: pre;
+    color: var(--fg);
   }
   .card__copy {
-    position: absolute; top: 0.5rem; right: 0.5rem;
-    background: var(--accent); color: #fff; border: none; border-radius: 6px;
-    padding: 0.2rem 0.55rem; font-size: 0.72rem; font-weight: 700; cursor: pointer;
-    transition: background 0.2s; font-family: inherit;
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--fg-soft);
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    padding: 0.15rem 0.45rem;
   }
-  .card__copy:hover { background: #4f46e5; }
-  .card__copy.copied { background: var(--green); }
+  .card__copy:hover { color: var(--fg); border-color: var(--accent); }
+  .card__copy.copied { color: var(--green); border-color: var(--green); }
 
   .card__foot {
-    display: flex; gap: 0.5rem; align-items: center; padding-top: 0.25rem;
-    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--line);
   }
   .card__ver, .card__lang, .card__type {
-    font-size: 0.72rem; color: var(--muted);
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 6px; padding: 0.12rem 0.45rem;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--fg-faint);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.05rem 0.35rem;
   }
 
-  .lint-details { font-size: 0.8rem; color: var(--muted); }
+  .lint-details { font-size: 0.8rem; color: var(--fg-soft); }
   .lint-details summary { cursor: pointer; }
-  .lint-list { padding-left: 1.2rem; margin-top: 0.4rem; }
-  .lint-list li { margin-bottom: 0.2rem; }
+  .lint-list { margin: 0.5rem 0 0; padding-left: 1.1rem; }
 
-  /* ── No results ── */
-  .no-results {
-    display: none; grid-column: 1 / -1; text-align: center;
-    padding: 3rem; color: var(--muted); font-size: 1rem;
-  }
+  .no-results { display: none; color: var(--fg-soft); grid-column: 1 / -1; }
   .no-results.visible { display: block; }
 
-  /* ── Footer ── */
-  .footer {
-    border-top: 1px solid var(--border); padding: 2rem 1.5rem;
-    text-align: center; color: var(--muted); font-size: 0.82rem;
-  }
-  .footer a { color: var(--accent2); text-decoration: none; }
-  .footer a:hover { text-decoration: underline; }
-
-  @media (max-width: 600px) {
-    .topbar__search { min-width: 160px; }
-    .hero h1 { font-size: 1.6rem; }
+  @media (max-width: 700px) {
     .grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
 
-<nav class="topbar">
-  <div class="topbar__inner">
-    <a class="topbar__back" href="../">
-      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-      </svg>
-      Docs home
-    </a>
-    <span class="topbar__title">Pack Registry</span>
-    <div class="topbar__search">
-      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/>
-      </svg>
-      <input id="search" type="search" placeholder="Search packs…" aria-label="Search packs" autocomplete="off">
-    </div>
-  </div>
-</nav>
+<a class="skip" href="#packs">Skip to the packs</a>
 
-<header class="hero">
-  <div class="hero__inner">
-    <h1>${escape(title)}</h1>
-    <p class="hero__sub">
-      Curated domain packs for <code style="font-family:'IBM Plex Mono',monospace;font-size:0.85rem;color:var(--fg-soft)">create-spec-driven-app</code> —
-      each ships requirements, DDD aggregates, events, and Gherkin scenarios ready to expand into any project.
-    </p>
-    <div class="hero__kpis">
-      <div class="kpi"><span class="kpi__val" style="color:var(--accent)">${packs.length}</span><span class="kpi__label">Packs</span></div>
-      <div class="kpi"><span class="kpi__val" style="color:#4ade80">${passed}</span><span class="kpi__label">Verified</span></div>
-      <div class="kpi"><span class="kpi__val" style="color:var(--accent)">${totalReqs}</span><span class="kpi__label">Requirements</span></div>
-      <div class="kpi"><span class="kpi__val" style="color:#60a5fa">${totalScenarios}</span><span class="kpi__label">Scenarios</span></div>
-    </div>
+<header class="top">
+  <a class="top__brand" href="../index.html"><span aria-hidden="true">⬡</span> create-spec-driven-app</a>
+  <div class="top__search">
+    <input type="search" id="search" placeholder="Search packs…" aria-label="Search packs" autocomplete="off">
   </div>
+  <nav class="top__links">
+    <a href="../docs.html">Docs</a>
+    <a href="../domain-packs.html">Using packs</a>
+    <a href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer">GitHub</a>
+  </nav>
+  <button class="top__theme" type="button" aria-label="Switch theme">◐</button>
 </header>
 
-<main class="main">
+<main class="wrap registry" id="packs">
+  <h1>${escape(title)}</h1>
+  <p class="registry__lede">
+    Curated domain packs for <code>create-spec-driven-app</code>. Each ships
+    requirements, use cases, aggregates, events and Gherkin scenarios, ready to
+    expand into a project — see <a href="../domain-packs.html">Domain packs</a>
+    for what that means and how to write your own.
+  </p>
+
+  <dl class="stats">
+    <div><dt>${packs.length}</dt><dd>packs</dd></div>
+    <div><dt>${passed}</dt><dd>passing lint</dd></div>
+    <div><dt>${totalReqs}</dt><dd>requirements</dd></div>
+    <div><dt>${totalScenarios}</dt><dd>scenarios</dd></div>
+  </dl>
+
   <div class="grid-header">
     <h2>All packs</h2>
     <span class="count-badge" id="visible-count">${packs.length} shown</span>
@@ -379,14 +339,24 @@ ${cards}
   </div>
 </main>
 
-<footer class="footer">
-  <p>Powered by <a href="https://github.com/rsaglobaltech/spec-driven-development-template">create-spec-driven-app</a> &nbsp;·&nbsp;
-     Generated ${escape(generated)} &nbsp;·&nbsp;
-     <a href="./manifest.json">manifest.json</a>
-  </p>
-  <p style="margin-top:0.5rem">Submit a pack: open a PR adding <code style="font-size:0.8rem">packs/&lt;domain&gt;/&lt;type&gt;/pack.yaml</code></p>
+<footer class="foot">
+  <div class="wrap">
+    <p>
+      <strong>create-spec-driven-app</strong> ·
+      <a href="../docs.html">Docs</a> ·
+      <a href="./manifest.json">manifest.json</a> ·
+      <a href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer">GitHub</a>
+    </p>
+    <p class="foot__note">
+      Generated ${escape(generated)} from <code>packs/&lt;domain&gt;/&lt;type&gt;/pack.yaml</code>.
+      Submit a pack by opening a pull request that adds one.
+    </p>
+  </div>
 </footer>
 
+<!-- The theme toggle and the pre-paint read come from the site's own script;
+     what follows is the pack filter, which only this page has. -->
+<script src="../assets/docs.js" defer></script>
 <script>
 (function () {
   const input = document.getElementById('search');
