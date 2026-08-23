@@ -77,6 +77,18 @@ function reachableDistFiles(): Set<string> {
   return seen;
 }
 
+/**
+ * A repo-relative path with the separators npm uses.
+ *
+ * `path.relative` gives `dist\\packages\\core\\…` on Windows, and `files` in
+ * `package.json` is written with `/` — comparing the two directly reported
+ * every module as unpublished. npm's own paths are posix, so that is the form
+ * these tests compare in.
+ */
+function repoRelative(file: string): string {
+  return path.relative(repoRoot, file).split(path.sep).join("/");
+}
+
 /** True when a `files` entry (npm's directory-or-path form) covers a repo-relative path. */
 function coveredByFiles(relPath: string): boolean {
   return (packageJson.files as string[]).some((entry) => {
@@ -102,7 +114,7 @@ test("every module the CLI requires is inside a published `files` entry", () => 
   assert.ok(reachable.size > 0, "expected to walk a non-empty require graph");
 
   const missing = [...reachable]
-    .map((f) => path.relative(repoRoot, f))
+    .map(repoRelative)
     .filter((rel) => !coveredByFiles(rel))
     .sort();
 
@@ -116,7 +128,7 @@ test("every module the CLI requires is inside a published `files` entry", () => 
 
 test("the CLI require graph really does span packages/core", () => {
   // Guards the test above against silently passing if the walk stops early.
-  const reachable = [...reachableDistFiles()].map((f) => path.relative(repoRoot, f));
+  const reachable = [...reachableDistFiles()].map(repoRelative);
   assert.ok(
     reachable.some((rel) => rel.startsWith("dist/packages/core/")),
     "expected the walk to reach dist/packages/core; if core is genuinely unused, drop it from `files`"
