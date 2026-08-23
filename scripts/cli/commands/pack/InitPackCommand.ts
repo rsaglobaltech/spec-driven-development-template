@@ -1,3 +1,10 @@
+// csda:allow-placeholders — this command *writes* the {{VAR}} tokens a pack
+// template carries; they are its output, not an unrendered project.
+//
+// The marker was on `scripts/init_pack.ts` and was lost when the clean
+// architecture refactor split that file. Nothing noticed for six days
+// because `npm run verify` — which runs the selfcheck — was never part of
+// the gate I was running.
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
