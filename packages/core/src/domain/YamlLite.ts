@@ -63,6 +63,38 @@ function splitKeyValue(text) {
   return null;
 }
 
+/**
+ * Split a flow sequence on the commas that separate items, not the ones inside
+ * a quoted item.
+ *
+ * A plain `split(",")` turned `["Invoice line items, totals, status, aging"]`
+ * into four items, the first `"Invoice line items` and the last `aging"`. The
+ * curated packs write exactly that shape, so a pack declaring one
+ * responsibility shipped as declaring four, and the stray quote characters rode
+ * along into the generated documents.
+ *
+ * `splitKeyValue` above already tracks quotes for the same reason; this is that
+ * scan, applied where it was missing.
+ */
+function splitFlowItems(inner: string): string[] {
+  const items: string[] = [];
+  let start = 0;
+  let inSingle = false;
+  let inDouble = false;
+
+  for (let i = 0; i < inner.length; i += 1) {
+    const ch = inner[i];
+    if (ch === "'" && !inDouble) inSingle = !inSingle;
+    else if (ch === '"' && !inSingle) inDouble = !inDouble;
+    else if (ch === "," && !inSingle && !inDouble) {
+      items.push(inner.slice(start, i));
+      start = i + 1;
+    }
+  }
+  items.push(inner.slice(start));
+  return items;
+}
+
 function parseScalar(raw) {
   const text = raw.trim();
 
@@ -80,7 +112,7 @@ function parseScalar(raw) {
   if (text.startsWith("[") && text.endsWith("]")) {
     const inner = text.slice(1, -1).trim();
     if (inner === "") return [];
-    return inner.split(",").map((part) => parseScalar(part.trim()));
+    return splitFlowItems(inner).map((part) => parseScalar(part.trim()));
   }
 
   if (text === "true") return true;
