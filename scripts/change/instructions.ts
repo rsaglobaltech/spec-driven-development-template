@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 // csda:allow-placeholders — the templates it hands out contain {{VAR}} tokens.
 
 /**
@@ -16,22 +14,28 @@
  * caller decides how to render it.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { resolveProjectDir } = require("../lib/project-root");
-const { error } = require("../lib/diagnostics");
-const { agentIo, wantsJson, EXIT } = require("../lib/agent");
-const { paths, listChangeIds, listDeltas, readConfig, CAPABILITIES_DIR } = require("./common");
-const { artifactState, artifactsFor, ARTIFACTS } = require("./artifacts");
-const { BUILT_IN } = require("../schema/registry");
+import { resolveProjectDir } from "../lib/project-root";
+import { error } from "../lib/diagnostics";
+import { agentIo, wantsJson, EXIT } from "../lib/agent";
+import {
+  paths,
+  listChangeIds,
+  listDeltas,
+  readConfig,
+  CAPABILITIES_DIR,
+} from "../../packages/core/src/infrastructure/ChangeWorkspace";
+import { artifactState, artifactsFor, ARTIFACTS } from "./artifacts";
+import { BUILT_IN } from "../schema/registry";
 
 /**
  * The rules an agent gets wrong when it is not told them. Each one exists
  * because the validator rejects the alternative — these are not style
  * preferences, they are the grammar.
  */
-const DELTA_RULES = [
+export const DELTA_RULES = [
   "Write only what changes. A delta is not a copy of the spec.",
   "Use exactly these section headings: `## ADDED Requirements`, `## MODIFIED Requirements`, `## REMOVED Requirements`.",
   "`MODIFIED` replaces the whole requirement block — it does not merge scenario by scenario.",
@@ -64,7 +68,7 @@ const ARTIFACT_RULES = {
 };
 
 /** Pseudo-artefacts: not files to write, but stages to carry out. */
-const STAGES = {
+export const STAGES = {
   apply: {
     summary: "Implement the change: write the tests first, then the code.",
     rules: [
@@ -88,7 +92,7 @@ const STAGES = {
 };
 
 /** What writing this artefact unblocks, derived from the graph rather than restated. */
-function unlockedBy(artifactId, artifacts?) {
+export function unlockedBy(artifactId, artifacts?) {
   return (artifacts || ARTIFACTS)
     .filter((a) => (a.requires || []).includes(artifactId))
     .map((a) => a.id);
@@ -102,10 +106,18 @@ function readIfExists(file) {
   }
 }
 
+/**
+ * The facts an artefact's instructions are rendered against — the project's
+ * stack, what already exists, and where the change currently stands.
+ */
+export interface InstructionContext {
+  [key: string]: string | string[] | number | undefined;
+}
+
 /** The project's declared stack, so an agent does not invent one. */
 function projectContext(projectDir) {
   const rules = readIfExists(path.join(projectDir, "AI_RULES.md"));
-  const context: any = {};
+  const context: InstructionContext = {};
   if (rules) {
     const stack = /^-?\s*\**Stack:?\**:?\s*(.+)$/m.exec(rules);
     if (stack) context.stack = stack[1].trim();
@@ -124,7 +136,7 @@ function projectContext(projectDir) {
   return context;
 }
 
-function buildInstructions(projectDir, artifact, changeId, templates) {
+export function buildInstructions(projectDir, artifact, changeId, templates) {
   const p = paths(projectDir);
   const stage = STAGES[artifact];
   const config = readConfig(projectDir, changeId);
@@ -132,7 +144,7 @@ function buildInstructions(projectDir, artifact, changeId, templates) {
   const states = artifactState(projectDir, changeId, config);
   const state = states.find((s) => s.id === artifact);
 
-  const context: any = { ...projectContext(projectDir) };
+  const context: InstructionContext = { ...projectContext(projectDir) };
   const proposal = readIfExists(path.join(p.change(changeId), "proposal.md"));
   // The proposal is the intent every later artefact has to stay faithful to.
   if (proposal && artifact !== "proposal") context.proposal = proposal;
@@ -171,16 +183,16 @@ function buildInstructions(projectDir, artifact, changeId, templates) {
 }
 
 /** The default vocabulary. A project schema may add to it — see knownFor(). */
-const KNOWN = [...ARTIFACTS.map((a) => a.id), ...Object.keys(STAGES)];
+export const KNOWN = [...ARTIFACTS.map((a) => a.id), ...Object.keys(STAGES)];
 
 /** Every artefact id any built-in schema declares, for the pre-check. */
 const ANY_KNOWN = [
-  ...new Set(Object.values(BUILT_IN).flatMap((s: any) => s.artifacts.map((a) => a.id))),
+  ...new Set(Object.values(BUILT_IN).flatMap((s) => s.artifacts.map((a) => a.id))),
   ...Object.keys(STAGES),
 ];
 
 /** What this project actually recognises, once its schema is resolved. */
-function knownFor(projectDir, config) {
+export function knownFor(projectDir, config) {
   return [...artifactsFor(projectDir, config).map((a) => a.id), ...Object.keys(STAGES)];
 }
 
@@ -195,7 +207,7 @@ function usage() {
   );
 }
 
-function main(argv, templates) {
+export function main(argv, templates) {
   const args = argv.filter((a) => a !== "--json");
   const io = agentIo(wantsJson(argv));
   const NULL_SHAPE = { instructions: null };
@@ -323,5 +335,3 @@ function renderHuman(ins) {
   out.push(`\n  Next: ${ins.nextCommand}\n`);
   process.stdout.write(`${out.join("\n")}\n`);
 }
-
-module.exports = { buildInstructions, main, DELTA_RULES, STAGES, unlockedBy, KNOWN, knownFor };

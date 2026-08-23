@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
 
-import { buildModel, mermaid, renderHtml } from "../../scripts/studio";
+import { buildModel, mermaid, renderHtml } from "../../scripts/studio.js";
 
 const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";

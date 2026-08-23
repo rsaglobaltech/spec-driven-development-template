@@ -14,7 +14,12 @@ const {
   filterHint,
 } = require("../../scripts/harness/run");
 const { buildPrompt } = require("../../scripts/harness/prompt");
-const { readHarnessConfig, resolveHarnessSettings } = require("../../scripts/harness/config");
+const { featureFilePath } = require("../../packages/core/src/domain/HarnessRun");
+const { DEFAULT_PROTECTED_PATHS } = require("../../packages/core/src/domain/WriteScope");
+const {
+  readHarnessConfig,
+  resolveHarnessSettings,
+} = require("../../packages/core/src/infrastructure/HarnessConfigFile");
 
 // ── parseArgs ────────────────────────────────────────────────────────────────
 
@@ -755,4 +760,961 @@ test("filterHint recognises the counts other runners print", () => {
 
 test("filterHint needs a feature file to reason about", () => {
   assert.equal(filterHint("run {feature_file}", {}, "16 scenarios (1 failed)"), "");
+});
+
+// ── A scenario that cannot fail is not worth an agent (A3) ───────────────────
+//
+// The harness gates a requirement by running its scenario. If Cucumber sees no
+// steps in that scenario, the gate reports `0 steps · exit 0`, the run is
+// recorded as a pass, and the branch is published — the agent was paid for and
+// nothing was verified. H14 from the harness's side: not a weak signal, a
+// counterfeit one.
+//
+// So the check runs before the worktree, before the prompt, before the agent.
+// The assertion that matters is the last one: the agent never ran.
+
+test("harness run refuses a requirement whose scenario has no steps, before spending the agent", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "harness-a3-"));
+  try {
+    const init = spawnSync(process.execPath, [CLI, "init", "--yes", "--out", parent, "--no-git"], {
+      encoding: "utf8",
+    });
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(parent, fs.readdirSync(parent)[0]);
+
+    spawnSync("git", ["init", "-q"], { cwd: projectDir });
+    spawnSync("git", ["config", "user.email", "harness-test@example.com"], { cwd: projectDir });
+    spawnSync("git", ["config", "user.name", "Harness Test"], { cwd: projectDir });
+    spawnSync("git", ["add", "-A"], { cwd: projectDir });
+    spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed"], {
+      cwd: projectDir,
+    });
+
+    const planned = spawnSync(
+      process.execPath,
+      [CLI, "plan", "--project-dir", projectDir, "--format", "json"],
+      { encoding: "utf8" }
+    );
+    const req = (JSON.parse(planned.stdout).requirements || [])[0];
+    assert.ok(req, "plan returned no requirements");
+    // The matrix stores the path as markdown, so plan hands it back inside
+    // back-ticks. `featureFilePath` is the one place that knows this.
+    const featureRel = featureFilePath(req);
+    assert.ok(featureRel, "the scaffolded requirement declares no feature file");
+
+    // Shout the keywords. Cucumber now reads every step as prose.
+    const featurePath = path.join(projectDir, featureRel);
+    const shouted = fs
+      .readFileSync(featurePath, "utf8")
+      .replace(/^(\s*)(Given|When|Then|And) /gm, (_m, pad, kw) => `${pad}${kw.toUpperCase()} `);
+    fs.writeFileSync(featurePath, shouted, "utf8");
+    spawnSync("git", ["add", "-A"], { cwd: projectDir });
+    spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "shout"], {
+      cwd: projectDir,
+    });
+
+    // An agent that leaves a trace if it is ever invoked.
+    const marker = path.join(parent, "agent-ran.txt");
+    const agent = `${process.execPath} -e "require('fs').writeFileSync(${JSON.stringify(marker)},'ran')"`;
+
+    const run = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        "harness",
+        "run",
+        "--project-dir",
+        projectDir,
+        "--req",
+        req.requirement,
+        "--agent",
+        agent,
+        "--format",
+        "json",
+      ],
+      { encoding: "utf8" }
+    );
+
+    const out = run.stdout + run.stderr;
+    assert.match(out, /keyword_case_invalid|scenario_has_no_steps/, `no refusal in:\n${out}`);
+    assert.equal(
+      fs.existsSync(marker),
+      false,
+      "the agent was invoked against a scenario that cannot fail — the check ran too late"
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+// ── The agent may not edit the contract it is judged against (A1, H16) ───────
+//
+// Measured before it was written. An agent that replaced the scenario with
+// `Given nothing / When nothing happens / Then nothing is asserted` produced:
+//
+//     1 passed · 0 failed · 0 skipped
+//
+// The branch was published and the requirement closed. `validate --strict-tdd`
+// checks that the feature exists and is in the matrix, never that it still says
+// what it said — so "specs as executable contracts" held only for as long as
+// the executor chose not to edit the contract.
+
+/** A project whose gate can actually go green, so the guard is the only variable. */
+function greenableProject() {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "harness-a1-"));
+  const init = spawnSync(process.execPath, [CLI, "init", "--yes", "--out", parent, "--no-git"], {
+    encoding: "utf8",
+  });
+  assert.equal(init.status, 0, init.stdout + init.stderr);
+  const projectDir = path.join(parent, fs.readdirSync(parent)[0]);
+
+  // The scaffold leaves a template REQ-001 in spec.md with no matrix row, which
+  // `--strict-tdd` refuses (TDD-3). Left in place, the gate can never pass and
+  // this test would prove nothing about the guard.
+  const specPath = path.join(projectDir, "spec.md");
+  fs.writeFileSync(
+    specPath,
+    fs
+      .readFileSync(specPath, "utf8")
+      .split("\n")
+      .filter((l) => !l.includes("REQ-001"))
+      .join("\n"),
+    "utf8"
+  );
+
+  const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+  git("init", "-q");
+  git("config", "user.email", "harness-test@example.com");
+  git("config", "user.name", "Harness Test");
+  git("add", "-A");
+  git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed");
+  return { parent, projectDir };
+}
+
+/** Each agent gets its own file: several may exist in one fixture. */
+let scriptedAgentSeq = 0;
+
+/**
+ * An agent that performs `writes` in the worktree and exits 0.
+ *
+ * A Node script, not a shell one. The shell version passed on macOS and Linux
+ * and failed on Windows: `mkdir -p`, `printf` and `>>` are not portable, and
+ * the harness runs the agent through `shell: true`, which is `cmd.exe` there.
+ * Describing the writes rather than scripting them makes the fixture mean the
+ * same thing on all three platforms.
+ *
+ * `writes` is a list of `[relative path, contents]`. Contents starting with `+`
+ * are appended. `sleepMs` delays before exiting, for the budget tests.
+ */
+function scriptedAgent(parent, writes, opts: any = {}) {
+  const file = path.join(parent, `agent-${(scriptedAgentSeq += 1)}.js`);
+  fs.writeFileSync(
+    file,
+    [
+      'const fs = require("node:fs");',
+      'const p = require("node:path");',
+      `for (const [rel, content] of ${JSON.stringify(writes)}) {`,
+      "  const target = p.join(process.cwd(), rel);",
+      "  fs.mkdirSync(p.dirname(target), { recursive: true });",
+      '  if (content.startsWith("+")) fs.appendFileSync(target, content.slice(1), "utf8");',
+      '  else fs.writeFileSync(target, content, "utf8");',
+      "}",
+      opts.sleepMs ? `const until = Date.now() + ${opts.sleepMs};` : "",
+      opts.sleepMs ? "while (Date.now() < until) {}" : "",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+  return `"${process.execPath}" "${file}" {prompt_file}`;
+}
+
+function runHarness(projectDir, agent, extra = []) {
+  return spawnSync(
+    process.execPath,
+    [
+      CLI,
+      "harness",
+      "run",
+      "--project-dir",
+      projectDir,
+      "--req",
+      "REQ-000",
+      "--agent",
+      agent,
+      "--max-attempts",
+      "1",
+      ...extra,
+    ],
+    { encoding: "utf8" }
+  );
+}
+
+test("the fixture's gate really can pass, or the guard test below proves nothing", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}");
+    assert.match(r.stdout + r.stderr, /1 passed/, `${r.stdout}${r.stderr}`);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("an agent that guts the scenario fails, and the run says which file", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(parent, [
+      [
+        "features/core/health.feature",
+        "Feature: Platform health baseline\n" +
+          "  Scenario: API reports service as healthy\n" +
+          "    Given nothing in particular\n" +
+          "    When nothing happens\n" +
+          "    Then nothing is asserted\n",
+      ],
+    ]);
+    const r = runHarness(projectDir, agent);
+    const out = r.stdout + r.stderr;
+
+    assert.match(out, /0 passed/, `the gutted scenario passed:\n${out}`);
+    assert.match(out, /agent_touched_protected_path/);
+    assert.match(out, /features\/core\/health\.feature/);
+    // The diff goes back to the agent: it almost always did this without
+    // meaning to, and being shown the hunk is what corrects it.
+    assert.match(out, /Feature: Platform health baseline/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("writing code is not a violation — the guard protects the contract, not the repo", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(parent, [["src/App.java", "class App {}\n"]]);
+    const r = runHarness(projectDir, agent);
+    const out = r.stdout + r.stderr;
+    assert.doesNotMatch(out, /agent_touched_protected_path/, out);
+    assert.match(out, /1 passed/, out);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("creating a feature that did not exist is allowed (NEEDS_FEATURE)", () => {
+  // A requirement in that category is *supposed* to write its feature file. A
+  // blanket ban on features/** would fail the legitimate case; git's own
+  // tracked/untracked split is what tells the two apart.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(parent, [
+      [
+        "features/core/brand-new.feature",
+        "Feature: New\n  Scenario: Something specific happens here\n" +
+          "    Given a precondition\n    When it runs\n    Then it is observable\n",
+      ],
+    ]);
+    const r = runHarness(projectDir, agent);
+    assert.doesNotMatch(r.stdout + r.stderr, /agent_touched_protected_path/, r.stdout + r.stderr);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("allow_paths in harness.config.yaml is an escape hatch that has to be written down", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    fs.writeFileSync(
+      path.join(projectDir, "harness.config.yaml"),
+      ["allow_paths:", "  - 'features/**'", ""].join("\n"),
+      "utf8"
+    );
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    git("add", "-A");
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "allow");
+
+    const agent = scriptedAgent(parent, [
+      [
+        "features/core/health.feature",
+        "Feature: Platform health baseline\n  Scenario: API reports service as healthy\n" +
+          "    Given nothing\n    When nothing\n    Then nothing\n",
+      ],
+    ]);
+    const r = runHarness(projectDir, agent);
+    assert.doesNotMatch(
+      r.stdout + r.stderr,
+      /agent_touched_protected_path/,
+      "an explicit allow_paths entry must be honoured"
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("protected_paths and allow_paths are read from harness.config.yaml", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-scope-cfg-"));
+  try {
+    fs.writeFileSync(
+      path.join(dir, "harness.config.yaml"),
+      [
+        "agent: 'x {prompt_file}'",
+        "protected_paths:",
+        "  - 'contracts/**'",
+        "allow_paths:",
+        "  - 'features/legacy/**'",
+        "",
+      ].join("\n"),
+      "utf8"
+    );
+    const cfg = readHarnessConfig(dir);
+    assert.deepEqual(cfg.protectedPaths, ["contracts/**"]);
+    assert.deepEqual(cfg.allowPaths, ["features/legacy/**"]);
+
+    // From the file only — a flag that widens what the agent may edit is a flag
+    // somebody eventually types to turn a red run green.
+    const settings = resolveHarnessSettings(cfg, {});
+    assert.deepEqual(settings.protectedPaths, ["contracts/**"]);
+    assert.deepEqual(settings.allowPaths, ["features/legacy/**"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a malformed protected_paths is rejected, not quietly ignored", () => {
+  // A guard that silently protects nothing is worse than no guard: it reports
+  // clean over an edited spec.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-scope-bad-"));
+  try {
+    fs.writeFileSync(path.join(dir, "harness.config.yaml"), "protected_paths: spec.md\n", "utf8");
+    assert.throws(() => readHarnessConfig(dir), /protected_paths/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("no configuration means the built-in protected paths still apply", () => {
+  const settings = resolveHarnessSettings(null, {});
+  assert.deepEqual(settings.protectedPaths, [], "empty means 'use the defaults'");
+  // The defaults live in the domain, and the guard falls back to them.
+  assert.ok(DEFAULT_PROTECTED_PATHS.includes("spec.md"));
+  assert.ok(DEFAULT_PROTECTED_PATHS.includes("features/**/*.feature"));
+});
+
+// ── The green diff must touch what the matrix declared (A2) ──────────────────
+//
+// The row names `test_artifact` and `technical_artifact`, the prompt hands both
+// to the agent, and nothing checked the diff contained them. An agent can
+// implement somewhere else, pass the scenario, and leave the matrix pointing at
+// a file where the logic does not live — the documentary lie `AI_RULES.md`
+// forbids this repository.
+
+/** The same greenable project, with real paths in the row instead of prose. */
+function projectWithDeclaredPaths() {
+  const { parent, projectDir } = greenableProject();
+  const matrix = path.join(projectDir, "docs/specs/traceability.md");
+  fs.writeFileSync(
+    matrix,
+    fs
+      .readFileSync(matrix, "utf8")
+      .replace(
+        "| `API /health`, smoke test | TBD |",
+        "| `src/Health.java` | `src/test/HealthTest.java` |"
+      ),
+    "utf8"
+  );
+  const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+  git("add", "-A");
+  git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "paths");
+  return { parent, projectDir };
+}
+
+test("implementing elsewhere warns but does not fail by default", () => {
+  // A warning, deliberately: work can legitimately land in a shared module that
+  // already exists, and failing on that is the kind of gate that rejects good
+  // work — which already cost two runs on REQ-002.
+  const { parent, projectDir } = projectWithDeclaredPaths();
+  try {
+    const agent = scriptedAgent(parent, [["src/other/Elsewhere.java", "x\n"]]);
+    const r = runHarness(projectDir, agent);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /declared_artifact_untouched/, out);
+    assert.match(out, /src\/Health\.java/);
+    assert.match(out, /csda req link REQ-000 --code/, "the fix must name a flag that exists");
+    assert.match(out, /1 passed/, `a warning must not fail the run:\n${out}`);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--strict-artifacts turns the same warning into a failed attempt", () => {
+  const { parent, projectDir } = projectWithDeclaredPaths();
+  try {
+    const agent = scriptedAgent(parent, [["src/other/Elsewhere.java", "x\n"]]);
+    const r = runHarness(projectDir, agent, ["--strict-artifacts"]);
+    assert.match(r.stdout + r.stderr, /0 passed/, r.stdout + r.stderr);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("implementing where the row says passes, even under --strict-artifacts", () => {
+  // The regression that matters most here. Plain `git status --porcelain`
+  // collapses a wholly new directory into `?? src/`, so `src/Health.java` never
+  // appears and the check concludes it was never written. This agent creates
+  // both declared files correctly; without `-uall` it is reported as touching
+  // neither, and the strict gate rejects correct work.
+  const { parent, projectDir } = projectWithDeclaredPaths();
+  try {
+    const agent = scriptedAgent(parent, [
+      ["src/Health.java", "x\n"],
+      ["src/test/HealthTest.java", "y\n"],
+    ]);
+    const r = runHarness(projectDir, agent, ["--strict-artifacts"]);
+    const out = r.stdout + r.stderr;
+    assert.doesNotMatch(out, /declared_artifact_untouched/, out);
+    assert.match(out, /1 passed/, out);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a prose-only row says nothing — the scaffolded project must stay quiet", () => {
+  // `csda init` writes `` `API /health`, smoke test `` and `TBD`. If those ever
+  // start warning, every first harness run complains and the warning becomes
+  // noise people learn to skip.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(parent, [["src/App.java", "x\n"]]);
+    const r = runHarness(projectDir, agent, ["--strict-artifacts"]);
+    const out = r.stdout + r.stderr;
+    assert.doesNotMatch(out, /declared_artifact_untouched/, out);
+    assert.match(out, /1 passed/, out);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+// ── Picking a run back up where it stopped (C3) ──────────────────────────────
+//
+// Until now an existing `harness/REQ-NNN` branch left two options: skip it, or
+// delete it with `--force`. After an interruption — a crash, a Ctrl-C, a spend
+// limit — neither is what anyone wants: you either lose the work or cannot
+// continue.
+//
+// The design was measured. A run killed with `kill -9` leaves the branch (no
+// commits), the worktree with the agent's uncommitted partial work, an empty
+// `.harness/runs/`, and the prompt archive. The ledger is written when a run
+// *finishes*, so it is exactly no use for the case this exists for.
+
+test("--force and --resume are refused together", () => {
+  // They are opposites, and silently picking one is how work gets deleted after
+  // an interruption — the loss --resume exists to prevent.
+  assert.throws(() => parseArgs(["--force", "--resume"]), /opposites/);
+});
+
+test("without --resume, the skip message now offers it", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(parent, [["note.txt", "x\n"]]);
+    assert.match(runHarness(projectDir, agent).stdout, /1 passed/);
+    const again = runHarness(projectDir, agent);
+    const out = again.stdout + again.stderr;
+    assert.match(out, /already exists/);
+    assert.match(out, /--resume to continue it/);
+    assert.match(out, /--force to recreate it/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--resume over a requirement that never started runs it, rather than refusing", () => {
+  // `--resume` on a whole plan must not become "do nothing unless everything
+  // was already attempted".
+  const { parent, projectDir } = greenableProject();
+  try {
+    const agent = scriptedAgent(parent, [["note.txt", "x\n"]]);
+    const r = runHarness(projectDir, agent, ["--resume"]);
+    assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--resume re-attaches to the interrupted worktree and keeps the partial work", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+
+    // The state a kill -9 leaves behind: branch at base, a live worktree with
+    // uncommitted work, and one archived prompt for the attempt in flight.
+    const worktree = path.join(parent, "interrupted-worktree");
+    const added = git("worktree", "add", "-b", "harness/REQ-000", worktree, "HEAD");
+    assert.equal(added.status, 0, added.stderr);
+    fs.writeFileSync(path.join(worktree, "partial-work.txt"), "half-finished\n", "utf8");
+    const archive = path.join(worktree, ".specops", "harness-prompts");
+    fs.mkdirSync(archive, { recursive: true });
+    fs.writeFileSync(
+      path.join(archive, "REQ-000-2026-08-22T10-00-00-000Z-attempt-1-agent.md"),
+      "# Implement REQ-000\n",
+      "utf8"
+    );
+
+    const r = runHarness(projectDir, scriptedAgent(parent, [["partial-work.txt", "+more\n"]]), [
+      "--resume",
+    ]);
+    assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
+
+    // The whole point: the interrupted work is on the branch, not discarded.
+    const show = git("show", "--stat", "harness/REQ-000");
+    assert.match(show.stdout, /partial-work\.txt/, "the partial work was lost");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("after exhausted attempts, --resume picks up at the next attempt", () => {
+  // Interrupted and exhausted deserve different answers, and the branch says
+  // which: `preserveFailedAttempt` leaves a `wip(...): FAILED the gate` commit
+  // when the attempts run out; an interruption leaves none. An attempt that
+  // reached a verdict is spent; one that was cut short is not.
+  const { parent, projectDir } = greenableProject();
+  try {
+    // An agent that breaks the gate: it removes the matrix row's test artifact
+    // declaration is overkill — simply failing the gate is enough, so make the
+    // agent produce nothing and break validate by emptying the feature.
+    const breaking = scriptedAgent(parent, [["features/core/health.feature", "Feature: X\n"]]);
+    const first = runHarness(projectDir, breaking, ["--max-attempts", "2"]);
+    assert.match(first.stdout + first.stderr, /0 passed/);
+
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    const head = git("log", "-1", "--format=%s", "harness/REQ-000").stdout;
+    assert.match(head, /FAILED the gate/, "the exhausted run should have left a wip commit");
+
+    const resumed = runHarness(projectDir, "true {prompt_file}", [
+      "--resume",
+      "--max-attempts",
+      "3",
+    ]);
+    assert.match(resumed.stdout + resumed.stderr, /resuming at attempt 3/, resumed.stdout);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a resumed run cleans up the worktree it re-attached to", () => {
+  // The cleanup removes `dir`, not the path a fresh run would have invented. If
+  // it removed the latter, the surviving worktree would stay registered after
+  // every resume and the list would grow without bound — and `git worktree
+  // remove` on a path that never existed fails quietly, so nothing would say so.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    const worktree = path.join(parent, "interrupted-worktree");
+    assert.equal(git("worktree", "add", "-b", "harness/REQ-000", worktree, "HEAD").status, 0);
+    fs.writeFileSync(path.join(worktree, "partial-work.txt"), "half\n", "utf8");
+
+    const r = runHarness(projectDir, scriptedAgent(parent, [["partial-work.txt", "+more\n"]]), [
+      "--resume",
+    ]);
+    assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
+
+    const listed = git("worktree", "list", "--porcelain").stdout;
+    assert.doesNotMatch(
+      listed,
+      /interrupted-worktree/,
+      `the re-attached worktree was left registered:\n${listed}`
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+// ── Is this requirement fit to hand to an agent? (B2) ────────────────────────
+//
+// `plan` has always known that a requirement's feature does not exist, that its
+// dependencies are unmet, or that its row is Deprecated. `harness run` never
+// used any of it as a filter, so the agent found out halfway through and the
+// run paid `max_attempts` × the timeout to discover it.
+//
+// Default stays warn-and-run — this ships in a minor, and a person who wants to
+// point an agent at a half-ready requirement is allowed to. The one exception
+// is an unrunnable scenario, which skips regardless: Cucumber passes an empty
+// scenario, so a green run would prove nothing (H14).
+
+/** The greenable project, with its row pointing at a feature that is not there. */
+function projectWithMissingFeature() {
+  const { parent, projectDir } = greenableProject();
+  const matrix = path.join(projectDir, "docs/specs/traceability.md");
+  fs.writeFileSync(
+    matrix,
+    fs
+      .readFileSync(matrix, "utf8")
+      .replace("`features/core/health.feature`", "`features/core/missing.feature`"),
+    "utf8"
+  );
+  const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+  git("add", "-A");
+  git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "missing feature");
+  return { parent, projectDir };
+}
+
+test("a requirement with no feature warns, with a fix, and still runs by default", () => {
+  const { parent, projectDir } = projectWithMissingFeature();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}");
+    const out = r.stdout + r.stderr;
+    assert.match(out, /requirement_has_no_feature/, out);
+    assert.match(out, /csda req link REQ-000 --feature/, "a blocker without a fix just stops you");
+    // Not `/skipped/` — the summary line always contains the word. The count is
+    // what says whether the default changed.
+    assert.match(out, /0 skipped/, "the default must not change behaviour in a minor");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--skip-not-ready skips it instead, naming the blocker", () => {
+  const { parent, projectDir } = projectWithMissingFeature();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}", ["--skip-not-ready"]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /1 skipped/, out);
+    assert.match(out, /Not ready for an agent: requirement_has_no_feature/);
+    assert.match(out, /drop --skip-not-ready to run it anyway/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("an unrunnable scenario skips even without --skip-not-ready", () => {
+  // Not a preference. An empty scenario passes, so the reward signal is
+  // counterfeit and a green run proves nothing — the A3 guard, kept.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const feature = path.join(projectDir, "features/core/health.feature");
+    fs.writeFileSync(
+      feature,
+      fs
+        .readFileSync(feature, "utf8")
+        .replace(/^(\s*)(Given|When|Then|And) /gm, (_m, pad, kw) => `${pad}${kw.toUpperCase()} `),
+      "utf8"
+    );
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    git("add", "-A");
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "shout");
+
+    const r = runHarness(projectDir, "true {prompt_file}");
+    const out = r.stdout + r.stderr;
+    assert.match(out, /1 skipped/, out);
+    assert.match(out, /requirement_scenario_unrunnable/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a ready requirement runs clean, with no readiness noise", () => {
+  // The false-positive check. If a scaffolded project cannot pass its own
+  // readiness rules, the rules are wrong.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}", ["--skip-not-ready"]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /1 passed/, out);
+    assert.doesNotMatch(out, /requirement_has_no_feature/);
+    assert.doesNotMatch(out, /requirement_scenario_unrunnable/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("plan --json carries ready and blockers, each blocker with a fix", () => {
+  // Where B2 says the answer belongs: calculated, in the plan, rather than the
+  // intuition of whoever typed the run command.
+  const { parent, projectDir } = projectWithMissingFeature();
+  try {
+    const planned = spawnSync(
+      process.execPath,
+      [CLI, "plan", "--project-dir", projectDir, "--format", "json"],
+      { encoding: "utf8" }
+    );
+    const req = JSON.parse(planned.stdout).requirements[0];
+    assert.equal(req.ready, false);
+    const codes = req.blockers.map((b) => b.code);
+    assert.ok(codes.includes("requirement_has_no_feature"), codes.join(", "));
+    for (const b of req.blockers) assert.ok(b.fix, `${b.code} has no fix`);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a ready requirement reads as ready in plan --json", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const planned = spawnSync(
+      process.execPath,
+      [CLI, "plan", "--project-dir", projectDir, "--format", "json"],
+      { encoding: "utf8" }
+    );
+    const req = JSON.parse(planned.stdout).requirements[0];
+    assert.equal(req.ready, true, JSON.stringify(req.blockers));
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+// ── Reading what Cucumber did, not what it printed (F5) ──────────────────────
+//
+// Measured before writing it: a harness run whose test command was
+// `cucumber-js --tags '@does-not-exist'` reported
+//
+//     1 passed · 0 failed · 0 skipped
+//
+// The command exits 0 on a filter that matches nothing (§2.2), so the gate
+// approved a requirement whose scenario never ran, published the branch and
+// closed it. This runs the real cucumber-js and pins both directions.
+
+/** A project whose gate command is a real cucumber-js invocation. */
+function cucumberProject() {
+  const { parent, projectDir } = greenableProject();
+  fs.mkdirSync(path.join(projectDir, "features/step_definitions"), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectDir, "features/step_definitions/steps.js"),
+    [
+      'const { Given, When, Then } = require("@cucumber/cucumber");',
+      'Given("the backend service is running", function () {});',
+      'When("I request the {string} endpoint", function () {});',
+      'Then("the response status should be {int}", function () {});',
+      'Then("the payload should include {string} with value {string}", function () {});',
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+  // A fresh worktree carries only what git tracks, so the runner needs the
+  // repository's own installed Cucumber.
+  fs.symlinkSync(path.join(REPO_ROOT, "node_modules"), path.join(projectDir, "node_modules"));
+  const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+  git("add", "-A");
+  git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cucumber");
+  return { parent, projectDir };
+}
+
+test("a filter matching nothing exits 0, and the gate no longer believes it", () => {
+  const { parent, projectDir } = cucumberProject();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}", [
+      "--test-cmd",
+      "npx cucumber-js --tags '@does-not-exist'",
+    ]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /0 passed/, `the empty run was accepted:\n${out}`);
+    assert.match(out, /cucumber messages/);
+    assert.match(out, /never ran/);
+    assert.match(out, /exited 0, but the run it reported does not support that verdict/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a run that really covers the requirement still passes", () => {
+  // The false-positive check: if reading the stream fails honest work, the
+  // check is worse than the exit code it replaced.
+  const { parent, projectDir } = cucumberProject();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}", [
+      "--test-cmd",
+      "npx cucumber-js features/core/health.feature",
+    ]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /1 passed/, out);
+    assert.doesNotMatch(out, /cucumber messages/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a non-Cucumber command is judged by its exit code, exactly as before", () => {
+  // The harness stays runner-neutral: a project that does not use Cucumber
+  // must not be failed by a reader that never applied.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const r = runHarness(projectDir, "true {prompt_file}", ["--test-cmd", "true"]);
+    assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+// ── A ceiling on what one run may spend (C1) ─────────────────────────────────
+//
+// `max_attempts` was the only limit the harness had. Fourteen requirements ×
+// 3 attempts × 1200 s is hours of wall-clock and an unbounded bill, and the
+// third real run ended because the account hit its monthly limit — the
+// expensive way to find out there was no ceiling of our own.
+//
+// Exhausting a budget is not an error: the run ends the ordinary way, names
+// what it never started, and still writes its ledger. A run that dies halfway
+// never writes one, so `harness report` cannot say what the money bought.
+
+/** A project with three independent requirements — so they share one level. */
+function threeRequirementProject() {
+  const { parent, projectDir } = greenableProject();
+  const matrixPath = path.join(projectDir, "docs/specs/traceability.md");
+  const matrix = fs.readFileSync(matrixPath, "utf8");
+  const row = matrix.split("\n").find((l) => l.startsWith("| REQ-000"));
+  assert.ok(row, "the scaffolded matrix no longer has a REQ-000 row");
+
+  const extra = ["001", "002"].map((n) =>
+    row
+      .replace("REQ-000", `REQ-${n}`)
+      .replace("SCN-000", `SCN-${n}`)
+      .replace("features/core/health.feature", `features/core/f${n}.feature`)
+  );
+  fs.writeFileSync(matrixPath, matrix.replace(row, [row, ...extra].join("\n")), "utf8");
+  for (const n of ["001", "002"]) {
+    // Retag the copy. The scaffolded feature carries `@REQ-000 @SCN-000` (F4),
+    // and a copy that kept them would declare it is REQ-000's scenario while
+    // the matrix row says otherwise — which `validate` now catches, correctly.
+    const source = fs.readFileSync(path.join(projectDir, "features/core/health.feature"), "utf8");
+    fs.writeFileSync(
+      path.join(projectDir, `features/core/f${n}.feature`),
+      source.replace("@REQ-000 @SCN-000", `@REQ-${n} @SCN-${n}`),
+      "utf8"
+    );
+  }
+  const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+  git("add", "-A");
+  git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "three");
+  return { parent, projectDir };
+}
+
+function runAll(projectDir, agent, extra = []) {
+  return spawnSync(
+    process.execPath,
+    [
+      CLI,
+      "harness",
+      "run",
+      "--project-dir",
+      projectDir,
+      "--agent",
+      agent,
+      "--max-attempts",
+      "1",
+      ...extra,
+    ],
+    { encoding: "utf8" }
+  );
+}
+
+test("without a ceiling every requirement runs — the baseline the rest is measured against", () => {
+  const { parent, projectDir } = threeRequirementProject();
+  try {
+    const r = runAll(projectDir, "true {prompt_file}");
+    assert.match(r.stdout + r.stderr, /3 passed/, r.stdout + r.stderr);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--max-requirements stops the run inside a single level, not only between levels", () => {
+  // The defect this test exists for: independent requirements all land in one
+  // level, which is the common case. A ceiling checked only between levels let
+  // all three run past `--max-requirements 2`. Measured before it was fixed.
+  const { parent, projectDir } = threeRequirementProject();
+  try {
+    const r = runAll(projectDir, "true {prompt_file}", ["--max-requirements", "2"]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /2 passed/, out);
+    assert.match(out, /1 skipped/, out);
+    assert.match(out, /--max-requirements 2 reached/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("the same ceiling holds when the level runs in parallel", () => {
+  // The worker path dispatches its own requirements, so it asks the same
+  // question before starting each one.
+  const { parent, projectDir } = threeRequirementProject();
+  try {
+    const r = runAll(projectDir, "true {prompt_file}", [
+      "--max-requirements",
+      "2",
+      "--concurrency",
+      "3",
+    ]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /2 passed/, out);
+    assert.match(out, /1 skipped/, out);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--budget-seconds stops the run and still writes the ledger", () => {
+  const { parent, projectDir } = threeRequirementProject();
+  try {
+    const slow = scriptedAgent(parent, [], { sleepMs: 3000 });
+    const r = runAll(projectDir, slow, ["--budget-seconds", "2"]);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /1 passed/, out);
+    assert.match(out, /2 skipped/, out);
+    assert.match(out, /--budget-seconds 2 exhausted/);
+
+    // A run that dies halfway never writes a record, so `harness report`
+    // cannot say what the money bought. Stopping is not dying.
+    // `.json` only — the directory also carries the `.gitignore` the ledger
+    // writes so run records stay local to the machine.
+    const runsDir = path.join(projectDir, ".harness", "runs");
+    const runs = fs.readdirSync(runsDir).filter((f) => f.endsWith(".json"));
+    assert.equal(runs.length, 1, "the ledger must survive a budget stop");
+    const record = JSON.parse(fs.readFileSync(path.join(runsDir, runs[0]), "utf8"));
+    assert.equal(record.bounded, true, "the record should say the run had a ceiling");
+    assert.equal(record.results.length, 3, "every requirement is accounted for, run or not");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a ceiling of zero or less is refused rather than read as 'no limit'", () => {
+  // `--max-requirements 0` meaning "unlimited" would be a quiet way to remove
+  // the ceiling somebody thought they had set.
+  assert.throws(() => parseArgs(["--max-requirements", "0"]), /positive integer/);
+  assert.throws(() => parseArgs(["--budget-seconds", "0"]), /positive integer/);
+  assert.throws(() => parseArgs(["--budget-seconds", "-5"]), /positive integer/);
+});
+
+test("a repository with no git identity is refused before the agent runs", () => {
+  // Found by CI, which has no global git identity. The harness commits on every
+  // requirement it lands, so without one it failed at the commit step — after
+  // the agent had run and the gate had passed. A whole attempt, agent time
+  // included, thrown away by a one-line config.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    git("config", "--unset", "user.email");
+    git("config", "--unset", "user.name");
+
+    const marker = path.join(parent, "agent-ran.txt");
+    const agent = `${process.execPath} -e "require('fs').writeFileSync(${JSON.stringify(marker)},'ran')"`;
+    const r = spawnSync(
+      process.execPath,
+      [CLI, "harness", "run", "--project-dir", projectDir, "--agent", `${agent} {prompt_file}`],
+      {
+        encoding: "utf8",
+        // Neutralise this machine's global identity — CI has none, and without
+        // this the test would pass everywhere except the place that found it.
+        env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" },
+      }
+    );
+
+    const out = r.stdout + r.stderr;
+    assert.match(out, /git has no user\.name and user\.email configured/, out);
+    assert.match(out, /git config user\.name/, "a refusal without the fix just stops you");
+    assert.equal(
+      fs.existsSync(marker),
+      false,
+      "the agent ran before the harness noticed it could not commit"
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
 });

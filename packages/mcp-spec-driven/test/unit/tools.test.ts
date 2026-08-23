@@ -1,23 +1,23 @@
 "use strict";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { spawnSync } = require("node:child_process");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 const REPO_ROOT = path.resolve(__dirname, "../../../../..");
 const CLI = path.join(REPO_ROOT, "bin/create-spec-driven-app.js");
 const CONFIG = path.join(REPO_ROOT, "examples/project.config.example");
 
-const {
+import {
   TOOLS,
   readSpec,
   listRequirements,
   updateTraceability,
   validateProject,
-} = require("../../src/tools");
+} from "../../src/tools";
 
 function generateProject() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-test-"));
@@ -59,7 +59,7 @@ test("Every tool has description, inputSchema, and handler", () => {
 test("read_spec returns spec.md content and lists docs/specs/*.md", () => {
   const { tmp, projectDir } = generateProject();
   try {
-    const r = readSpec({ projectDir });
+    const r = readSpec({ projectDir }) as any;
     assert.ok(r.specMd.length > 0, "specMd should not be empty");
     assert.ok(r.specMd.includes("Acme Energy Hub"), "specMd should contain project name");
     assert.ok(Array.isArray(r.files));
@@ -73,17 +73,17 @@ test("read_spec returns spec.md content and lists docs/specs/*.md", () => {
 });
 
 test("read_spec throws on missing projectDir", () => {
-  assert.throws(() => readSpec({}), /projectDir is required/);
+  assert.throws(() => readSpec({}) as any, /projectDir is required/);
 });
 
 test("read_spec throws on non-existent directory", () => {
-  assert.throws(() => readSpec({ projectDir: "/no/such/dir" }), /does not exist/);
+  assert.throws(() => readSpec({ projectDir: "/no/such/dir" }) as any, /does not exist/);
 });
 
 test("read_spec throws on directory without spec.md", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "no-spec-"));
   try {
-    assert.throws(() => readSpec({ projectDir: tmp }), /Not a spec-driven project/);
+    assert.throws(() => readSpec({ projectDir: tmp }) as any, /Not a spec-driven project/);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -99,7 +99,7 @@ test("list_requirements returns an array of requirement objects", () => {
     fs.appendFileSync(specPath, "\n## REQ-501 — First custom requirement\n");
     fs.appendFileSync(specPath, "\n## REQ-502 — Second custom requirement\n");
 
-    const r = listRequirements({ projectDir });
+    const r = listRequirements({ projectDir }) as any;
     assert.ok(Array.isArray(r.requirements));
     const ids = r.requirements.map((req) => req.id);
     assert.ok(ids.includes("REQ-501"), "should find REQ-501");
@@ -122,7 +122,7 @@ test("list_requirements deduplicates IDs across files", () => {
     fs.appendFileSync(specPath, "\n## REQ-077 — Common\n");
     fs.appendFileSync(tracePath, "\n| REQ-077 | reference |\n");
 
-    const r = listRequirements({ projectDir });
+    const r = listRequirements({ projectDir }) as any;
     const occurrences = r.requirements.filter((req) => req.id === "REQ-077");
     assert.equal(occurrences.length, 1, "REQ-077 should appear exactly once");
   } finally {
@@ -142,8 +142,8 @@ test("update_traceability appends a row when not present", () => {
       feature: "features/test/example.feature",
       status: "Draft",
     });
-    assert.equal(r.updated, true);
-    assert.equal(r.rowsAdded, 1);
+    assert.equal((r as any).updated, true);
+    assert.equal((r as any).rowsAdded, 1);
     const content = fs.readFileSync(path.join(projectDir, "docs/specs/traceability.md"), "utf8");
     assert.ok(content.includes("REQ-099"));
     assert.ok(content.includes("features/test/example.feature"));
@@ -161,8 +161,8 @@ test("update_traceability is idempotent — second call adds no row", () => {
       feature: "features/test/dup.feature",
       status: "Draft",
     };
-    const r1 = updateTraceability(args);
-    const r2 = updateTraceability(args);
+    const r1 = updateTraceability(args) as any;
+    const r2 = updateTraceability(args) as any;
     assert.equal(r1.updated, true);
     assert.equal(r2.updated, false);
     assert.equal(r2.rowsAdded, 0);
@@ -175,7 +175,7 @@ test("update_traceability throws on missing required argument", () => {
   const { tmp, projectDir } = generateProject();
   try {
     assert.throws(
-      () => updateTraceability({ projectDir, feature: "x.feature", status: "Draft" }),
+      () => updateTraceability({ projectDir, feature: "x.feature", status: "Draft" }) as any,
       /Missing argument: requirement/
     );
   } finally {
@@ -192,8 +192,8 @@ test("validate_project succeeds on a freshly generated project", () => {
       projectDir,
       cliPath: `"${process.execPath}" "${CLI}"`,
     });
-    assert.equal(r.passed, true, `expected passed=true, got: ${JSON.stringify(r)}`);
-    assert.equal(r.exitCode, 0);
+    assert.equal((r as any).passed, true, `expected passed=true, got: ${JSON.stringify(r)}`);
+    assert.equal((r as any).exitCode, 0);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -202,7 +202,7 @@ test("validate_project succeeds on a freshly generated project", () => {
 test("validate_project throws when projectDir is not a spec-driven project", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "not-spec-"));
   try {
-    assert.throws(() => validateProject({ projectDir: tmp }), /Not a spec-driven project/);
+    assert.throws(() => validateProject({ projectDir: tmp }) as any, /Not a spec-driven project/);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

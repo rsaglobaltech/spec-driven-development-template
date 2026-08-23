@@ -11,7 +11,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fc = require("fast-check");
 
-const { renderTemplate } = require("../../scripts/domain-pack/common");
+const { renderTemplate } = require("../../packages/core/src/domain/PackSpec");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -22,7 +22,7 @@ const varName = fc.stringMatching(/^[A-Z][A-Z0-9_]{0,19}$/);
 // string is treated as "missing" by normalizeVars)
 const safeValue = fc
   .string({ minLength: 1, maxLength: 50 })
-  .filter((s) => !s.includes("{{") && !s.includes("}}"));
+  .filter((s) => !s.includes("{") && !s.includes("}"));
 
 const varsMap = fc.dictionary(varName, safeValue, { minKeys: 1, maxKeys: 5 });
 
@@ -115,7 +115,7 @@ test("renderTemplate: multiple occurrences of the same placeholder are all repla
 
 // ── normalizeVars properties ──────────────────────────────────────────────────
 
-const { normalizeVars } = require("../../scripts/domain-pack/common");
+const { normalizeVars } = require("../../packages/core/src/domain/PackSpec");
 
 test("normalizeVars: result includes all provided vars", () => {
   fc.assert(
@@ -152,7 +152,7 @@ test("normalizeVars: extra vars beyond required are preserved", () => {
 
 // ── asArray properties ────────────────────────────────────────────────────────
 
-const { asArray } = require("../../scripts/domain-pack/common");
+const { asArray } = require("../../packages/core/src/domain/PackSpec");
 
 test("asArray: wrapping a non-empty, non-null scalar always returns an array of length 1", () => {
   fc.assert(

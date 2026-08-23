@@ -1,51 +1,27 @@
-"use strict";
-
 /**
- * The one diagnostic envelope every machine-readable surface of the CLI emits.
+ * Rendering diagnostics for a human at a terminal.
  *
- *   { severity, code, message, target?, fix?, file?, line? }
- *
- * `code` is a stable snake_case string — callers (CI, agents, the VS Code
- * extension) branch on it, never on the message text. `fix` is one actionable
- * sentence or command; a diagnostic without a fix is a diagnostic the user
- * cannot act on, so treat writing one as part of writing the check.
- *
- * Casing is camelCase everywhere in JSON output, decided once here so we do not
- * inherit the snake/camel split that OpenSpec documents as a known defect.
+ * The envelope itself — the `Diagnostic` shape, its constructors and its
+ * predicates — is domain, and lives in `packages/core/src/domain/Diagnostic`.
+ * This module is the delivery half: colours, stream writes and the `--json`
+ * failure shape. It re-exports the domain half so the ~28 existing importers
+ * keep one import site.
  */
 
-const SEVERITY = Object.freeze({
-  ERROR: "error",
-  WARNING: "warning",
-  INFO: "info",
-});
+import { Diagnostic, SEVERITY } from "../../packages/core/src/domain/Diagnostic";
 
-function diagnostic(severity, code, message, extra?) {
-  const d: any = { severity, code, message };
-  if (extra) {
-    if (extra.target !== undefined) d.target = extra.target;
-    if (extra.fix !== undefined) d.fix = extra.fix;
-    if (extra.file !== undefined) d.file = extra.file;
-    if (extra.line !== undefined && extra.line !== null) d.line = extra.line;
-  }
-  return d;
-}
-
-const error = (code, message, extra?) => diagnostic(SEVERITY.ERROR, code, message, extra);
-const warning = (code, message, extra?) => diagnostic(SEVERITY.WARNING, code, message, extra);
-const info = (code, message, extra?) => diagnostic(SEVERITY.INFO, code, message, extra);
-
-function hasErrors(diags) {
-  return (diags || []).some((d) => d.severity === SEVERITY.ERROR);
-}
-
-function countBySeverity(diags) {
-  const out = { error: 0, warning: 0, info: 0 };
-  for (const d of diags || []) {
-    if (out[d.severity] !== undefined) out[d.severity]++;
-  }
-  return out;
-}
+export {
+  Diagnostic,
+  DiagnosticExtra,
+  SEVERITY,
+  diagnostic,
+  error,
+  warning,
+  info,
+  hasErrors,
+  countBySeverity,
+  errorMessage,
+} from "../../packages/core/src/domain/Diagnostic";
 
 // ── Human rendering ───────────────────────────────────────────────────────────
 
@@ -61,12 +37,12 @@ const c = {
 };
 
 const MARK = {
-  error: `${c.red}✖${c.reset}`,
-  warning: `${c.yellow}▲${c.reset}`,
-  info: `${c.cyan}ℹ${c.reset}`,
+  [SEVERITY.ERROR]: `${c.red}✖${c.reset}`,
+  [SEVERITY.WARNING]: `${c.yellow}▲${c.reset}`,
+  [SEVERITY.INFO]: `${c.cyan}ℹ${c.reset}`,
 };
 
-function formatDiagnostic(d) {
+export function formatDiagnostic(d: Diagnostic) {
   const where = d.file ? `${d.file}${d.line ? `:${d.line}` : ""}` : d.target || "";
   const head = `${MARK[d.severity] || "-"}  ${where ? `${c.dim}${where}${c.reset} ` : ""}${d.message}`;
   const fix = d.fix ? `\n     ${c.dim}fix:${c.reset} ${d.fix}` : "";
@@ -74,7 +50,7 @@ function formatDiagnostic(d) {
   return `${head} ${code}${fix}`;
 }
 
-function printDiagnostics(diags, stream?) {
+export function printDiagnostics(diags, stream?) {
   const out = stream || process.stderr;
   for (const d of diags || []) out.write(`${formatDiagnostic(d)}\n`);
 }
@@ -84,20 +60,7 @@ function printDiagnostics(diags, stream?) {
  * command's null-shape plus the diagnostics, and exit 1. Prose never goes to
  * stdout in JSON mode, so a consumer can always `| jq .`.
  */
-function failJson(nullShape, diags) {
+export function failJson(nullShape, diags) {
   process.stdout.write(`${JSON.stringify({ ...nullShape, status: diags }, null, 2)}\n`);
   process.exit(1);
 }
-
-module.exports = {
-  SEVERITY,
-  diagnostic,
-  error,
-  warning,
-  info,
-  hasErrors,
-  countBySeverity,
-  formatDiagnostic,
-  printDiagnostics,
-  failJson,
-};

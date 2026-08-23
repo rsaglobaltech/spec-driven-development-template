@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Artefact schemas — which artefacts a change produces, and in what order.
  *
@@ -16,13 +14,13 @@
  * A project overrides either by forking it into `.csda/schemas/<name>/schema.yaml`.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const SCHEMA_DIR = path.join(".csda", "schemas");
-const SCHEMA_FILE = "schema.yaml";
+export const SCHEMA_DIR = path.join(".csda", "schemas");
+export const SCHEMA_FILE = "schema.yaml";
 
-const BUILT_IN = {
+export const BUILT_IN = {
   "spec-driven": {
     name: "spec-driven",
     description: "Proposal first, then the delta specs, then the tasks. The default.",
@@ -48,14 +46,15 @@ const BUILT_IN = {
 };
 
 /** Minimal YAML emitter for a schema — the repo has no YAML dependency. */
-function toYaml(schema) {
+export function toYaml(schema) {
   const lines = [
     `# ${schema.description}`,
     "#",
     "# Dependencies are enablers, not gates (ADR-0018): `requires` says what makes",
     "# an artefact easier to write, never what blocks it.",
     `name: ${schema.name}`,
-    `description: "${schema.description.replace(/"/g, '\\"')}"`,
+    // Backslash first — see PackContribution.yamlString.
+    `description: "${String(schema.description).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`,
     "artifacts:",
   ];
   for (const a of schema.artifacts) {
@@ -68,13 +67,26 @@ function toYaml(schema) {
   return `${lines.join("\n")}\n`;
 }
 
+/** One artefact in a schema: what it generates and what it waits for. */
+export interface SchemaArtifact {
+  id: string;
+  generates: string;
+  requires: string[];
+}
+
+/** A parsed artefact schema — `artifacts` plus whatever scalars it declares. */
+export interface ArtifactSchema {
+  artifacts: SchemaArtifact[];
+  [key: string]: SchemaArtifact[] | string | undefined;
+}
+
 /**
  * Parse the subset of YAML a schema file uses. Hand-rolled to keep the CLI's
  * zero-runtime-dependency promise, and narrow on purpose: anything richer than
  * this list-of-maps shape is rejected rather than half-understood.
  */
-function parseYaml(text) {
-  const schema: any = { artifacts: [] };
+export function parseYaml(text) {
+  const schema: ArtifactSchema = { artifacts: [] };
   let current = null;
   for (const raw of text.replace(/\r\n/g, "\n").split("\n")) {
     const line = raw.replace(/\s+$/, "");
@@ -126,7 +138,7 @@ function unquote(value) {
  * names a dependency it does not declare would silently mark every artefact
  * blocked, which looks like the tool being broken.
  */
-function validateSchema(schema) {
+export function validateSchema(schema) {
   const problems = [];
   if (!schema.name) {
     problems.push({ code: "schema_no_name", message: "The schema has no `name`." });
@@ -182,7 +194,7 @@ function validateSchema(schema) {
   return problems;
 }
 
-function findCycle(artifacts) {
+export function findCycle(artifacts) {
   const byId = new Map<string, any>(artifacts.map((a) => [a.id, a]));
   const state = new Map();
   let cycle = null;
@@ -206,7 +218,7 @@ function findCycle(artifacts) {
 }
 
 /** Where a schema comes from: the project's fork, or the built-in. */
-function resolveSchema(projectDir, name) {
+export function resolveSchema(projectDir, name) {
   const wanted = name || "spec-driven";
   const forked = path.join(projectDir, SCHEMA_DIR, wanted, SCHEMA_FILE);
   if (fs.existsSync(forked)) {
@@ -222,7 +234,7 @@ function resolveSchema(projectDir, name) {
   return null;
 }
 
-function listSchemas(projectDir) {
+export function listSchemas(projectDir) {
   const names = new Set(Object.keys(BUILT_IN));
   const dir = path.join(projectDir, SCHEMA_DIR);
   if (fs.existsSync(dir)) {
@@ -234,15 +246,3 @@ function listSchemas(projectDir) {
   }
   return [...names].sort();
 }
-
-module.exports = {
-  BUILT_IN,
-  SCHEMA_DIR,
-  SCHEMA_FILE,
-  toYaml,
-  parseYaml,
-  validateSchema,
-  findCycle,
-  resolveSchema,
-  listSchemas,
-};

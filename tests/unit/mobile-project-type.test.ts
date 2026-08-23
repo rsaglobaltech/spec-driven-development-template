@@ -157,29 +157,31 @@ test("every place that lists project types agrees", () => {
   // The four: init's own list, the wizard's choices, the pack validator, and
   // the JSON Schema enum. A type accepted by one and refused by another is how
   // `contracts` became scaffoldable but impossible to install (ADR-0020).
-  const initSrc = fs.readFileSync(path.join(ROOT_DIR, "scripts/init_project.ts"), "utf8");
-  const wizardSrc = fs.readFileSync(path.join(ROOT_DIR, "scripts/wizard.ts"), "utf8");
+  //
+  // Read as values, not scraped out of source text. The regex this used to run
+  // over `scripts/init_project.ts` and `scripts/wizard.ts` kept matching after
+  // both became re-export shims — in the wizard's case it matched a doc comment
+  // restating the list, so the test compared prose against the schema and passed
+  // no matter what the wizard actually offered.
+  const { PROJECT_TYPES } = require("../../scripts/init_project");
+  const { WIZARD_FIELDS } = require("../../scripts/cli/commands/project/WizardCommand");
+  const { PACK_PROJECT_TYPES } = require("../../packages/core/src/domain/PackSpec");
   const schema = JSON.parse(
     fs.readFileSync(path.join(ROOT_DIR, "schemas/pack.schema.json"), "utf8")
   );
-  const { PACK_PROJECT_TYPES } = require("../../scripts/domain-pack/common");
 
-  const initTypes = /const PROJECT_TYPES = \[([^\]]+)\]/.exec(initSrc);
-  assert.ok(initTypes, "init_project.ts no longer declares PROJECT_TYPES");
-  const parse = (s) => s.match(/"([a-z]+)"/g).map((q) => q.replace(/"/g, ""));
+  const projectTypeField = WIZARD_FIELDS.find((f) => f.key === "PROJECT_TYPE");
+  assert.ok(projectTypeField, "the wizard no longer asks for PROJECT_TYPE");
 
-  const fromInit = parse(initTypes[1]);
-  const fromWizard = parse(
-    /choices: \[([^\]]+)\][\s\S]*?PROJECT_TYPE|PROJECT_TYPE[\s\S]*?choices: \[([^\]]+)\]/
-      .exec(wizardSrc)
-      .slice(1)
-      .find(Boolean)
-  );
+  const fromInit = [...PROJECT_TYPES];
+  const fromWizard = [...projectTypeField.choices];
   const fromSchema = schema.properties.metadata.properties.project_type.enum;
+
+  assert.ok(fromInit.length > 0, "init declares no project types");
+  assert.deepEqual(fromInit, fromWizard, "init and the wizard disagree");
 
   // `init` scaffolds a project; packs additionally target `contracts`, which
   // is a pack flavour rather than something you scaffold an app as.
-  assert.deepEqual(fromInit, fromWizard, "init and the wizard disagree");
   assert.deepEqual(
     [...fromSchema].sort(),
     [...new Set([...fromInit, "contracts"])].sort(),

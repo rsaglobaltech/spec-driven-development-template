@@ -21,6 +21,7 @@ const { spawnSync } = require("node:child_process");
 
 const ROOT_DIR = path.resolve(__dirname, "../../..");
 const CLI = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const { loadPack } = require("../../packages/core/src/infrastructure/DiskPackRepository");
 const PACKS_DIR = path.join(ROOT_DIR, "packs");
 
 /** Variables beyond the usual three that a pack may declare. */
@@ -93,6 +94,36 @@ for (const id of IDS) {
         { encoding: "utf8" }
       );
       assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
+
+      // Installing is not enough: the documents have to carry what the pack
+      // declared. The schema said `context` and `invariants`, the packs write
+      // `bounded_context` and `responsibilities`, and the renderer read the
+      // schema's names — so every curated pack installed cleanly and produced
+      // `| AGG-001 | Invoice | - | - |`. H13 was not paperwork; it shipped a
+      // worse product (E1).
+      const { pack } = loadPack(PACKS_DIR, id);
+
+      const aggregate = (pack.aggregates || []).find((a: any) => a.bounded_context || a.context);
+      if (aggregate) {
+        const rendered = fs.readFileSync(path.join(projectDir, "docs/specs/aggregates.md"), "utf8");
+        const row = rendered.split("\n").find((l: string) => l.includes(`| ${aggregate.id} `));
+        assert.ok(row, `no row for ${aggregate.id} in aggregates.md`);
+        assert.ok(
+          row.includes(aggregate.bounded_context || aggregate.context),
+          `${id}: the aggregate's context is missing from the rendered row:\n  ${row}`
+        );
+      }
+
+      const event = (pack.events || []).find((e: any) => e.producer || e.aggregate);
+      if (event) {
+        const rendered = fs.readFileSync(path.join(projectDir, "docs/specs/events.md"), "utf8");
+        const row = rendered.split("\n").find((l: string) => l.includes(`| ${event.id} `));
+        assert.ok(row, `no row for ${event.id} in events.md`);
+        assert.ok(
+          row.includes(event.producer || event.aggregate),
+          `${id}: the event's producer is missing from the rendered row:\n  ${row}`
+        );
+      }
     } finally {
       fs.rmSync(parent, { recursive: true, force: true });
     }
@@ -100,7 +131,7 @@ for (const id of IDS) {
 }
 
 test("no shipped pack declares a schema newer than this CLI reads", () => {
-  const { PACK_SCHEMA_VERSION, isNewerThan } = require("../../scripts/domain-pack/common");
+  const { PACK_SCHEMA_VERSION, isNewerThan } = require("../../packages/core/src/domain/PackSpec");
   for (const id of IDS) {
     const raw = fs.readFileSync(path.join(PACKS_DIR, id, "pack.yaml"), "utf8");
     const declared = /schema_version:\s*"([^"]+)"/.exec(raw);
@@ -124,5 +155,297 @@ test("no shipped pack uses `rules` for domain rules", () => {
       !/^\s+- id: RUL-/m.test(rulesBlock[1]),
       `${id} lists RUL-* under \`rules\` — move them to \`business_rules\``
     );
+  }
+});
+
+// ── `depends_on`, from the pack to the harness (B1) ──────────────────────────
+//
+// The last piece of B1. Ordering, stacking and the stale-base warning already
+// existed; what was missing was a way for a *pack* to say REQ-002 builds on
+// REQ-001. This walks the whole path: pack → expand → matrix → plan → harness.
+
+test("a pack's depends_on reaches plan and stacks the harness branch", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-dependson-"));
+  try {
+    // A curated pack with one dependency added. Using a real pack rather than a
+    // fixture keeps this honest about the shape packs actually have.
+    const packRoot = path.join(parent, "packs");
+    fs.mkdirSync(packRoot, { recursive: true });
+    fs.cpSync(path.join(PACKS_DIR, "billing"), path.join(packRoot, "billing"), {
+      recursive: true,
+    });
+    const packYaml = path.join(packRoot, "billing", "backend", "pack.yaml");
+    fs.writeFileSync(
+      packYaml,
+      fs
+        .readFileSync(packYaml, "utf8")
+        .replace("  - id: REQ-002\n", "  - id: REQ-002\n    depends_on: [REQ-001]\n"),
+      "utf8"
+    );
+
+    const lint = spawnSync(
+      process.execPath,
+      [CLI, "pack", "lint", "--pack-root", packRoot, "--pack", "billing/backend"],
+      { encoding: "utf8" }
+    );
+    assert.equal(lint.status, 0, `depends_on must not break lint:\n${lint.stdout}${lint.stderr}`);
+
+    const init = spawnSync(
+      process.execPath,
+      [CLI, "init", "--yes", "--no-sample-req", "--out", parent, "--no-git"],
+      { encoding: "utf8" }
+    );
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(
+      parent,
+      fs.readdirSync(parent).find((d) => d !== "packs")
+    );
+
+    const expand = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        "expand",
+        "--pack-root",
+        packRoot,
+        "--pack",
+        "billing/backend",
+        "--project-dir",
+        projectDir,
+        "--var",
+        "PROJECT_NAME=Dep",
+        "--var",
+        "PROJECT_SLUG=dep",
+        "--var",
+        "DOMAIN=dep",
+      ],
+      { encoding: "utf8" }
+    );
+    assert.equal(expand.status, 0, expand.stdout + expand.stderr);
+
+    // The matrix carries it, beneath the table where a rebuild will not lose it.
+    const matrix = fs.readFileSync(path.join(projectDir, "docs/specs/traceability.md"), "utf8");
+    // The key, not the whole line: a trace line carries several keys (D1 added
+    // `context=`), and pinning the exact text would break every time one grew.
+    assert.match(matrix, /<!-- csda:trace REQ-002 [^>]*depends=REQ-001\b/, matrix.slice(-400));
+
+    // `plan` reads it, and orders REQ-002 behind REQ-001.
+    const planned = spawnSync(
+      process.execPath,
+      [CLI, "plan", "--project-dir", projectDir, "--format", "json"],
+      { encoding: "utf8" }
+    );
+    const plan = JSON.parse(planned.stdout);
+    const req002 = plan.requirements.find((r: any) => r.requirement === "REQ-002");
+    assert.deepEqual(req002.dependsOn, ["REQ-001"]);
+    assert.deepEqual(req002.blockedBy, ["REQ-001"], "REQ-001 has not been done yet");
+
+    // And the harness cuts REQ-002 from REQ-001's branch, not from the base.
+    const git = (...args: string[]) =>
+      spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    git("init", "-q");
+    // In the repo, not with `-c`: the harness commits on its own, and CI has no
+    // global identity. `-c` covers only the command it is written on.
+    git("config", "user.email", "harness-test@example.com");
+    git("config", "user.name", "Harness Test");
+    git("add", "-A");
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed");
+
+    const run = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        "harness",
+        "run",
+        "--project-dir",
+        projectDir,
+        "--agent",
+        "true {prompt_file}",
+        "--max-attempts",
+        "1",
+      ],
+      { encoding: "utf8" }
+    );
+    const log = git("log", "--oneline", "harness/REQ-002").stdout;
+    assert.match(
+      log,
+      /feat\(REQ-001\)/,
+      `REQ-002 was not cut from its predecessor's branch:\n${log}\n${run.stdout}${run.stderr}`
+    );
+
+    // And it is never reported as blocked by a predecessor that passed in this
+    // very run — the plan's `blockedBy` is a snapshot taken before it started.
+    assert.doesNotMatch(
+      run.stdout + run.stderr,
+      /REQ-002: it depends on REQ-001, which is not done/,
+      "a stale blocker would skip work the scheduler had correctly unblocked"
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+// ── An agent profile per requirement, not per run (D1) ───────────────────────
+//
+// `agent_profile` resolved one profile for the whole run, so the allowed tools
+// had to be the greatest common denominator of everything in the plan.
+//
+// The criterion took measuring. The proposal named the bounded context, "which
+// is already in the model" — it is in the *pack* model and was not reachable
+// from a requirement: **zero of the twenty-seven** scenarios across the curated
+// packs link to an aggregate. Matching on it would have matched nothing and
+// used the default every time. Use case → command → aggregate → bounded context
+// resolves for all twenty-seven, so `expand` derives it and writes it.
+
+test("a requirement's bounded context is derived and matched to a profile", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-profilematch-"));
+  try {
+    const init = spawnSync(
+      process.execPath,
+      [CLI, "init", "--yes", "--no-sample-req", "--out", parent, "--no-git"],
+      { encoding: "utf8" }
+    );
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(parent, fs.readdirSync(parent)[0]);
+
+    const expand = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        "expand",
+        "--pack-root",
+        PACKS_DIR,
+        "--pack",
+        "billing/backend",
+        "--project-dir",
+        projectDir,
+        "--var",
+        "PROJECT_NAME=Ctx",
+        "--var",
+        "PROJECT_SLUG=ctx",
+        "--var",
+        "DOMAIN=ctx",
+      ],
+      { encoding: "utf8" }
+    );
+    assert.equal(expand.status, 0, expand.stdout + expand.stderr);
+
+    // Derived from the pack model and written by name — `Invoicing`, not
+    // `BC-001`: the name is what a person writes in `match:`.
+    const matrix = fs.readFileSync(path.join(projectDir, "docs/specs/traceability.md"), "utf8");
+    assert.match(matrix, /<!-- csda:trace REQ-001 context=Invoicing -->/, matrix.slice(-400));
+    assert.match(matrix, /<!-- csda:trace REQ-002 context=Payments -->/);
+
+    fs.mkdirSync(path.join(projectDir, ".harness"), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, ".harness", "profiles.yaml"),
+      [
+        "profiles_version: 1",
+        "profiles:",
+        "  payments:",
+        '    agent: "true {prompt_file}"',
+        "    match:",
+        "      bounded_context: Payments",
+        "  everything-else:",
+        '    agent: "true {prompt_file}"',
+        "    match:",
+        '      bounded_context: "*"',
+        "",
+      ].join("\n"),
+      "utf8"
+    );
+
+    const git = (...args: string[]) =>
+      spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    git("init", "-q");
+    // In the repo, not with `-c`: the harness commits on its own, and CI has no
+    // global identity. `-c` covers only the command it is written on.
+    git("config", "user.email", "harness-test@example.com");
+    git("config", "user.name", "Harness Test");
+    git("add", "-A");
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed");
+
+    const run = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        "harness",
+        "run",
+        "--project-dir",
+        projectDir,
+        "--agent",
+        "true {prompt_file}",
+        "--max-attempts",
+        "1",
+      ],
+      { encoding: "utf8" }
+    );
+    const out = run.stdout + run.stderr;
+
+    // The whole point: different requirements, different profiles, in one run.
+    assert.match(out, /REQ-001: profile 'everything-else' matched/, out);
+    assert.match(out, /REQ-002: profile 'payments' matched/, out);
+
+    // And it works with no `harness.config.yaml` at all — the rules live in
+    // profiles.yaml, and reaching them through the config reader made them
+    // silently absent in exactly this project shape.
+    assert.equal(fs.existsSync(path.join(projectDir, "harness.config.yaml")), false);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("expand tags every scenario it generates, and repeating it does not duplicate", () => {
+  // Nobody writes these by hand, and `expand` runs more than once against the
+  // same project — a step that duplicates on every run is one people avoid.
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-tags-"));
+  try {
+    const init = spawnSync(
+      process.execPath,
+      [CLI, "init", "--yes", "--no-sample-req", "--out", parent, "--no-git"],
+      { encoding: "utf8" }
+    );
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(parent, fs.readdirSync(parent)[0]);
+
+    const expand = () =>
+      spawnSync(
+        process.execPath,
+        [
+          CLI,
+          "expand",
+          "--pack-root",
+          PACKS_DIR,
+          "--pack",
+          "billing/backend",
+          "--project-dir",
+          projectDir,
+          "--var",
+          "PROJECT_NAME=Tag",
+          "--var",
+          "PROJECT_SLUG=tag",
+          "--var",
+          "DOMAIN=tag",
+        ],
+        { encoding: "utf8" }
+      );
+
+    assert.equal(expand().status, 0);
+    const featureDir = path.join(projectDir, "features", "billing");
+    const first = fs
+      .readdirSync(featureDir)
+      .map((f) => fs.readFileSync(path.join(featureDir, f), "utf8"));
+    assert.ok(first.length > 0, "expand generated no features");
+    for (const content of first) {
+      assert.match(content, /@REQ-\d+ @SCN-\d+/, content.slice(0, 200));
+    }
+
+    assert.equal(expand().status, 0);
+    const second = fs
+      .readdirSync(featureDir)
+      .map((f) => fs.readFileSync(path.join(featureDir, f), "utf8"));
+    assert.deepEqual(second, first, "a second expand must not change the tags");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
   }
 });

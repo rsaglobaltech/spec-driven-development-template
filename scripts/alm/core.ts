@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * ALM (Jira / Azure Boards) synchronisation core — provider-agnostic.
  *
@@ -18,15 +16,19 @@
  * fully testable offline: { createIssue, getIssueStatus, closeIssue }.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { parseYamlLite } = require("../domain-pack/common");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { parseYamlLite } from "../../packages/core/src/domain/YamlLite";
+import { warning } from "../lib/diagnostics";
+import { PROVIDERS, getProvider } from "./providers";
+import { CORE_CONFIG_KEYS } from "./port";
+import type { AlmConfig } from "./port";
 
-const MAP_RELPATH = path.join(".specops", "alm-map.json");
-const CONFIG_FILENAME = "alm.config.yaml";
+export const MAP_RELPATH = path.join(".specops", "alm-map.json");
+export const CONFIG_FILENAME = "alm.config.yaml";
 
 /** Matrix statuses that mean "this requirement is delivered". */
-const DONE_STATUSES = new Set(["Implemented", "Verified", "Released"]);
+export const DONE_STATUSES = new Set(["Implemented", "Verified", "Released"]);
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -34,41 +36,106 @@ const DONE_STATUSES = new Set(["Implemented", "Verified", "Released"]);
  * Read alm.config.yaml. Tokens are NEVER stored in the file — only the
  * name of the environment variable that holds them.
  */
-function readAlmConfig(projectDir) {
+export function readAlmConfig(projectDir) {
   const cfgPath = path.join(projectDir, CONFIG_FILENAME);
   if (!fs.existsSync(cfgPath)) {
+    // Built from the declarations rather than written out: a hand-kept example
+    // teaches whichever provider it was written for. It used to show
+    // `project_key`, which GitHub does not read at all — the same key its own
+    // linter now warns about.
+    const perProvider = PROVIDERS.map(
+      (p) =>
+        `  # ${p.label}\n` +
+        `  provider: ${p.id}\n` +
+        [...p.config.required].map((k) => `  ${k}: …`).join("\n") +
+        (p.config.optional.length > 0 ? `\n  # optional: ${[...p.config.optional].join(", ")}` : "")
+    ).join("\n\n");
+
     throw new Error(
       `${CONFIG_FILENAME} not found in ${projectDir}.\n` +
-        "Fix: create it with:\n" +
-        "  alm_version: 1\n" +
-        "  provider: jira            # jira | azure\n" +
-        "  base_url: https://acme.atlassian.net\n" +
-        "  project_key: HIE\n" +
-        "  token_env: JIRA_TOKEN     # env var holding the API token\n" +
-        "  user_env: JIRA_USER       # jira only: env var holding the account email"
+        "Fix: create it with `alm_version: 1` and one of:\n\n" +
+        `${perProvider}\n\n` +
+        "Credentials are never in this file: `token_env` names the environment " +
+        "variable that holds the token."
     );
   }
-  const cfg = parseYamlLite(fs.readFileSync(cfgPath, "utf8")) || {};
-  for (const key of ["provider", "base_url", "project_key", "token_env"]) {
-    if (!cfg[key]) throw new Error(`${CONFIG_FILENAME}: missing required key '${key}'.`);
-  }
-  if (!["jira", "azure"].includes(cfg.provider)) {
-    throw new Error(
-      `${CONFIG_FILENAME}: provider must be 'jira' or 'azure', got '${cfg.provider}'.`
-    );
+  // The parser cannot know this document's shape; the port declares it, so the
+  // cast happens once, here, at the file boundary.
+  const cfg = (parseYamlLite(fs.readFileSync(cfgPath, "utf8")) || {}) as unknown as AlmConfig;
+  if (!cfg.provider) throw new Error(`${CONFIG_FILENAME}: missing required key 'provider'.`);
+
+  // Which keys are required is the provider's business, not this function's.
+  // Asking every provider for the same four was how a Jira config with no
+  // `user_env` passed here and failed at network time instead.
+  const provider = getProvider(cfg.provider, projectDir);
+  for (const key of provider.config.required) {
+    if (!cfg[key]) {
+      throw new Error(
+        `${CONFIG_FILENAME}: missing required key '${key}' for provider '${provider.id}'.\n` +
+          `Fix: add it. ${provider.label} requires: ${provider.config.required.join(", ")}.`
+      );
+    }
   }
   return cfg;
 }
 
+/**
+ * Report the keys in a config that nothing will read.
+ *
+ * `harness.config.yaml` rejects an unknown key outright, on the grounds that a
+ * key nobody reads is worse than a missing one because the file looks
+ * configured. The same reasoning applies here, but this file predates the
+ * check and rejecting outright would break a working pipeline over a stray
+ * line — so it warns, and says which provider *would* have read the key. That
+ * second half is the useful part: `done_state` is real, and doing nothing on
+ * a Jira project is exactly the failure this reports.
+ *
+ * @returns {object[]} diagnostics, empty when every key is read
+ */
+export function lintAlmConfig(cfg, projectDir?: string) {
+  const provider = getProvider(cfg.provider, projectDir);
+  const read = new Set([
+    ...CORE_CONFIG_KEYS,
+    ...provider.config.required,
+    ...provider.config.optional,
+  ]);
+
+  const diagnostics = [];
+  for (const key of Object.keys(cfg)) {
+    if (read.has(key)) continue;
+    const alsoIn = PROVIDERS.filter(
+      (p) => p.id !== provider.id && [...p.config.required, ...p.config.optional].includes(key)
+    ).map((p) => p.id);
+
+    diagnostics.push(
+      warning(
+        "alm_config_unread_key",
+        alsoIn.length > 0
+          ? `'${key}' is read by ${alsoIn.join(", ")}, not by ${provider.id} — it does nothing here.`
+          : `'${key}' is read by no ALM provider.`,
+        {
+          target: key,
+          file: CONFIG_FILENAME,
+          fix:
+            alsoIn.length > 0
+              ? `Remove '${key}', or switch provider to ${alsoIn[0]} if that is what you meant.`
+              : `Remove '${key}'. ${provider.label} reads: ${[...read].sort().join(", ")}.`,
+        }
+      )
+    );
+  }
+  return diagnostics;
+}
+
 // ── Mapping file ──────────────────────────────────────────────────────────────
 
-function readAlmMap(projectDir) {
+export function readAlmMap(projectDir) {
   const mapPath = path.join(projectDir, MAP_RELPATH);
   if (!fs.existsSync(mapPath)) return {};
   return JSON.parse(fs.readFileSync(mapPath, "utf8"));
 }
 
-function writeAlmMap(projectDir, map, dryRun) {
+export function writeAlmMap(projectDir, map, dryRun) {
   const mapPath = path.join(projectDir, MAP_RELPATH);
   if (dryRun) return mapPath;
   fs.mkdirSync(path.dirname(mapPath), { recursive: true });
@@ -84,7 +151,7 @@ function writeAlmMap(projectDir, map, dryRun) {
  * done status.
  * @returns Array<{ id, title, status: "done"|"open" }>
  */
-function extractRequirements(projectDir) {
+export function extractRequirements(projectDir) {
   const tracePath = path.join(projectDir, "docs", "specs", "traceability.md");
   if (!fs.existsSync(tracePath)) {
     throw new Error(`No traceability matrix at ${tracePath} — run adopt/init first.`);
@@ -125,7 +192,7 @@ function extractRequirements(projectDir) {
  * @param {{ dryRun?: boolean }} opts
  * @returns {Promise<Array<{req,action,issue,detail?}>>} actions taken/planned
  */
-async function syncRequirements(requirements, map, client, opts) {
+export async function syncRequirements(requirements, map, client, opts) {
   const dryRun = !!(opts && opts.dryRun);
   const actions = [];
 
@@ -145,6 +212,17 @@ async function syncRequirements(requirements, map, client, opts) {
 
     const issueStatus = await client.getIssueStatus(linked.issue); // "open" | "done"
     if (req.status === "done" && issueStatus !== "done") {
+      // A provider that cannot close says so up front, and the run reports it
+      // per requirement rather than throwing halfway through the queue.
+      if (client.capabilities && client.capabilities.close === false) {
+        actions.push({
+          req: req.id,
+          action: "close-unsupported",
+          issue: linked.issue,
+          detail: `${req.id} is done, but this provider cannot close ${linked.issue} — close it by hand.`,
+        });
+        continue;
+      }
       if (!dryRun) await client.closeIssue(linked.issue);
       actions.push({
         req: req.id,
@@ -165,14 +243,3 @@ async function syncRequirements(requirements, map, client, opts) {
 
   return actions;
 }
-
-module.exports = {
-  CONFIG_FILENAME,
-  MAP_RELPATH,
-  DONE_STATUSES,
-  readAlmConfig,
-  readAlmMap,
-  writeAlmMap,
-  extractRequirements,
-  syncRequirements,
-};

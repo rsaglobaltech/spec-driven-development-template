@@ -1,12 +1,13 @@
-"use strict";
+import * as fs from "node:fs";
+("use strict");
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const path = require("node:path");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as path from "node:path";
 
 // Resolve relative to the monorepo root so tests run from either location
 const REPO_ROOT = path.resolve(__dirname, "../../../../..");
-const { validatePackYaml, findApproximateLine } = require("../../src/pack-validator");
+import { validatePackYaml, findApproximateLine } from "../../src/pack-validator";
 const SCHEMA_PATH = path.join(REPO_ROOT, "schemas/pack.schema.json");
 
 // ── findApproximateLine ───────────────────────────────────────────────────────────────
@@ -45,7 +46,6 @@ test("validatePackYaml returns parseError for scalar YAML", () => {
 // ── validatePackYaml — schema validation ──────────────────────────────────────────
 
 test("validatePackYaml passes on the parking-management fixture", () => {
-  const fs = require("node:fs");
   const fixturePath = path.join(
     REPO_ROOT,
     "tests/fixtures/domain-packs/parking-management/backend/pack.yaml"

@@ -16,134 +16,177 @@
 
 import { computeTraceabilityDiagnostics, SpecDiagnostic } from "./diagnostics";
 
-let buffer = "";
-let shuttingDown = false;
-
-function send(message: any): void {
-  const body = JSON.stringify(message);
-  process.stdout.write(`Content-Length: ${Buffer.byteLength(body, "utf8")}\r\n\r\n${body}`);
+export interface IServer {
+  start(): void;
+  stop(): void;
 }
 
-function isTraceability(uri: string): boolean {
-  return uri.endsWith("/traceability.md") || uri.endsWith("traceability.md");
+export interface LspMessage {
+  jsonrpc: string;
+  id?: number | string | null;
+  method?: string;
+  params?: any;
+  result?: any;
+  error?: {
+    code: number;
+    message: string;
+    data?: any;
+  };
 }
 
-function toLspDiagnostics(diags: SpecDiagnostic[]): any[] {
-  return diags.map((d) => ({
-    range: {
-      start: { line: d.line, character: d.startCol },
-      end: { line: d.line, character: d.endCol },
-    },
-    severity: d.severity,
-    code: d.code,
-    source: "spec-driven",
-    message: d.message,
-  }));
-}
+export class LspServer implements IServer {
+  private buffer: string = "";
+  private shuttingDown: boolean = false;
 
-function publish(uri: string, text: string): void {
-  if (!isTraceability(uri)) return;
-  const diagnostics = toLspDiagnostics(computeTraceabilityDiagnostics(text));
-  send({
-    jsonrpc: "2.0",
-    method: "textDocument/publishDiagnostics",
-    params: { uri, diagnostics },
-  });
-}
+  public start(): void {
+    process.stdin.on("data", (chunk: Buffer) => this.onChunk(chunk));
+    process.stdin.on("end", () => this.stop());
+  }
 
-function handle(msg: any): void {
-  const { id, method, params } = msg;
+  public stop(): void {
+    process.exit(0);
+  }
 
-  switch (method) {
-    case "initialize":
-      send({
-        jsonrpc: "2.0",
-        id,
-        result: {
-          capabilities: {
-            // 1 = full document sync: client sends the whole text on each change.
-            textDocumentSync: 1,
+  public send(message: LspMessage): void {
+    const body = JSON.stringify(message);
+    process.stdout.write(`Content-Length: ${Buffer.byteLength(body, "utf8")}\r\n\r\n${body}`);
+  }
+
+  public isTraceability(uri: string): boolean {
+    return uri.endsWith("/traceability.md") || uri.endsWith("traceability.md");
+  }
+
+  public toLspDiagnostics(diags: SpecDiagnostic[]): any[] {
+    return diags.map((d) => ({
+      range: {
+        start: { line: d.line, character: d.startCol },
+        end: { line: d.line, character: d.endCol },
+      },
+      severity: d.severity,
+      code: d.code,
+      source: "spec-driven",
+      message: d.message,
+    }));
+  }
+
+  public publish(uri: string, text: string): void {
+    if (!this.isTraceability(uri)) return;
+    const diagnostics = this.toLspDiagnostics(computeTraceabilityDiagnostics(text));
+    this.send({
+      jsonrpc: "2.0",
+      method: "textDocument/publishDiagnostics",
+      params: { uri, diagnostics },
+    });
+  }
+
+  public handle(msg: LspMessage): void {
+    const { id = null, method, params } = msg;
+
+    switch (method) {
+      case "initialize":
+        this.send({
+          jsonrpc: "2.0",
+          id,
+          result: {
+            capabilities: {
+              // 1 = full document sync: client sends the whole text on each change.
+              textDocumentSync: 1,
+            },
+            serverInfo: { name: "spec-driven-lsp", version: "0.1.0" },
           },
-          serverInfo: { name: "spec-driven-lsp", version: "0.1.0" },
-        },
-      });
-      return;
+        });
+        return;
 
-    case "initialized":
-      return; // notification, no response
+      case "initialized":
+        return; // notification, no response
 
-    case "textDocument/didOpen":
-      publish(params.textDocument.uri, params.textDocument.text);
-      return;
+      case "textDocument/didOpen":
+        if (params && params.textDocument) {
+          this.publish(params.textDocument.uri, params.textDocument.text);
+        }
+        return;
 
-    case "textDocument/didChange": {
-      // Full sync → the last content change holds the entire document.
-      const changes = params.contentChanges || [];
-      const text = changes.length ? changes[changes.length - 1].text : "";
-      publish(params.textDocument.uri, text);
-      return;
-    }
-
-    case "textDocument/didSave":
-      if (params.text !== undefined) publish(params.textDocument.uri, params.text);
-      return;
-
-    case "textDocument/didClose":
-      // Clear diagnostics for the closed document.
-      send({
-        jsonrpc: "2.0",
-        method: "textDocument/publishDiagnostics",
-        params: { uri: params.textDocument.uri, diagnostics: [] },
-      });
-      return;
-
-    case "shutdown":
-      shuttingDown = true;
-      send({ jsonrpc: "2.0", id, result: null });
-      return;
-
-    case "exit":
-      process.exit(shuttingDown ? 0 : 1);
-      return;
-
-    default:
-      // Respond to unknown *requests* (those with an id) with MethodNotFound;
-      // ignore unknown notifications.
-      if (id !== undefined && id !== null) {
-        send({ jsonrpc: "2.0", id, error: { code: -32601, message: `Unknown method: ${method}` } });
+      case "textDocument/didChange": {
+        // Full sync → the last content change holds the entire document.
+        if (params && params.contentChanges) {
+          const changes = params.contentChanges;
+          const text = changes.length ? changes[changes.length - 1].text : "";
+          this.publish(params.textDocument.uri, text);
+        }
+        return;
       }
+
+      case "textDocument/didSave":
+        if (params && params.text !== undefined) {
+          this.publish(params.textDocument.uri, params.text);
+        }
+        return;
+
+      case "textDocument/didClose":
+        // Clear diagnostics for the closed document.
+        if (params && params.textDocument) {
+          this.send({
+            jsonrpc: "2.0",
+            method: "textDocument/publishDiagnostics",
+            params: { uri: params.textDocument.uri, diagnostics: [] },
+          });
+        }
+        return;
+
+      case "shutdown":
+        this.shuttingDown = true;
+        this.send({ jsonrpc: "2.0", id, result: null });
+        return;
+
+      case "exit":
+        process.exit(this.shuttingDown ? 0 : 1);
+        return;
+
+      default:
+        // Respond to unknown *requests* (those with an id) with MethodNotFound;
+        // ignore unknown notifications.
+        if (id !== undefined && id !== null) {
+          this.send({
+            jsonrpc: "2.0",
+            id,
+            error: { code: -32601, message: `Unknown method: ${method}` },
+          });
+        }
+    }
+  }
+
+  public onChunk(chunk: Buffer): void {
+    this.buffer += chunk.toString("utf8");
+    while (true) {
+      const headerEnd = this.buffer.indexOf("\r\n\r\n");
+      if (headerEnd === -1) break;
+      const headers = this.buffer.slice(0, headerEnd);
+      const m = headers.match(/Content-Length:\s*(\d+)/i);
+      if (!m) {
+        this.buffer = this.buffer.slice(headerEnd + 4);
+        continue;
+      }
+      const length = parseInt(m[1], 10);
+      const start = headerEnd + 4;
+      if (this.buffer.length < start + length) break;
+      const body = this.buffer.slice(start, start + length);
+      this.buffer = this.buffer.slice(start + length);
+      try {
+        this.handle(JSON.parse(body));
+      } catch {
+        // Malformed message — skip it; LSP clients resend on the next change.
+      }
+    }
   }
 }
 
-function onChunk(chunk: Buffer): void {
-  buffer += chunk.toString("utf8");
-  while (true) {
-    const headerEnd = buffer.indexOf("\r\n\r\n");
-    if (headerEnd === -1) break;
-    const headers = buffer.slice(0, headerEnd);
-    const m = headers.match(/Content-Length:\s*(\d+)/i);
-    if (!m) {
-      buffer = buffer.slice(headerEnd + 4);
-      continue;
-    }
-    const length = parseInt(m[1], 10);
-    const start = headerEnd + 4;
-    if (buffer.length < start + length) break;
-    const body = buffer.slice(start, start + length);
-    buffer = buffer.slice(start + length);
-    try {
-      handle(JSON.parse(body));
-    } catch {
-      // Malformed message — skip it; LSP clients resend on the next change.
-    }
-  }
+if (require.main === module) {
+  const server = new LspServer();
+  server.start();
 }
 
-function main(): void {
-  process.stdin.on("data", onChunk);
-  process.stdin.on("end", () => process.exit(0));
-}
-
-if (require.main === module) main();
-
-export { handle, toLspDiagnostics, isTraceability };
+// Exports for tests
+export const defaultServer = new LspServer();
+export const handle = (msg: LspMessage) => defaultServer.handle(msg);
+export const toLspDiagnostics = (diags: SpecDiagnostic[]) => defaultServer.toLspDiagnostics(diags);
+export const isTraceability = (uri: string) => defaultServer.isTraceability(uri);

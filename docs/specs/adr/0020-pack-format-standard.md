@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — 2026-08-17
+Accepted — 2026-08-17 · **Amended — 2026-08-23** (see *Amendment*)
 
 ## Context
 
@@ -109,3 +109,97 @@ contact with real work gets satisfied with fiction.
 
 **Drop the business rules while migrating.** Faster, and it would have thrown
 away written domain knowledge to avoid adding one key to a schema.
+
+
+## Amendment — 2026-08-23 (E1 / H13)
+
+The decision above stands: the schema is the authority. What was wrong was the
+schema, and nothing enforced it against the packs, so the two drifted quietly
+apart for six days.
+
+**Measured before amending.** Ten of the eleven curated packs failed
+`schemas/pack.schema.json`, while all eleven passed `pack lint --strict`.
+`tests/unit/pack-schema.test.ts` existed and looked like the check that would
+have caught it — it validates **one fixture pack**. The packs actually shipped
+were read by nobody. Same shape as H14: a check that exists, appears to cover
+something, and is pointed somewhere else.
+
+**It was not paperwork.** The schema said `context` and `invariants`, the packs
+write `bounded_context` and `responsibilities`, and the renderer read the
+schema's names. So installing any curated pack produced domain documents with
+empty columns:
+
+```
+| AGG-001 | Invoice       | - | - |
+| EVT-001 | InvoiceIssued | - | - | invoiceId: string, … |
+```
+
+The pack declared every one of those values, under its real name. A schema
+enforced against nothing had let three vocabularies grow — schema, packs,
+renderer — and the user paid for it in worse documents.
+
+**What changed.**
+
+1. **The schema describes the format that exists.** `use_cases` requires
+   `id`, `name`, `actor`, `requirement`; `commands` requires `id` and `name`;
+   `aggregates` and `events` require `id` and `name`. Everything else is
+   optional and validated when present — the treatment this ADR already gave
+   `scenarios[]`, applied to the collections it missed.
+
+   This is ADR-0022 reaching the schema. Requiring `aggregate`, `emits` and
+   `scenarios` on every use case, or `fields` on every command, is full CQRS as
+   the price of entry — *"the kind of rule that teaches people to write fiction
+   to satisfy a validator"*, in this ADR's own words about the 14-field
+   scenario.
+
+2. **The real vocabulary is described, with the old names kept as aliases.**
+   `bounded_context` and `context`; `aggregate` and `producer`.
+   `responsibilities` and `invariants` are **different things** and now have
+   separate columns: what an aggregate owns is not the rules it must keep, and
+   rendering one under the other's heading would be a mislabelled fact rather
+   than a missing one.
+
+3. **Both payload spellings are valid.** Ten packs write
+   `payload: [fileId: string]`, which reads as a string; `file-storage` writes a
+   block sequence of mappings, which reads as objects. Both are in use and both
+   are readable, so the schema describes both rather than retiring one by a rule
+   nobody was enforcing. *(That inconsistency is worth settling on its own
+   merits; this amendment does not settle it by validator.)*
+
+4. **The shipped packs are validated against the schema in the suite.**
+   `tests/unit/shipped-packs-schema.test.ts` walks `packs/**`. Without it this
+   amendment would be one more statement of authority with nothing behind it.
+
+5. **The rendered documents are checked, not just the install.**
+   `curated-packs.test.ts` now asserts that each pack's context and producer
+   reach `aggregates.md` and `events.md`. Installing cleanly was never the
+   claim worth testing.
+
+`PACK_SCHEMA_VERSION` moves to **1.4.0**: the format accepts more spellings than
+it did. No pack changed, and none had to — this amendment relaxes and corrects,
+so nothing that validated before stops validating, and the eleven packs keep
+declaring `1.3.0`.
+
+**`depends_on` (B1, 2026-08-23).** Optional on `requirements[]`: which
+requirements must land before this one, so the harness stacks a dependent's
+branch on its predecessor's instead of on the run's base. Validated here rather
+than at run time — a dependency naming nothing, or a cycle, is a defect in the
+pack, and `runLevels` discovering it mid-run means the pack is installed and an
+agent already paid for.
+
+It reaches the project through the matrix, on its own line beneath the table:
+
+```
+<!-- csda:trace REQ-002 depends=REQ-001 -->
+```
+
+Not inside a cell. The row parser splits on `|` and requires exactly ten cells,
+so anything appended to a row makes an eleventh and the row stops parsing — the
+annotation would survive one write and vanish on the next `expand`. Beneath the
+table it is ignored by the row parser by construction, which is round-trip
+safety rather than round-trip carefulness.
+
+**Two defects found on the way, fixed separately** because they stand on their
+own: `validatePackModel` cross-referenced `aggregate.context` and was therefore
+inert on all eleven packs, and `parseYamlLite` split inline flow sequences on
+every comma, so one quoted responsibility parsed as four items.

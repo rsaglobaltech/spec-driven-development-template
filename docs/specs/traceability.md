@@ -25,7 +25,7 @@
 | REQ-001 | SCN-001 | `features/cli/init.feature` | - | - | - | - | `scripts/init_project.ts` | `tests/cli.test.ts` | Verified |
 | REQ-002 | SCN-002 | `features/cli/validate.feature` | - | - | - | - | `scripts/validate_specs.ts` | `tests/unit/validate-remedies.test.ts` | Verified |
 | REQ-003 | SCN-003 | `features/cli/expand.feature` | - | - | - | - | `scripts/expand_domain_pack.ts` | `tests/unit/common.test.ts` | Verified |
-| REQ-004 | SCN-004 | `features/pack/expand-parking.feature` | - | - | - | - | `scripts/domain-pack/common.ts` | `tests/unit/init-engine-parity.test.ts` | Verified |
+| REQ-004 | SCN-004 | `features/pack/expand-parking.feature` | - | - | - | - | `scripts/cli/commands/pack/ExpandDomainPackCommand.ts` | `tests/unit/init-engine-parity.test.ts` | Verified |
 | REQ-005 | SCN-005 | - | - | - | - | - | `templates/base/docs/specs/runtime-environments.md.tpl` | `tests/cli.test.ts` | Verified |
 | REQ-006 | SCN-006 | - | - | - | - | - | `scripts/init_pack.ts` | `tests/unit/pack-commands.test.ts` | Verified |
 | REQ-007 | SCN-007 | - | - | - | - | - | `scripts/lint_pack.ts` | `tests/unit/pack-lint-quality.test.ts` | Verified |

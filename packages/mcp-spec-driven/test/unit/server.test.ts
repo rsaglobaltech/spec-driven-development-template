@@ -6,12 +6,12 @@
  * stdout writes via process.stdout monkey-patching.
  */
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { handleMessage, readMessage } = require("../../src/server");
+import { handleMessage, readMessage } from "../../src/server";
 
 function captureStdout(fn) {
   const chunks = [];

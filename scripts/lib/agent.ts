@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * The machine-facing half of every command, in one place.
  *
@@ -15,14 +13,15 @@
  *   io.fail({ plan: null }, [error("no_project", "…", { fix: "…" })]);
  */
 
-const { printDiagnostics, hasErrors } = require("./diagnostics");
+import { printDiagnostics, hasErrors } from "./diagnostics";
+import type { Diagnostic } from "./diagnostics";
 
 /**
  * Exit codes are part of the published contract — an agent branches on them
  * before it parses anything. Success covers advisory warnings: a warning the
  * caller may ignore is not a failure.
  */
-const EXIT = Object.freeze({
+export const EXIT = Object.freeze({
   OK: 0,
   FAILURE: 1,
   USAGE: 2,
@@ -35,18 +34,40 @@ const EXIT = Object.freeze({
  * predates the contract (`plan --format json`) and keeps working: breaking it
  * would break every pipeline that already uses it.
  */
-function wantsJson(argv) {
+export function wantsJson(argv) {
   const args = argv || [];
   if (args.includes("--json")) return true;
   const i = args.indexOf("--format");
   return i !== -1 && args[i + 1] === "json";
 }
 
-function writeJson(document) {
+function writeJson(document: AgentDocument): void {
   process.stdout.write(`${JSON.stringify(document, null, 2)}\n`);
 }
 
-function agentIo(json) {
+/**
+ * A command's JSON document: its own payload keys plus `status`.
+ *
+ * Open by design — every command carries a different document key, and the
+ * contract fixes the envelope, not the payload.
+ */
+export interface AgentDocument {
+  status?: Diagnostic[];
+  [key: string]: unknown;
+}
+
+/** The machine-facing half of a command. */
+export type { Diagnostic };
+
+export interface AgentIo {
+  readonly json: boolean;
+  emit(payload: AgentDocument, renderHuman?: () => void): void;
+  emitAndGate(payload: AgentDocument, renderHuman?: () => void): void;
+  fail(nullShape: AgentDocument, diags: Diagnostic[]): never;
+  usage(nullShape: AgentDocument, diags: Diagnostic[]): never;
+}
+
+export function agentIo(json: boolean): AgentIo {
   return {
     json: Boolean(json),
 
@@ -55,7 +76,7 @@ function agentIo(json) {
      * diagnostics — empty when there is nothing to report, populated when the
      * command succeeded but has advisory warnings.
      */
-    emit(payload, renderHuman) {
+    emit(payload: AgentDocument, renderHuman?: () => void) {
       if (json) {
         writeJson({ ...payload, status: payload.status || [] });
       } else if (renderHuman) {
@@ -68,7 +89,7 @@ function agentIo(json) {
      * "the command failed" apart from "the command printed nothing", because
      * the document has the same keys either way.
      */
-    fail(nullShape, diags) {
+    fail(nullShape: AgentDocument, diags: Diagnostic[]): never {
       if (json) {
         writeJson({ ...nullShape, status: diags });
       } else {
@@ -78,7 +99,7 @@ function agentIo(json) {
     },
 
     /** A malformed invocation — unknown flag, missing argument. Exit 2. */
-    usage(nullShape, diags) {
+    usage(nullShape: AgentDocument, diags: Diagnostic[]): never {
       if (json) {
         writeJson({ ...nullShape, status: diags });
       } else {
@@ -91,11 +112,9 @@ function agentIo(json) {
      * Emit, then exit 1 if any diagnostic is an error. For commands that are
      * themselves gates: `validate` reports and fails in the same breath.
      */
-    emitAndGate(payload, renderHuman) {
+    emitAndGate(payload: AgentDocument, renderHuman?: () => void) {
       this.emit(payload, renderHuman);
       if (hasErrors(payload.status || [])) process.exit(EXIT.FAILURE);
     },
   };
 }
-
-module.exports = { EXIT, wantsJson, agentIo };

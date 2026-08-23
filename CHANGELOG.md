@@ -6,6 +6,183 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
+## [Unreleased]
+
+## [0.7.0] — 2026-08-23
+
+The release that closes the gate on itself. Every item below came from running
+the loop and finding it approving work it had not checked — H13, H14, H15 and
+H16, all four measured before anything was written and reproduced after.
+
+### Added
+
+- **`csda validate --strict-scenarios`** applies the pack's eight scenario
+  quality rules to `features/**/*.feature`. The rules moved into the domain, so
+  `pack lint`, `validate`, `doctor` and `harness run` reach the same verdict
+  instead of three drifting copies. `doctor` reports them as advisories, which
+  is the gradual path for a repository brought in with `csda adopt`.
+
+- **`csda harness run --skip-not-ready`** skips a requirement an agent could not
+  succeed at — no feature file, unmet dependencies, `Deprecated`, or `Needs
+  Clarification`. `csda plan --format json` now carries `ready` and `blockers[]`
+  per requirement, each blocker with a fix. Default is to warn and run it
+  anyway; an unrunnable scenario skips regardless, because an empty scenario
+  passes and a green run over one proves nothing.
+
+- **`csda harness run --resume`** continues an interrupted run: it re-attaches to
+  the branch and, when git still knows of one, to the worktree holding the
+  agent's uncommitted work. Where it picks up is read from the prompt archive,
+  not the run ledger — the ledger is written when a run *finishes*, so an
+  interrupted run leaves none.
+
+- **`csda harness run --budget-seconds` and `--max-requirements`** put a ceiling
+  on a run. Asked before starting each requirement, never mid-attempt.
+  Exhausting one is not an error: the run ends normally, names what it never
+  started, and still writes its ledger.
+
+- **`csda harness run --strict-artifacts`** fails an attempt whose green diff
+  never touches the paths the matrix declares for the requirement. A warning by
+  default — work can legitimately land in a shared module.
+
+- **A write-scope guard.** Before the gate, the harness checks the agent has not
+  edited the contract it is judged against: `spec.md`, `AI_RULES.md`,
+  `features/**`, `docs/specs/**`, `.specops.lock`, `harness.config.yaml`.
+  Configurable through `protected_paths` and `allow_paths`. Creating a file that
+  did not exist is allowed; modifying one that did is not.
+
+- **The gate reads Cucumber's message protocol** when it can. `--format message`
+  answers whether a scenario for the requirement exists, ran, had steps and
+  passed — where the exit code only said "zero". Opt in with `message_report:`,
+  or let the harness add the flag to a direct `cucumber-js` invocation.
+
+- **`csda harness report`** gains where attempts end, which requirements spend
+  every attempt, a series over time, and `--mark-false-failure REQ-NNN --reason
+  "…"`. The real-failure rate reads `—` until somebody marks one: nothing
+  recorded can tell a gate that was wrong from work that was.
+
+- **`depends_on`** on a pack's requirements. The harness cuts a dependent's
+  branch from its predecessor's rather than from the run's base. Cycles and
+  broken references are refused when the pack is validated, not at run time.
+
+- **An agent profile per requirement.** A profile that declares `match:` selects
+  itself, so one run can give different requirements different agents and
+  different tool allowances. `cost_per_run_hint` lets a profile declare roughly
+  what a run of it costs; the report multiplies it out, labelled as declared
+  rather than measured.
+
+- **`@REQ-NNN @SCN-NNN` tags** on every scenario `csda expand` and `csda init`
+  write. `validate` uses them to check the matrix points at a scenario that
+  exists — which nothing did before. A file carrying no tags is left alone.
+
+### Changed
+
+- **`scenario_has_no_steps` and `keyword_case_invalid` are errors on their own**,
+  without `--strict`. They used to be style opinions that `--strict` promoted,
+  CI ran `--strict`, and the packs still went out with 27 scenarios that
+  executed nothing. Both messages name the file, the line and the spelling that
+  works.
+
+- **`schemas/pack.schema.json` describes the format that exists** (1.3.0 →
+  1.4.0). It required full CQRS on every use case and command, so ten of the
+  eleven curated packs failed the schema ADR-0020 calls the authority — while
+  all eleven passed `pack lint`. Required is now what the installer needs;
+  everything else is optional and validated when present. The shipped packs are
+  validated against it in the suite, which nothing did before. **No pack changed
+  and none had to**: this relaxes and corrects.
+
+### Fixed
+
+- **The eleven curated packs rendered empty domain documents.** The schema said
+  `context` and `invariants`, the packs write `bounded_context` and
+  `responsibilities`, and the renderer read the schema's names — so installing
+  any pack produced `| AGG-001 | Invoice | - | - |` with the values right there
+  in the pack under other names. Aggregates now render their context and
+  responsibilities, and events their producer.
+
+- **`validatePackModel` never checked an aggregate's bounded context.** It read
+  `aggregate.context`; every pack writes `bounded_context`, and an empty
+  reference is skipped — so the cross-reference was inert on all eleven.
+  `pack lint` had its own check and caught it, which is why nobody noticed the
+  installer's did not.
+
+- **`parseYamlLite` split inline sequences on every comma**, including the ones
+  inside quotes, so `responsibilities: ["Invoice line items, totals, status,
+  aging"]` parsed as four items carrying stray quote characters.
+
+### Security
+
+- **A pack repository could make git run a command.** `csda expand --pack-repo`
+  and `csda specops contribute` passed a caller-named repository straight to
+  `git clone`. Two shapes turn that into execution, both of them git behaving as
+  documented: a value beginning with `-` is read as an option, so
+  `--upload-pack=<cmd>` runs `<cmd>`; and `ext::` is a transport whose job is to
+  run a command.
+
+  Both are refused now, with a message that says what to use instead, and the
+  positional arguments are separated with `--`. Passing the value as its own
+  argv element was never the defence — git parses argv, not the shell.
+
+- **Fifteen regular expressions could backtrack quadratically.** All the same
+  shape: `\s` matching a newline in a line-oriented pattern, or a lazy group
+  followed by `\s*$`. Line patterns use `[ \t]` now and capture to the end of
+  the line, trimming in code.
+
+- **Two YAML writers escaped the quote but not the backslash**, so a value
+  ending in `\` escaped its own escape and broke out of its string.
+
+- **Matrix trace lines are parsed onto a prototype-less object**, since the keys
+  come out of a file.
+
+Found by putting the branch through CodeQL for the first time. Twenty-one alerts
+were fixed rather than dismissed; nothing was waved through to make a release
+date.
+
+- **The published CLI did nothing on Windows.** `bin/create-spec-driven-app.js`
+  is a two-line shim that `require`s the built entry point, so `require.main` is
+  the shim and the guard recognised it by name — with
+  `filename.endsWith("bin/create-spec-driven-app.js")`, which never matches on
+  Windows, where `filename` carries backslashes. The CLI loaded, dispatched
+  nothing, and exited 0 **with no output on either stream**.
+
+  Found by putting this branch through CI for the first time: 437 tests failed
+  on Windows and not one message said why, because there was no message. It
+  survived because both machines it was developed on use `/`.
+
+- **`csda validate .` on this repository had been failing since the clean
+  architecture refactor.** Splitting `scripts/init_pack.ts` dropped its
+  `csda:allow-placeholders` marker, so the command's own `{{VAR}}` output read
+  as an unrendered project. It went unnoticed for six days because the gate
+  being run was `test:all` plus the linters, and the selfcheck lives in
+  `npm run verify`. Found by running the release gate, which is what it is for.
+
+- **`csda pack init` still scaffolded `GIVEN / WHEN / THEN`.** The 27 shipped
+  files were fixed; the file that writes new ones was not, so every pack created
+  since started with an example scenario Cucumber saw as empty.
+
+- **The scenarios shipped in the curated packs were never executed.** 27 of the
+  28 scenarios under `packs/**` wrote their keywords in upper case —
+  `GIVEN` / `WHEN` / `THEN` — and Gherkin keywords are case-sensitive. Cucumber
+  read those lines as the scenario's *description*, so the scenario existed with
+  **zero steps**, and an empty scenario passes: `1 scenario (1 passed) · 0 steps
+  · exit 0`.
+
+  Every project seeded with `csda specops add` therefore inherited an acceptance
+  criterion that approves anything, and a harness run over those requirements
+  was not verifying them. Measured on one file before and after: 0 steps and
+  exit 0 became 3 steps and exit 1.
+
+  `csda pack lint --strict` had approved them, because its own matcher is
+  case-insensitive and saw three steps where the runner saw none. A new test
+  parses every `.feature` and `.feature.tpl` this repository ships with
+  `@cucumber/gherkin` — the parser that will actually run them — and fails on
+  any scenario with no steps, so this cannot come back. Bringing the linter
+  itself to parity with Cucumber is separate work.
+
+  **If you already installed a pack**, `csda specops diff` will report drift in
+  the rendered feature files. That is this correction arriving. Reviewing it as
+  intent rather than as a file diff is what `csda specops diff --as-change` is
+  for.
+
 ## [0.6.0] — 2026-08-18
 
 ### Fixed

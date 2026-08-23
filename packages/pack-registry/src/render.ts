@@ -423,4 +423,4 @@ ${cards}
 </html>`;
 }
 
-module.exports = { renderIndex, renderCard, escape };
+export { renderIndex, renderCard, escape };

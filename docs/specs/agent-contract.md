@@ -59,10 +59,12 @@ not run reports an `error` about itself.
 
 | Command | Document key | Gate |
 |---|---|---|
+| `csda doctor --json` | `doctor` | yes |
+| `csda status --json` | `status` | no |
+| `csda alm pull --json` | `pulled` | no |
 | `csda validate <dir> --json` | `validation` | yes |
 | `csda plan --json` | `plan` | no |
-| `csda status --json` | `status` | no |
-| `csda doctor --json` | `doctor` | yes |
+| `csda report --json` | `report` | no |
 | `csda done <REQ> --json` | `requirement` | no |
 | `csda change list --json` | `changes` | no |
 | `csda change show <id> --json` | `change` | no |
@@ -70,9 +72,10 @@ not run reports an `error` about itself.
 | `csda change validate <id> --json` | `change` | yes |
 | `csda change archive <id> --json` | `archive` | yes |
 | `csda change instructions <artifact> --json` | `instructions` | no |
+| `csda change author <id> --json` | `change` | yes |
 | `csda specops diff --json` | `changes` | no |
-| `csda report --json` | `report` | no |
 | `csda harness run --format json` | `results` | no |
+| `csda harness report --json` | `report` | no |
 
 The document key is what the payload carries on success and what is set to
 `null` on failure. Every document also carries `status`: an array of
@@ -85,75 +88,67 @@ computed — `strict_tdd_*` covers `strict_tdd_1` through `strict_tdd_3`.
 
 | Code | Emitted by |
 |---|---|
-| `duplicate_scenario_id` | `scripts/validate_specs.ts` |
 | `events_header_missing` | `scripts/validate_specs.ts` |
 | `feature_not_in_matrix` | `scripts/validate_specs.ts` |
-| `invalid_status` | `scripts/validate_specs.ts` |
-| `missing_required_dir` | `scripts/validate_specs.ts` |
 | `missing_required_file` | `scripts/validate_specs.ts` |
-| `no_feature_files` | `scripts/validate_specs.ts` |
-| `project_dir_not_found` | `scripts/validate_specs.ts` |
-| `strict_tdd_*` | `scripts/validate_specs.ts` |
-| `traceability_header_missing` | `scripts/validate_specs.ts` |
+| `no_features` | `scripts/validate_specs.ts` |
+| `requirement_cycle` | `scripts/validate_specs.ts` |
+| `self_dependency` | `scripts/validate_specs.ts` |
+| `strict_tdd_1` | `scripts/validate_specs.ts` |
+| `strict_tdd_2` | `scripts/validate_specs.ts` |
+| `strict_tdd_3` | `scripts/validate_specs.ts` |
+| `traceability_unrecognized` | `scripts/validate_specs.ts` |
+| `unknown_dependency` | `scripts/validate_specs.ts` |
 | `use_cases_header_missing` | `scripts/validate_specs.ts` |
-| `placeholders` | `scripts/doctor.ts` |
-| `project` | `scripts/doctor.ts` |
-| `specops` | `scripts/doctor.ts` |
-| `project_not_found` | `scripts/done.ts` |
-| `req_id_malformed` | `scripts/done.ts` |
-| `req_id_required` | `scripts/done.ts` |
-| `requirement_not_in_matrix` | `scripts/done.ts` |
-| `status_not_allowed` | `scripts/done.ts` |
-| `traceability_not_found` | `scripts/done.ts` |
-| `validate_gate_failed` | `scripts/done.ts` |
-| `archive_change_name_required` | `scripts/change/cli.ts` |
-| `archive_spec_update_failed` | `scripts/change/cli.ts` |
-| `change_error` | `scripts/change/cli.ts` |
-| `change_exists` | `scripts/change/cli.ts` |
-| `change_id_required` | `scripts/change/cli.ts` |
-| `change_not_found` | `scripts/change/cli.ts` |
-| `invalid_change_id` | `scripts/change/cli.ts` |
-| `missing_proposal` | `scripts/change/cli.ts` |
-| `no_deltas` | `scripts/change/cli.ts` |
-| `delta_empty` | `scripts/change/delta.ts` |
-| `delta_unknown_section` | `scripts/change/delta.ts` |
-| `duplicate_requirement` | `scripts/change/delta.ts` |
-| `invalid_requirement_id` | `scripts/change/delta.ts` |
-| `no_rfc2119_keyword` | `scripts/change/delta.ts` |
-| `requirement_already_exists` | `scripts/change/delta.ts` |
-| `requirement_without_scenario` | `scripts/change/delta.ts` |
-| `scenario_not_gherkin` | `scripts/change/delta.ts` |
-| `scenario_without_steps` | `scripts/change/delta.ts` |
-| `unknown_requirement` | `scripts/change/delta.ts` |
-| `archive_capability_retired` | `scripts/change/archive.ts` |
-| `archive_change_not_found` | `scripts/change/archive.ts` |
-| `archive_change_symlink` | `scripts/change/archive.ts` |
-| `archive_feature_exists` | `scripts/change/archive.ts` |
-| `archive_no_deltas` | `scripts/change/archive.ts` |
-| `archive_retire_not_declared` | `scripts/change/archive.ts` |
-| `archive_target_exists` | `scripts/change/archive.ts` |
-| `archive_tasks_incomplete` | `scripts/change/archive.ts` |
-| `traceability_upgraded` | `scripts/change/archive.ts` |
+| `archive_change_name_required` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `archive_spec_update_failed` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `author_agent_failed` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `author_agent_unset` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `author_needs_git` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `author_out_of_scope` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `author_tree_dirty` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `change_error` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `change_exists` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `change_id_required` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `change_not_found` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `change_required` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `invalid_change_id` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `missing_proposal` | `packages/core/src/application/ValidateChangeUseCase.ts` |
+| `no_deltas` | `packages/core/src/application/ValidateChangeUseCase.ts` |
+| `delta_empty` | `packages/core/src/domain/DeltaSpec.ts` |
+| `delta_unknown_section` | `packages/core/src/domain/DeltaSpec.ts` |
+| `duplicate_requirement` | `packages/core/src/domain/DeltaSpec.ts` |
+| `invalid_requirement_id` | `packages/core/src/domain/DeltaSpec.ts` |
+| `no_rfc2119_keyword` | `packages/core/src/domain/DeltaSpec.ts` |
+| `requirement_already_exists` | `packages/core/src/domain/DeltaSpec.ts` |
+| `requirement_without_scenario` | `packages/core/src/domain/DeltaSpec.ts` |
+| `scenario_not_gherkin` | `packages/core/src/domain/DeltaSpec.ts` |
+| `scenario_steps_unwritten` | `packages/core/src/domain/DeltaSpec.ts` |
+| `scenario_without_steps` | `packages/core/src/domain/DeltaSpec.ts` |
+| `unknown_requirement` | `packages/core/src/domain/DeltaSpec.ts` |
+| `archive_capability_retired` | `packages/core/src/application/ArchiveChangeUseCase.ts` |
+| `archive_change_not_found` | `packages/core/src/application/ArchiveChangeUseCase.ts` |
+| `archive_change_symlink` | `packages/core/src/application/ArchiveChangeUseCase.ts` |
+| `archive_feature_exists` | `packages/core/src/application/ArchiveChangeUseCase.ts` |
+| `archive_no_deltas` | `packages/core/src/application/ArchiveChangeUseCase.ts` |
+| `archive_retire_not_declared` | `packages/core/src/application/ArchiveChangeUseCase.ts` |
+| `archive_target_exists` | `packages/core/src/application/ArchiveChangeUseCase.ts` |
+| `archive_tasks_incomplete` | `packages/core/src/application/ArchiveChangeUseCase.ts` |
+| `traceability_upgraded` | `packages/core/src/application/ArchiveChangeUseCase.ts` |
 | `artifact_required` | `scripts/change/instructions.ts` |
 | `artifact_unknown` | `scripts/change/instructions.ts` |
 | `change_not_found` | `scripts/change/instructions.ts` |
 | `project_not_found` | `scripts/change/instructions.ts` |
-| `local_requirements` | `scripts/specops/against_lock.ts` |
-| `pack_requirement_drifted` | `scripts/specops/against_lock.ts` |
-| `pack_requirement_missing` | `scripts/specops/against_lock.ts` |
-| `pack_unavailable` | `scripts/specops/against_lock.ts` |
-| `pack_unreadable` | `scripts/specops/against_lock.ts` |
-| `traceability_legacy_format` | `scripts/specops/against_lock.ts` |
-| `ambiguous_pack` | `scripts/specops/contribute.ts` |
-| `change_has_no_deltas` | `scripts/specops/contribute.ts` |
-| `change_not_found` | `scripts/specops/contribute.ts` |
-| `change_required` | `scripts/specops/contribute.ts` |
-| `contribute_not_pushed` | `scripts/specops/contribute.ts` |
-| `contribute_stage_failed` | `scripts/specops/contribute.ts` |
-| `no_lockfile` | `scripts/specops/contribute.ts` |
-| `nothing_to_contribute` | `scripts/specops/contribute.ts` |
-| `pack_has_no_repo` | `scripts/specops/contribute.ts` |
-| `pack_not_found` | `scripts/specops/contribute.ts` |
+| `ambiguous_pack` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `change_has_no_deltas` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `change_not_found` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `change_required` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `contribute_not_pushed` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `contribute_stage_failed` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `no_lockfile` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `nothing_to_contribute` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `pack_has_no_repo` | `scripts/cli/commands/specops/ContributeCommand.ts` |
+| `pack_not_found` | `scripts/cli/commands/specops/ContributeCommand.ts` |
 
 ## Worked example
 

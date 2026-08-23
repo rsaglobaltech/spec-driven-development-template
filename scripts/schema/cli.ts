@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `csda schema init | fork | validate | which` — inspect and override the
  * artefact graph a change follows.
@@ -10,13 +8,13 @@
  * how a tool acquires a reputation for ceremony.
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const { resolveProjectDir } = require("../lib/project-root");
-const { error, warning, diagnostic } = require("../lib/diagnostics");
-const { agentIo, wantsJson, EXIT } = require("../lib/agent");
-const {
+import { resolveProjectDir } from "../lib/project-root";
+import { error, warning, diagnostic, errorMessage } from "../lib/diagnostics";
+import { agentIo, wantsJson, EXIT } from "../lib/agent";
+import {
   BUILT_IN,
   SCHEMA_DIR,
   SCHEMA_FILE,
@@ -24,7 +22,7 @@ const {
   validateSchema,
   resolveSchema,
   listSchemas,
-} = require("./registry");
+} from "./registry";
 
 function usage() {
   process.stdout.write(
@@ -38,18 +36,18 @@ function usage() {
   );
 }
 
-function schemaPath(projectDir, name) {
+export function schemaPath(projectDir, name) {
   return path.join(projectDir, SCHEMA_DIR, name, SCHEMA_FILE);
 }
 
-function writeSchema(projectDir, name, schema) {
+export function writeSchema(projectDir, name, schema) {
   const file = schemaPath(projectDir, name);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, toYaml({ ...schema, name }), "utf8");
   return path.join(SCHEMA_DIR, name, SCHEMA_FILE);
 }
 
-function main(argv) {
+export function main(argv) {
   const io = agentIo(wantsJson(argv));
   const NULL_SHAPE = { schema: null };
   const args = argv.filter((a) => a !== "--json");
@@ -69,9 +67,9 @@ function main(argv) {
   let projectDir;
   try {
     projectDir = resolveProjectDir(projectDirArg);
-  } catch (err: any) {
+  } catch (err) {
     io.usage(NULL_SHAPE, [
-      error("project_not_found", err.message, {
+      error("project_not_found", errorMessage(err), {
         fix: "Run from inside a spec-driven project, or pass --project-dir.",
       }),
     ]);
@@ -204,7 +202,7 @@ function main(argv) {
   ]);
 }
 
-const FIXES = {
+export const FIXES = {
   schema_no_name: "Add a top-level `name:` line.",
   schema_no_artifacts: "Declare at least one entry under `artifacts:`.",
   artifact_no_id: "Every artifact needs an `id`.",
@@ -216,5 +214,3 @@ const FIXES = {
 };
 
 if (require.main === module) main(process.argv.slice(2));
-
-module.exports = { main, writeSchema, schemaPath, FIXES };

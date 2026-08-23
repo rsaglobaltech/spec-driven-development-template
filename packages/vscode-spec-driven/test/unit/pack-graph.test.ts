@@ -1,9 +1,10 @@
-"use strict";
+import * as yaml from "js-yaml";
+("use strict");
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
 
-const {
+import {
   collectDeclared,
   findReferencePosition,
   analyzePackGraph,
@@ -11,7 +12,7 @@ const {
   findDeclarationPosition,
   buildPackGraphModel,
   renderPackMermaid,
-} = require("../../src/pack-graph");
+} from "../../src/pack-graph";
 
 const GOOD_PACK = `
 requirements:
@@ -42,7 +43,6 @@ scenarios:
 // ── collectDeclared ──────────────────────────────────────────────────────────
 
 test("collectDeclared gathers ids and names by reference kind", () => {
-  const yaml = require("js-yaml");
   const declared = collectDeclared(yaml.load(GOOD_PACK));
   assert.ok(declared.requirement.has("REQ-001"));
   assert.ok(declared.use_case.has("UC-001"));
@@ -172,7 +172,6 @@ test("findDeclarationPosition returns null when the entity is not declared", () 
 // ── buildPackGraphModel / renderPackMermaid ──────────────────────────────────
 
 test("buildPackGraphModel wires the REQ→UC→CMD/AGG/EVT spine", () => {
-  const yaml = require("js-yaml");
   const { nodes, edges } = buildPackGraphModel(yaml.load(GOOD_PACK));
   const types = [...new Set(nodes.map((n) => n.type))].sort();
   assert.deepEqual(types, ["aggregate", "command", "event", "requirement", "use_case"]);
@@ -184,7 +183,6 @@ test("buildPackGraphModel wires the REQ→UC→CMD/AGG/EVT spine", () => {
 });
 
 test("buildPackGraphModel turns a dangling reference into a missing node", () => {
-  const yaml = require("js-yaml");
   const bad = yaml.load(`
 use_cases:
   - id: UC-001

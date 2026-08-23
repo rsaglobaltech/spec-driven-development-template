@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `harness init` — scaffold `harness.config.yaml` and `.harness/prompt-prefix.md`.
  *
@@ -15,12 +13,14 @@
  *                                       [--force] [--stdout] [--json]
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { renderTemplate } = require("../domain-pack/common");
-const { resolveProjectDir } = require("../lib/project-root");
-const { agentIo, wantsJson } = require("../lib/agent");
-const { error, info, warning } = require("../lib/diagnostics");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
+import { renderTemplate } from "../../packages/core/src/domain/PackSpec";
+import { resolveProjectDir } from "../lib/project-root";
+import { agentIo, wantsJson } from "../lib/agent";
+import { error, info, warning, errorMessage } from "../lib/diagnostics";
+import { BaseCommand } from "../lib/command";
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..", "..");
 const TEMPLATES = path.join(ROOT_DIR, "templates", "harness");
@@ -42,7 +42,7 @@ const NULL_SHAPE = { projectDir: null, files: [] };
  * freshly scaffolded project has no build file yet precisely because no code
  * exists, so this is the common case, not the edge one.
  */
-function detectTestCommand(projectDir) {
+export function detectTestCommand(projectDir) {
   const has = (file) => fs.existsSync(path.join(projectDir, file));
   if (has("package.json")) {
     try {
@@ -67,7 +67,7 @@ function detectTestCommand(projectDir) {
   return null;
 }
 
-function projectName(projectDir) {
+export function projectName(projectDir) {
   const specPath = path.join(projectDir, "spec.md");
   if (fs.existsSync(specPath)) {
     const heading = /^#\s+(.+)$/m.exec(fs.readFileSync(specPath, "utf8"));
@@ -94,8 +94,17 @@ function usage() {
   );
 }
 
+/** Parsed command-line options for this command. */
+export interface HarnessInitOptions {
+  projectDir: string;
+  testCmd: string | null;
+  force: boolean;
+  stdout: boolean;
+  json: boolean;
+}
+
 function parseArgs(argv) {
-  const opts: any = {
+  const opts: HarnessInitOptions = {
     projectDir: ".",
     testCmd: null,
     force: false,
@@ -122,130 +131,243 @@ function parseArgs(argv) {
   return opts;
 }
 
-function main() {
-  let argv = process.argv.slice(2);
-  // Reachable as `harness init …` through the dispatcher, or directly.
-  if (argv[0] === "harness") argv = argv.slice(1);
-  if (argv[0] === "init") argv = argv.slice(1);
+export class InitCommand extends BaseCommand {
+  public execute() {
+    let argv = this.args;
+    // Reachable as `harness init …` through the dispatcher, or directly.
+    if (argv[0] === "harness") argv = argv.slice(1);
+    if (argv[0] === "init") argv = argv.slice(1);
 
-  const opts = parseArgs(argv);
-  const io = agentIo(opts.json);
+    const opts = parseArgs(argv);
+    const io = agentIo(opts.json);
 
-  let projectDir;
-  try {
-    projectDir = resolveProjectDir(opts.projectDir);
-  } catch (err: any) {
-    io.usage(NULL_SHAPE, [
-      error("no_project", err.message, {
-        fix: "Run from inside a spec-driven project, or pass --project-dir <path>.",
-      }),
-    ]);
-    return;
-  }
+    let projectDir;
+    try {
+      projectDir = resolveProjectDir(opts.projectDir);
+    } catch (err) {
+      io.usage(NULL_SHAPE, [
+        error("no_project", errorMessage(err), {
+          fix: "Run from inside a spec-driven project, or pass --project-dir <path>.",
+        }),
+      ]);
+      return;
+    }
 
-  const testCmd = opts.testCmd || detectTestCommand(projectDir);
-  // Rendered into the config as a live key when known, and as a commented-out
-  // one when not — see detectTestCommand for why a placeholder would be worse
-  // than an absent key.
-  const vars = {
-    PROJECT_NAME: projectName(projectDir),
-    TEST_CMD_LINE: testCmd
-      ? `test_cmd: "${testCmd}"`
-      : '# test_cmd: "npm test"   # ← set this once the project has a test command',
-    GATE_COMMAND: testCmd
-      ? `${testCmd}\ncsda validate . --strict-tdd`
-      : "csda validate . --strict-tdd",
-  };
+    const testCmd = opts.testCmd || detectTestCommand(projectDir);
+    // Rendered into the config as a live key when known, and as a commented-out
+    // one when not — see detectTestCommand for why a placeholder would be worse
+    // than an absent key.
+    const vars = {
+      PROJECT_NAME: projectName(projectDir),
+      TEST_CMD_LINE: testCmd
+        ? `test_cmd: "${testCmd}"`
+        : '# test_cmd: "npm test"   # ← set this once the project has a test command',
+      GATE_COMMAND: testCmd
+        ? `${testCmd}\ncsda validate . --strict-tdd`
+        : "csda validate . --strict-tdd",
+    };
 
-  const outputs = [
-    {
-      dest: CONFIG_FILE,
-      body: renderTemplate(
-        fs.readFileSync(path.join(TEMPLATES, "harness.config.yaml.tpl"), "utf8"),
-        vars
-      ),
-    },
-    {
-      dest: PREFIX_FILE,
-      body: renderTemplate(
-        fs.readFileSync(path.join(TEMPLATES, "prompt-prefix.md.tpl"), "utf8"),
-        vars
-      ),
-    },
-  ];
+    const outputs = [
+      {
+        dest: CONFIG_FILE,
+        body: renderTemplate(
+          fs.readFileSync(path.join(TEMPLATES, "harness.config.yaml.tpl"), "utf8"),
+          vars
+        ),
+      },
+      {
+        dest: PREFIX_FILE,
+        body: renderTemplate(
+          fs.readFileSync(path.join(TEMPLATES, "prompt-prefix.md.tpl"), "utf8"),
+          vars
+        ),
+      },
+    ];
 
-  if (opts.stdout) {
-    io.emit({ projectDir, testCmd, files: outputs.map((o) => o.dest) }, () => {
-      for (const out of outputs) {
-        process.stdout.write(`# ── ${out.dest} ${"─".repeat(Math.max(0, 60 - out.dest.length))}\n`);
-        process.stdout.write(out.body);
-        process.stdout.write("\n");
-      }
-    });
-    return;
-  }
-
-  const existing = outputs
-    .map((o) => o.dest)
-    .filter((dest) => fs.existsSync(path.join(projectDir, dest)));
-  if (existing.length > 0 && !opts.force) {
-    io.fail({ ...NULL_SHAPE, projectDir }, [
-      error("harness_config_exists", `Already present: ${existing.join(", ")}`, {
-        target: existing[0],
-        fix: "Re-run with --force to overwrite, or --stdout to print and merge by hand.",
-      }),
-    ]);
-    return;
-  }
-
-  const written = [];
-  for (const out of outputs) {
-    const abs = path.join(projectDir, out.dest);
-    fs.mkdirSync(path.dirname(abs), { recursive: true });
-    fs.writeFileSync(abs, out.body, "utf8");
-    written.push(out.dest);
-  }
-
-  const status = [
-    info("harness_agent_unset", "No agent is configured, deliberately.", {
-      fix: 'Pass it explicitly: csda harness run --req REQ-001 --agent "<cmd> < {prompt_file}"',
-    }),
-  ];
-  if (!testCmd) {
-    status.push(
-      warning(
-        "harness_test_cmd_unset",
-        "No test command detected, so `test_cmd` is commented out.",
-        {
-          target: CONFIG_FILE,
-          fix: "Set it once the project has one. Until then the gate is `validate --strict-tdd` alone, which is a real gate — a placeholder that exits 0 would not be.",
+    if (opts.stdout) {
+      io.emit({ projectDir, testCmd, files: outputs.map((o) => o.dest) }, () => {
+        for (const out of outputs) {
+          process.stdout.write(
+            `# ── ${out.dest} ${"─".repeat(Math.max(0, 60 - out.dest.length))}\n`
+          );
+          process.stdout.write(out.body);
+          process.stdout.write("\n");
         }
-      )
+      });
+      return;
+    }
+
+    const existing = outputs
+      .map((o) => o.dest)
+      .filter((dest) => fs.existsSync(path.join(projectDir, dest)));
+    if (existing.length > 0 && !opts.force) {
+      io.fail({ ...NULL_SHAPE, projectDir }, [
+        error("harness_config_exists", `Already present: ${existing.join(", ")}`, {
+          target: existing[0],
+          fix: "Re-run with --force to overwrite, or --stdout to print and merge by hand.",
+        }),
+      ]);
+      return;
+    }
+
+    const written = [];
+    for (const out of outputs) {
+      const abs = path.join(projectDir, out.dest);
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      fs.writeFileSync(abs, out.body, "utf8");
+      written.push(out.dest);
+    }
+
+    // Registered here because this is where a project is set up to run the
+    // harness, and the driver only matters once branches come back in parallel.
+    const driverProblem = installMergeDriver(projectDir);
+
+    const status = [
+      info("harness_agent_unset", "No agent is configured, deliberately.", {
+        fix: 'Pass it explicitly: csda harness run --req REQ-001 --agent "<cmd> < {prompt_file}"',
+      }),
+    ];
+    if (driverProblem) status.push(driverProblem);
+    else
+      status.push(
+        info(
+          "merge_driver_registered",
+          "docs/specs/traceability.md now merges row by row, so parallel harness branches do not collide.",
+          {
+            target: ".gitattributes",
+            fix: "Commit .gitattributes. Every other clone and CI runs `csda harness init` once to register the driver in its own git config.",
+          }
+        )
+      );
+
+    if (!testCmd) {
+      status.push(
+        warning(
+          "harness_test_cmd_unset",
+          "No test command detected, so `test_cmd` is commented out.",
+          {
+            target: CONFIG_FILE,
+            fix: "Set it once the project has one. Until then the gate is `validate --strict-tdd` alone, which is a real gate — a placeholder that exits 0 would not be.",
+          }
+        )
+      );
+    }
+
+    io.emit(
+      {
+        projectDir,
+        testCmd,
+        files: written,
+        status,
+      },
+      () => {
+        for (const file of written) process.stdout.write(`ℹ️ [INFO] write ${file}\n`);
+        process.stdout.write(
+          "ℹ️ [INFO] ✅ Harness configured.\n" +
+            `ℹ️ [INFO]   gate: validate --strict-tdd${testCmd ? ` + ${testCmd}` : " (no test command detected)"}\n` +
+            "ℹ️ [INFO]   agent: not set — that is your choice and your credentials.\n" +
+            "ℹ️ [INFO] Next:\n" +
+            "ℹ️ [INFO]   1. Read .harness/prompt-prefix.md and make it sound like your team.\n" +
+            "ℹ️ [INFO]   2. csda harness prompt REQ-001        — see it before paying for it\n" +
+            'ℹ️ [INFO]   3. csda harness run --req REQ-001 --agent "<cmd> < {prompt_file}"\n'
+        );
+      }
+    );
+  }
+}
+
+// ── the traceability merge driver ────────────────────────────────────────────
+
+/** What `.gitattributes` must say for git to route the matrix to our driver. */
+export const MERGE_DRIVER_NAME = "csda-matrix";
+export const GITATTRIBUTES_LINE = `docs/specs/traceability.md merge=${MERGE_DRIVER_NAME}`;
+
+/**
+ * Register the row-wise merge driver for `docs/specs/traceability.md`.
+ *
+ * Parallel harness runs produce one branch per requirement, each flipping its
+ * own row. Git merges by lines and needs an unchanged line between two changed
+ * regions, so two edits one row apart collide even though they are independent
+ * — measured: rows 1 and 2 conflict, rows 1 and 5 do not. The driver merges by
+ * row instead. See `packages/core/src/domain/TraceabilityMerge.ts`.
+ *
+ * This takes two halves, and only the first is committed:
+ *
+ *   - `.gitattributes` routes the file. It is part of the repository, so every
+ *     clone gets it.
+ *   - `merge.csda-matrix.driver` is **local git config**, which nothing can
+ *     commit. Each clone and each CI job registers it, and that is why
+ *     `csda doctor` checks for the gap.
+ *
+ * Without the config git falls back to its built-in merge — the conflict a
+ * project has today. That fallback is deliberate: an unregistered checkout is
+ * never silently wrong, only unhelped, so this can be adopted one clone at a
+ * time.
+ *
+ * @returns a diagnostic when the driver could not be registered, else null
+ */
+export function installMergeDriver(projectDir: string) {
+  const attributesPath = path.join(projectDir, ".gitattributes");
+  const existing = fs.existsSync(attributesPath) ? fs.readFileSync(attributesPath, "utf8") : "";
+
+  if (!existing.includes(GITATTRIBUTES_LINE)) {
+    const separator = existing === "" || existing.endsWith("\n") ? "" : "\n";
+    fs.appendFileSync(
+      attributesPath,
+      `${separator}# Merge the traceability matrix row by row, so parallel harness\n` +
+        `# branches do not collide on adjacent rows. Needs the driver registered:\n` +
+        `#   csda harness init --project-dir .\n` +
+        `${GITATTRIBUTES_LINE}\n`,
+      "utf8"
     );
   }
 
-  io.emit(
-    {
-      projectDir,
-      testCmd,
-      files: written,
-      status,
-    },
-    () => {
-      for (const file of written) process.stdout.write(`ℹ️ [INFO] write ${file}\n`);
-      process.stdout.write(
-        "ℹ️ [INFO] ✅ Harness configured.\n" +
-          `ℹ️ [INFO]   gate: validate --strict-tdd${testCmd ? ` + ${testCmd}` : " (no test command detected)"}\n` +
-          "ℹ️ [INFO]   agent: not set — that is your choice and your credentials.\n" +
-          "ℹ️ [INFO] Next:\n" +
-          "ℹ️ [INFO]   1. Read .harness/prompt-prefix.md and make it sound like your team.\n" +
-          "ℹ️ [INFO]   2. csda harness prompt REQ-001        — see it before paying for it\n" +
-          'ℹ️ [INFO]   3. csda harness run --req REQ-001 --agent "<cmd> < {prompt_file}"\n'
-      );
-    }
+  // The driver runs from the installed CLI, so the path is resolved here rather
+  // than assumed: a project does not have csda in its own tree.
+  const driverScript = path.join(__dirname, "..", "merge-traceability.js");
+  const gitConfig = (key: string, value: string) =>
+    spawnSync("git", ["-C", projectDir, "config", key, value], { encoding: "utf8" });
+
+  // Order matters, and getting it wrong is worse than not doing it at all.
+  //
+  // Git has three states for a driver named in .gitattributes:
+  //
+  //   neither `name` nor `driver` set  → falls back to the built-in merge.
+  //                                      A fresh clone is here, and it is fine.
+  //   `name` set, `driver` missing     → `fatal: custom merge driver
+  //                                      csda-matrix lacks command line`. The
+  //                                      file cannot be merged AT ALL — worse
+  //                                      than the conflict this feature exists
+  //                                      to remove.
+  //   both set                         → the driver runs.
+  //
+  // So `driver` goes in first and `name` only follows if it landed; and if it
+  // did not, any stale `name` is removed rather than left pointing at nothing.
+  const configured = gitConfig(
+    `merge.${MERGE_DRIVER_NAME}.driver`,
+    `node ${JSON.stringify(driverScript)} %O %A %B`
   );
+
+  if (configured.status !== 0) {
+    spawnSync("git", ["-C", projectDir, "config", "--unset", `merge.${MERGE_DRIVER_NAME}.name`], {
+      encoding: "utf8",
+    });
+    return warning(
+      "merge_driver_not_registered",
+      "Could not register the traceability merge driver in git config.",
+      {
+        target: ".gitattributes",
+        fix:
+          `Run it by hand inside the project:\n` +
+          `  git config merge.${MERGE_DRIVER_NAME}.driver 'node ${driverScript} %O %A %B'\n` +
+          "Until then git uses its built-in merge, which conflicts when two " +
+          "harness branches touch adjacent rows.",
+      }
+    );
+  }
+
+  gitConfig(`merge.${MERGE_DRIVER_NAME}.name`, "csda traceability matrix merge");
+  return null;
 }
 
-module.exports = { detectTestCommand, projectName };
-
-if (require.main === module) main();
+if (require.main === module) new InitCommand(process.argv.slice(2)).execute();

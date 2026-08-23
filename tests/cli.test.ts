@@ -244,8 +244,26 @@ test("can init, expand, and validate a generated project end-to-end", () => {
 function gitInTest(args, opts = {}) {
   const result = spawnSync("git", args, { encoding: "utf8", ...opts });
   if (result.status !== 0) {
-    throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
+    // stdout as well as stderr: a commit with nothing to commit exits non-zero
+    // and says so on *stdout*, so reporting only stderr showed nothing but line
+    // ending warnings. That cost a CI round to work out.
+    throw new Error(`git ${args.join(" ")} failed:\n${result.stdout || ""}${result.stderr || ""}`);
   }
+}
+
+/**
+ * A fixture repository that does not rewrite what the test wrote.
+ *
+ * With `core.autocrlf` on — the Windows default — git normalises line endings
+ * on checkout and back on add, so a fixture that edits a file to LF finds
+ * nothing to commit and `git commit` exits non-zero. These tests are about
+ * matrix merges and prompt archives, not line endings.
+ */
+function gitInitForTest(dir: string) {
+  gitInTest(["init", "--quiet", "--initial-branch=main", dir]);
+  gitInTest(["-C", dir, "config", "core.autocrlf", "false"]);
+  gitInTest(["-C", dir, "config", "user.email", "cli-test@example.com"]);
+  gitInTest(["-C", dir, "config", "user.name", "CLI Test"]);
 }
 
 function hasGit() {
@@ -537,7 +555,11 @@ test("specops remove exits non-zero when pack-id is not in lockfile", () => {
 
 // Build a minimal spec-driven project that passes `validate --strict-tdd`
 // and has exactly one pending requirement (REQ-001, no artifacts on disk).
-function makeHarnessProject(tempRoot) {
+/**
+ * @param extraReqs additional independent requirements, e.g. ["REQ-002"].
+ *                  They declare no dependencies, so they may run in parallel.
+ */
+function makeHarnessProject(tempRoot, extraReqs: string[] = []) {
   const projectDir = path.join(tempRoot, "project");
   fs.mkdirSync(path.join(projectDir, "features"), { recursive: true });
   fs.mkdirSync(path.join(projectDir, "docs", "specs", "adr"), { recursive: true });
@@ -563,12 +585,33 @@ function makeHarnessProject(tempRoot) {
       "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |",
       "|---|---|---|---|---|---|---|---|---|---|",
       "| REQ-001 | SCN-001 | `features/health.feature` | UC-001 | CMD-001 | AGG-001 | EVT-001 | `src/health.js` | `test/health.test.js` | Draft |",
+      ...extraReqs.map((id) => {
+        const n = id.replace("REQ-", "");
+        return (
+          `| ${id} | SCN-${n} | \`features/f${n}.feature\` | UC-${n} | CMD-${n} | AGG-${n} | ` +
+          `EVT-${n} | \`src/f${n}.js\` | \`test/f${n}.test.js\` | Draft |`
+        );
+      }),
       "",
     ].join("\n"),
     "utf8"
   );
 
-  gitInTest(["init", "--quiet", "--initial-branch=main", projectDir]);
+  for (const id of extraReqs) {
+    const n = id.replace("REQ-", "");
+    fs.appendFileSync(
+      path.join(projectDir, "spec.md"),
+      `\n## ${id} — Feature ${n}\n\nDo the ${n} thing.\n`,
+      "utf8"
+    );
+    fs.writeFileSync(
+      path.join(projectDir, "features", `f${n}.feature`),
+      `Feature: F${n}\n  Scenario: ok\n    Given the service is up\n    Then /f${n} returns 200\n`,
+      "utf8"
+    );
+  }
+
+  gitInitForTest(projectDir);
   gitInTest(["config", "user.email", "test@example.com"], { cwd: projectDir });
   gitInTest(["config", "user.name", "Test"], { cwd: projectDir });
   gitInTest(["config", "commit.gpgsign", "false"], { cwd: projectDir });
@@ -709,6 +752,589 @@ test("harness run skips an existing branch unless --force", { skip: !hasGit() },
   assert.match(result.stdout, /already exists/);
 
   fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test(
+  "harness run --concurrency 2 drives every requirement through a worker",
+  { skip: !hasGit() },
+  () => {
+    // The parallel path spawns a worker process per requirement. Nothing
+    // exercised it end to end, so it broke silently when the command moved out
+    // of its entry-point file: the worker started the module that *defines* the
+    // command rather than the one that *runs* it, loaded, did nothing and
+    // exited 0 — which the parent reported as "Worker produced no report".
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-par-"));
+    const projectDir = makeHarnessProject(tempRoot, ["REQ-002"]);
+
+    const result = runCli([
+      "harness",
+      "run",
+      "--project-dir",
+      projectDir,
+      "--concurrency",
+      "2",
+      "--agent",
+      `node -e "require('node:fs').writeFileSync('agent-ran.txt','ok')" {prompt_file}`,
+    ]);
+
+    assert.equal(result.status, 0, result.stderr + result.stdout);
+    assert.match(result.stdout, /REQ-001\s+pass/);
+    assert.match(result.stdout, /REQ-002\s+pass/);
+    assert.doesNotMatch(result.stdout, /produced no report/);
+
+    for (const id of ["REQ-001", "REQ-002"]) {
+      const show = spawnSync("git", ["-C", projectDir, "show", `harness/${id}:agent-ran.txt`], {
+        encoding: "utf8",
+      });
+      assert.equal(show.status, 0, `the agent should have run for ${id}`);
+    }
+
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+);
+
+test("a parallel run records itself once, not once per worker", { skip: !hasGit() }, () => {
+  // `harness report` reads every file in .harness/runs, so a worker writing
+  // its own record counts the same requirement twice and inflates both
+  // "requirements attempted" and "cost per delivered REQ".
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-rec-"));
+  const projectDir = makeHarnessProject(tempRoot, ["REQ-002"]);
+
+  const result = runCli([
+    "harness",
+    "run",
+    "--project-dir",
+    projectDir,
+    "--concurrency",
+    "2",
+    "--agent",
+    `node -e "require('node:fs').writeFileSync('agent-ran.txt','ok')" {prompt_file}`,
+  ]);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+
+  const runsDir = path.join(projectDir, ".harness", "runs");
+  const records = fs.readdirSync(runsDir).filter((f) => f.endsWith(".json"));
+  assert.equal(records.length, 1, `expected one record, got: ${records.join(", ")}`);
+
+  const record = JSON.parse(fs.readFileSync(path.join(runsDir, records[0]), "utf8"));
+  assert.equal(record.concurrency, 2, "the record should describe the run a person started");
+  assert.deepEqual(
+    record.results.map((r: any) => r.requirement).sort(),
+    ["REQ-001", "REQ-002"],
+    "the parent's record must carry every requirement, not one worker's slice"
+  );
+
+  const report = runCli(["harness", "report", "--project-dir", projectDir]);
+  assert.match(report.stdout, /requirements attempted\s+2/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("a reviewer advises the next step and can never reach the gate", { skip: !hasGit() }, () => {
+  // The roles ladder: attempt 1 implements, attempt 2 runs an advisory
+  // reviewer and then implements again with its findings. The reviewer here
+  // deliberately misbehaves — it writes a file — because "advisory" has to be
+  // enforced, not trusted.
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-roles-"));
+  const projectDir = makeHarnessProject(tempRoot);
+  const marker = path.join(tempRoot, "attempts.txt");
+
+  // Agents as files rather than `node -e` one-liners: the quoting needed to
+  // survive a shell, a YAML string and a JS literal is its own bug farm.
+  const implPath = path.join(tempRoot, "impl.js");
+  fs.writeFileSync(
+    implPath,
+    [
+      "const fs = require('node:fs');",
+      `const marker = ${JSON.stringify(marker)};`,
+      "const n = fs.existsSync(marker) ? Number(fs.readFileSync(marker, 'utf8')) : 0;",
+      "fs.writeFileSync(marker, String(n + 1));",
+      "const prompt = fs.readFileSync(process.argv[2], 'utf8');",
+      "if (n === 0) process.exit(3);",
+      "fs.writeFileSync('agent-ran.txt', /Reviewer findings/.test(prompt) ? 'saw-findings' : 'no-findings');",
+    ].join("\n"),
+    "utf8"
+  );
+  const reviewPath = path.join(tempRoot, "review.js");
+  fs.writeFileSync(
+    reviewPath,
+    [
+      "require('node:fs').writeFileSync('reviewer-sneaked-this-in.txt', 'x');",
+      "console.log('FINDING: missing null check.');",
+    ].join("\n"),
+    "utf8"
+  );
+
+  fs.mkdirSync(path.join(projectDir, ".harness"), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectDir, ".harness", "profiles.yaml"),
+    [
+      "profiles:",
+      "  implementer:",
+      `    agent: "node ${implPath} {prompt_file}"`,
+      "  reviewer:",
+      `    agent: "node ${reviewPath} {prompt_file}"`,
+      "    advisory: true",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(projectDir, "harness.config.yaml"),
+    [
+      "harness_version: 1",
+      "attempt_profiles:",
+      "  - implementer",
+      "  - implementer",
+      "review_profile: reviewer",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+  gitInTest(["add", "-A"], { cwd: projectDir });
+  gitInTest(["commit", "--quiet", "-m", "roles"], { cwd: projectDir });
+
+  const result = runCli(["harness", "run", "--project-dir", projectDir, "--req", "REQ-001"]);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.match(result.stdout, /REQ-001\s+pass/);
+
+  // The findings reached the implementing step of the *same* attempt. Built
+  // once per attempt instead of once per step, they would only ever have
+  // arrived one attempt late.
+  const ran = spawnSync("git", ["-C", projectDir, "show", "harness/REQ-001:agent-ran.txt"], {
+    encoding: "utf8",
+  });
+  assert.equal(ran.stdout.trim(), "saw-findings");
+
+  const tree = spawnSync(
+    "git",
+    ["-C", projectDir, "ls-tree", "-r", "--name-only", "harness/REQ-001"],
+    { encoding: "utf8" }
+  ).stdout;
+
+  // Advisory means advisory: whatever the reviewer wrote is gone.
+  assert.doesNotMatch(tree, /reviewer-sneaked-this-in/);
+
+  // ...but the evidence of what it was asked and what it said survives. The
+  // discard is `git clean`, which deleted the untracked archive until it was
+  // told not to.
+  assert.match(tree, /attempt-1-implementer\.md/);
+  assert.match(tree, /attempt-2-reviewer\.md/);
+  assert.match(tree, /attempt-2-implementer\.md/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("a review profile must declare itself advisory", { skip: !hasGit() }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-harness-adv-"));
+  const projectDir = makeHarnessProject(tempRoot);
+  fs.mkdirSync(path.join(projectDir, ".harness"), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectDir, ".harness", "profiles.yaml"),
+    'profiles:\n  reviewer:\n    agent: "node -e \\"\\" {prompt_file}"\n',
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(projectDir, "harness.config.yaml"),
+    "harness_version: 1\nreview_profile: reviewer\n",
+    "utf8"
+  );
+
+  const result = runCli(["harness", "run", "--project-dir", projectDir]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /does not declare `advisory: true`/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test(
+  "harness init registers a merge driver that merges parallel matrix edits",
+  { skip: !hasGit() },
+  () => {
+    // The domain merge is unit-tested; this asserts git actually routes the
+    // file to it. Without the .gitattributes line, or without the local config,
+    // git uses its line merge and these two branches conflict.
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-merge-drv-"));
+    const projectDir = makeHarnessProject(tempRoot, ["REQ-002"]);
+
+    const init = runCli(["harness", "init", "--project-dir", projectDir]);
+    assert.equal(init.status, 0, init.stderr);
+
+    const attributes = fs.readFileSync(path.join(projectDir, ".gitattributes"), "utf8");
+    assert.match(attributes, /docs\/specs\/traceability\.md merge=csda-matrix/);
+
+    const driver = spawnSync(
+      "git",
+      ["-C", projectDir, "config", "--get", "merge.csda-matrix.driver"],
+      { encoding: "utf8" }
+    );
+    assert.equal(driver.status, 0, "harness init should register the driver locally");
+
+    gitInTest(["add", "-A"], { cwd: projectDir });
+    gitInTest(["commit", "--quiet", "-m", "harness setup"], { cwd: projectDir });
+
+    // Two branches, each flipping its own row. These rows are adjacent lines,
+    // which is exactly what git's line merge cannot separate.
+    const flip = (id: string) => {
+      const file = path.join(projectDir, "docs", "specs", "traceability.md");
+      const updated = fs
+        .readFileSync(file, "utf8")
+        .split("\n")
+        .map((line) =>
+          line.includes(`| ${id} |`) ? line.replace(/Draft \|$/, "Implemented |") : line
+        )
+        .join("\n");
+      fs.writeFileSync(file, updated, "utf8");
+    };
+    for (const id of ["REQ-001", "REQ-002"]) {
+      gitInTest(["checkout", "--quiet", "-b", `flip/${id}`, "main"], { cwd: projectDir });
+      flip(id);
+      gitInTest(["commit", "--quiet", "-am", `flip ${id}`], { cwd: projectDir });
+      gitInTest(["checkout", "--quiet", "main"], { cwd: projectDir });
+    }
+
+    for (const id of ["REQ-001", "REQ-002"]) {
+      const merge = spawnSync("git", ["-C", projectDir, "merge", "--no-edit", `flip/${id}`], {
+        encoding: "utf8",
+      });
+      assert.equal(
+        merge.status,
+        0,
+        `merging flip/${id} conflicted:\n${merge.stdout}${merge.stderr}`
+      );
+    }
+
+    const matrix = fs.readFileSync(
+      path.join(projectDir, "docs", "specs", "traceability.md"),
+      "utf8"
+    );
+    for (const id of ["REQ-001", "REQ-002"]) {
+      const row = matrix.split("\n").find((l) => l.includes(`| ${id} |`));
+      assert.match(String(row), /Implemented \|$/, `${id} lost its edit in the merge`);
+      assert.equal(
+        matrix.split("\n").filter((l) => l.includes(`| ${id} |`)).length,
+        1,
+        `${id} was duplicated — the corruption a union merge produces`
+      );
+    }
+
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+);
+
+test(
+  "doctor separates an unregistered merge driver from a half-registered one",
+  { skip: !hasGit() },
+  () => {
+    // Git has three states for a driver named in .gitattributes, and the middle
+    // one is a trap: with `name` set but no `driver` command it answers
+    // "fatal: custom merge driver csda-matrix lacks command line" and the file
+    // cannot be merged at all — strictly worse than the conflict the driver
+    // exists to remove. Unregistered is merely unhelped; half-registered is
+    // broken, so they cannot share a severity.
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-drv-states-"));
+    const projectDir = path.join(tempRoot, "p");
+    fs.mkdirSync(projectDir, { recursive: true });
+    gitInitForTest(projectDir);
+    fs.writeFileSync(path.join(projectDir, "spec.md"), "# Spec\n", "utf8");
+    fs.writeFileSync(
+      path.join(projectDir, ".gitattributes"),
+      "docs/specs/traceability.md merge=csda-matrix\n",
+      "utf8"
+    );
+
+    const doctor = () => runCli(["doctor", "--project-dir", projectDir]);
+    const line = (out: string) => out.split("\n").find((l) => l.includes("merge driver")) || "";
+
+    assert.match(line(doctor().stdout), /⚠️|has not registered it/, "neither key set: a warning");
+
+    gitInTest(["config", "merge.csda-matrix.name", "csda"], { cwd: projectDir });
+    assert.match(
+      line(doctor().stdout),
+      /refuse to merge/,
+      "name without driver must be reported as broken, not as unhelped"
+    );
+
+    gitInTest(["config", "merge.csda-matrix.driver", "node x %O %A %B"], { cwd: projectDir });
+    assert.match(line(doctor().stdout), /merges row by row/, "both set: healthy");
+
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+);
+
+// ── change author — the spec-author role (E2-02) ─────────────────────────
+
+/** A project with one change ready to be authored, committed and clean. */
+function makeAuthorProject() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-author-"));
+  const projectDir = path.join(tempRoot, "project");
+  fs.mkdirSync(path.join(projectDir, "features"), { recursive: true });
+  fs.mkdirSync(path.join(projectDir, "docs", "specs", "adr"), { recursive: true });
+
+  fs.writeFileSync(path.join(projectDir, "spec.md"), "# Spec\n\n## REQ-001 — A\n", "utf8");
+  fs.writeFileSync(path.join(projectDir, "AI_RULES.md"), "# AI Rules\n", "utf8");
+  fs.writeFileSync(path.join(projectDir, "README.md"), "# R\n", "utf8");
+  fs.writeFileSync(path.join(projectDir, "docs", "specs", "adr", "README.md"), "# ADRs\n", "utf8");
+  fs.writeFileSync(
+    path.join(projectDir, "features", "f.feature"),
+    "Feature: F\n  Scenario: ok\n    Given x\n    Then y\n",
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(projectDir, "docs", "specs", "traceability.md"),
+    [
+      "# Traceability Matrix",
+      "",
+      "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |",
+      "|---|---|---|---|---|---|---|---|---|---|",
+      "| REQ-001 | SCN-001 | `features/f.feature` | U | C | A | E | `s.ts` | `t.ts` | Draft |",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+
+  gitInitForTest(projectDir);
+  gitInTest(["config", "user.email", "t@e.com"], { cwd: projectDir });
+  gitInTest(["config", "user.name", "T"], { cwd: projectDir });
+  gitInTest(["config", "commit.gpgsign", "false"], { cwd: projectDir });
+  gitInTest(["add", "."], { cwd: projectDir });
+  gitInTest(["commit", "--quiet", "-m", "base"], { cwd: projectDir });
+
+  const created = runCli(["change", "new", "add-pricing", "--project-dir", projectDir]);
+  assert.equal(created.status, 0, created.stderr);
+  gitInTest(["add", "-A"], { cwd: projectDir });
+  gitInTest(["commit", "--quiet", "-m", "change"], { cwd: projectDir });
+
+  return { tempRoot, projectDir };
+}
+
+/** An agent script that writes its proposal and also strays out of scope. */
+function writeRogueAgent(tempRoot: string) {
+  const file = path.join(tempRoot, "rogue.js");
+  fs.writeFileSync(
+    file,
+    [
+      "const fs = require('node:fs');",
+      "fs.writeFileSync('docs/specs/changes/add-pricing/proposal.md',",
+      "  '# Proposal: add-pricing\\n\\n## Intent\\n\\nCharge per use.\\n\\n## Scope\\n\\nIn scope:\\n\\n- Tariffs\\n\\nOut of scope:\\n\\n- Invoicing\\n');",
+      "fs.writeFileSync('docs/specs/traceability.md', '# wiped\\n');",
+      "fs.writeFileSync('rogue.txt', 'x');",
+    ].join("\n"),
+    "utf8"
+  );
+  return file;
+}
+
+test("change author enforces the scope instead of asking for it", { skip: !hasGit() }, () => {
+  // An agent asked to *describe* a change, and able to edit what it describes,
+  // can make the change unnecessary instead of proposing it — in a diff that
+  // looks like the work. So the boundary is enforced, not requested.
+  const { tempRoot, projectDir } = makeAuthorProject();
+  const rogue = writeRogueAgent(tempRoot);
+
+  const result = runCli([
+    "change",
+    "author",
+    "add-pricing",
+    "--project-dir",
+    projectDir,
+    "--agent",
+    `node ${rogue} {prompt_file}`,
+  ]);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+
+  // The legitimate work survived.
+  const proposal = fs.readFileSync(
+    path.join(projectDir, "docs", "specs", "changes", "add-pricing", "proposal.md"),
+    "utf8"
+  );
+  assert.match(proposal, /Charge per use/);
+
+  // The stray untracked file is gone...
+  assert.equal(fs.existsSync(path.join(projectDir, "rogue.txt")), false);
+
+  // ...and the tracked file it overwrote was RESTORED, not deleted. The first
+  // implementation ran `git checkout` and then removed the path anyway, which
+  // deleted a file the project already had.
+  const matrix = path.join(projectDir, "docs", "specs", "traceability.md");
+  assert.ok(fs.existsSync(matrix), "an out-of-scope tracked file must be restored, never deleted");
+  assert.match(fs.readFileSync(matrix, "utf8"), /^# Traceability Matrix/);
+
+  assert.match(result.stdout + result.stderr, /author_out_of_scope|out of scope/);
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("change author refuses to run on a dirty tree", { skip: !hasGit() }, () => {
+  // Enforcing the scope means reverting what the agent wrote outside it, and on
+  // a dirty tree that cannot be told apart from what you were in the middle of.
+  const { tempRoot, projectDir } = makeAuthorProject();
+  fs.writeFileSync(path.join(projectDir, "work-in-progress.txt"), "mine\n", "utf8");
+
+  const result = runCli([
+    "change",
+    "author",
+    "add-pricing",
+    "--project-dir",
+    projectDir,
+    "--agent",
+    "true",
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /uncommitted changes/);
+  assert.equal(
+    fs.readFileSync(path.join(projectDir, "work-in-progress.txt"), "utf8"),
+    "mine\n",
+    "refusing must not touch the work it refused over"
+  );
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("change author --dry-run shows the prompt and writes nothing", { skip: !hasGit() }, () => {
+  const { tempRoot, projectDir } = makeAuthorProject();
+  const result = runCli([
+    "change",
+    "author",
+    "add-pricing",
+    "--project-dir",
+    projectDir,
+    "--dry-run",
+    "--agent",
+    "true",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Write \*\*only\*\* inside `docs\/specs\/changes\/add-pricing\/`/);
+  assert.match(result.stdout, /REQ-002/, "the reserved range is stated, and not double-prefixed");
+  assert.doesNotMatch(result.stdout, /REQ-REQ-/);
+
+  const status = spawnSync("git", ["-C", projectDir, "status", "--porcelain"], {
+    encoding: "utf8",
+  });
+  assert.equal(status.stdout.trim(), "", "--dry-run must leave the tree clean");
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("change author needs an agent, and says how to give it one", { skip: !hasGit() }, () => {
+  const { tempRoot, projectDir } = makeAuthorProject();
+  const result = runCli(["change", "author", "add-pricing", "--project-dir", projectDir]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /author_agent_unset|No agent is configured/);
+  assert.match(result.stderr, /--agent-profile/);
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+// ── architecture profiles (ADR-0022) ────────────────────────────────────
+
+const DOMAIN_DOCS = [
+  "domain-model.md",
+  "use-cases.md",
+  "commands.md",
+  "aggregates.md",
+  "events.md",
+  "status-model.md",
+];
+
+const specDocs = (projectDir: string) =>
+  DOMAIN_DOCS.filter((doc) => fs.existsSync(path.join(projectDir, "docs", "specs", doc)));
+
+test("each architecture profile scaffolds only the vocabulary it declares", () => {
+  // ADR-0022: a static site handed aggregates.md is not untidy, it is an agent
+  // being told the system has aggregates. The profile decides what gets written.
+  const { projectDir: minimal } = initRuntimeProject(['ARCHITECTURE="minimal"']);
+  assert.deepEqual(specDocs(minimal), [], "minimal should scaffold no domain vocabulary");
+
+  const { projectDir: layered } = initRuntimeProject(['ARCHITECTURE="layered"']);
+  assert.deepEqual(specDocs(layered), ["use-cases.md"]);
+
+  const { projectDir: ddd } = initRuntimeProject(['ARCHITECTURE="tactical-ddd"']);
+  assert.deepEqual(specDocs(ddd).sort(), [...DOMAIN_DOCS].sort());
+});
+
+test("the gate is identical under every architecture profile", () => {
+  // The invariant the whole ADR rests on: profiles change what is scaffolded
+  // and what the rulebook demands, never what `validate` accepts. If this ever
+  // fails, "patterns are optional" has quietly become "the gate is optional".
+  for (const profile of ["minimal", "layered", "tactical-ddd"]) {
+    const { projectDir: dir } = initRuntimeProject([`ARCHITECTURE="${profile}"`]);
+    const result = runCli(["validate", dir]);
+    assert.equal(result.status, 0, `${profile} failed validate:\n${result.stdout}${result.stderr}`);
+  }
+});
+
+test("the rulebook demands aggregates only where the profile does", () => {
+  // Where the obligation actually lives: nothing checks AI_RULES.md, and the
+  // agent obeys it on every prompt.
+  const read = (dir: string) => fs.readFileSync(path.join(dir, "AI_RULES.md"), "utf8");
+
+  const minimal = read(initRuntimeProject(['ARCHITECTURE="minimal"']).projectDir);
+  assert.doesNotMatch(minimal, /maps to (an )?aggregate/i);
+  assert.doesNotMatch(minimal, /Use case maps to command/i);
+
+  const layered = read(initRuntimeProject(['ARCHITECTURE="layered"']).projectDir);
+  assert.match(layered, /Scenario maps to a use case/);
+  assert.doesNotMatch(layered, /maps to aggregate|aggregate or read model/i);
+
+  const ddd = read(initRuntimeProject(['ARCHITECTURE="tactical-ddd"']).projectDir);
+  assert.match(ddd, /Command\/query maps to aggregate/);
+
+  // The principles are not negotiable, so they survive in every profile.
+  for (const rules of [minimal, layered, ddd]) {
+    assert.match(rules, /Requirement has ID/);
+    assert.match(rules, /Traceability row is complete/);
+    assert.match(rules, /business logic out of framework code/i);
+  }
+});
+
+test("the declared profile is recorded where the agent reads it", () => {
+  const { projectDir: dir } = initRuntimeProject(['ARCHITECTURE="layered"']);
+  assert.match(
+    fs.readFileSync(path.join(dir, "AI_RULES.md"), "utf8"),
+    /^- Architecture: layered$/m
+  );
+});
+
+test("an unknown architecture profile is refused with the supported list", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-arch-bad-"));
+  const configPath = path.join(tempRoot, "project.config");
+  fs.writeFileSync(
+    configPath,
+    [...RUNTIME_BASE_CONFIG, 'ARCHITECTURE="hexagonal-ish"'].join("\n") + "\n",
+    "utf8"
+  );
+  const result = runCli(["init", "--config", configPath, "--out", tempRoot, "--no-git", "--force"]);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stdout + result.stderr,
+    /ARCHITECTURE 'hexagonal-ish' is not supported.*minimal, layered, tactical-ddd/s
+  );
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("doctor reports a project that has outgrown its declared profile", () => {
+  const { projectDir: dir } = initRuntimeProject(['ARCHITECTURE="minimal"']);
+
+  const clean = runCli(["doctor", "--project-dir", dir]);
+  assert.match(clean.stdout, /architecture: minimal — matches/);
+
+  // The matrix is the signal, not the domain documents: those ship with
+  // placeholder rows, so "the file has content" is true from the first minute.
+  const matrixPath = path.join(dir, "docs", "specs", "traceability.md");
+  const withAggregate = fs
+    .readFileSync(matrixPath, "utf8")
+    .split("\n")
+    .map((line) => {
+      if (!/\| REQ-/.test(line)) return line;
+      const cells = line.split("|");
+      cells[6] = " AGG-Policy ";
+      return cells.join("|");
+    })
+    .join("\n");
+  fs.writeFileSync(matrixPath, withAggregate, "utf8");
+
+  const drifted = runCli(["doctor", "--project-dir", dir]);
+  assert.match(drifted.stdout, /profile is 'minimal' but requirements name aggregates/);
 });
 
 // ── pack lint --graph (visual reference graph, M-visual Phase 1) ─────────

@@ -1,8 +1,8 @@
 "use strict";
-const { Given, When, Then, After } = require("@cucumber/cucumber");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
+import { Given, When, Then, After } from "@cucumber/cucumber";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 const BASE_CONFIG = `PROJECT_NAME="BDD Test Project"
 PROJECT_SLUG="bdd-test-project"
@@ -85,7 +85,9 @@ When("I run {string} with {string}", function (cmd, flag) {
     // Snapshot existing feature files before dry-run so we can assert none are added
     const featuresDir = path.join(this.projectDir, "features");
     this.featureFilesBeforeExpand = fs.existsSync(featuresDir)
-      ? fs.readdirSync(featuresDir, { recursive: true }).filter((f) => f.endsWith(".feature"))
+      ? fs
+          .readdirSync(featuresDir, { recursive: true })
+          .filter((f) => f.toString().endsWith(".feature"))
       : [];
     this.lastResult = this.run([
       "expand",
@@ -205,7 +207,7 @@ Then("no feature files are written", function () {
   if (!fs.existsSync(featuresDir)) return;
   const current = fs
     .readdirSync(featuresDir, { recursive: true })
-    .filter((f) => f.endsWith(".feature"));
+    .filter((f) => f.toString().endsWith(".feature"));
   const before = this.featureFilesBeforeExpand || [];
   const added = current.filter((f) => !before.includes(f));
   assert.equal(added.length, 0, `New .feature files written in dry-run: ${added.join(", ")}`);

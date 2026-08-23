@@ -1,25 +1,27 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `alm` — keep the traceability matrix and the enterprise ALM
  * (Jira / Azure Boards) in sync.
  *
  * Usage:
  *   csda alm sync   [--project-dir <dir>] [--dry-run]
+ *   csda alm pull   [--label <name>] [--project-dir <dir>] [--dry-run]
  *   csda alm link   <REQ-id> <issue-key> [--project-dir <dir>]
  *   csda alm status [--project-dir <dir>]
  */
 
-const { resolveProjectDir } = require("../lib/project-root");
-const {
+import { resolveProjectDir } from "../lib/project-root";
+import {
   readAlmConfig,
+  lintAlmConfig,
   readAlmMap,
   writeAlmMap,
   extractRequirements,
   syncRequirements,
-} = require("./core");
-const { makeClient } = require("./clients");
+} from "./core";
+import { makeClient } from "./clients";
+import { printDiagnostics } from "../lib/diagnostics";
+import { main as pullMain } from "../cli/commands/alm/PullCommand";
 
 function logInfo(msg) {
   process.stdout.write(`ℹ️ [INFO] ${msg}\n`);
@@ -36,11 +38,14 @@ function usage() {
     "Usage:\n" +
       "  csda alm sync   [--project-dir <dir>] [--dry-run]\n" +
       "  csda alm link   <REQ-id> <issue-key> [--project-dir <dir>]\n" +
-      "  csda alm status [--project-dir <dir>]\n\n" +
+      "  csda alm status [--project-dir <dir>]\n" +
+      "  csda alm pull   [--label <name>] [--project-dir <dir>] [--dry-run]\n\n" +
       "sync   Creates an ALM issue for every unlinked REQ, closes issues whose REQ\n" +
       "       is Implemented, and reports drift (issue done, REQ still open).\n" +
       "link   Manually map an existing issue to a requirement.\n" +
-      "status Print the current REQ ↔ issue mapping without network access.\n\n" +
+      "status Print the current REQ ↔ issue mapping without network access.\n" +
+      "pull   Open a change per labelled issue. The scenario is left unwritten:\n" +
+      "       a ticket carries no acceptance criterion, so that part is yours.\n\n" +
       "Configuration: alm.config.yaml at the project root (provider, base_url,\n" +
       "project_key, token_env). Tokens come from the environment, never the file.\n"
   );
@@ -106,7 +111,12 @@ async function main() {
   if (sub === "sync") {
     try {
       const cfg = readAlmConfig(projectDir);
-      const client = makeClient(cfg);
+      // Keys nothing reads are reported before the first request, not after a
+      // sync that quietly ignored half the file.
+      const configFindings = lintAlmConfig(cfg, projectDir);
+      if (configFindings.length > 0) printDiagnostics(configFindings, process.stdout);
+
+      const client = makeClient(cfg, undefined, projectDir);
       const map = readAlmMap(projectDir);
       const reqs = extractRequirements(projectDir);
       const actions = await syncRequirements(reqs, map, client, { dryRun: opts.dryRun });
@@ -138,7 +148,15 @@ async function main() {
     }
   }
 
-  logError(`Unknown alm subcommand: ${sub || "(none)"}`);
+  if (sub === "pull") {
+    // Implemented outside `scripts/alm/` on purpose: ADR-0021 forbids this
+    // subsystem from writing the spec tree, and a pull has to produce files.
+    // The ALM half reads the board; the change lifecycle writes the proposal.
+    await pullMain(argv.slice(1));
+    return;
+  }
+
+  logError(`Unknown alm sub-command: ${sub || "(none)"}. Expected: sync, link, status, pull`);
   usage();
   process.exit(2);
 }

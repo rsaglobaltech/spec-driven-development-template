@@ -18,8 +18,8 @@ const {
   taskProgress,
   reserveReqRange,
   readConfig,
-} = require("../../scripts/change/common");
-const { parseSpec } = require("../../scripts/change/parser");
+} = require("../../packages/core/src/infrastructure/ChangeWorkspace");
+const { parseSpec } = require("../../packages/core/src/domain/SpecParser");
 
 const TRACEABILITY_HEADER = `# Traceability Matrix
 

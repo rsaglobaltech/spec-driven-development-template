@@ -1,0 +1,49 @@
+{
+  "provider": "jira",
+  "config": {
+    "alm_version": 1,
+    "provider": "jira",
+    "base_url": "https://acme.atlassian.net/",
+    "project_key": "HIE",
+    "token_env": "CSDA_CONFORMANCE_TOKEN",
+    "user_env": "CSDA_CONFORMANCE_USER"
+  },
+  "env": {
+    "CSDA_CONFORMANCE_TOKEN": "tok",
+    "CSDA_CONFORMANCE_USER": "user@example.com"
+  },
+  "routes": [
+    {
+      "match": "/rest/api/3/issue",
+      "method": "POST",
+      "json": { "key": "HIE-9" }
+    },
+    {
+      "match": "/rest/api/3/issue/HIE-7/transitions",
+      "method": "GET",
+      "json": { "transitions": [{ "id": "31", "to": { "statusCategory": { "key": "done" } } }] }
+    },
+    {
+      "match": "/rest/api/3/issue/HIE-7/transitions",
+      "method": "POST",
+      "json": {}
+    },
+    {
+      "match": "/rest/api/3/issue/HIE-7?fields=status",
+      "method": "GET",
+      "json": { "fields": { "status": { "statusCategory": { "key": "indeterminate" } } } }
+    },
+    {
+      "match": "/rest/api/3/issue/HIE-8?fields=status",
+      "method": "GET",
+      "json": { "fields": { "status": { "statusCategory": { "key": "done" } } } }
+    }
+  ],
+  "expect": {
+    "createdKey": "HIE-9",
+    "createdUrlContains": "browse/HIE-9",
+    "openIssue": "HIE-7",
+    "doneIssue": "HIE-8",
+    "closeIssue": "HIE-7"
+  }
+}

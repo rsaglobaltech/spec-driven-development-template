@@ -7,6 +7,7 @@ You are the Lead Mobile Engineer. Implement strictly from `spec.md` and `feature
 - Project: {{PROJECT_NAME}} ({{PROJECT_SLUG}})
 - Domain: {{DOMAIN}}
 - Stack: {{STACK}}
+- Architecture: {{ARCHITECTURE}}
 - API integration: {{API_STYLE}}
 - Testing: {{TESTING}}
 
@@ -36,10 +37,7 @@ criterion rather than a nice-to-have.
   spec before it is built, not discovered at submission.
 
 ## Domain Modeling Rules
-- Do not implement a flow that is not listed in `docs/specs/use-cases.md` or `docs/specs/traceability.md`.
-- Do not create screen behavior without mapping it to a scenario and requirement.
-- Keep business decisions visible in specs before encoding them in a view model.
-- If a new business rule appears during implementation, update the feature scenario and domain model first.
+{{ARCHITECTURE_MODELING_RULES}}
 
 ## Architectural Constraints
 - Domain and use-case code must not import the UI framework, and must not
@@ -48,18 +46,11 @@ criterion rather than a nice-to-have.
   testable on a plain test runner, and only the adapter needs a device.
 
 ## Pre-Implementation Gates
-- [ ] Requirement has ID.
-- [ ] Scenario has ID.
-- [ ] Scenario maps to a use case.
-- [ ] Use case maps to command or query.
-- [ ] Command/query maps to aggregate, read model, or UI state model.
-- [ ] Offline behaviour is specified, or explicitly out of scope.
-- [ ] Permission denial is specified, if a permission is involved.
-- [ ] Traceability row is complete.
+{{ARCHITECTURE_GATES}}
 
 ## Workflow
 1. Read `spec.md`.
-2. Read `docs/specs/domain-model.md`, `docs/specs/use-cases.md`, and `docs/specs/commands.md`.
+{{ARCHITECTURE_READS}}
 3. Read scenarios in `features/`.
 4. Update `docs/specs/traceability.md`.
 5. Build the screen and its view model until acceptance criteria pass.

@@ -88,7 +88,13 @@ one definition.
 for every pending requirement, each in its own git worktree. It never merges.
 `csda ci init` generates the gate for GitHub, GitLab, Azure or Jenkins, and
 `csda alm sync` keeps Jira or Azure Boards in step.
-→ [Automation](docs/automation.md)
+
+**Any agent CLI.** No agent runtime, no SDK dependency: the agent is any shell
+command containing `{prompt_file}` — `claude -p < {prompt_file}`, `aider --yes
+--message-file {prompt_file}`, or `my-wrapper.sh {prompt_file}` for anything
+else. Commit your team's commands in `.harness/profiles.yaml` and pick one by
+name.
+→ [Automation](docs/automation.md) · [The harness](docs/harness.md) · [Jira and Azure Boards](docs/alm.md)
 
 **It stays current.** `csda update` refreshes the generated agent files after an
 upgrade, three-way merging your edits rather than clobbering them. `csda doctor`

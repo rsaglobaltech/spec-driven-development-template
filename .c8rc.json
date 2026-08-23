@@ -1,0 +1,11 @@
+{
+  "//": "dist/scripts/*.js are the CLI entry-point shims: each re-exports a command and calls `new XCommand(argv).execute()`. They hold no logic of their own, and `npm test` drives every one of them end-to-end through the real binary. Counting them here only inflated the function denominator — the thresholds below are the ones that were calibrated against real code.",
+  "reporter": ["text", "html", "lcov"],
+  "check-coverage": true,
+  "lines": 76,
+  "branches": 72,
+  "functions": 82,
+  "exclude": [
+    "dist/scripts/*.js"
+  ]
+}

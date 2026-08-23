@@ -46,6 +46,51 @@ Restart the client; the tools appear in the model's tool list as `spec-driven.*`
 
 ---
 
+## Install the Claude Code plugin
+
+**Goal:** the loop as slash commands, the spec tree over MCP, and the gate
+running *before* the session can end rather than after it in CI.
+
+```bash
+csda agents init --tool claude-plugin --project-dir ./csda-plugin
+```
+
+That writes a complete plugin: `.claude-plugin/plugin.json`, the six commands
+of the loop under `commands/csda/`, an `.mcp.json` pointing at the spec-driven
+MCP server, and `hooks/hooks.json` with the gate.
+
+**The hook is the part no other target can offer.** Every other tool here gets
+*instructions* — text an agent may or may not follow. A plugin gets a `Stop`
+hook, which runs whether the agent likes it or not:
+
+```
+The spec gate is failing, so this work is not finished:
+
+  • [strict_tdd_1] Test artifact is TBD but status is 'In Dev'
+    fix: Write the test first, then set its path in the row's
+         'Test artifact' column.
+
+Run `csda validate . --strict-tdd` to see all of it.
+```
+
+The session does not end while that is true. `validate --strict-tdd` stops
+being something that reviews an agent's work after it has gone and becomes
+something it cannot walk past.
+
+**It will not trap you.** The hook blocks **once per prompt**. The second time
+the same prompt reaches it, the findings are reported and the session ends: by
+then the agent has been told, and a human needs to see the answer more than the
+loop needs another turn. A project without `spec.md`, or a machine without
+`csda` on `PATH`, is left alone entirely.
+
+`claude-plugin` is the one target `csda agents init` does *not* write by
+default — a plugin is an installable artefact, not something to scatter into
+every project.
+
+---
+
+---
+
 ## Use the VS Code extension
 
 **Goal:** get inline diagnostics for `pack.yaml`, code-lens to jump to the traceability row, and validate-on-save.
@@ -68,79 +113,17 @@ Settings:
 ---
 
 ---
+## Drive delivery with the harness
 
-## Configure the harness
+`csda harness run` drives plan → agent → verify → done for every pending
+requirement, each in its own git worktree, in dependency order, and it never
+merges.
 
-```bash
-csda harness init
-```
+→ [The harness](harness.md)
 
-Writes `harness.config.yaml` and `.harness/prompt-prefix.md`, detects the gate
-from your build files, and leaves `agent:` unset — which agent runs the loop is
-your choice and your credentials.
+---
 
-Name the agent when you run it:
-
-```bash
-csda harness run --req REQ-001 \
-  --agent "claude -p --allowedTools Read Write Edit Glob Grep 'Bash(npm:*)' < {prompt_file}"
-```
-
-**The tool allowances matter.** An agent in non-interactive mode has no way to
-ask permission, so without them it reads the prompt, cannot write a file, and
-the attempt is wasted. Scope them rather than reaching for
-`--dangerously-skip-permissions`: the agent needs `Bash` to run the project's
-build, and `Bash(npm:*)` is enough for a Node project. It works in a throwaway
-git worktree, which is the whole reason the harness uses one.
-
-Other agents take the prompt differently — `aider --yes --message-file
-{prompt_file}`, `opencode run "$(cat {prompt_file})"`. The harness only requires
-that the command contain `{prompt_file}`.
-
-Or commit the commands your team uses and pick one by name:
-
-```yaml
-# harness.config.yaml
-agent_profile: local-claude
-
-# .harness/profiles.yaml
-profiles_version: 1
-profiles:
-  local-claude:
-    agent: "claude -p < {prompt_file}"
-  ci:
-    agent: "aider --yes --message-file {prompt_file}"
-```
-
-An explicit `agent:` wins over a profile, and an unknown key in
-`harness.config.yaml` is an error rather than a shrug — a key nobody reads is
-worse than a missing one, because the file looks configured.
-
-### When a run fails
-
-The report prints the tail of the gate output and names the command that
-failed — a gate that runs the whole suite because a filter did not apply looks
-identical to a real failure otherwise.
-
-The attempt is **committed on the branch** with a `wip(REQ-NNN): FAILED the
-gate` subject, so the agent's work is there to read instead of discarded. The
-requirement stays `Draft`, because `csda done` never ran.
-
-```bash
-csda harness run --req REQ-002 --format json      # the whole gate output
-csda harness run --req REQ-002 --keep-worktrees   # reproduce it in place
-```
-
-**A requirement that builds on another needs its branch as the base:**
-
-```bash
-csda harness run --req REQ-002 --base-branch harness/REQ-001
-```
-
-That branch also supplies the project configuration for the run, so a fix
-committed to `main` does not apply to a stacked run until the base has it. A
-false failure from that is indistinguishable from a real one — check the gate
-command the report prints.
+---
 
 ## Run the gate without Node on the build agent
 
@@ -238,7 +221,21 @@ Mirror the same call in CI (see §4) so the gate survives `--no-verify`.
 
 ---
 
+## Sync requirements with Jira or Azure Boards
+
+`csda alm sync` keeps the traceability matrix and the board in step — creating
+an issue for each unlinked requirement, closing it when the requirement is
+done, and reporting drift rather than resolving it.
+
+→ [Jira and Azure Boards](alm.md)
+
+---
+
+---
+
 ## Next
 
+- [The harness](harness.md)
+- [Jira and Azure Boards](alm.md)
 - [The agent contract](specs/agent-contract.md)
 - [The harness spec](specs/harness.md)

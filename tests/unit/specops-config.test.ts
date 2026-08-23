@@ -6,7 +6,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { readConfig, configToPacks, CONFIG_FILE } = require("../../scripts/specops/config");
+const {
+  readConfig,
+  configToPacks,
+  CONFIG_FILE,
+} = require("../../packages/core/src/infrastructure/SpecopsConfigFile");
 
 function mktemp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "specops-config-"));

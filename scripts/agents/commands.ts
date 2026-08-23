@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * The six steps of the spec-driven loop, defined once.
  *
@@ -13,7 +11,7 @@
  * markdown file at generation time.
  */
 
-const STEPS = [
+export const STEPS = [
   {
     name: "explore",
     summary: "Understand the project before proposing anything.",
@@ -91,12 +89,10 @@ const STEPS = [
 ];
 
 /** The rules every tool's instruction file repeats, in its own format. */
-const PROJECT_RULES = [
+export const PROJECT_RULES = [
   "`spec.md`, `AI_RULES.md` and `features/**/*.feature` are the source of truth. Do not edit them to make a test pass.",
   "`docs/specs/traceability.md` is written by `csda req`, `csda done` and `csda change archive` — never by hand.",
   "Every command takes `--json`. Use it: one document on stdout, diagnostics in `status`, each with a `fix`.",
   "Exit codes are a contract: 0 success, 1 failure or gate finding, 2 usage error.",
   "When you do not know the format of an artefact, run `csda change instructions <artifact> --json` instead of guessing.",
 ];
-
-module.exports = { STEPS, PROJECT_RULES };

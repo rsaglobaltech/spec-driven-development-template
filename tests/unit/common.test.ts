@@ -13,15 +13,19 @@ const {
   asArray,
   formatList,
   entityLabel,
-  loadPack,
-  validatePackModel,
-  safeResolve,
-  parseTraceabilityRows,
-  buildTraceabilityMarkdown,
   hasStructuredDomainModel,
   PACK_SCHEMA_VERSION,
   isNewerThan,
-} = require("../../scripts/domain-pack/common");
+} = require("../../packages/core/src/domain/PackSpec");
+const {
+  loadPack,
+  validatePackModel,
+  safeResolve,
+} = require("../../packages/core/src/infrastructure/DiskPackRepository");
+const {
+  parseTraceabilityRows,
+  buildTraceabilityMarkdown,
+} = require("../../packages/core/src/domain/TraceabilityFormat");
 
 const FIXTURE_ROOT = path.resolve(__dirname, "../../../tests/fixtures/domain-packs");
 const FIXTURE_ID = "parking-management/backend";
@@ -174,6 +178,62 @@ test("validatePackModel rejects a pack with duplicate requirement ids", () => {
   const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
   pack.requirements.push({ ...pack.requirements[0] });
   assert.throws(() => validatePackModel(pack, packRoot));
+});
+
+test("validatePackModel rejects an aggregate pointing at a context that does not exist", () => {
+  // This check existed and did nothing. `validatePackModel` read
+  // `aggregate.context`; every shipped pack writes `bounded_context`, and
+  // `assertRef` returns early on an empty reference — so the cross-reference
+  // was inert on all eleven of them. `pack lint` has its own check and caught
+  // it, which is exactly why nobody noticed the installer's did not: two
+  // validators disagreeing, and the quiet one trusted.
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  assert.ok(pack.aggregates && pack.aggregates.length > 0, "the fixture has no aggregates");
+  pack.aggregates[0].bounded_context = "BC-999";
+  assert.throws(() => validatePackModel(pack, packRoot), /BC-999/);
+});
+
+test("validatePackModel refuses a depends_on pointing at a requirement that does not exist", () => {
+  // A dependency naming nothing is worse than none: the harness would stack a
+  // branch on a predecessor it can never find, and the failure would surface
+  // as a base that does not exist rather than as the typo it is.
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  pack.requirements[0].depends_on = ["REQ-999"];
+  assert.throws(() => validatePackModel(pack, packRoot), /REQ-999/);
+});
+
+test("validatePackModel refuses a requirement that depends on itself", () => {
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  const id = pack.requirements[0].id;
+  pack.requirements[0].depends_on = [id];
+  assert.throws(() => validatePackModel(pack, packRoot), /itself/);
+});
+
+test("validatePackModel refuses a cycle, and names the way round", () => {
+  // `runLevels` already refuses to loop forever, but it finds out at run time
+  // after the packs are installed. A cycle is a defect in the pack, and the
+  // pack is where it should be reported.
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  assert.ok(pack.requirements.length >= 2, "the fixture needs two requirements");
+  const [a, b] = pack.requirements;
+  a.depends_on = [b.id];
+  b.depends_on = [a.id];
+  assert.throws(() => validatePackModel(pack, packRoot), /cycle/i);
+});
+
+test("a pack whose requirements declare no dependencies is unaffected", () => {
+  // `depends_on` is optional, so every pack written before it stays valid.
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  assert.doesNotThrow(() => validatePackModel(pack, packRoot));
+});
+
+test("validatePackModel still honours `context`, the name the schema used", () => {
+  // Both spellings are accepted while the schema catches up: a pack authored
+  // against the published schema must not silently lose the check either.
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  delete pack.aggregates[0].bounded_context;
+  pack.aggregates[0].context = "BC-999";
+  assert.throws(() => validatePackModel(pack, packRoot), /BC-999/);
 });
 
 // ── safeResolve ───────────────────────────────────────────────────────────────

@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * `specops add` — thin npm-install-style wrapper around `expand`.
  *
@@ -17,10 +15,11 @@
  *   3. Pre-flight checks the arguments the user *almost certainly* needs.
  */
 
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
+import { BaseCommand } from "../lib/command";
 
-const { resolveProjectDir } = require("../lib/project-root");
+import { resolveProjectDir } from "../lib/project-root";
 
 const EXPAND_SCRIPT = path.join(__dirname, "..", "expand_domain_pack.js");
 
@@ -35,6 +34,18 @@ const c = {
   yellow: COLOR_ENABLED ? "\x1b[33m" : "",
   cyan: COLOR_ENABLED ? "\x1b[36m" : "",
 };
+
+/** Parsed command-line options for this command. */
+export interface SpecopsAddOptions {
+  packRepo: string;
+  packRoot: string;
+  packVersion: string;
+  pack: string;
+  projectDir: string;
+  cacheDir: string;
+  vars: string[];
+  dryRun: boolean;
+}
 
 function usage() {
   process.stdout.write(
@@ -58,8 +69,8 @@ function usage() {
   );
 }
 
-function parseArgs(argv) {
-  const opts: any = {
+export function parseArgs(argv) {
+  const opts: SpecopsAddOptions = {
     packRepo: "",
     packRoot: "",
     packVersion: "",
@@ -90,64 +101,64 @@ function parseArgs(argv) {
   return opts;
 }
 
-function main() {
-  const opts = parseArgs(process.argv.slice(2));
+export class AddCommand extends BaseCommand {
+  public execute() {
+    const opts = parseArgs(this.args);
 
-  if (!opts.pack) {
-    process.stderr.write(`${c.red}✖${c.reset}  --pack <pack-id> is required.\n`);
-    usage();
-    process.exit(2);
-  }
-  if (opts.packRepo && opts.packRoot) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  Pass either --pack-repo or --pack-root, not both.\n`
+    if (!opts.pack) {
+      process.stderr.write(`${c.red}✖${c.reset}  --pack <pack-id> is required.\n`);
+      usage();
+      process.exit(2);
+    }
+    if (opts.packRepo && opts.packRoot) {
+      process.stderr.write(
+        `${c.red}✖${c.reset}  Pass either --pack-repo or --pack-root, not both.\n`
+      );
+      process.exit(2);
+    }
+    if (!opts.packRepo && !opts.packRoot) {
+      process.stderr.write(
+        `${c.red}✖${c.reset}  Either --pack-repo (with --pack-version) or --pack-root is required.\n`
+      );
+      process.exit(2);
+    }
+    if (opts.packRepo && !opts.packVersion) {
+      process.stderr.write(
+        `${c.red}✖${c.reset}  --pack-repo requires --pack-version (pin to a git tag or sha).\n`
+      );
+      process.exit(2);
+    }
+
+    let projectDir;
+    try {
+      projectDir = resolveProjectDir(opts.projectDir);
+    } catch (err) {
+      process.stderr.write(`${err.message}\n`);
+      process.exit(2);
+    }
+
+    const expandArgs: string[] = [];
+    if (opts.packRepo) {
+      expandArgs.push("--pack-repo", opts.packRepo, "--pack-version", opts.packVersion);
+    } else {
+      expandArgs.push("--pack-root", opts.packRoot);
+    }
+    expandArgs.push("--pack", opts.pack, "--project-dir", projectDir);
+    if (opts.cacheDir) expandArgs.push("--cache-dir", opts.cacheDir);
+    for (const v of opts.vars) expandArgs.push("--var", v);
+    if (opts.dryRun) expandArgs.push("--dry-run");
+
+    process.stdout.write(
+      `${c.cyan}ℹ${c.reset}  Adding ${c.bold}${opts.pack}${c.reset}${
+        opts.packVersion ? ` @ ${c.bold}${opts.packVersion}${c.reset}` : ""
+      } to ${c.dim}${projectDir}${c.reset}\n`
     );
-    process.exit(2);
-  }
-  if (!opts.packRepo && !opts.packRoot) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  Either --pack-repo (with --pack-version) or --pack-root is required.\n`
-    );
-    process.exit(2);
-  }
-  if (opts.packRepo && !opts.packVersion) {
-    process.stderr.write(
-      `${c.red}✖${c.reset}  --pack-repo requires --pack-version (pin to a git tag or sha).\n`
-    );
-    process.exit(2);
-  }
 
-  let projectDir;
-  try {
-    projectDir = resolveProjectDir(opts.projectDir);
-  } catch (err) {
-    process.stderr.write(`${err.message}\n`);
-    process.exit(2);
+    const result = spawnSync(process.execPath, [EXPAND_SCRIPT, ...expandArgs], {
+      stdio: "inherit",
+    });
+    process.exit(typeof result.status === "number" ? result.status : 1);
   }
-
-  const expandArgs: string[] = [];
-  if (opts.packRepo) {
-    expandArgs.push("--pack-repo", opts.packRepo, "--pack-version", opts.packVersion);
-  } else {
-    expandArgs.push("--pack-root", opts.packRoot);
-  }
-  expandArgs.push("--pack", opts.pack, "--project-dir", projectDir);
-  if (opts.cacheDir) expandArgs.push("--cache-dir", opts.cacheDir);
-  for (const v of opts.vars) expandArgs.push("--var", v);
-  if (opts.dryRun) expandArgs.push("--dry-run");
-
-  process.stdout.write(
-    `${c.cyan}ℹ${c.reset}  Adding ${c.bold}${opts.pack}${c.reset}${
-      opts.packVersion ? ` @ ${c.bold}${opts.packVersion}${c.reset}` : ""
-    } to ${c.dim}${projectDir}${c.reset}\n`
-  );
-
-  const result = spawnSync(process.execPath, [EXPAND_SCRIPT, ...expandArgs], {
-    stdio: "inherit",
-  });
-  process.exit(typeof result.status === "number" ? result.status : 1);
 }
 
-if (require.main === module) main();
-
-module.exports = { parseArgs };
+if (require.main === module) new AddCommand(process.argv.slice(2)).execute();

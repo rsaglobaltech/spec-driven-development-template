@@ -216,23 +216,34 @@ test("doctor leaves an adapted REQ-000 alone", () => {
 // newest is not doctor's business, and a lookup would break the offline and
 // air-gapped modes the tool promises.
 
+/**
+ * The directories an install actually contains, taken from `files` in
+ * package.json rather than listed again here. Naming them twice is how this
+ * fixture drifts: it kept passing while the real tarball was missing a
+ * directory the CLI requires.
+ */
+function shippedCodeDirs(): string[] {
+  const files: string[] = require(path.join(ROOT_DIR, "package.json")).files || [];
+  return files
+    .map((entry) => entry.replace(/\/$/, ""))
+    .filter((entry) => entry === "bin" || entry.startsWith("dist/"));
+}
+
 function installLayout(relative) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "csda-layout-"));
   const pkgDir = path.join(root, ...relative.split("/"));
-  fs.mkdirSync(path.join(pkgDir, "bin"), { recursive: true });
-  fs.mkdirSync(path.join(pkgDir, "dist", "bin"), { recursive: true });
-  fs.mkdirSync(path.join(pkgDir, "dist", "scripts"), { recursive: true });
+  fs.mkdirSync(pkgDir, { recursive: true });
   fs.writeFileSync(
     path.join(pkgDir, "package.json"),
     JSON.stringify({ name: "create-spec-driven-app", version: "9.9.9", engines: { node: ">=22" } })
   );
-  fs.cpSync(path.join(ROOT_DIR, "dist", "bin"), path.join(pkgDir, "dist", "bin"), {
-    recursive: true,
-  });
-  fs.cpSync(path.join(ROOT_DIR, "dist", "scripts"), path.join(pkgDir, "dist", "scripts"), {
-    recursive: true,
-  });
-  fs.cpSync(path.join(ROOT_DIR, "bin"), path.join(pkgDir, "bin"), { recursive: true });
+  for (const dir of shippedCodeDirs()) {
+    const from = path.join(ROOT_DIR, ...dir.split("/"));
+    if (!fs.existsSync(from)) continue;
+    const to = path.join(pkgDir, ...dir.split("/"));
+    fs.mkdirSync(to, { recursive: true });
+    fs.cpSync(from, to, { recursive: true });
+  }
   return { root, cli: path.join(pkgDir, "bin", "create-spec-driven-app.js") };
 }
 

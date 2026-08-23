@@ -85,5 +85,5 @@ test("ci init rejects an unknown provider with the supported list", () => {
 test("ci without init subcommand fails clearly", () => {
   const r = cli("ci");
   assert.equal(r.status, 2);
-  assert.match(r.stderr, /expected 'ci init'/);
+  assert.match(r.stderr, /Unknown ci sub-command: \(none\)\. Expected: init/);
 });
