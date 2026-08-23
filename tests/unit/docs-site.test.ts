@@ -37,14 +37,29 @@ function site() {
 
 // ── Navigation ───────────────────────────────────────────────────────────────
 
+/** Every markdown file the site publishes, `docs/specs/` excluded, at any depth. */
+function shippedSlugs() {
+  const out = [];
+  const walk = (dir, prefix) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        if (entry.name !== "specs" && entry.name !== "assets") walk(path.join(dir, entry.name), rel);
+      } else if (entry.name.endsWith(".md")) {
+        out.push(rel.slice(0, -3));
+      }
+    }
+  };
+  walk(DOCS, "");
+  return out.sort();
+}
+
 test("every shipped document is reachable from the sidebar", () => {
   // A page nobody can navigate to is a page nobody reads. Sixteen were in that
-  // state before this test existed.
-  const shipped = fs
-    .readdirSync(DOCS)
-    .filter((f) => f.endsWith(".md"))
-    .map((f) => f.slice(0, -3))
-    .sort();
+  // state before this test existed — and two more survived it, because the walk
+  // only looked at the top level while `articles/` and `case-studies/` sat one
+  // directory down.
+  const shipped = shippedSlugs();
 
   const orphans = shipped.filter((slug) => !navEntry(slug));
   assert.deepEqual(

@@ -36,7 +36,7 @@ const REPO = "https://github.com/rsaglobaltech/spec-driven-development-template"
 // `roi.html` used to be here. A calculator that estimates a saving is a sales
 // artefact, not documentation, and it was the only page on the site written in
 // a different voice.
-const VERBATIM = ["styles.css", "app.js", "index.html", "assets"];
+const VERBATIM = ["index.html", "assets"];
 
 interface Page {
   /** `harness`, `case-studies/case-1` — the path without extension. */
@@ -187,12 +187,19 @@ function renderMarkdown(
 
 // ── The page shell ───────────────────────────────────────────────────────────
 
-function sidebar(currentSlug: string): string {
+/**
+ * The sidebar, from a page that may be nested.
+ *
+ * `up` is not decoration: a page at `case-studies/case-1.html` linking to a
+ * bare `getting-started.html` asks for `case-studies/getting-started.html`,
+ * which does not exist. Every link out of a nested page needs the climb.
+ */
+function sidebar(currentSlug: string, up: string): string {
   const sections = NAV.map((section) => {
     const items = section.entries
       .map((entry) => {
         const active = entry.slug === currentSlug ? ' class="is-active" aria-current="page"' : "";
-        return `<li><a href="${entry.slug}.html"${active}>${escapeHtml(entry.label)}</a></li>`;
+        return `<li><a href="${up}${entry.slug}.html"${active}>${escapeHtml(entry.label)}</a></li>`;
       })
       .join("");
     return `<div class="side__group"><h2>${escapeHtml(section.title)}</h2><ul>${items}</ul></div>`;
@@ -264,7 +271,7 @@ function pageShell(page: Page, version: string): string {
 </header>
 
 <div class="shell">
-  <aside class="side" id="side">${sidebar(page.slug)}</aside>
+  <aside class="side" id="side">${sidebar(page.slug, up)}</aside>
 
   <main class="content" id="content">
     <article class="prose">
@@ -397,7 +404,11 @@ export function buildSite(outDir: string): { pages: number; orphans: string[] } 
   copyVerbatim(outDir);
   fs.writeFileSync(path.join(outDir, ".nojekyll"), "", "utf8");
 
-  const orphans = slugs.filter((slug) => !navEntry(slug) && !slug.includes("/"));
+  // Depth used to exempt a page, which is how `articles/` and `case-studies/`
+  // stayed published and unreachable. `docs/specs/` is the one real exception:
+  // those pages are the project's own specifications, published so the links
+  // that reference them resolve, and deliberately not in a reader's sidebar.
+  const orphans = slugs.filter((slug) => !navEntry(slug) && !slug.startsWith("specs/"));
   return { pages: slugs.length, orphans };
 }
 

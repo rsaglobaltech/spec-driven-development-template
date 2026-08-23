@@ -166,6 +166,25 @@ export const NAV: readonly NavSection[] = [
       },
     ],
   },
+  {
+    // These two were published and linked from nowhere. They are the two
+    // documents that explain *why* the tool is shaped this way, which makes
+    // them the wrong ones to leave unreachable.
+    title: "Background",
+    summary: "Why it works this way.",
+    entries: [
+      {
+        slug: "articles/specs-that-cannot-lie",
+        label: "Specs that cannot lie",
+        blurb: "The argument the tool is built on, and the defects that shaped it.",
+      },
+      {
+        slug: "case-studies/case-1",
+        label: "Case study: brownfield adoption",
+        blurb: "An illustrative walk through adopting the workflow on an existing system.",
+      },
+    ],
+  },
 ];
 
 /** Every slug the sidebar links to, in reading order. */

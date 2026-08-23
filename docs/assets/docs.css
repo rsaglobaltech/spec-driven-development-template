@@ -22,6 +22,7 @@
   --accent-soft: #eef2ff;
   --green: #0f7b4f;
   --amber: #9a6700;
+  --red: #c0322b;
   --radius: 10px;
   --side-w: 16.5rem;
   --toc-w: 15rem;
@@ -43,6 +44,7 @@
     --accent-soft: #1b1f33;
     --green: #4ade80;
     --amber: #fbbf24;
+    --red: #ff7b72;
   }
 }
 
@@ -58,6 +60,7 @@
   --accent-soft: #1b1f33;
   --green: #4ade80;
   --amber: #fbbf24;
+  --red: #ff7b72;
 }
 
 * { box-sizing: border-box; }
