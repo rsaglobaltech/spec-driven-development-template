@@ -27,9 +27,10 @@ Other agents take the prompt differently — `aider --yes --message-file
 {prompt_file}`, `opencode run "$(cat {prompt_file})"`. The harness only requires
 that the command contain `{prompt_file}`.
 
-A tool that fits none of those shapes needs a wrapper — `--agent
-"./my-wrapper.sh {prompt_file}"`, where `$1` is the prompt file. A command
-**without** `{prompt_file}` is refused, not silently run.
+A tool that fits none of those shapes needs a wrapper, and a command **without**
+`{prompt_file}` is refused rather than silently run.
+→ [Choosing and wiring your agent](agent-setup.md) covers both, with the
+commands for the tools people actually use.
 
 **The agent works in a fresh worktree, which carries only what git tracks** — no
 `node_modules`, no `target/`, no `.venv`. An agent must not spend its attempt

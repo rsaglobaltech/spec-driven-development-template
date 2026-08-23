@@ -1,0 +1,202 @@
+/*
+ * The landing page, on top of the documentation tokens.
+ *
+ * Same colours, same fonts, same code blocks as the docs — a marketing page
+ * that looks like a different product is the fastest way to make a reader
+ * doubt they are in the right place.
+ */
+
+.landing { background: var(--bg); }
+
+.wrap { max-width: 68rem; margin: 0 auto; padding: 0 1.5rem; }
+.wrap--narrow { max-width: 46rem; }
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+
+.hero { padding: 5.5rem 0 4rem; text-align: center; }
+
+.hero__badges { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin: 0 0 1.75rem; }
+
+.badge {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--fg-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+  background: var(--bg-soft);
+}
+
+.hero h1 {
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  margin: 0 0 1.25rem;
+  font-weight: 700;
+}
+.hero h1 em { font-style: normal; color: var(--accent); }
+
+.hero__sub {
+  max-width: 40rem;
+  margin: 0 auto 2rem;
+  font-size: 1.09rem;
+  color: var(--fg-soft);
+  line-height: 1.65;
+}
+
+.code--hero { max-width: 34rem; margin: 0 auto 1.75rem; text-align: left; }
+
+.hero__cta { display: flex; gap: 0.65rem; justify-content: center; flex-wrap: wrap; margin: 0 0 3.25rem; }
+
+.button {
+  display: inline-block;
+  padding: 0.6rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  color: var(--fg);
+  font-size: 0.94rem;
+  font-weight: 500;
+}
+.button:hover { border-color: var(--accent); text-decoration: none; }
+.button--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.button--primary:hover { filter: brightness(1.08); }
+.button--quiet { background: none; border-color: transparent; color: var(--fg-soft); }
+.button--quiet:hover { color: var(--accent); }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 1.5rem;
+  margin: 0;
+  padding-top: 2.5rem;
+  border-top: 1px solid var(--line);
+}
+.stats div { text-align: center; }
+.stats dt {
+  font-family: var(--mono);
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1;
+}
+.stats dd { margin: 0.4rem 0 0; font-size: 0.83rem; color: var(--fg-soft); }
+
+/* ── Bands ───────────────────────────────────────────────────────────────── */
+
+.band { padding: 4rem 0; border-top: 1px solid var(--line); }
+.band--soft { background: var(--bg-soft); }
+
+.band h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  letter-spacing: -0.02em;
+  margin: 0 0 0.9rem;
+}
+.band p { color: var(--fg-soft); line-height: 1.7; margin: 0 0 1.05rem; }
+.band__lede { font-size: 1.03rem; max-width: 42rem; }
+.band em { font-style: normal; color: var(--fg); font-weight: 600; }
+.band code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  background: var(--bg-code);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+  color: var(--fg);
+}
+
+/* ── The loop ────────────────────────────────────────────────────────────── */
+
+.loop {
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+  counter-reset: none;
+}
+.loop li {
+  position: relative;
+  padding: 1.4rem 1.2rem 1.2rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.loop__n {
+  position: absolute;
+  top: -0.7rem;
+  left: 1.2rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.loop h3 { margin: 0.35rem 0 0.5rem; font-size: 1rem; }
+.loop h3 code { background: none; border: 0; padding: 0; color: var(--accent); }
+.loop p { margin: 0; font-size: 0.89rem; }
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.grid article {
+  padding: 1.25rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.grid h3 { margin: 0 0 0.5rem; font-size: 0.98rem; }
+.grid p { margin: 0; font-size: 0.88rem; }
+
+/* ── Tools strip ─────────────────────────────────────────────────────────── */
+
+.tools { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin: 1.75rem 0; }
+.tools span { color: var(--fg-faint); font-size: 0.83rem; margin-right: 0.3rem; }
+.tools code { font-size: 0.8rem; }
+
+/* ── FAQ ─────────────────────────────────────────────────────────────────── */
+
+details {
+  border-bottom: 1px solid var(--line);
+  padding: 1rem 0;
+}
+details summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--fg);
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::after { content: "+"; color: var(--fg-faint); font-family: var(--mono); }
+details[open] summary::after { content: "−"; }
+details p { margin: 0.75rem 0 0; font-size: 0.93rem; }
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+
+.close { text-align: center; }
+.close .code { text-align: left; max-width: 30rem; margin: 1.5rem auto; }
+
+.foot { padding: 2.5rem 0; border-top: 1px solid var(--line); font-size: 0.88rem; }
+.foot p { margin: 0 0 0.5rem; color: var(--fg-soft); }
+.foot a { color: var(--fg-soft); }
+.foot a:hover { color: var(--accent); }
+.foot__note { color: var(--fg-faint); font-size: 0.8rem; }
+
+@media (max-width: 700px) {
+  .hero { padding: 3.5rem 0 2.5rem; }
+  .band { padding: 3rem 0; }
+}
