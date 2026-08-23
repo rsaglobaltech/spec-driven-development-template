@@ -36,16 +36,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Stage site directory
-        # Copy docs/ as the site root; we'll add the registry under /packs/
-        run: |
-          rm -rf _site
-          mkdir -p _site
-          cp -R docs/. _site/
-
       - name: Compile TypeScript
-        # The registry generator is TypeScript; tsc emits it under dist/.
+        # Both generators are TypeScript; tsc emits them under dist/.
         run: npm run build
+
+      - name: Render the documentation site
+        # Was `cp -R docs/. _site/`, which published twenty markdown files as
+        # text/markdown — a reader who followed a link got the source. This
+        # renders them, with a sidebar, search and working internal links.
+        run: node dist/scripts/docs/build-site.js --out _site
 
       - name: Build pack registry
         # Generator emits index.html and manifest.json into --out

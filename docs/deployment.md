@@ -14,7 +14,6 @@ every push to `main` that touches `docs/`, `packs/`, `packages/pack-registry/`,
 After a successful run, you can reach:
 
 - **Docs landing page** — `https://<user>.github.io/<repo>/`
-- **ROI calculator** — `/roi.html`
 - **Comparisons matrix** — `/comparisons.md`
 - **Pack registry** — `/packs/index.html`
 - **Pack manifest (JSON)** — `/packs/manifest.json`

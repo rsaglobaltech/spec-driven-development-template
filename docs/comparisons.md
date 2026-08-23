@@ -195,7 +195,6 @@ not want this tool.
 ## 6. References
 
 - [Case Study 1: Smart Parking brownfield adoption](case-studies/case-1.md)
-- [ROI Calculator](roi.html)
 - [OpenSpec](https://github.com/Fission-AI/OpenSpec) (last reviewed 2026-08) — the benchmark that shaped this tool's change lifecycle; the full analysis is in [`mejoras/openspec-benchmark-plan.md`](../mejoras/openspec-benchmark-plan.md)
 - [GitHub spec-kit](https://github.com/github/spec-kit) (last reviewed 2026-05)
 - [Cursor `.cursorrules` documentation](https://docs.cursor.com/context/rules-for-ai)
