@@ -252,20 +252,29 @@ export function derivePackDelta(
 // ── The proposal ──────────────────────────────────────────────────────────────
 
 export function changeIdFor(packId, fromVersion, toVersion) {
-  const slug = (v) =>
-    // A single pass over the characters rather than a global `+` quantifier:
-    // scanning for the next run from every position is the polynomial shape,
-    // and a change id is short enough that clarity wins anyway.
-    [...String(v)]
-      .map((ch) => (/[a-zA-Z0-9.]/.test(ch) ? ch : "-"))
-      .join("")
-      .replace(/-{2,}/g, "-")
-      // Two anchored passes rather than one alternation: `/^-+|-+$/g` scans the
-      // whole string for the second branch and backtracks over a long run of
-      // dashes.
-      .replace(/^-+/, "")
-      .replace(/-+$/, "")
-      .toLowerCase();
+  /**
+   * Slugify in one pass, with no quantifier over the whole string.
+   *
+   * Every regex form of this — `[^a-zA-Z0-9.]+`, `-{2,}`, `^-+|-+$` — is a
+   * global quantified scan, which restarts from each position and is what
+   * `js/polynomial-redos` reports. Walking the characters once says the same
+   * thing and cannot backtrack, and a change id is short enough that the
+   * explicit version reads better anyway.
+   */
+  const slug = (v) => {
+    const out: string[] = [];
+    for (const ch of String(v)) {
+      const keep =
+        (ch >= "a" && ch <= "z") ||
+        (ch >= "A" && ch <= "Z") ||
+        (ch >= "0" && ch <= "9") ||
+        ch === ".";
+      if (keep) out.push(ch.toLowerCase());
+      else if (out.length > 0 && out[out.length - 1] !== "-") out.push("-");
+    }
+    while (out.length > 0 && out[out.length - 1] === "-") out.pop();
+    return out.join("");
+  };
   return `upgrade-${slug(packId.split("/").pop())}-${slug(toVersion)}`;
 }
 

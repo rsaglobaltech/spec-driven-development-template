@@ -103,10 +103,12 @@ export function parseTraceComment(raw: string): TraceComment {
   // comment. `trim()` then does what the anchored whitespace was for.
   let body = raw.replace(/^[ \t]*<!--[ \t]*csda:trace\b/, "").trim();
   if (body.endsWith("-->")) body = body.slice(0, -3).trim();
-  // `[ \t]*` on both sides of `=`, and an unquoted value that cannot contain a
-  // space: `\s*=\s*` beside `(\S+)` lets the engine divide the run of spaces
-  // between them in every possible way, which is the polynomial case.
-  const re = /([a-z_]+)[ \t]*=[ \t]*("([^"]*)"|'([^']*)'|([^\s"']+))/gi;
+  // `\b` so the scan cannot restart inside a run of letters, `[ \t]*` on both
+  // sides of `=`, and an unquoted value that cannot contain a space. Without
+  // the first, a long word with no `=` after it is retried from every position;
+  // without the others, a run of spaces can be divided between two quantifiers
+  // in every possible way.
+  const re = /\b([a-z_]+)[ \t]*=[ \t]*("([^"]*)"|'([^']*)'|([^\s"']+))/gi;
   let m;
   while ((m = re.exec(body)) !== null) {
     const value = m[3] !== undefined ? m[3] : m[4] !== undefined ? m[4] : m[5];
