@@ -891,12 +891,41 @@ function greenableProject() {
   return { parent, projectDir };
 }
 
-/** An agent that writes `script` into the worktree and exits 0. */
-function scriptedAgent(parent, script) {
-  const file = path.join(parent, "agent.sh");
-  fs.writeFileSync(file, `#!/bin/sh\n${script}\nexit 0\n`, "utf8");
-  fs.chmodSync(file, 0o755);
-  return `${file} {prompt_file} >/dev/null 2>&1`;
+/** Each agent gets its own file: several may exist in one fixture. */
+let scriptedAgentSeq = 0;
+
+/**
+ * An agent that performs `writes` in the worktree and exits 0.
+ *
+ * A Node script, not a shell one. The shell version passed on macOS and Linux
+ * and failed on Windows: `mkdir -p`, `printf` and `>>` are not portable, and
+ * the harness runs the agent through `shell: true`, which is `cmd.exe` there.
+ * Describing the writes rather than scripting them makes the fixture mean the
+ * same thing on all three platforms.
+ *
+ * `writes` is a list of `[relative path, contents]`. Contents starting with `+`
+ * are appended. `sleepMs` delays before exiting, for the budget tests.
+ */
+function scriptedAgent(parent, writes, opts: any = {}) {
+  const file = path.join(parent, `agent-${(scriptedAgentSeq += 1)}.js`);
+  fs.writeFileSync(
+    file,
+    [
+      'const fs = require("node:fs");',
+      'const p = require("node:path");',
+      `for (const [rel, content] of ${JSON.stringify(writes)}) {`,
+      "  const target = p.join(process.cwd(), rel);",
+      "  fs.mkdirSync(p.dirname(target), { recursive: true });",
+      '  if (content.startsWith("+")) fs.appendFileSync(target, content.slice(1), "utf8");',
+      '  else fs.writeFileSync(target, content, "utf8");',
+      "}",
+      opts.sleepMs ? `const until = Date.now() + ${opts.sleepMs};` : "",
+      opts.sleepMs ? "while (Date.now() < until) {}" : "",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+  return `"${process.execPath}" "${file}" {prompt_file}`;
 }
 
 function runHarness(projectDir, agent, extra = []) {
@@ -933,14 +962,16 @@ test("the fixture's gate really can pass, or the guard test below proves nothing
 test("an agent that guts the scenario fails, and the run says which file", () => {
   const { parent, projectDir } = greenableProject();
   try {
-    const agent = scriptedAgent(
-      parent,
-      "printf 'Feature: Platform health baseline\\n" +
-        "  Scenario: API reports service as healthy\\n" +
-        "    Given nothing in particular\\n" +
-        "    When nothing happens\\n" +
-        "    Then nothing is asserted\\n' > features/core/health.feature"
-    );
+    const agent = scriptedAgent(parent, [
+      [
+        "features/core/health.feature",
+        "Feature: Platform health baseline\n" +
+          "  Scenario: API reports service as healthy\n" +
+          "    Given nothing in particular\n" +
+          "    When nothing happens\n" +
+          "    Then nothing is asserted\n",
+      ],
+    ]);
     const r = runHarness(projectDir, agent);
     const out = r.stdout + r.stderr;
 
@@ -958,7 +989,7 @@ test("an agent that guts the scenario fails, and the run says which file", () =>
 test("writing code is not a violation — the guard protects the contract, not the repo", () => {
   const { parent, projectDir } = greenableProject();
   try {
-    const agent = scriptedAgent(parent, "mkdir -p src && echo 'class App {}' > src/App.java");
+    const agent = scriptedAgent(parent, [["src/App.java", "class App {}\n"]]);
     const r = runHarness(projectDir, agent);
     const out = r.stdout + r.stderr;
     assert.doesNotMatch(out, /agent_touched_protected_path/, out);
@@ -974,12 +1005,13 @@ test("creating a feature that did not exist is allowed (NEEDS_FEATURE)", () => {
   // tracked/untracked split is what tells the two apart.
   const { parent, projectDir } = greenableProject();
   try {
-    const agent = scriptedAgent(
-      parent,
-      "printf 'Feature: New\\n  Scenario: Something specific happens here\\n" +
-        "    Given a precondition\\n    When it runs\\n    Then it is observable\\n'" +
-        " > features/core/brand-new.feature"
-    );
+    const agent = scriptedAgent(parent, [
+      [
+        "features/core/brand-new.feature",
+        "Feature: New\n  Scenario: Something specific happens here\n" +
+          "    Given a precondition\n    When it runs\n    Then it is observable\n",
+      ],
+    ]);
     const r = runHarness(projectDir, agent);
     assert.doesNotMatch(r.stdout + r.stderr, /agent_touched_protected_path/, r.stdout + r.stderr);
   } finally {
@@ -999,11 +1031,13 @@ test("allow_paths in harness.config.yaml is an escape hatch that has to be writt
     git("add", "-A");
     git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "allow");
 
-    const agent = scriptedAgent(
-      parent,
-      "printf 'Feature: Platform health baseline\\n  Scenario: API reports service as healthy\\n" +
-        "    Given nothing\\n    When nothing\\n    Then nothing\\n' > features/core/health.feature"
-    );
+    const agent = scriptedAgent(parent, [
+      [
+        "features/core/health.feature",
+        "Feature: Platform health baseline\n  Scenario: API reports service as healthy\n" +
+          "    Given nothing\n    When nothing\n    Then nothing\n",
+      ],
+    ]);
     const r = runHarness(projectDir, agent);
     assert.doesNotMatch(
       r.stdout + r.stderr,
@@ -1098,10 +1132,7 @@ test("implementing elsewhere warns but does not fail by default", () => {
   // work — which already cost two runs on REQ-002.
   const { parent, projectDir } = projectWithDeclaredPaths();
   try {
-    const agent = scriptedAgent(
-      parent,
-      "mkdir -p src/other && echo 'x' > src/other/Elsewhere.java"
-    );
+    const agent = scriptedAgent(parent, [["src/other/Elsewhere.java", "x\n"]]);
     const r = runHarness(projectDir, agent);
     const out = r.stdout + r.stderr;
     assert.match(out, /declared_artifact_untouched/, out);
@@ -1116,10 +1147,7 @@ test("implementing elsewhere warns but does not fail by default", () => {
 test("--strict-artifacts turns the same warning into a failed attempt", () => {
   const { parent, projectDir } = projectWithDeclaredPaths();
   try {
-    const agent = scriptedAgent(
-      parent,
-      "mkdir -p src/other && echo 'x' > src/other/Elsewhere.java"
-    );
+    const agent = scriptedAgent(parent, [["src/other/Elsewhere.java", "x\n"]]);
     const r = runHarness(projectDir, agent, ["--strict-artifacts"]);
     assert.match(r.stdout + r.stderr, /0 passed/, r.stdout + r.stderr);
   } finally {
@@ -1135,10 +1163,10 @@ test("implementing where the row says passes, even under --strict-artifacts", ()
   // neither, and the strict gate rejects correct work.
   const { parent, projectDir } = projectWithDeclaredPaths();
   try {
-    const agent = scriptedAgent(
-      parent,
-      "mkdir -p src/test && echo 'x' > src/Health.java && echo 'y' > src/test/HealthTest.java"
-    );
+    const agent = scriptedAgent(parent, [
+      ["src/Health.java", "x\n"],
+      ["src/test/HealthTest.java", "y\n"],
+    ]);
     const r = runHarness(projectDir, agent, ["--strict-artifacts"]);
     const out = r.stdout + r.stderr;
     assert.doesNotMatch(out, /declared_artifact_untouched/, out);
@@ -1154,7 +1182,7 @@ test("a prose-only row says nothing — the scaffolded project must stay quiet",
   // noise people learn to skip.
   const { parent, projectDir } = greenableProject();
   try {
-    const agent = scriptedAgent(parent, "mkdir -p src && echo 'x' > src/App.java");
+    const agent = scriptedAgent(parent, [["src/App.java", "x\n"]]);
     const r = runHarness(projectDir, agent, ["--strict-artifacts"]);
     const out = r.stdout + r.stderr;
     assert.doesNotMatch(out, /declared_artifact_untouched/, out);
@@ -1185,7 +1213,7 @@ test("--force and --resume are refused together", () => {
 test("without --resume, the skip message now offers it", () => {
   const { parent, projectDir } = greenableProject();
   try {
-    const agent = scriptedAgent(parent, "echo x > note.txt");
+    const agent = scriptedAgent(parent, [["note.txt", "x\n"]]);
     assert.match(runHarness(projectDir, agent).stdout, /1 passed/);
     const again = runHarness(projectDir, agent);
     const out = again.stdout + again.stderr;
@@ -1202,7 +1230,7 @@ test("--resume over a requirement that never started runs it, rather than refusi
   // was already attempted".
   const { parent, projectDir } = greenableProject();
   try {
-    const agent = scriptedAgent(parent, "echo x > note.txt");
+    const agent = scriptedAgent(parent, [["note.txt", "x\n"]]);
     const r = runHarness(projectDir, agent, ["--resume"]);
     assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
   } finally {
@@ -1229,7 +1257,7 @@ test("--resume re-attaches to the interrupted worktree and keeps the partial wor
       "utf8"
     );
 
-    const r = runHarness(projectDir, scriptedAgent(parent, "echo more >> partial-work.txt"), [
+    const r = runHarness(projectDir, scriptedAgent(parent, [["partial-work.txt", "+more\n"]]), [
       "--resume",
     ]);
     assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
@@ -1252,7 +1280,7 @@ test("after exhausted attempts, --resume picks up at the next attempt", () => {
     // An agent that breaks the gate: it removes the matrix row's test artifact
     // declaration is overkill — simply failing the gate is enough, so make the
     // agent produce nothing and break validate by emptying the feature.
-    const breaking = scriptedAgent(parent, "printf 'Feature: X\\n' > features/core/health.feature");
+    const breaking = scriptedAgent(parent, [["features/core/health.feature", "Feature: X\n"]]);
     const first = runHarness(projectDir, breaking, ["--max-attempts", "2"]);
     assert.match(first.stdout + first.stderr, /0 passed/);
 
@@ -1283,7 +1311,7 @@ test("a resumed run cleans up the worktree it re-attached to", () => {
     assert.equal(git("worktree", "add", "-b", "harness/REQ-000", worktree, "HEAD").status, 0);
     fs.writeFileSync(path.join(worktree, "partial-work.txt"), "half\n", "utf8");
 
-    const r = runHarness(projectDir, scriptedAgent(parent, "echo more >> partial-work.txt"), [
+    const r = runHarness(projectDir, scriptedAgent(parent, [["partial-work.txt", "+more\n"]]), [
       "--resume",
     ]);
     assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
@@ -1624,7 +1652,7 @@ test("the same ceiling holds when the level runs in parallel", () => {
 test("--budget-seconds stops the run and still writes the ledger", () => {
   const { parent, projectDir } = threeRequirementProject();
   try {
-    const slow = scriptedAgent(parent, "sleep 3");
+    const slow = scriptedAgent(parent, [], { sleepMs: 3000 });
     const r = runAll(projectDir, slow, ["--budget-seconds", "2"]);
     const out = r.stdout + r.stderr;
     assert.match(out, /1 passed/, out);
