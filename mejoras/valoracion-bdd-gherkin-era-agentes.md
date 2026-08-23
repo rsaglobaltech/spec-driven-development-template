@@ -270,7 +270,7 @@ heurística sobre texto y pasa a ser una consulta sobre datos.
 | **F1** | Un solo parser de Gherkin, con la tabla oficial de dialectos       | Medio | Alta          |
 | **F2** | Arreglar los 27 ficheros y blindar la regresión con el parser real | Bajo  | **Inmediata** |
 | ~~**F3**~~ | Paridad con Cucumber en `pack lint` — **hecho (2026-08-22)**   | Bajo  | Alta          |
-| **F4** | Trazabilidad por etiquetas `@REQ-NNN` / `@SCN-NNN`                 | Medio | Media         |
+| ~~**F4**~~ | Trazabilidad por etiquetas — **hecho (2026-08-23)**              | Medio | Media |
 | ~~**F5**~~ | El gate del harness sobre el protocolo de mensajes — **hecho (2026-08-22)** | Medio | Alta |
 | **F6** | EARS opcional en la línea de requisito                             | Bajo  | Baja          |
 
@@ -392,7 +392,7 @@ Verificado por mutación: al devolver las mayúsculas, ambos tests fallan.
 Es el mismo patrón que `H14` una vez más — arreglar el dato y no la fuente que
 lo produce — y la razón de que la guarda apunte al generador y no al resultado.
 
-## F4 · Trazabilidad por etiquetas
+## F4 · Trazabilidad por etiquetas — **hecho (2026-08-23)**
 
 Hoy la matriz enlaza `SCN-001` con un fichero `.feature`, y **nada comprueba que
 ese escenario exista dentro**: `validate` verifica que el fichero esté en la
@@ -419,6 +419,63 @@ Qué desbloquea:
 
 Es la propuesta que más acerca la matriz y los ficheros, y la que mejor
 aprovecha algo que Cucumber ya hace y nosotros ignoramos.
+
+### Lo que se midió primero
+
+La premisa, comprobada antes de escribir nada. Se renombra el escenario que la
+matriz declara:
+
+```
+matriz:  | REQ-000 | SCN-000 | `features/core/health.feature` | …
+fichero: Scenario: Something else entirely
+
+validate --strict-tdd        exit 0
+validate --strict-scenarios  exit 0
+```
+
+Las dos puertas pasan con la matriz apuntando a algo que no está. El texto de
+ayuda llevaba pidiendo un Scenario ID «que coincida con un escenario de su
+feature» sin que nada comparara jamás las dos cosas.
+
+### Los tres puntos
+
+1. **`validate` lo comprueba de verdad.** Por etiqueta, no por título: la matriz
+   guarda un **id**, no un nombre, así que no hay otra cosa que comparar — y una
+   etiqueta sobrevive al renombrado, que es exactamente lo que un agente hace y
+   deja la puerta verde y vacía.
+2. **El gate filtra por etiqueta… y eso ya funcionaba.** `{req}` y `{scenario}`
+   se sustituyen desde antes, así que `--test-cmd "npx cucumber-js --tags
+   '@{req}'"` funciona el día que existen las etiquetas. No había que construir
+   nada; había que comprobarlo y documentarlo. Y `F5` ya prefería las etiquetas
+   al emparejar un escenario con su requisito.
+3. **Nadie las escribe a mano.** `expand` las emite, y el andamio de `init` las
+   trae, así que un proyecto nuevo tiene la comprobación activa desde el primer
+   día.
+
+### La decisión que sostiene la adopción
+
+**Solo se comprueban los ficheros que llevan nuestras etiquetas.** Un repo
+traído con `adopt`, o generado antes de esto, no tiene ninguna — fallarle aquí
+sería castigarlo por un enlace que nunca se le dio forma de hacer. En cuanto un
+fichero está etiquetado, una fila que apunte dentro tiene que ser correcta.
+
+Y `@slow` no es una etiqueta nuestra: tratarla como tal haría que un fichero sin
+trazabilidad pareciera tenerla, y la comprobación se quedaría muda justo donde
+hace falta.
+
+### Etiquetar es idempotente, y tenía que serlo
+
+`expand` corre más de una vez sobre el mismo proyecto y `change archive`
+reescribe features en su sitio. Una etiqueta ya presente se deja, no se
+duplica, y las que escribió una persona se conservan. Hay test de la segunda
+ejecución.
+
+### Lo que rompió, y por qué está bien
+
+Los fixtures de `C1` copiaban el feature del andamio para fabricar tres
+requisitos. Al llevar ahora etiquetas, las copias declaraban ser el escenario de
+`REQ-000` mientras su fila decía otra cosa — y la comprobación nueva lo cazó.
+Era el test mintiendo, no la herramienta: arreglado reetiquetando las copias.
 
 ## F5 · El gate del harness sobre el protocolo de mensajes — **hecho (2026-08-22)**
 

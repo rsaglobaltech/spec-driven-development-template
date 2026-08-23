@@ -23,6 +23,7 @@ import {
   writeFile,
 } from "../../../../packages/core/src/infrastructure/DiskPackRepository";
 import { logError, logInfo } from "../../../../packages/core/src/infrastructure/ConsoleReporter";
+import { tagScenario } from "../../../../packages/core/src/domain/GherkinTags";
 import { parseArgs } from "./pack-args";
 import { resolveRemotePack } from "../../../../packages/core/src/infrastructure/RemotePackResolver";
 import { readLock, writeLock, upsertPackEntry, newLock } from "../../../specops/lock";
@@ -90,8 +91,23 @@ export function renderScenarios(
 
     const template = readTemplate(packRoot, scenario.template);
     const rendered = renderTemplate(template, vars);
+
+    // F4: link the matrix row to the scenario the way Cucumber understands.
+    // Nobody writes these by hand — and a tag survives a rename, which is what
+    // makes `--tags "@REQ-001"` a filter an agent cannot defeat by rewording a
+    // title. Idempotent: `expand` runs more than once on the same project.
+    const tags = [scenario.requirement_id, scenario.id].filter(Boolean).map((id: any) => `@${id}`);
+    const tagged = tagScenario(rendered, scenario.scenario, tags);
+    if (tags.length > 0 && tagged === rendered) {
+      logError(
+        `Scenario '${scenario.id}' declares "${scenario.scenario}", which is not in ` +
+          `${scenario.template} — it goes out untagged, and the matrix will point at ` +
+          `a scenario that is not there.`
+      );
+    }
+
     const target = safeResolve(projectDir, scenario.target);
-    writeFile(target, `${rendered.trimEnd()}\n`, dryRun);
+    writeFile(target, `${tagged.trimEnd()}\n`, dryRun);
 
     generated.push(scenario);
   }

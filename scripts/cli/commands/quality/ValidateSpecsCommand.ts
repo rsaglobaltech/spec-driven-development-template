@@ -16,6 +16,8 @@ import { DiskTraceabilityRepository } from "../../../../packages/core/src/infras
 import { RICH_HEADER } from "../../../../packages/core/src/domain/TraceabilityFormat";
 import { findCliRoot } from "../../../lib/project-root";
 import { analyseGherkinSource } from "../../../../packages/core/src/domain/GherkinQuality";
+import { csdaTagsIn } from "../../../../packages/core/src/domain/GherkinTags";
+import { parseTraceabilityRows } from "../../../../packages/core/src/domain/TraceabilityFormat";
 
 export class ValidateSpecsCommand extends BaseCommand {
   private io: any = null;
@@ -167,6 +169,66 @@ export class ValidateSpecsCommand extends BaseCommand {
       "so the gate approves the requirement without having checked it.",
     ]);
     process.exit(1);
+  }
+
+  /**
+   * Does the scenario the matrix names actually exist in the file? (F4)
+   *
+   * The help text has been asking for a Scenario ID "that matches a scenario in
+   * its feature file" without ever comparing the two. Measured before writing
+   * this: rename the scenario and both `--strict-tdd` and `--strict-scenarios`
+   * still pass, with the matrix pointing at something that is not there.
+   *
+   * The check runs off tags, because a tag survives the rename and a title does
+   * not — and the matrix carries an id, not a title, so there is nothing else to
+   * compare. `csda expand` writes them; nobody types them.
+   *
+   * **Only files that carry our tags are checked.** A project brought in with
+   * `csda adopt`, or one scaffolded before this existed, has none — and failing
+   * it here would punish it for a link it was never given the means to make.
+   * Once a file is tagged, a row pointing into it has to be right.
+   */
+  private checkScenarioTags(targetDir: string, traceContent: string) {
+    let rows: any[] = [];
+    try {
+      rows = parseTraceabilityRows(traceContent).rows || [];
+    } catch {
+      return;
+    }
+
+    for (const row of rows) {
+      const scenarioId = String(row.scenarioId || "").trim();
+      const featureRel = String(row.featureFile || "")
+        .replace(/`/g, "")
+        .split("#")[0]
+        .trim();
+      if (!/^SCN-[A-Za-z0-9.]+$/.test(scenarioId) || !featureRel) continue;
+
+      const file = path.join(targetDir, featureRel);
+      if (!fs.existsSync(file)) continue; // the coverage check below reports this
+
+      let tags: string[] = [];
+      try {
+        tags = csdaTagsIn(fs.readFileSync(file, "utf8"));
+      } catch {
+        continue;
+      }
+      if (tags.length === 0) continue; // untagged file — nothing to compare against
+
+      if (!tags.includes(`@${scenarioId}`)) {
+        this.fail(
+          "scenario_id_not_in_feature",
+          `${featureRel} carries traceability tags but not @${scenarioId}, which ` +
+            `${row.requirement || "a row"} declares. The matrix points at a scenario ` +
+            `that is not there.`,
+          1,
+          [
+            `Tag the scenario: put \`@${scenarioId}\` above its \`Scenario:\` line,`,
+            "or correct the Scenario ID in docs/specs/traceability.md.",
+          ]
+        );
+      }
+    }
   }
 
   public execute(): void {
@@ -355,6 +417,8 @@ export class ValidateSpecsCommand extends BaseCommand {
       this.logFix([...codes].sort().map((c) => `${c}: ${TDD_FIXES[c]}`));
       process.exit(1);
     }
+
+    this.checkScenarioTags(targetDir, traceContent);
 
     for (const ff of featureFiles.sort()) {
       const rel = path.relative(targetDir, ff).split(path.sep).join("/");

@@ -193,6 +193,32 @@ empty **before** creating the worktree — an attempt costs `max_attempts` ×
 the timeout, and there is no point buying that against a scenario that
 cannot fail.
 
+### Filtering by tag
+
+`csda expand` tags every scenario it generates with the requirement and
+scenario it belongs to:
+
+```gherkin
+@REQ-001 @SCN-001
+Scenario: Issuing an invoice emits InvoiceIssued
+```
+
+A tag survives a rename and a title does not, which matters here more than
+anywhere: rewording a scenario is the one thing an agent does that turns the
+gate green and empty. Filter on the tag rather than the name:
+
+```bash
+--test-cmd "npx cucumber-js --tags '@{req}'"
+```
+
+`{req}` and `{scenario}` are substituted per requirement, and the message
+protocol check above already prefers tags when matching a scenario to the
+requirement under test.
+
+`csda validate` uses the same tags to check the matrix points at a scenario
+that exists — a file that carries no tags is left alone, so an adopted
+repository is not failed for a link it was never given the means to make.
+
 ### Write scope
 
 Before the gate runs, the harness checks what the agent actually wrote.

@@ -386,3 +386,58 @@ test("a requirement's bounded context is derived and matched to a profile", () =
     fs.rmSync(parent, { recursive: true, force: true });
   }
 });
+
+test("expand tags every scenario it generates, and repeating it does not duplicate", () => {
+  // Nobody writes these by hand, and `expand` runs more than once against the
+  // same project — a step that duplicates on every run is one people avoid.
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-tags-"));
+  try {
+    const init = spawnSync(
+      process.execPath,
+      [CLI, "init", "--yes", "--no-sample-req", "--out", parent, "--no-git"],
+      { encoding: "utf8" }
+    );
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(parent, fs.readdirSync(parent)[0]);
+
+    const expand = () =>
+      spawnSync(
+        process.execPath,
+        [
+          CLI,
+          "expand",
+          "--pack-root",
+          PACKS_DIR,
+          "--pack",
+          "billing/backend",
+          "--project-dir",
+          projectDir,
+          "--var",
+          "PROJECT_NAME=Tag",
+          "--var",
+          "PROJECT_SLUG=tag",
+          "--var",
+          "DOMAIN=tag",
+        ],
+        { encoding: "utf8" }
+      );
+
+    assert.equal(expand().status, 0);
+    const featureDir = path.join(projectDir, "features", "billing");
+    const first = fs
+      .readdirSync(featureDir)
+      .map((f) => fs.readFileSync(path.join(featureDir, f), "utf8"));
+    assert.ok(first.length > 0, "expand generated no features");
+    for (const content of first) {
+      assert.match(content, /@REQ-\d+ @SCN-\d+/, content.slice(0, 200));
+    }
+
+    assert.equal(expand().status, 0);
+    const second = fs
+      .readdirSync(featureDir)
+      .map((f) => fs.readFileSync(path.join(featureDir, f), "utf8"));
+    assert.deepEqual(second, first, "a second expand must not change the tags");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});

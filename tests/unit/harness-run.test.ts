@@ -1537,9 +1537,14 @@ function threeRequirementProject() {
   );
   fs.writeFileSync(matrixPath, matrix.replace(row, [row, ...extra].join("\n")), "utf8");
   for (const n of ["001", "002"]) {
-    fs.copyFileSync(
-      path.join(projectDir, "features/core/health.feature"),
-      path.join(projectDir, `features/core/f${n}.feature`)
+    // Retag the copy. The scaffolded feature carries `@REQ-000 @SCN-000` (F4),
+    // and a copy that kept them would declare it is REQ-000's scenario while
+    // the matrix row says otherwise — which `validate` now catches, correctly.
+    const source = fs.readFileSync(path.join(projectDir, "features/core/health.feature"), "utf8");
+    fs.writeFileSync(
+      path.join(projectDir, `features/core/f${n}.feature`),
+      source.replace("@REQ-000 @SCN-000", `@REQ-${n} @SCN-${n}`),
+      "utf8"
     );
   }
   const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });

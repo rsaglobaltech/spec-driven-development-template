@@ -138,7 +138,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | ID  | Propuesta                                                                        | Coste |
 | --- | -------------------------------------------------------------------------------- | ----- |
 | ~~F3~~ | **Hecho (2026-08-22).** `scenario_has_no_steps` y `keyword_case_invalid` son errores por sí solos, sin `--strict`, con fichero:línea y la grafía que funciona. Al ejecutarlo se destapó que `pack init` **seguía generando `GIVEN/WHEN/THEN`**: `F2` arregló los packs escritos, no el generador que los escribe. Corregido y con guarda sobre los cuatro tipos de proyecto. La parte de `validate` era `A3` | Bajo |
-| F4  | Trazabilidad por etiquetas `@REQ-NNN` / `@SCN-NNN`                               | Medio |
+| ~~F4~~ | **Hecho (2026-08-23).** `expand` y el andamio etiquetan `@REQ-NNN @SCN-NNN`; `validate` comprueba por fin que el escenario que la matriz declara **existe** en su fichero. Un fichero sin etiquetas se deja en paz: la adopción no se convierte en muro. El filtrado del gate por etiqueta ya funcionaba — solo faltaban las etiquetas | Medio |
 | ~~F5~~ | **Hecho (2026-08-22), cierra `H15`.** `core/domain/CucumberMessages` lee el NDJSON de `--format message`: existe el escenario, **se ejecutó**, tenía pasos, todos `PASSED`, y cuántos corrieron. Construido contra un flujo real, no de memoria — de ahí que los pasos de *hook* no cuenten como pasos. Opcional: sin Cucumber, la puerta sigue siendo el código de salida | Medio |
 | F6  | EARS opcional en la línea de requisito                                           | Bajo  |
 
@@ -195,8 +195,9 @@ parser dijera la verdad, después extender su alcance.
 
 **Tanda 2 — CERRADA (2026-08-22).** ~~`C3`~~ → ~~`C2`~~ → ~~`B2`~~ → ~~`F5`~~ → ~~`C1`~~.
 
-**Tanda 3 en curso:** ~~`E1`~~ ~~`B1`~~ ~~`D1`~~ **(hechos, 2026-08-23)** → `F4`.
-**Vamos por `F4`.**
+**Tanda 3 — CERRADA (2026-08-23).** ~~`E1`~~ → ~~`B1`~~ → ~~`D1`~~ → ~~`F4`~~.
+
+**Las tres tandas del índice están cerradas.**
 
 **Tanda 2 — que el bucle rinda desatendido.** `C3` → `C2` → `B2` → `F5` → `C1`.
 Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.

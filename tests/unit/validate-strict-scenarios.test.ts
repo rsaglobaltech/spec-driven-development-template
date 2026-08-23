@@ -116,3 +116,85 @@ test("--strict-scenarios is a declared flag, not one that slips through", () => 
   assert.notEqual(r.status, 0);
   assert.match(r.stdout + r.stderr, /Unknown flag/);
 });
+
+// ── The matrix must point at a scenario that is there (F4) ───────────────────
+//
+// The help text has asked for a Scenario ID "that matches a scenario in its
+// feature file" for as long as it has existed, and nothing compared the two.
+// Measured before this was written: rename the scenario and both
+// `--strict-tdd` and `--strict-scenarios` pass, with the matrix pointing at
+// something that is not there.
+//
+// The check runs off tags, because the matrix carries an id and not a title —
+// and because a tag survives the rename that a title does not.
+
+test("a scaffolded project is tagged, and validates", () => {
+  const { parent, projectDir } = scaffold();
+  try {
+    const feature = fs.readFileSync(path.join(projectDir, "features/core/health.feature"), "utf8");
+    assert.match(feature, /@REQ-000 @SCN-000/, feature);
+    assert.equal(cli("validate", projectDir).status, 0);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a row pointing at a scenario the file does not carry is caught", () => {
+  const { parent, projectDir } = scaffold();
+  try {
+    const file = path.join(projectDir, "features/core/health.feature");
+    fs.writeFileSync(
+      file,
+      fs.readFileSync(file, "utf8").replace("@REQ-000 @SCN-000", "@REQ-000"),
+      "utf8"
+    );
+    const r = cli("validate", projectDir);
+    assert.notEqual(r.status, 0);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /not @SCN-000/);
+    assert.match(out, /points at a scenario that is not there/);
+    assert.match(out, /or correct the Scenario ID/, "a failure without a fix just stops you");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("renaming the scenario no longer defeats the link", () => {
+  // The failure this exists for: the title moved, the tag did not, and the
+  // matrix still points at something real.
+  const { parent, projectDir } = scaffold();
+  try {
+    const file = path.join(projectDir, "features/core/health.feature");
+    fs.writeFileSync(
+      file,
+      fs
+        .readFileSync(file, "utf8")
+        .replace("Scenario: API reports service as healthy", "Scenario: Renamed by an agent"),
+      "utf8"
+    );
+    assert.equal(cli("validate", projectDir).status, 0, "the tag still links the two");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("an untagged project is left alone — adoption must not become a wall", () => {
+  // A repository brought in with `csda adopt`, or scaffolded before this
+  // existed, carries no tags. Failing it here would punish it for a link it was
+  // never given the means to make.
+  const { parent, projectDir } = scaffold();
+  try {
+    const file = path.join(projectDir, "features/core/health.feature");
+    fs.writeFileSync(
+      file,
+      fs
+        .readFileSync(file, "utf8")
+        .replace("  @REQ-000 @SCN-000\n", "")
+        .replace("Scenario: API reports service as healthy", "Scenario: Renamed entirely"),
+      "utf8"
+    );
+    assert.equal(cli("validate", projectDir).status, 0, "an untagged file has nothing to compare");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
