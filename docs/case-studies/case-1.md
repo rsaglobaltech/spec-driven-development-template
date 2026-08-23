@@ -1,4 +1,18 @@
-# Case Study 1 — Smart Parking Platform: From Brownfield to Spec-Driven
+# Worked Example — Smart Parking Platform: From Brownfield to Spec-Driven
+
+> **This is an illustration, not a customer.** "UrbanFlow" is invented, and every
+> number below — the coverage figures, the defect rate, the onboarding time — is
+> a plausible construction written to show what the workflow looks like end to
+> end. None of it was measured, and none of it should be cited as evidence that
+> the tool produces these results.
+>
+> What *is* measured lives elsewhere, and it is about this repository's own
+> defects: the [evidence behind the gate](../index.html#evidence) and
+> [the article](../articles/specs-that-cannot-lie.html) both quote figures that
+> came from running the tool and reading what it printed.
+>
+> If you have adopted this on a real system and are willing to be named, the
+> maintainers would far rather publish that than this.
 
 **Industry:** Urban Mobility / Smart City Infrastructure
 **Team size:** 6 engineers, 1 product owner, 1 domain expert
@@ -98,6 +112,8 @@ owner in a 30-minute session. Implementation began only after the scenario was m
 ---
 
 ## 3. Before vs. After — Quantitative Metrics
+
+> Reminder: every figure in this table is illustrative. See the note at the top.
 
 | Metric | Before (brownfield) | After (8 weeks) | Change |
 |---|---|---|---|

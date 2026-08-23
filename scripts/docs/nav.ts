@@ -180,8 +180,8 @@ export const NAV: readonly NavSection[] = [
       },
       {
         slug: "case-studies/case-1",
-        label: "Case study: brownfield adoption",
-        blurb: "An illustrative walk through adopting the workflow on an existing system.",
+        label: "Worked example: brownfield adoption",
+        blurb: "An illustration — invented company, constructed numbers — of the workflow end to end.",
       },
     ],
   },

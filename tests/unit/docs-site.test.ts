@@ -433,3 +433,23 @@ test("the social card and the favicon are published, and the pages point at them
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a case study that is not a real customer says so, at the top", () => {
+  // `case-1.md` described a named company with a −74% defect rate and no
+  // disclaimer anywhere, while the roadmap said nobody outside this repository
+  // had used the tool. Publishing that as a customer story is not a style
+  // problem.
+  const dir = path.join(DOCS, "case-studies");
+  if (!fs.existsSync(dir)) return;
+  const unmarked = [];
+  for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".md"))) {
+    const head = fs.readFileSync(path.join(dir, file), "utf8").split("\n").slice(0, 12).join("\n");
+    if (!/illustration, not a customer|verified customer/i.test(head)) unmarked.push(file);
+  }
+  assert.deepEqual(
+    unmarked,
+    [],
+    "a case study must open by saying whether it is a real customer or an illustration:\n  " +
+      unmarked.join("\n  ")
+  );
+});
