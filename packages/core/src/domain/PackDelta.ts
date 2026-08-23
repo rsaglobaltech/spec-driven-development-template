@@ -253,8 +253,13 @@ export function derivePackDelta(
 
 export function changeIdFor(packId, fromVersion, toVersion) {
   const slug = (v) =>
-    String(v)
-      .replace(/[^a-zA-Z0-9.]+/g, "-")
+    // A single pass over the characters rather than a global `+` quantifier:
+    // scanning for the next run from every position is the polynomial shape,
+    // and a change id is short enough that clarity wins anyway.
+    [...String(v)]
+      .map((ch) => (/[a-zA-Z0-9.]/.test(ch) ? ch : "-"))
+      .join("")
+      .replace(/-{2,}/g, "-")
       // Two anchored passes rather than one alternation: `/^-+|-+$/g` scans the
       // whole string for the second branch and backtracks over a long run of
       // dashes.

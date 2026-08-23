@@ -44,7 +44,7 @@ const RE_H2 = /^##[ \t]+([^ \t].*)?$/;
 const RE_REQUIREMENT = /^###[ \t]+Requirement:[ \t]*([^ \t].*)?$/;
 const RE_SCENARIO = /^####[ \t]+Scenario:[ \t]*([^ \t].*)?$/;
 const RE_TRACE_OPEN = /^\s*<!--\s*csda:trace\b/;
-const RE_STEP = /^[ \t]*[-*][ \t]+(.*)$/;
+const RE_STEP = /^[ \t]*[-*][ \t]+([^ \t].*)?$/;
 
 // `REQ-014 — Dynamic peak pricing` → ["REQ-014", "Dynamic peak pricing"].
 // The separator may be an em dash, en dash, hyphen or colon; any amount of
@@ -97,13 +97,16 @@ export function parseTraceComment(raw: string): TraceComment {
   // `uc=UC-007 cmd=CMD-011 feature=features/a.feature` → object.
   // Values may be quoted to allow spaces.
   const trace = {};
-  const body = raw
-    .replace(/^\s*<!--\s*csda:trace\b/, "")
-    // `[ \t]*$` rather than `\s*$`: this is one line, and `\s` matching a
-    // newline is what makes the pattern backtrack.
-    .replace(/-->[ \t]*$/, "")
-    .trim();
-  const re = /([a-z_]+)\s*=\s*("([^"]*)"|'([^']*)'|(\S+))/gi;
+  // Strip the delimiters by index rather than by pattern. `-->` inside a regex
+  // is what CodeQL reads as a hand-rolled HTML tag filter (`js/bad-tag-filter`),
+  // and it is right that a regex is the wrong tool for finding the end of a
+  // comment. `trim()` then does what the anchored whitespace was for.
+  let body = raw.replace(/^[ \t]*<!--[ \t]*csda:trace\b/, "").trim();
+  if (body.endsWith("-->")) body = body.slice(0, -3).trim();
+  // `[ \t]*` on both sides of `=`, and an unquoted value that cannot contain a
+  // space: `\s*=\s*` beside `(\S+)` lets the engine divide the run of spaces
+  // between them in every possible way, which is the polynomial case.
+  const re = /([a-z_]+)[ \t]*=[ \t]*("([^"]*)"|'([^']*)'|([^\s"']+))/gi;
   let m;
   while ((m = re.exec(body)) !== null) {
     const value = m[3] !== undefined ? m[3] : m[4] !== undefined ? m[4] : m[5];
@@ -300,7 +303,7 @@ export function parseMarkdown(source: string): DocumentNode {
     if (scenario) {
       const step = RE_STEP.exec(line);
       if (step) {
-        scenario.steps.push(step[1].trim());
+        scenario.steps.push((step[1] || "").trim());
         continue;
       }
       if (line.trim() === "") continue;
