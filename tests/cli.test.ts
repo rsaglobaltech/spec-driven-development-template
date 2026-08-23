@@ -244,8 +244,26 @@ test("can init, expand, and validate a generated project end-to-end", () => {
 function gitInTest(args, opts = {}) {
   const result = spawnSync("git", args, { encoding: "utf8", ...opts });
   if (result.status !== 0) {
-    throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
+    // stdout as well as stderr: a commit with nothing to commit exits non-zero
+    // and says so on *stdout*, so reporting only stderr showed nothing but line
+    // ending warnings. That cost a CI round to work out.
+    throw new Error(`git ${args.join(" ")} failed:\n${result.stdout || ""}${result.stderr || ""}`);
   }
+}
+
+/**
+ * A fixture repository that does not rewrite what the test wrote.
+ *
+ * With `core.autocrlf` on — the Windows default — git normalises line endings
+ * on checkout and back on add, so a fixture that edits a file to LF finds
+ * nothing to commit and `git commit` exits non-zero. These tests are about
+ * matrix merges and prompt archives, not line endings.
+ */
+function gitInitForTest(dir: string) {
+  gitInTest(["init", "--quiet", "--initial-branch=main", dir]);
+  gitInTest(["-C", dir, "config", "core.autocrlf", "false"]);
+  gitInTest(["-C", dir, "config", "user.email", "cli-test@example.com"]);
+  gitInTest(["-C", dir, "config", "user.name", "CLI Test"]);
 }
 
 function hasGit() {
@@ -593,7 +611,7 @@ function makeHarnessProject(tempRoot, extraReqs: string[] = []) {
     );
   }
 
-  gitInTest(["init", "--quiet", "--initial-branch=main", projectDir]);
+  gitInitForTest(projectDir);
   gitInTest(["config", "user.email", "test@example.com"], { cwd: projectDir });
   gitInTest(["config", "user.name", "Test"], { cwd: projectDir });
   gitInTest(["config", "commit.gpgsign", "false"], { cwd: projectDir });
@@ -1017,7 +1035,7 @@ test(
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-drv-states-"));
     const projectDir = path.join(tempRoot, "p");
     fs.mkdirSync(projectDir, { recursive: true });
-    gitInTest(["init", "--quiet", "--initial-branch=main", projectDir]);
+    gitInitForTest(projectDir);
     fs.writeFileSync(path.join(projectDir, "spec.md"), "# Spec\n", "utf8");
     fs.writeFileSync(
       path.join(projectDir, ".gitattributes"),
@@ -1075,7 +1093,7 @@ function makeAuthorProject() {
     "utf8"
   );
 
-  gitInTest(["init", "--quiet", "--initial-branch=main", projectDir]);
+  gitInitForTest(projectDir);
   gitInTest(["config", "user.email", "t@e.com"], { cwd: projectDir });
   gitInTest(["config", "user.name", "T"], { cwd: projectDir });
   gitInTest(["config", "commit.gpgsign", "false"], { cwd: projectDir });
