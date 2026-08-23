@@ -78,7 +78,7 @@ punta) y `GATE-G4` (gate de cobertura) están **cerrados**.
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------- |
 | ~~**H15**~~ **cerrado 2026-08-22** | **Un filtro de escenario que no casa nada salía 0.** Reproducido: `cucumber-js --tags '@does-not-exist'` daba `1 passed`, rama publicada y requisito cerrado. Cerrado por `F5` leyendo el protocolo de mensajes | `valoracion-bdd…` §2.2 | ~~F5~~ **hecho** |
 | ~~**H16**~~ **cerrado 2026-08-22** | **El gate no comprobaba que el agente no tocó `spec.md`, `AI_RULES.md` ni `features/**`.** El prompt lo pedía; nadie lo verificaba. Reproducido: un agente que sustituyó el escenario por `Given nothing / Then nothing is asserted` obtuvo `1 passed · 0 failed`. Cerrado por `A1` | `propuesta-harness…` A1 | ~~A1~~ **hecho** |
-| **H13**                       | El JSON Schema declara autoridad que no ejerce; los 11 packs fallarían el esquema                                                                                                 | §12.11                  | **E1** — decisión previa a tocar el formato |
+| ~~**H13**~~ **cerrado 2026-08-23** | **El JSON Schema declaraba autoridad que no ejercía.** Medido: 10 de 11 packs lo fallaban mientras los 11 pasaban `pack lint --strict`. Y no era papeleo — instalar cualquier pack producía documentos con `Context`, `Invariants`, `Producer` y `Consumers` vacíos. Cerrado por `E1`, opción B | §12.11 | ~~E1~~ **hecho** |
 
 `H1`–`H8`, `H10`, `H11` están cerrados y publicados en 0.5.0 / 0.6.0.
 `H9`, `H12` y `H14` también, en la rama actual: `E1-03`, `E1-01` y `F2`.
@@ -131,7 +131,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | D1  | Perfil de agente por requisito, no por ejecución                        | Bajo-medio |
 | D2  | Precedentes del repositorio en el prompt                                | Bajo       |
 | D3  | Verificación adversarial opcional                                       | Medio      |
-| E1  | Decidir H13 antes de tocar el formato de pack                           | Decisión   |
+| ~~E1~~ | **Decidido y hecho (2026-08-23).** Opción B: el esquema describe el formato que existe, y los 11 packs enviados se validan contra él en la suite. Enmienda a ADR-0020. Destapó dos defectos más, arreglados aparte | Decisión |
 
 **De `valoracion-bdd-gherkin-era-agentes.md`:**
 
@@ -195,7 +195,8 @@ parser dijera la verdad, después extender su alcance.
 
 **Tanda 2 — CERRADA (2026-08-22).** ~~`C3`~~ → ~~`C2`~~ → ~~`B2`~~ → ~~`F5`~~ → ~~`C1`~~.
 
-**Siguiente: tanda 3 — `E1` (decisión) → `B1` → `D1` → `F4`.**
+**Tanda 3 en curso:** ~~`E1`~~ **(hecho, 2026-08-23)** → `B1` → `D1` → `F4`.
+**Vamos por `B1`.**
 
 **Tanda 2 — que el bucle rinda desatendido.** `C3` → `C2` → `B2` → `F5` → `C1`.
 Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.

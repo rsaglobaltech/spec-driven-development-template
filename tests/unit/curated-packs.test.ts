@@ -21,6 +21,7 @@ const { spawnSync } = require("node:child_process");
 
 const ROOT_DIR = path.resolve(__dirname, "../../..");
 const CLI = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const { loadPack } = require("../../packages/core/src/infrastructure/DiskPackRepository");
 const PACKS_DIR = path.join(ROOT_DIR, "packs");
 
 /** Variables beyond the usual three that a pack may declare. */
@@ -93,6 +94,36 @@ for (const id of IDS) {
         { encoding: "utf8" }
       );
       assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
+
+      // Installing is not enough: the documents have to carry what the pack
+      // declared. The schema said `context` and `invariants`, the packs write
+      // `bounded_context` and `responsibilities`, and the renderer read the
+      // schema's names — so every curated pack installed cleanly and produced
+      // `| AGG-001 | Invoice | - | - |`. H13 was not paperwork; it shipped a
+      // worse product (E1).
+      const { pack } = loadPack(PACKS_DIR, id);
+
+      const aggregate = (pack.aggregates || []).find((a: any) => a.bounded_context || a.context);
+      if (aggregate) {
+        const rendered = fs.readFileSync(path.join(projectDir, "docs/specs/aggregates.md"), "utf8");
+        const row = rendered.split("\n").find((l: string) => l.includes(`| ${aggregate.id} `));
+        assert.ok(row, `no row for ${aggregate.id} in aggregates.md`);
+        assert.ok(
+          row.includes(aggregate.bounded_context || aggregate.context),
+          `${id}: the aggregate's context is missing from the rendered row:\n  ${row}`
+        );
+      }
+
+      const event = (pack.events || []).find((e: any) => e.producer || e.aggregate);
+      if (event) {
+        const rendered = fs.readFileSync(path.join(projectDir, "docs/specs/events.md"), "utf8");
+        const row = rendered.split("\n").find((l: string) => l.includes(`| ${event.id} `));
+        assert.ok(row, `no row for ${event.id} in events.md`);
+        assert.ok(
+          row.includes(event.producer || event.aggregate),
+          `${id}: the event's producer is missing from the rendered row:\n  ${row}`
+        );
+      }
     } finally {
       fs.rmSync(parent, { recursive: true, force: true });
     }

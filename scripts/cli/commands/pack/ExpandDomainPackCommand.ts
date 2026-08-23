@@ -156,10 +156,21 @@ export function renderDomainDocs(pack: any, projectDir: string, dryRun: boolean)
     ),
   ]);
 
+  // `bounded_context` first, then `context`: the eleven curated packs write the
+  // former and the schema used to say the latter, so reading only `context`
+  // rendered an empty column for every one of them. Measured — installing the
+  // billing pack produced `| AGG-001 | Invoice | - | - |` while the pack
+  // declared both fields under their real names (E1 / H13).
+  //
+  // Responsibilities and invariants are different things and get their own
+  // columns: what an aggregate owns is not the same as the rules it must keep,
+  // and showing one under the other's heading would be a mislabelled fact
+  // rather than a missing one.
   const aggregateRows = aggregates.map((aggregate: any) => [
     aggregate.id || "-",
     aggregate.name || "-",
-    aggregate.context || "-",
+    aggregate.bounded_context || aggregate.context || "-",
+    formatList(aggregate.responsibilities),
     formatList(aggregate.invariants),
   ]);
 
@@ -170,10 +181,13 @@ export function renderDomainDocs(pack: any, projectDir: string, dryRun: boolean)
     formatList(valueObject.invariants),
   ]);
 
+  // The aggregate that emits an event is its producer. The packs say
+  // `aggregate:`, the schema said `producer:`, and the renderer read only the
+  // latter — so every event in every curated pack rendered `Producer: -`.
   const eventRows = events.map((event: any) => [
     event.id || "-",
     event.name || "-",
-    event.producer || "-",
+    event.producer || event.aggregate || "-",
     formatList(event.consumers),
     formatList(event.payload),
   ]);
@@ -225,7 +239,10 @@ export function renderDomainDocs(pack: any, projectDir: string, dryRun: boolean)
         "",
         "## Aggregates",
         "",
-        renderMarkdownTable(["ID", "Aggregate", "Context", "Invariants"], aggregateRows),
+        renderMarkdownTable(
+          ["ID", "Aggregate", "Context", "Responsibilities", "Invariants"],
+          aggregateRows
+        ),
         "",
         "## Value Objects",
         "",
@@ -287,7 +304,10 @@ export function renderDomainDocs(pack: any, projectDir: string, dryRun: boolean)
       [
         "# Aggregates",
         "",
-        renderMarkdownTable(["ID", "Aggregate", "Context", "Invariants"], aggregateRows),
+        renderMarkdownTable(
+          ["ID", "Aggregate", "Context", "Responsibilities", "Invariants"],
+          aggregateRows
+        ),
         "",
       ].join("\n"),
     ],

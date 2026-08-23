@@ -33,7 +33,7 @@ function fail(message) {
  * that adds a field to `schemas/pack.schema.json`, or packs authored against
  * the new field will be rejected by a CLI that in fact understands them.
  */
-export const PACK_SCHEMA_VERSION = "1.3.0";
+export const PACK_SCHEMA_VERSION = "1.4.0";
 
 /** Project types a pack may target. Mirrors the enum in schemas/pack.schema.json. */
 export const PACK_PROJECT_TYPES = ["backend", "frontend", "mobile", "contracts"];
