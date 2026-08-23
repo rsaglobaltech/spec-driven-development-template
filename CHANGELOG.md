@@ -109,6 +109,17 @@ H16, all four measured before anything was written and reproduced after.
   inside quotes, so `responsibilities: ["Invoice line items, totals, status,
   aging"]` parsed as four items carrying stray quote characters.
 
+- **The published CLI did nothing on Windows.** `bin/create-spec-driven-app.js`
+  is a two-line shim that `require`s the built entry point, so `require.main` is
+  the shim and the guard recognised it by name — with
+  `filename.endsWith("bin/create-spec-driven-app.js")`, which never matches on
+  Windows, where `filename` carries backslashes. The CLI loaded, dispatched
+  nothing, and exited 0 **with no output on either stream**.
+
+  Found by putting this branch through CI for the first time: 437 tests failed
+  on Windows and not one message said why, because there was no message. It
+  survived because both machines it was developed on use `/`.
+
 - **`csda validate .` on this repository had been failing since the clean
   architecture refactor.** Splitting `scripts/init_pack.ts` dropped its
   `csda:allow-placeholders` marker, so the command's own `{{VAR}}` output read

@@ -10,6 +10,7 @@ import { test } from "node:test";
 import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const distDir = path.join(repoRoot, "dist");
@@ -139,4 +140,39 @@ test("every script the command registry dispatches to is a runnable entry point"
     }
   }
   assert.deepEqual(missing, [], `\n  ${missing.join("\n  ")}`);
+});
+
+// ── The published shim has to start the CLI on every platform ────────────────
+//
+// `bin/create-spec-driven-app.js` is two lines that `require` the built entry
+// point, so `require.main` is the shim and not the module. The guard therefore
+// has to recognise the shim by name — and the form it used,
+// `filename.endsWith("bin/create-spec-driven-app.js")`, never matched on
+// Windows, where `filename` carries backslashes.
+//
+// The CLI then loaded, dispatched nothing, and exited 0 with **no output on
+// either stream**. 437 tests failed and not one message said why, because there
+// was no message. It survived 53 commits because the branch had not been
+// through CI and both development machines use `/`.
+
+test("the entry-point guard matches the shim on posix and on windows", () => {
+  const posix = "/home/runner/work/repo/bin/create-spec-driven-app.js";
+  const win = "D:\\a\\repo\\repo\\bin\\create-spec-driven-app.js";
+
+  // What the guard does now — `path.basename` is `path.win32.basename` on
+  // Windows, so one expression covers both.
+  assert.equal(path.posix.basename(posix), "create-spec-driven-app.js");
+  assert.equal(path.win32.basename(win), "create-spec-driven-app.js");
+
+  // What it used to do, which is the bug.
+  assert.equal(win.endsWith("bin/create-spec-driven-app.js"), false);
+});
+
+test("the shim starts the CLI, not just loads it", () => {
+  // The end-to-end version: run the published entry point the way npm does and
+  // require it to actually produce output.
+  const shim = path.join(repoRoot, "bin", "create-spec-driven-app.js");
+  const r = spawnSync(process.execPath, [shim, "--version"], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout.trim(), /^\d+\.\d+\.\d+/, `the shim produced no version:\n${r.stdout}`);
 });

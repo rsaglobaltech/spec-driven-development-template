@@ -352,6 +352,28 @@ function dispatchHarnessPrompt(args: string[]): void {
   runNodeScript(script, ["--dry-run", "--req", reqId, ...args.slice(3)]);
 }
 
-if (require.main === module || require.main?.filename.endsWith("bin/create-spec-driven-app.js")) {
+/**
+ * Run when this module *is* the entry point, or when the published `bin/` shim
+ * required it.
+ *
+ * The shim is two lines — `require("../dist/bin/create-spec-driven-app.js")` —
+ * so `require.main` is the shim and not this module, and the check has to
+ * recognise it by name.
+ *
+ * Compare on the basename. The previous form asked
+ * `filename.endsWith("bin/create-spec-driven-app.js")`, and on Windows
+ * `filename` is `bin\create-spec-driven-app.js`, so it never matched: the CLI
+ * loaded, dispatched nothing, and exited 0 with no output on either stream.
+ * Every test that spawns the CLI failed — 437 of them — and none of the
+ * messages said why, because there was no message.
+ *
+ * It survived because this branch had never been through CI, and the two
+ * platforms it was developed on both use `/`.
+ */
+const isEntryPoint =
+  require.main === module ||
+  (require.main ? path.basename(require.main.filename) === "create-spec-driven-app.js" : false);
+
+if (isEntryPoint) {
   new CreateSpecDrivenAppCommand().execute();
 }
