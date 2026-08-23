@@ -58,6 +58,21 @@ el resto son de referencia histórica.
 
 ## 3. Todo lo abierto, en una lista
 
+> **Desde 0.7.0, lo abierto vive también como issues en GitHub.** Este índice
+> sigue siendo el detalle —el porqué, lo medido, dónde mirar—; los issues son la
+> lista accionable. Si divergen, **manda el issue**: es lo que otra persona ve.
+>
+> | | Issue |
+> |---|---|
+> | `GATE-G3` adopción externa · `GATE-G5` ventana de soporte | [#100](https://github.com/rsaglobaltech/spec-driven-development-template/issues/100) · [#101](https://github.com/rsaglobaltech/spec-driven-development-template/issues/101) |
+> | `P2` superficie de lectura · `P1` multi-repo | [#102](https://github.com/rsaglobaltech/spec-driven-development-template/issues/102) · [#103](https://github.com/rsaglobaltech/spec-driven-development-template/issues/103) |
+> | `E2-06` `projects:` en `plan`/`status`/`report` | [#104](https://github.com/rsaglobaltech/spec-driven-development-template/issues/104) |
+> | `B3` · `D2` · `D3` · `F6` | [#105](https://github.com/rsaglobaltech/spec-driven-development-template/issues/105) · [#106](https://github.com/rsaglobaltech/spec-driven-development-template/issues/106) · [#107](https://github.com/rsaglobaltech/spec-driven-development-template/issues/107) · [#108](https://github.com/rsaglobaltech/spec-driven-development-template/issues/108) |
+> | `C8-01` · `C8-02` · `C8-03` · `C8-04` | [#109](https://github.com/rsaglobaltech/spec-driven-development-template/issues/109) · [#110](https://github.com/rsaglobaltech/spec-driven-development-template/issues/110) · [#111](https://github.com/rsaglobaltech/spec-driven-development-template/issues/111) · [#112](https://github.com/rsaglobaltech/spec-driven-development-template/issues/112) |
+> | Decisiones: `C9-05` · `ARCHITECTURE` layered · `linkBack` | [#113](https://github.com/rsaglobaltech/spec-driven-development-template/issues/113) · [#114](https://github.com/rsaglobaltech/spec-driven-development-template/issues/114) · [#115](https://github.com/rsaglobaltech/spec-driven-development-template/issues/115) |
+> | Dos grafías de `payload` en los packs _(salió de `E1`)_ | [#116](https://github.com/rsaglobaltech/spec-driven-development-template/issues/116) |
+
+
 ### 3.1 Bloquea el 1.0 — dos cosas, y ninguna es código
 
 | ID                    | Qué falta                                                                                                                                                                    | Coste                  | Nota                                               |
