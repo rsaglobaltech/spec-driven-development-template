@@ -6,6 +6,8 @@ Reusable, versioned domain knowledge. A pack is to a spec tree what a
 dependency is to code: you install it, you pin it, and you upgrade it
 deliberately.
 
+<!-- csda:diagram three-repos -->
+
 ---
 
 ## Author a domain pack from scratch

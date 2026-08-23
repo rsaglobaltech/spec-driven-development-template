@@ -27,6 +27,7 @@ import * as path from "node:path";
 import { marked } from "marked";
 
 import { NAV, navEntry, neighbours } from "./nav";
+import { diagrams, inlineDiagrams } from "./blocks";
 
 const ROOT = path.resolve(__dirname, "..", "..", "..");
 const DOCS = path.join(ROOT, "docs");
@@ -371,11 +372,15 @@ export function buildSite(outDir: string): { pages: number; orphans: string[] } 
 
   const slugs = markdownFiles(DOCS);
   const index: Array<{ slug: string; title: string; text: string }> = [];
+  const available = diagrams(DOCS);
 
   for (const slug of slugs) {
     const source = fs.readFileSync(path.join(DOCS, `${slug}.md`), "utf8");
     // The marker is ours and means nothing to a reader.
-    const cleaned = source.replace(/^<!--\s*csda:allow-placeholders[^>]*-->\s*\n?/gm, "");
+    const cleaned = inlineDiagrams(
+      source.replace(/^<!--\s*csda:allow-placeholders[^>]*-->\s*\n?/gm, ""),
+      available
+    );
     const { html, headings, title } = renderMarkdown(cleaned, slug);
 
     const page: Page = {

@@ -1,0 +1,67 @@
+<figure class="dia dia--loop">
+  <div class="dia__scroll">
+  <svg viewBox="0 0 760 420" class="dia__svg" role="img" aria-labelledby="csda-hl-t csda-hl-d">
+    <title id="csda-hl-t">One turn of the harness</title>
+    <desc id="csda-hl-d">The harness picks the next pending requirement, creates a git
+      worktree on a branch named after it, hands the agent a prompt, lets the agent write
+      code and tests in the worktree, runs the gate, and commits only if the gate is green.
+      It reports and never merges.</desc>
+
+    <defs>
+      <marker id="csda-hl-a" viewBox="0 0 10 8" refX="9" refY="4"
+              markerWidth="9" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 4 L0 8 Z" fill="var(--fg-soft)"/>
+      </marker>
+      <marker id="csda-hl-g" viewBox="0 0 10 8" refX="9" refY="4"
+              markerWidth="9" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 4 L0 8 Z" fill="var(--green)"/>
+      </marker>
+    </defs>
+
+    <g class="dia__lane">
+      <rect x="10"  y="10" width="140" height="34" rx="8"/>
+      <rect x="210" y="10" width="140" height="34" rx="8"/>
+      <rect x="400" y="10" width="140" height="34" rx="8"/>
+      <rect x="600" y="10" width="140" height="34" rx="8"/>
+    </g>
+    <g class="dia__actor">
+      <text x="80"  y="32" text-anchor="middle">harness</text>
+      <text x="280" y="32" text-anchor="middle">git worktree</text>
+      <text x="470" y="32" text-anchor="middle">your agent</text>
+      <text x="670" y="32" text-anchor="middle">the gate</text>
+    </g>
+
+    <g class="dia__life">
+      <line x1="80"  y1="48" x2="80"  y2="408"/>
+      <line x1="280" y1="48" x2="280" y2="408"/>
+      <line x1="470" y1="48" x2="470" y2="408"/>
+      <line x1="670" y1="48" x2="670" y2="408"/>
+    </g>
+
+    <g class="dia__msg">
+      <path d="M80 78 H150 V102 H86" marker-end="url(#csda-hl-a)"/>
+      <text x="158" y="84">plan → the next pending requirement</text>
+
+      <line x1="80" y1="140" x2="274" y2="140" marker-end="url(#csda-hl-a)"/>
+      <text x="86" y="132">create worktree on <tspan class="dia__mono">harness/REQ-001</tspan></text>
+
+      <line x1="80" y1="192" x2="464" y2="192" marker-end="url(#csda-hl-a)"/>
+      <text x="86" y="184">the prompt — Gherkin, rules, boundaries</text>
+
+      <line x1="470" y1="238" x2="286" y2="238" marker-end="url(#csda-hl-a)"/>
+      <text x="464" y="230" text-anchor="end">writes code and tests</text>
+
+      <line x1="80" y1="290" x2="664" y2="290" marker-end="url(#csda-hl-a)"/>
+      <text x="86" y="282"><tspan class="dia__mono">validate --strict-tdd</tspan> + the project's own tests</text>
+
+      <line x1="670" y1="326" x2="86" y2="326" class="dia__ok" stroke-dasharray="6 5" marker-end="url(#csda-hl-g)"/>
+      <text x="664" y="318" text-anchor="end" class="dia__ok-t">green — and only then</text>
+
+      <line x1="80" y1="368" x2="274" y2="368" marker-end="url(#csda-hl-a)"/>
+      <text x="86" y="360">mark done, commit</text>
+    </g>
+
+    <text x="80" y="404" class="dia__note">…and reports. It never merges — that stays yours.</text>
+  </svg>
+  </div>
+</figure>

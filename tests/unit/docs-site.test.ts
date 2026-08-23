@@ -295,3 +295,68 @@ test("the landing page counts what the repository actually has", () => {
   assert.ok(html.includes(`<dt>${packs}</dt>`), `pack count is not ${packs}`);
   assert.ok(html.includes("<dt>0</dt>"), "the zero-runtime-dependencies claim is missing");
 });
+
+// ── Diagrams ─────────────────────────────────────────────────────────────────
+
+test("no page ships a mermaid block, because nothing on this site renders one", () => {
+  // Two `graph LR` / `sequenceDiagram` blocks sat in the article for months and
+  // were served as literal code. A fenced block the site cannot render is worse
+  // than no diagram: it is a diagram the reader can see was meant to be there.
+  const offenders = [];
+  for (const slug of shippedSlugs()) {
+    const source = fs.readFileSync(path.join(DOCS, `${slug}.md`), "utf8");
+    if (/^```mermaid/m.test(source)) offenders.push(slug);
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `Replace the block with a diagram in docs/assets/diagrams/ and a\n` +
+      `  <!-- csda:diagram NAME --> marker:\n  ${offenders.join("\n  ")}`
+  );
+});
+
+test("every diagram the pages ask for exists, and every diagram is asked for", () => {
+  const { diagrams } = require("../../scripts/docs/blocks");
+  const available = diagrams(DOCS);
+  assert.ok(available.size > 0, "found no diagrams — docs/assets/diagrams/ is missing");
+
+  const requested = new Set();
+  const sources = [
+    ...shippedSlugs().map((slug) => fs.readFileSync(path.join(DOCS, `${slug}.md`), "utf8")),
+    fs.readFileSync(path.join(DOCS, "index.html"), "utf8"),
+  ];
+  for (const source of sources) {
+    for (const m of source.matchAll(/<!--\s*csda:diagram\s+([a-z0-9-]+)\s*-->/g)) requested.add(m[1]);
+  }
+
+  const missing = [...requested].filter((name) => !available.has(name)).sort();
+  assert.deepEqual(missing, [], `asked for but not in docs/assets/diagrams/: ${missing.join(", ")}`);
+
+  // The other direction: a diagram nobody shows is 3 KB published for nothing,
+  // and is how the last two dead stylesheets got there.
+  const unused = [...available.keys()].filter((name) => !requested.has(name)).sort();
+  assert.deepEqual(unused, [], `in docs/assets/diagrams/ and shown nowhere: ${unused.join(", ")}`);
+});
+
+test("an inlined diagram reaches the page as markup, not as escaped text", () => {
+  const { dir } = site();
+  const article = fs.readFileSync(
+    path.join(dir, "articles", "specs-that-cannot-lie.html"),
+    "utf8"
+  );
+  assert.match(article, /<svg[^>]+class="dia__svg"/, "the harness loop did not inline");
+  assert.match(article, /class="chain__n"/, "the traceability chain did not inline");
+  assert.doesNotMatch(article, /&lt;svg/, "the diagram was escaped instead of inlined");
+});
+
+test("a diagram's colours come from the token system", () => {
+  // An inline diagram is the only place on the site where a hard-coded hex
+  // would still follow the page in one theme and not the other.
+  const { diagrams } = require("../../scripts/docs/blocks");
+  const offenders = [];
+  for (const [name, body] of diagrams(DOCS)) {
+    const hexes = body.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
+    if (hexes.length > 0) offenders.push(`${name}: ${hexes.join(", ")}`);
+  }
+  assert.deepEqual(offenders, [], `use var(--…) instead:\n  ${offenders.join("\n  ")}`);
+});

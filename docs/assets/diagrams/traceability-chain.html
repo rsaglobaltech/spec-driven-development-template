@@ -1,0 +1,19 @@
+<figure class="dia dia--chain">
+  <ol class="chain" aria-label="The traceability chain, from requirement to status">
+    <li class="chain__n"><b>REQ-001</b><span>requirement</span></li>
+    <li class="chain__n"><b>SCN-001</b><span>scenario</span></li>
+    <li class="chain__n"><b>load_pack.feature</b><span>Gherkin</span></li>
+    <li class="chain__n"><b>UC-001</b><span>use case</span></li>
+    <li class="chain__n"><b>CMD-001</b><span>command</span></li>
+    <li class="chain__n"><b>AGG-001</b><span>aggregate</span></li>
+    <li class="chain__n"><b>EVT-001</b><span>event</span></li>
+    <li class="chain__n"><b>src/…</b><span>code</span></li>
+    <li class="chain__n"><b>…steps.ts</b><span>test</span></li>
+    <li class="chain__n chain__n--end"><b>Verified</b><span>status</span></li>
+  </ol>
+  <figcaption>
+    One row of the matrix, read as a sentence. Break any link and
+    <code>csda validate</code> fails — which is what stops a specification from
+    quietly becoming false.
+  </figcaption>
+</figure>
