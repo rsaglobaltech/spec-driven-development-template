@@ -27,8 +27,12 @@ import * as path from "node:path";
 import { marked } from "marked";
 
 import { NAV, navEntry, neighbours } from "./nav";
+import { diagrams, inlineDiagrams } from "./blocks";
 
 const ROOT = path.resolve(__dirname, "..", "..", "..");
+
+/** Absolute base for metadata a link scraper resolves without a page context. */
+const SITE = "https://rsaglobaltech.github.io/spec-driven-development-template";
 const DOCS = path.join(ROOT, "docs");
 const REPO = "https://github.com/rsaglobaltech/spec-driven-development-template";
 
@@ -36,7 +40,7 @@ const REPO = "https://github.com/rsaglobaltech/spec-driven-development-template"
 // `roi.html` used to be here. A calculator that estimates a saving is a sales
 // artefact, not documentation, and it was the only page on the site written in
 // a different voice.
-const VERBATIM = ["styles.css", "app.js", "index.html", "assets"];
+const VERBATIM = ["index.html", "assets"];
 
 interface Page {
   /** `harness`, `case-studies/case-1` — the path without extension. */
@@ -187,12 +191,19 @@ function renderMarkdown(
 
 // ── The page shell ───────────────────────────────────────────────────────────
 
-function sidebar(currentSlug: string): string {
+/**
+ * The sidebar, from a page that may be nested.
+ *
+ * `up` is not decoration: a page at `case-studies/case-1.html` linking to a
+ * bare `getting-started.html` asks for `case-studies/getting-started.html`,
+ * which does not exist. Every link out of a nested page needs the climb.
+ */
+function sidebar(currentSlug: string, up: string): string {
   const sections = NAV.map((section) => {
     const items = section.entries
       .map((entry) => {
         const active = entry.slug === currentSlug ? ' class="is-active" aria-current="page"' : "";
-        return `<li><a href="${entry.slug}.html"${active}>${escapeHtml(entry.label)}</a></li>`;
+        return `<li><a href="${up}${entry.slug}.html"${active}>${escapeHtml(entry.label)}</a></li>`;
       })
       .join("");
     return `<div class="side__group"><h2>${escapeHtml(section.title)}</h2><ul>${items}</ul></div>`;
@@ -234,6 +245,11 @@ function pageShell(page: Page, version: string): string {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="icon" href="${up}assets/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="${escapeHtml(page.title)} — create-spec-driven-app">
+<meta property="og:description" content="${escapeHtml(entry?.blurb || page.title)}">
+<meta property="og:image" content="${SITE}/assets/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="${up}assets/docs.css">
 <script>
   // Applied before paint so the page never flashes the wrong theme.
@@ -264,7 +280,7 @@ function pageShell(page: Page, version: string): string {
 </header>
 
 <div class="shell">
-  <aside class="side" id="side">${sidebar(page.slug)}</aside>
+  <aside class="side" id="side">${sidebar(page.slug, up)}</aside>
 
   <main class="content" id="content">
     <article class="prose">
@@ -304,10 +320,27 @@ function markdownFiles(dir: string, prefix = ""): string[] {
   return out.sort();
 }
 
-function copyVerbatim(outDir: string): void {
+/**
+ * The hand-written parts of the site, copied across.
+ *
+ * `index.html` gets one transformation on the way: its `csda:diagram` markers
+ * are resolved, the same way a markdown page's are. The diagram is a source
+ * file in the repository and the marker is one line, so there is nothing to go
+ * stale between them — unlike the terminal recording, which needs the CLI to
+ * regenerate and is therefore committed into the file rather than injected here.
+ */
+function copyVerbatim(outDir: string, available: Map<string, string>): void {
   for (const name of VERBATIM) {
     const from = path.join(DOCS, name);
     if (!fs.existsSync(from)) continue;
+    if (name === "index.html") {
+      fs.writeFileSync(
+        path.join(outDir, name),
+        inlineDiagrams(fs.readFileSync(from, "utf8"), available),
+        "utf8"
+      );
+      continue;
+    }
     fs.cpSync(from, path.join(outDir, name), { recursive: true });
   }
 }
@@ -364,11 +397,15 @@ export function buildSite(outDir: string): { pages: number; orphans: string[] } 
 
   const slugs = markdownFiles(DOCS);
   const index: Array<{ slug: string; title: string; text: string }> = [];
+  const available = diagrams(DOCS);
 
   for (const slug of slugs) {
     const source = fs.readFileSync(path.join(DOCS, `${slug}.md`), "utf8");
     // The marker is ours and means nothing to a reader.
-    const cleaned = source.replace(/^<!--\s*csda:allow-placeholders[^>]*-->\s*\n?/gm, "");
+    const cleaned = inlineDiagrams(
+      source.replace(/^<!--\s*csda:allow-placeholders[^>]*-->\s*\n?/gm, ""),
+      available
+    );
     const { html, headings, title } = renderMarkdown(cleaned, slug);
 
     const page: Page = {
@@ -394,10 +431,14 @@ export function buildSite(outDir: string): { pages: number; orphans: string[] } 
 
   fs.mkdirSync(path.join(outDir, "assets"), { recursive: true });
   fs.writeFileSync(path.join(outDir, "assets", "search-index.json"), JSON.stringify(index), "utf8");
-  copyVerbatim(outDir);
+  copyVerbatim(outDir, available);
   fs.writeFileSync(path.join(outDir, ".nojekyll"), "", "utf8");
 
-  const orphans = slugs.filter((slug) => !navEntry(slug) && !slug.includes("/"));
+  // Depth used to exempt a page, which is how `articles/` and `case-studies/`
+  // stayed published and unreachable. `docs/specs/` is the one real exception:
+  // those pages are the project's own specifications, published so the links
+  // that reference them resolve, and deliberately not in a reader's sidebar.
+  const orphans = slugs.filter((slug) => !navEntry(slug) && !slug.startsWith("specs/"));
   return { pages: slugs.length, orphans };
 }
 

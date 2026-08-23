@@ -91,12 +91,16 @@ the CLI supports, so getting this backwards fails CI rather than users.
 1. Update `CHANGELOG.md`. Every user-visible change gets a line; group by
    Added / Changed / Fixed / Removed.
 2. Bump `version` in `package.json`.
-3. Open a PR to `main`. `main` is protected: the twelve required checks in
+3. Re-record the landing page's terminal: `npm run build && npm run docs:terminal`,
+   then update the version in `docs/index.html`. The recording carries the
+   version it was made from and a test compares the two, so skipping this fails
+   the build rather than shipping a page that claims the wrong release.
+4. Open a PR to `main`. `main` is protected: the twelve required checks in
    [CONTRIBUTING.md](../CONTRIBUTING.md#required-checks) must be green, and the
    branch must be up to date with `main` before it will merge.
-4. Merge.
-5. Tag the merge commit `vX.Y.Z` and push the tag. `publish-npm.yml` fires.
-6. Write the GitHub release notes from the changelog entry.
+5. Merge.
+6. Tag the merge commit `vX.Y.Z` and push the tag. `publish-npm.yml` fires.
+7. Write the GitHub release notes from the changelog entry.
 
 ## Pre-releases
 

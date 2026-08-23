@@ -208,4 +208,286 @@
       if (el) observer.observe(el);
     });
   }
+
+  // ── The recorded terminal ────────────────────────────────────────────────
+  //
+  // The markup already contains the whole transcript in a `<pre>`. This turns
+  // it into a replay; if anything at all goes wrong, the `<pre>` is what the
+  // reader keeps, so it is hidden only once the recording has parsed.
+  //
+  // Every node is built with createElement + textContent. The transcript is
+  // real CLI output and contains `<`, `&` and box-drawing characters, so
+  // innerHTML is not an option here.
+
+  $$(".term[data-term-src]").forEach(function (fig) {
+    var src = fig.getAttribute("data-term-src");
+    if (!src || !window.fetch) return;
+    fetch(src)
+      .then(function (r) {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then(function (rec) {
+        if (!rec || rec.schemaVersion !== 1 || !rec.steps || !rec.steps.length) {
+          throw new Error("not a recording this player knows");
+        }
+        startTerm(fig, rec);
+      })
+      .catch(function () {
+        // A blocked fetch, a file:// origin, a schema from the future.
+        fig.classList.add("term--static");
+      });
+  });
+
+  function reducedMotion() {
+    return (
+      window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
+  }
+
+  function startTerm(fig, rec) {
+    var screen = $(".term__screen", fig);
+    var caption = $(".term__caption", fig);
+    var toggle = $(".term__btn--toggle", fig);
+    var skip = $(".term__btn--skip", fig);
+    var replay = $(".term__btn--replay", fig);
+    if (!screen) return;
+
+    var timers = [];
+    var frame = null;
+    var index = 0;
+    var userPaused = false;
+    var hoverPaused = false;
+    var resume = null;
+
+    function clearPending() {
+      timers.forEach(clearTimeout);
+      timers = [];
+      if (frame) cancelAnimationFrame(frame);
+      frame = null;
+    }
+
+    function later(fn, ms) {
+      timers.push(setTimeout(fn, ms));
+    }
+
+    function paused() {
+      return userPaused || hoverPaused || document.visibilityState === "hidden";
+    }
+
+    function lineNode(line) {
+      var el = document.createElement("div");
+      el.className = "term__line term__line--" + (line.c || "out");
+      el.textContent = line.t;
+      return el;
+    }
+
+    function stepNode(step) {
+      var root = document.createElement("div");
+      root.className = "term__step";
+
+      var head = document.createElement("div");
+      var prompt = document.createElement("span");
+      prompt.className = "term__prompt";
+      prompt.textContent = step.cwd + " $ ";
+      var cmd = document.createElement("span");
+      cmd.className = "term__cmd";
+      head.appendChild(prompt);
+      head.appendChild(cmd);
+      root.appendChild(head);
+
+      var out = document.createElement("div");
+      out.className = "term__out";
+      root.appendChild(out);
+
+      return { root: root, cmd: cmd, out: out, head: head };
+    }
+
+    function emitOutput(step, nodes) {
+      step.lines.forEach(function (line) {
+        nodes.out.appendChild(lineNode(line));
+      });
+      if (step.truncated) {
+        var more = document.createElement("div");
+        more.className = "term__line term__more";
+        more.textContent = "… " + step.omitted + " more lines";
+        nodes.out.appendChild(more);
+      }
+      if (step.exit !== 0) {
+        var exit = document.createElement("div");
+        exit.className = "term__exit term__exit--fail";
+        exit.textContent = "exit " + step.exit;
+        nodes.out.appendChild(exit);
+      }
+      screen.scrollTop = screen.scrollHeight;
+    }
+
+    // Characters are computed from elapsed time rather than one per frame, so a
+    // backgrounded tab catches up on return instead of queueing thousands of
+    // timers.
+    function typeCommand(nodes, text, msPerChar, whenDone) {
+      var caret = document.createElement("span");
+      caret.className = "term__caret";
+      nodes.head.appendChild(caret);
+      var started = null;
+
+      function tick(now) {
+        if (paused()) {
+          resume = function () {
+            started = null;
+            frame = requestAnimationFrame(tick);
+          };
+          frame = null;
+          return;
+        }
+        if (started === null) started = now - nodes.cmd.textContent.length * msPerChar;
+        var shown = Math.min(text.length, Math.floor((now - started) / msPerChar));
+        nodes.cmd.textContent = text.slice(0, shown);
+        screen.scrollTop = screen.scrollHeight;
+        if (shown >= text.length) {
+          if (caret.parentNode) caret.parentNode.removeChild(caret);
+          whenDone();
+          return;
+        }
+        frame = requestAnimationFrame(tick);
+      }
+      frame = requestAnimationFrame(tick);
+    }
+
+    function setCaption(step) {
+      if (caption) caption.textContent = step.caption || "";
+    }
+
+    function finish() {
+      fig.classList.remove("term--playing");
+      fig.classList.add("term--done");
+      if (toggle) toggle.hidden = true;
+      if (skip) skip.hidden = true;
+      if (replay) replay.hidden = false;
+    }
+
+    function play() {
+      if (index >= rec.steps.length) {
+        finish();
+        return;
+      }
+      var step = rec.steps[index];
+      index += 1;
+      setCaption(step);
+      var nodes = stepNode(step);
+      screen.appendChild(nodes.root);
+      screen.scrollTop = screen.scrollHeight;
+
+      typeCommand(nodes, step.command, step.typeMs || 26, function () {
+        emitOutput(step, nodes);
+        later(function () {
+          if (paused()) {
+            resume = play;
+            return;
+          }
+          play();
+        }, step.holdMs || 1200);
+      });
+    }
+
+    function renderAll() {
+      clearPending();
+      screen.textContent = "";
+      rec.steps.forEach(function (step) {
+        var nodes = stepNode(step);
+        nodes.cmd.textContent = step.command;
+        screen.appendChild(nodes.root);
+        emitOutput(step, nodes);
+      });
+      setCaption(rec.steps[rec.steps.length - 1]);
+      screen.scrollTop = 0;
+      finish();
+    }
+
+    // The transcript stays in the accessibility tree; it stops taking space.
+    fig.classList.add("term--playing");
+
+    if (reducedMotion()) {
+      // No controls offered: a reader who asked for less motion is not looking
+      // for a button that starts some.
+      renderAll();
+      if (replay) replay.hidden = true;
+      return;
+    }
+
+    if (toggle) {
+      toggle.hidden = false;
+      toggle.addEventListener("click", function () {
+        userPaused = !userPaused;
+        toggle.textContent = userPaused ? "Resume" : "Pause";
+        if (!paused() && resume) {
+          var next = resume;
+          resume = null;
+          next();
+        }
+      });
+    }
+    if (skip) {
+      skip.hidden = false;
+      skip.addEventListener("click", renderAll);
+    }
+    if (replay) {
+      replay.addEventListener("click", function () {
+        clearPending();
+        screen.textContent = "";
+        index = 0;
+        userPaused = false;
+        resume = null;
+        fig.classList.remove("term--done");
+        fig.classList.add("term--playing");
+        if (toggle) {
+          toggle.hidden = false;
+          toggle.textContent = "Pause";
+        }
+        if (skip) skip.hidden = false;
+        replay.hidden = true;
+        play();
+      });
+    }
+
+    fig.addEventListener("mouseenter", function () {
+      hoverPaused = true;
+    });
+    fig.addEventListener("mouseleave", function () {
+      hoverPaused = false;
+      if (!paused() && resume) {
+        var next = resume;
+        resume = null;
+        next();
+      }
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (!paused() && resume) {
+        var next = resume;
+        resume = null;
+        next();
+      }
+    });
+
+    // Nothing moves until the section is on screen, and it never loops.
+    if (!window.IntersectionObserver) {
+      play();
+      return;
+    }
+    var started = false;
+    var io = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (!started && entry.isIntersecting) {
+            started = true;
+            io.disconnect();
+            play();
+          }
+        });
+      },
+      { threshold: 0.4 }
+    );
+    io.observe(fig);
+  }
+
 })();

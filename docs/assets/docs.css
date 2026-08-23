@@ -22,6 +22,7 @@
   --accent-soft: #eef2ff;
   --green: #0f7b4f;
   --amber: #9a6700;
+  --red: #c0322b;
   --radius: 10px;
   --side-w: 16.5rem;
   --toc-w: 15rem;
@@ -43,6 +44,7 @@
     --accent-soft: #1b1f33;
     --green: #4ade80;
     --amber: #fbbf24;
+    --red: #ff7b72;
   }
 }
 
@@ -58,6 +60,7 @@
   --accent-soft: #1b1f33;
   --green: #4ade80;
   --amber: #fbbf24;
+  --red: #ff7b72;
 }
 
 * { box-sizing: border-box; }
@@ -471,3 +474,131 @@ a:hover { text-decoration: underline; }
 .home__list a:hover { border-color: var(--accent); text-decoration: none; }
 .home__list strong { display: block; font-size: 0.95rem; margin-bottom: 0.15rem; }
 .home__list span { color: var(--fg-soft); font-size: 0.85rem; line-height: 1.45; }
+
+/* ── Diagrams ────────────────────────────────────────────────────────────────
+ *
+ * Inlined into the page rather than loaded as `<img src="…svg">`, because the
+ * colours are the site's tokens and a custom property does not cross into an
+ * externally loaded SVG. An `<img>` diagram would follow the system's
+ * `prefers-color-scheme` and ignore the theme toggle — the one case where it
+ * would visibly disagree with the page around it.
+ */
+
+.dia {
+  margin: 2rem 0;
+  padding: 0;
+}
+
+/* Below `min-width` the diagram scrolls rather than shrinking. A sequence
+ * diagram scaled to a 360px screen renders its labels at about five pixels,
+ * which is not a diagram — it is a texture. */
+.dia__scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.dia__svg {
+  display: block;
+  width: 100%;
+  min-width: 34rem;
+  height: auto;
+  max-width: 48rem;
+  margin: 0 auto;
+  font-family: var(--sans);
+}
+
+.dia figcaption,
+.dia > figcaption {
+  margin: 0.9rem auto 0;
+  max-width: 44rem;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--fg-soft);
+  text-align: center;
+}
+
+/* Shared SVG vocabulary. */
+.dia__lane rect,
+.dia__box rect { fill: var(--bg-soft); stroke: var(--line); stroke-width: 1; }
+.dia__box--tool rect { fill: var(--accent-soft); stroke: var(--accent); }
+.dia__actor text { font-size: 13px; font-weight: 600; fill: var(--fg); }
+.dia__life line { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 5; }
+.dia__msg line,
+.dia__msg path { stroke: var(--fg-soft); stroke-width: 1.4; fill: none; }
+.dia__msg text { font-size: 12px; fill: var(--fg-soft); }
+.dia__msg .dia__ok { stroke: var(--green); }
+.dia__ok-t { fill: var(--green) !important; font-weight: 600; }
+.dia__mono { font-family: var(--mono); fill: var(--fg); }
+.dia__h { font-size: 14px; font-weight: 700; fill: var(--fg); }
+.dia__s { font-size: 12px; fill: var(--fg-soft); }
+.dia__faint { fill: var(--fg-faint); font-style: italic; }
+.dia__note { font-size: 11.5px; fill: var(--fg-faint); font-style: italic; }
+
+/* The traceability chain is markup, not a drawing: it has to wrap on a phone,
+ * and every label in it is a string a reader may want to copy. */
+.chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.45rem 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chain__n {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  text-align: center;
+  min-width: 0;
+}
+
+.chain__n b {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.chain__n span {
+  font-size: 0.68rem;
+  color: var(--fg-faint);
+  letter-spacing: 0.02em;
+}
+
+.chain__n:not(:last-child)::after {
+  content: "→";
+  position: absolute;
+}
+
+/* The arrow sits in the gap rather than inside the node, so a wrapped row does
+ * not end with an arrow pointing at nothing. */
+.chain__n { position: relative; margin-right: 1.35rem; }
+.chain__n:last-child { margin-right: 0; }
+.chain__n:not(:last-child)::after {
+  right: -1.05rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-faint);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.chain__n--end {
+  border-color: color-mix(in srgb, var(--green) 50%, transparent);
+  background: color-mix(in srgb, var(--green) 9%, transparent);
+}
+.chain__n--end b { color: var(--green); }
+
+@media (max-width: 560px) {
+  .chain { justify-content: flex-start; }
+  .chain__n { flex: 1 1 8.5rem; }
+}

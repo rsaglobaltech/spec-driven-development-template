@@ -8,11 +8,18 @@
 <meta property="og:title" content="create-spec-driven-app">
 <meta property="og:description" content="Specifications that are checked, not admired. Zero runtime dependencies, any agent CLI, one worktree per requirement.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://rsaglobaltech.github.io/spec-driven-development-template/">
+<meta property="og:image" content="https://rsaglobaltech.github.io/spec-driven-development-template/assets/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./assets/docs.css">
 <link rel="stylesheet" href="./assets/home.css">
+<link rel="stylesheet" href="./assets/terminal.css">
 <script>
   (function () {
     var t = localStorage.getItem("csda-theme");
@@ -92,8 +99,35 @@
   </div>
 </section>
 
-<!-- ── The loop ─────────────────────────────────────────────────────────── -->
+<!-- ── The chain ────────────────────────────────────────────────────────── -->
 <section class="band band--soft">
+  <div class="wrap">
+    <h2>What makes it checkable</h2>
+    <p class="band__lede">
+      One row of the traceability matrix, read left to right, is a sentence about
+      your system. Every link in it resolves to a real file, and the build fails
+      when one does not.
+    </p>
+
+    <!-- csda:diagram traceability-chain -->
+
+    <p class="band__after">
+      <em>This requirement is demonstrated by this scenario, in this feature file,
+      realised by this use case, which dispatches this command against this
+      aggregate, emitting this event, implemented here, proven by this test,
+      currently in this state.</em>
+    </p>
+    <p>
+      An event emitted by an aggregate nobody declared is a build failure, the
+      same way an undefined symbol is. That is the whole idea, and everything
+      else on this page exists to keep it true.
+      <a href="./writing-specs.html">How a matrix row is written →</a>
+    </p>
+  </div>
+</section>
+
+<!-- ── The loop ─────────────────────────────────────────────────────────── -->
+<section class="band">
   <div class="wrap">
     <h2>The loop</h2>
     <p class="band__lede">Four commands. The same four whether a person or an agent is driving.</p>
@@ -124,8 +158,134 @@
            actually run, and TDD order. This is what CI runs.</p>
       </li>
     </ol>
+
+    <p class="band__lede band__lede--mid">
+      Step three in detail. One requirement, one branch, one gate — and the
+      branch is yours to merge or throw away.
+    </p>
+
+    <!-- csda:diagram harness-loop -->
   </div>
 </section>
+
+<!-- ── What it prints ───────────────────────────────────────────────────── -->
+<section class="band band--soft" id="watch">
+  <div class="wrap">
+    <h2>What it actually prints</h2>
+    <p class="band__lede">
+      Not a mockup. This is stdout from a real run — scaffold, pack, plan,
+      harness, gate — captured by <code>npm run docs:terminal</code> and committed
+      to the repository. A test checks it was recorded from this version of the CLI.
+    </p>
+
+    <figure class="term" data-term-src="./assets/terminal-demo.json">
+      <figcaption class="term__bar">
+        <span class="term__dots" aria-hidden="true"></span>
+        <span class="term__title">smart-parking</span>
+        <span class="term__controls">
+          <button class="term__btn term__btn--toggle" type="button" hidden>Pause</button>
+          <button class="term__btn term__btn--skip" type="button" hidden>Show all</button>
+          <button class="term__btn term__btn--replay" type="button" hidden>Replay</button>
+        </span>
+      </figcaption>
+      <div class="term__screen" aria-hidden="true"></div>
+      <p class="term__caption" aria-hidden="true"></p>
+<!-- csda:terminal:begin — generated; edit the source, not this block -->
+<pre class="term__transcript"><code>~ $ cat smart-parking.yaml
+PROJECT_NAME: Smart Parking
+PROJECT_SLUG: smart-parking
+PROJECT_TYPE: backend
+DOMAIN: parking operations
+STACK: Node 20, Express, PostgreSQL
+API_STYLE: REST with DTO boundaries
+TESTING: node:test
+
+~ $ csda init --config ./smart-parking.yaml --out . --no-git
+ℹ️ [INFO] 🧩 Rendering base template
+ℹ️ [INFO] 🛠️ Applying project type template: backend
+ℹ️ [INFO] 🧩 No optional modules selected. Generating base + project-type features only.
+ℹ️ [INFO] 📋 Summary
+ℹ️ [INFO] - Project: Smart Parking
+ℹ️ [INFO] - Slug: smart-parking
+ℹ️ [INFO] - Type: backend
+ℹ️ [INFO] - Domain: parking operations
+ℹ️ [INFO] - Output: ~/smart-parking
+ℹ️ [INFO] - Dry-run: false
+ℹ️ [INFO] - Git: skipped
+ℹ️ [INFO] ✅ Generation completed
+
+~/smart-parking $ csda specops add --pack-root ~/packs --pack multi-tenant/backend --var &quot;PROJECT_NAME=Smart Parking&quot; --var PROJECT_SLUG=smart-parking --var &quot;DOMAIN=parking operations&quot;
+ℹ  Adding multi-tenant/backend to ~/smart-parking
+ℹ️ [INFO] Using pack: ~/packs/multi-tenant/backend/pack.yaml
+ℹ️ [INFO] Generated 3 scenario file(s).
+ℹ️ [INFO] Domain pack expansion completed.
+
+~/smart-parking $ csda plan
+  Needs Feature + Test + Code
+    REQ-002   SCN-001
+      ✓ feature: `features/multi-tenant/provisioning_a_tenant_emits_tenantprovisioned.feature`
+    REQ-001   SCN-002
+      ✓ feature: `features/multi-tenant/cross_tenant_read_attempts_are_rejected.feature`
+    REQ-003   SCN-003
+      ✓ feature: `features/multi-tenant/exceeding_a_quota_emits_quotaexceeded.feature`
+
+  Needs Implementation
+    REQ-000   SCN-000
+      ✓ feature: `features/core/health.feature`
+      · code:    `API /health`, smoke test
+
+~/smart-parking $ cat harness.config.yaml
+harness_version: 1
+agent: 'csda-stub-agent {prompt_file}'
+test_cmd: 'node --test test/*.test.js'
+max_attempts: 1
+
+~/smart-parking $ csda harness run --req REQ-000
+ℹ️  [harness] Processing 1 requirement(s) from base HEAD.
+⚠️  [harness] REQ-000: the row declares no test artifact, so the agent chooses where the test goes and the matrix will point somewhere else. [requirement_declares_no_test_artifact]
+⚠️  [harness]   fix: csda req link REQ-000 --test &lt;path&gt;
+ℹ️  [harness] REQ-000: attempt 1/1
+
+── harness report ──
+  ✅ REQ-000  pass (1 attempt)  → harness/REQ-000
+
+  1 passed · 0 failed · 0 skipped
+  Review and merge the harness/* branches you trust.
+ℹ️  [harness] Run recorded in .harness/runs/2026-01-01T00-00-00-000Z.json — `csda harness report`
+
+~/smart-parking $ git diff --stat main harness/REQ-000
+ .../REQ-000-2026-01-01T00-00-00-000Z-attempt-1-agent.md | 83 +++++++++++++++++++++++++
+ docs/specs/traceability.md                              |  2 +-
+ src/health.js                                           |  9 +++
+ test/health.test.js                                     | 10 +++
+ 4 files changed, 103 insertions(+), 1 deletion(-)
+
+~/smart-parking $ git switch -q harness/REQ-000 &amp;&amp; node --test test/*.test.js
+✔ GET /health reports the service as UP (12ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1.234
+
+~/smart-parking $ csda validate .
+ℹ️ [INFO] ✅ Validation passed
+ℹ️ [INFO] - Features detected: 4
+ℹ️ [INFO] - Base SDD structure: complete
+ℹ️ [INFO] - Traceability mode: rich
+</code></pre>
+<!-- csda:terminal:end -->
+    </figure>
+
+    <p class="term__meta">
+      Recorded from <strong>v0.7.0</strong>. <a href="./tutorial.html">The same run, explained →</a>
+    </p>
+  </div>
+</section>
+
 
 <!-- ── Agents ───────────────────────────────────────────────────────────── -->
 <section class="band">
@@ -153,7 +313,7 @@ csda harness run --agent "./my-wrapper.sh {prompt_file}"   # anything else</code
 
     <p class="tools">
       <span>Wired from one definition:</span>
-      <code>claude</code><code>cursor</code><code>copilot</code><code>windsurf</code><code>aider</code><code>gemini</code><code>cline</code><code>codex</code><code>antigravity</code>
+      <code>claude</code><code>claude-plugin</code><code>cursor</code><code>copilot</code><code>windsurf</code><code>aider</code><code>gemini</code><code>cline</code><code>codex</code><code>antigravity</code>
     </p>
 
     <p><a class="button" href="./agent-setup.html">Choosing your agent →</a>
@@ -163,12 +323,38 @@ csda harness run --agent "./my-wrapper.sh {prompt_file}"   # anything else</code
 </section>
 
 <!-- ── What the gate checks ─────────────────────────────────────────────── -->
-<section class="band band--soft">
+<section class="band band--soft" id="evidence">
   <div class="wrap">
     <h2>What the gate actually checks</h2>
     <p class="band__lede">
       Every item here exists because the loop was caught approving work it had
       not checked. They are not features; they are scars.
+    </p>
+
+    <ul class="scars">
+      <li>
+        <strong>27 of 28</strong> scenarios in the shipped domain packs executed
+        nothing. Gherkin keywords are case-sensitive, so <code>GIVEN</code> parsed
+        as prose — no error, no warning, and an empty scenario passes. The
+        in-house linter matched case-insensitively and called all 28 fine.
+      </li>
+      <li>
+        An agent that could not pass a scenario <strong>rewrote the scenario</strong>
+        as <code>Given nothing / Then nothing is asserted</code> and got
+        <code>1 passed &middot; 0 failed</code>. The branch was published and the
+        requirement closed.
+      </li>
+      <li>
+        <strong>10 of 11</strong> packs failed the JSON schema while all 11 passed
+        <code>pack lint --strict</code>. A schema that declares authority it does
+        not exercise is worse than none.
+      </li>
+    </ul>
+
+    <p class="scars__note">
+      All three were found by running the tool against a real project and reading
+      the output, not by reasoning about it. Each is now a test that fails when
+      the guard is removed.
     </p>
 
     <div class="grid">
@@ -208,6 +394,87 @@ csda harness run --agent "./my-wrapper.sh {prompt_file}"   # anything else</code
            did.</p>
       </article>
     </div>
+  </div>
+</section>
+
+<!-- ── Where it sits ────────────────────────────────────────────────────── -->
+<section class="band">
+  <div class="wrap">
+    <h2>How it compares</h2>
+    <p class="band__lede">
+      OpenSpec is the closest thing and the one worth reading first. The honest
+      summary: it is smaller, and smaller is a feature.
+    </p>
+
+    <div class="table-wrap">
+      <table class="compare">
+        <thead>
+          <tr><th>&nbsp;</th><th>csda</th><th>OpenSpec</th><th>Spec Kit</th><th>A wiki page</th></tr>
+        </thead>
+        <tbody>
+          <tr><th>Change lifecycle: propose → review → archive</th><td class="y">yes</td><td class="y">yes — their idea first</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th>Traceability matrix that CI enforces</th><td class="y">yes</td><td class="n">no</td><td class="m">basic</td><td class="n">no</td></tr>
+          <tr><th>Gherkin a real runner executes</th><td class="y">yes</td><td class="m">prose scenarios</td><td class="m">via templates</td><td class="n">no</td></tr>
+          <tr><th>Versioned, installable domain packs</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th>Unattended harness with a gate</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th>MCP server and language server</th><td class="y">both shipped</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th>Concepts you have to learn</th><td class="m">more</td><td class="y">fewer</td><td class="y">fewer</td><td class="y">none</td></tr>
+          <tr><th>Shortest path to a working loop today</th><td class="m">no</td><td class="y">yes</td><td class="m">—</td><td class="y">yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="compare__note">
+      If you want the change loop and nothing else, or your specs are prose
+      rather than a domain model, OpenSpec is the better tool and the table says
+      so. We took the delta format and the audited agent contract from their
+      design.
+      <a href="./comparisons.html">The full comparison, including where we lose →</a>
+    </p>
+  </div>
+</section>
+
+<!-- ── Running it for real ──────────────────────────────────────────────── -->
+<section class="band band--soft">
+  <div class="wrap">
+    <h2>The parts a team asks about second</h2>
+    <p class="band__lede">
+      The specification layer is the interesting half. This is the other half —
+      the answers that decide whether it survives contact with a real
+      organisation.
+    </p>
+
+    <div class="grid">
+      <article>
+        <h3>It runs in your CI, not its own</h3>
+        <p><code>csda ci init</code> writes the workflow for GitHub Actions,
+           GitLab, Azure Pipelines, CircleCI or Jenkins. The gate is one command
+           with a JSON mode, so it fits whatever you already have.</p>
+      </article>
+      <article>
+        <h3>Your issue tracker stays yours</h3>
+        <p><code>csda alm sync</code> pushes requirements to Jira, Azure Boards,
+           GitHub or GitLab and <code>csda alm pull</code> brings status back. The
+           board is a mirror; it never gets to define what a requirement
+           <em>is</em>.</p>
+      </article>
+      <article>
+        <h3>An audit surface of one package</h3>
+        <p>Zero runtime dependencies. A CycloneDX SBOM is generated on every push
+           and kept 90 days, the licence policy is a build gate, and every domain
+           pack is pinned by content digest in <code>.specops.lock</code>.</p>
+      </article>
+      <article>
+        <h3>In the editor, and in the agent</h3>
+        <p>A language server and an MCP server ship in this repository, along
+           with VS Code and IntelliJ extensions — built and installable from
+           source, not yet on either marketplace.</p>
+      </article>
+    </div>
+
+    <p><a class="button" href="./automation.html">CI and automation →</a>
+       <a class="button button--quiet" href="./alm.html">Issue trackers →</a>
+       <a class="button button--quiet" href="./supply-chain.html">Supply chain →</a></p>
   </div>
 </section>
 

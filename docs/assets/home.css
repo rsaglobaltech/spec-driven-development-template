@@ -200,3 +200,115 @@ details p { margin: 0.75rem 0 0; font-size: 0.93rem; }
   .hero { padding: 3.5rem 0 2.5rem; }
   .band { padding: 3rem 0; }
 }
+
+/* ── Diagram support text ──────────────────────────────────────────────────── */
+
+.band__lede--mid {
+  margin-top: 2.5rem;
+}
+
+.band__after {
+  max-width: 42rem;
+  margin: 0 auto 1.2rem;
+  text-align: center;
+  color: var(--fg-soft);
+  font-size: 0.95rem;
+}
+
+/* ── The measured evidence behind the gate ─────────────────────────────────── */
+
+/*
+ * Three defects, each found by running the tool against a real project. They
+ * sit above the feature grid because they are the reason the grid exists, and
+ * because a claim with a number in it is the only kind worth making here.
+ */
+.scars {
+  list-style: none;
+  margin: 1.8rem 0 0.9rem;
+  padding: 0;
+  display: grid;
+  gap: 0.9rem;
+  max-width: 46rem;
+}
+
+.scars li {
+  border-left: 3px solid var(--amber);
+  padding: 0.55rem 0 0.55rem 1rem;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--fg-soft);
+}
+
+.scars strong {
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 0.95em;
+}
+
+.scars code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  color: var(--fg);
+}
+
+.scars__note {
+  max-width: 46rem;
+  margin: 0 0 2rem;
+  font-size: 0.86rem;
+  color: var(--fg-faint);
+}
+
+/* ── The comparison ────────────────────────────────────────────────────────── */
+
+/*
+ * `.table-wrap` in docs.css gives it the horizontal scroll; the cell styling
+ * there is scoped to `.prose`, which this table is not inside.
+ */
+.compare {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 34rem;
+  font-size: 0.88rem;
+}
+
+.compare th,
+.compare td {
+  border: 1px solid var(--line);
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.compare thead th {
+  background: var(--bg-soft);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.compare thead th:not(:first-child),
+.compare td {
+  text-align: center;
+}
+
+.compare tbody th {
+  font-weight: 500;
+  color: var(--fg);
+  max-width: 20rem;
+}
+
+.compare .y {
+  color: var(--green);
+}
+.compare .n {
+  color: var(--fg-faint);
+}
+.compare .m {
+  color: var(--amber);
+}
+
+.compare__note {
+  max-width: 44rem;
+  margin-top: 1.2rem;
+  font-size: 0.9rem;
+  color: var(--fg-soft);
+}

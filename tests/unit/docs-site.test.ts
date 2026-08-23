@@ -37,14 +37,29 @@ function site() {
 
 // ── Navigation ───────────────────────────────────────────────────────────────
 
+/** Every markdown file the site publishes, `docs/specs/` excluded, at any depth. */
+function shippedSlugs() {
+  const out = [];
+  const walk = (dir, prefix) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        if (entry.name !== "specs" && entry.name !== "assets") walk(path.join(dir, entry.name), rel);
+      } else if (entry.name.endsWith(".md")) {
+        out.push(rel.slice(0, -3));
+      }
+    }
+  };
+  walk(DOCS, "");
+  return out.sort();
+}
+
 test("every shipped document is reachable from the sidebar", () => {
   // A page nobody can navigate to is a page nobody reads. Sixteen were in that
-  // state before this test existed.
-  const shipped = fs
-    .readdirSync(DOCS)
-    .filter((f) => f.endsWith(".md"))
-    .map((f) => f.slice(0, -3))
-    .sort();
+  // state before this test existed — and two more survived it, because the walk
+  // only looked at the top level while `articles/` and `case-studies/` sat one
+  // directory down.
+  const shipped = shippedSlugs();
 
   const orphans = shipped.filter((slug) => !navEntry(slug));
   assert.deepEqual(
@@ -190,7 +205,14 @@ test("the search index covers what the sidebar offers", () => {
 test("the assets the pages ask for are published", () => {
   const { dir } = site();
   try {
-    for (const asset of ["assets/docs.css", "assets/docs.js", "assets/home.css", "index.html"]) {
+    for (const asset of [
+      "assets/docs.css",
+      "assets/docs.js",
+      "assets/home.css",
+      "assets/terminal.css",
+      "assets/terminal-demo.json",
+      "index.html",
+    ]) {
       assert.ok(fs.existsSync(path.join(dir, asset)), `missing ${asset}`);
     }
     // Jekyll would eat the assets directory and any file starting with an
@@ -279,4 +301,155 @@ test("the landing page counts what the repository actually has", () => {
   assert.ok(html.includes(`<dt>${SURFACE.length}</dt>`), `command count is not ${SURFACE.length}`);
   assert.ok(html.includes(`<dt>${packs}</dt>`), `pack count is not ${packs}`);
   assert.ok(html.includes("<dt>0</dt>"), "the zero-runtime-dependencies claim is missing");
+});
+
+// ── Diagrams ─────────────────────────────────────────────────────────────────
+
+test("no page ships a mermaid block, because nothing on this site renders one", () => {
+  // Two `graph LR` / `sequenceDiagram` blocks sat in the article for months and
+  // were served as literal code. A fenced block the site cannot render is worse
+  // than no diagram: it is a diagram the reader can see was meant to be there.
+  const offenders = [];
+  for (const slug of shippedSlugs()) {
+    const source = fs.readFileSync(path.join(DOCS, `${slug}.md`), "utf8");
+    if (/^```mermaid/m.test(source)) offenders.push(slug);
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `Replace the block with a diagram in docs/diagrams/ and a\n` +
+      `  <!-- csda:diagram NAME --> marker:\n  ${offenders.join("\n  ")}`
+  );
+});
+
+test("every diagram the pages ask for exists, and every diagram is asked for", () => {
+  const { diagrams } = require("../../scripts/docs/blocks");
+  const available = diagrams(DOCS);
+  assert.ok(available.size > 0, "found no diagrams — docs/diagrams/ is missing");
+
+  const requested = new Set();
+  const sources = [
+    ...shippedSlugs().map((slug) => fs.readFileSync(path.join(DOCS, `${slug}.md`), "utf8")),
+    fs.readFileSync(path.join(DOCS, "index.html"), "utf8"),
+  ];
+  for (const source of sources) {
+    for (const m of source.matchAll(/<!--\s*csda:diagram\s+([a-z0-9-]+)\s*-->/g)) requested.add(m[1]);
+  }
+
+  const missing = [...requested].filter((name) => !available.has(name)).sort();
+  assert.deepEqual(missing, [], `asked for but not in docs/diagrams/: ${missing.join(", ")}`);
+
+  // The other direction: a diagram nobody shows is 3 KB published for nothing,
+  // and is how the last two dead stylesheets got there.
+  const unused = [...available.keys()].filter((name) => !requested.has(name)).sort();
+  assert.deepEqual(unused, [], `in docs/diagrams/ and shown nowhere: ${unused.join(", ")}`);
+});
+
+test("an inlined diagram reaches the page as markup, not as escaped text", () => {
+  const { dir } = site();
+  const article = fs.readFileSync(
+    path.join(dir, "articles", "specs-that-cannot-lie.html"),
+    "utf8"
+  );
+  assert.match(article, /<svg[^>]+class="dia__svg"/, "the harness loop did not inline");
+  assert.match(article, /class="chain__n"/, "the traceability chain did not inline");
+  assert.doesNotMatch(article, /&lt;svg/, "the diagram was escaped instead of inlined");
+});
+
+test("a diagram's colours come from the token system", () => {
+  // An inline diagram is the only place on the site where a hard-coded hex
+  // would still follow the page in one theme and not the other.
+  const { diagrams } = require("../../scripts/docs/blocks");
+  const offenders = [];
+  for (const [name, body] of diagrams(DOCS)) {
+    const hexes = body.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
+    if (hexes.length > 0) offenders.push(`${name}: ${hexes.join(", ")}`);
+  }
+  assert.deepEqual(offenders, [], `use var(--…) instead:\n  ${offenders.join("\n  ")}`);
+});
+
+test("every csda command the landing page names is a command the CLI has", () => {
+  // Written after the page claimed `csda sbom` and `csda license check`, neither
+  // of which exists — the SBOM is an npm script and a CI job. A landing page
+  // that invents commands is worse than one that says less.
+  const { SURFACE } = require("../../scripts/lib/surface");
+  const known = new Set();
+  for (const command of SURFACE) {
+    known.add(command.name);
+    for (const sub of command.subcommands || []) known.add(`${command.name} ${sub.name}`);
+  }
+
+  const html = fs.readFileSync(path.join(DOCS, "index.html"), "utf8");
+  const invented = new Set();
+  for (const m of html.matchAll(/<code[^>]*>csda ([a-z][a-z0-9 -]*)/g)) {
+    const words = m[1].trim().split(/\s+/);
+    // Longest match wins: `harness run --req` is `harness run`.
+    const named = known.has(`${words[0]} ${words[1]}`)
+      ? `${words[0]} ${words[1]}`
+      : words[0];
+    if (!known.has(named)) invented.add(named);
+  }
+  assert.deepEqual(
+    [...invented].sort(),
+    [],
+    `the landing page names commands that do not exist: ${[...invented].join(", ")}`
+  );
+});
+
+test("the landing page lists every agent tool it claims a number for", () => {
+  const { ALL_TOOLS } = require("../../scripts/agents/init");
+  const html = fs.readFileSync(path.join(DOCS, "index.html"), "utf8");
+  assert.ok(html.includes(`<dt>${ALL_TOOLS.length}</dt>`), `agent-tool count is not ${ALL_TOOLS.length}`);
+  const missing = ALL_TOOLS.filter((tool) => !html.includes(`<code>${tool}</code>`));
+  assert.deepEqual(missing, [], `counted but not listed: ${missing.join(", ")}`);
+});
+
+test("the project wears one mark everywhere", () => {
+  // The README said 🧭 and the site said ⬡ — two brands for one product, and
+  // nothing would ever have reported it.
+  const MARK = "⬡";
+  const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8").split("\n")[2];
+  assert.ok(readme.includes(MARK), `the README heading no longer carries ${MARK}: ${readme}`);
+  const html = fs.readFileSync(path.join(DOCS, "index.html"), "utf8");
+  assert.ok(html.includes(`<span aria-hidden="true">${MARK}</span>`), "the site header lost its mark");
+});
+
+test("the social card and the favicon are published, and the pages point at them", () => {
+  const { dir } = site();
+  try {
+    for (const asset of ["assets/favicon.svg", "assets/og-card.svg"]) {
+      assert.ok(fs.existsSync(path.join(dir, asset)), `missing ${asset}`);
+    }
+    // The PNG is rasterised in the Pages workflow, so only the SVG is here —
+    // but every page must already ask for the PNG, or the card never appears.
+    for (const page of ["index.html", "getting-started.html", "case-studies/case-1.html"]) {
+      const html = fs.readFileSync(path.join(dir, page), "utf8");
+      assert.match(html, /rel="icon"[^>]+favicon\.svg/, `${page} has no favicon`);
+      assert.match(html, /property="og:image"[^>]+og-card\.png/, `${page} has no social card`);
+    }
+    const workflow = fs.readFileSync(path.join(ROOT, ".github/workflows/pages.yml"), "utf8");
+    assert.match(workflow, /og-card\.png/, "nothing rasterises the card the pages ask for");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a case study that is not a real customer says so, at the top", () => {
+  // `case-1.md` described a named company with a −74% defect rate and no
+  // disclaimer anywhere, while the roadmap said nobody outside this repository
+  // had used the tool. Publishing that as a customer story is not a style
+  // problem.
+  const dir = path.join(DOCS, "case-studies");
+  if (!fs.existsSync(dir)) return;
+  const unmarked = [];
+  for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".md"))) {
+    const head = fs.readFileSync(path.join(dir, file), "utf8").split("\n").slice(0, 12).join("\n");
+    if (!/illustration, not a customer|verified customer/i.test(head)) unmarked.push(file);
+  }
+  assert.deepEqual(
+    unmarked,
+    [],
+    "a case study must open by saying whether it is a real customer or an illustration:\n  " +
+      unmarked.join("\n  ")
+  );
 });

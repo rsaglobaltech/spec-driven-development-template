@@ -3,9 +3,9 @@
   FOR PUBLICATION ON MEDIUM.
 
   Medium does not render Mermaid. Two options per diagram:
-    1. Paste the fenced block into https://mermaid.live, export PNG, upload.
-    2. Push this file to GitHub — it renders Mermaid natively — and embed the
-       GitHub URL in Medium, which unfurls it.
+    The two `<!-- csda:diagram … -->` markers are replaced with inline SVG when
+    the site is built (see docs/diagrams/). For Medium, screenshot them
+    from the published page, or link to the section on the docs site.
 
   Suggested tags: ai-agents, spec-driven-development, software-testing,
   developer-tools, domain-driven-design
@@ -61,21 +61,7 @@ proves it.
 
 The join is a ten-column traceability matrix, one row per requirement:
 
-```mermaid
-graph LR
-  R["REQ-001<br/><i>requirement</i>"] --> S["SCN-001<br/><i>scenario</i>"]
-  S --> F["load_pack.feature<br/><i>Gherkin</i>"]
-  F --> U["UC-001<br/><i>use case</i>"]
-  U --> C["CMD-001<br/><i>command</i>"]
-  C --> A["AGG-001<br/><i>aggregate</i>"]
-  A --> E["EVT-001<br/><i>event</i>"]
-  E --> T["src/…<br/><i>code</i>"]
-  T --> X["…steps.ts<br/><i>test</i>"]
-  X --> ST["Status"]
-
-  classDef c fill:#ebfbee,stroke:#2f9e44,color:#143;
-  class R,S,F,U,C,A,E,T,X,ST c;
-```
+<!-- csda:diagram traceability-chain -->
 
 Read left to right, a row is a sentence: *this requirement is demonstrated by
 this scenario, in this feature file, realised by this use case, which dispatches
@@ -107,22 +93,7 @@ We pointed it at a real project: a spec viewer, fifteen requirements, all
 supplied by a domain pack. Claude as the agent. First requirement: load a
 `pack.yaml` from disk and show its contents.
 
-```mermaid
-sequenceDiagram
-  participant H as harness
-  participant W as git worktree
-  participant A as the agent
-  participant G as the gate
-
-  H->>H: plan → next pending requirement
-  H->>W: create worktree on harness/REQ-001
-  H->>A: prompt — Gherkin, rules, boundaries
-  A->>W: writes code and tests
-  H->>G: validate --strict-tdd + project tests
-  G-->>H: green
-  H->>W: mark done, commit
-  H-->>H: report — never merges
-```
+<!-- csda:diagram harness-loop -->
 
 Attempt one timed out. Attempt two passed.
 

@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧭 create-spec-driven-app
+# ⬡ create-spec-driven-app
 
 **Specs as executable contracts — requirements, scenarios and traceability that CI enforces.**
 

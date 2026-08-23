@@ -26,19 +26,29 @@ const DOMAIN_META = {
   webhooks: { icon: "🪝", tagline: "Event delivery, retry logic & HMAC signing" },
 };
 
-const STATUS_CONFIG = {
-  pass: { bg: "#14532d", text: "#4ade80", label: "verified" },
-  warn: { bg: "#431407", text: "#fb923c", label: "warnings" },
-  fail: { bg: "#450a0a", text: "#f87171", label: "failed" },
+/**
+ * Lint status as a word, not as a colour.
+ *
+ * These used to carry hard-coded dark-mode hexes inline, which won on
+ * specificity over the stylesheet and made the badges the only thing on the
+ * site that ignored the theme. The colour now comes from the same tokens as
+ * everything else.
+ */
+const STATUS_LABELS = {
+  pass: "verified",
+  warn: "warnings",
+  fail: "failed",
 };
 
 function renderBadge(status) {
-  const cfg = STATUS_CONFIG[status] || { bg: "#1e293b", text: "#94a3b8", label: status };
-  return `<span class="badge" style="background:${cfg.bg};color:${cfg.text}">${escape(cfg.label)}</span>`;
+  const label = STATUS_LABELS[status] || status;
+  const known = Object.prototype.hasOwnProperty.call(STATUS_LABELS, status);
+  const cls = known ? ` badge--${status}` : "";
+  return `<span class="badge${cls}">${escape(label)}</span>`;
 }
 
-function renderStat(label, value, color) {
-  return `<div class="stat" style="--stat-color:${color}"><span class="stat__val">${escape(String(value))}</span><span class="stat__label">${escape(label)}</span></div>`;
+function renderStat(label, value) {
+  return `<div class="stat"><span class="stat__val">${escape(String(value))}</span><span class="stat__label">${escape(label)}</span></div>`;
 }
 
 function shortName(fullName) {
@@ -75,11 +85,11 @@ function renderCard(pack) {
   </div>
   <p class="card__tagline">${escape(tagline)}</p>
   <div class="card__stats">
-    ${renderStat("req", pack.requirements, "#818cf8")}
-    ${renderStat("use cases", pack.useCases, "#34d399")}
-    ${renderStat("aggregates", pack.aggregates, "#f472b6")}
-    ${renderStat("events", pack.events, "#fb923c")}
-    ${renderStat("scenarios", pack.scenarios, "#60a5fa")}
+    ${renderStat("req", pack.requirements)}
+    ${renderStat("use cases", pack.useCases)}
+    ${renderStat("aggregates", pack.aggregates)}
+    ${renderStat("events", pack.events)}
+    ${renderStat("scenarios", pack.scenarios)}
   </div>
   <div class="card__cmd-wrap">
     <pre class="card__cmd" id="cmd-${escape(pack.id.replace("/", "-"))}">${expandCmd}</pre>
@@ -113,6 +123,10 @@ function renderIndex(packs, options: any = {}) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="${escape(title)}">
+<meta property="og:image" content="https://rsaglobaltech.github.io/spec-driven-development-template/assets/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../assets/docs.css">
 <script>
   // Same pre-paint theme read as the rest of the site, so following a link here
@@ -230,7 +244,8 @@ function renderIndex(packs, options: any = {}) {
     white-space: nowrap;
   }
   .badge--pass { color: var(--green); border-color: color-mix(in srgb, var(--green) 45%, transparent); }
-  .badge--fail { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+  .badge--warn { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+  .badge--fail { color: var(--red); border-color: color-mix(in srgb, var(--red) 45%, transparent); }
 
   .card__tagline { margin: 0; font-size: 0.88rem; color: var(--fg-soft); line-height: 1.55; }
 
