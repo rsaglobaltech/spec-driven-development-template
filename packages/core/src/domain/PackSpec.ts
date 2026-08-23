@@ -328,7 +328,21 @@ export function validatePackModel(pack, packRoot, templateExists: TemplateExists
   }
 
   for (const aggregate of Array.isArray(pack.aggregates) ? pack.aggregates : []) {
-    assertRef("bounded_contexts", aggregate.context, `Aggregate '${aggregate.id}'`);
+    // `bounded_context` first: it is what every shipped pack writes, while the
+    // published schema said `context`. Reading only `context` made this check
+    // inert on all eleven of them — `assertRef` returns early on an empty
+    // reference, so an aggregate pointing at a context that does not exist
+    // passed the installer in silence. `pack lint` has its own check and caught
+    // it, which is why the dead one went unnoticed: two validators disagreeing,
+    // and the quiet one trusted.
+    //
+    // Both spellings are honoured. A pack authored against the published schema
+    // must not lose the check either.
+    assertRef(
+      "bounded_contexts",
+      aggregate.bounded_context ?? aggregate.context,
+      `Aggregate '${aggregate.id}'`
+    );
   }
 
   for (const useCase of Array.isArray(pack.use_cases) ? pack.use_cases : []) {

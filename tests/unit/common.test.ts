@@ -180,6 +180,28 @@ test("validatePackModel rejects a pack with duplicate requirement ids", () => {
   assert.throws(() => validatePackModel(pack, packRoot));
 });
 
+test("validatePackModel rejects an aggregate pointing at a context that does not exist", () => {
+  // This check existed and did nothing. `validatePackModel` read
+  // `aggregate.context`; every shipped pack writes `bounded_context`, and
+  // `assertRef` returns early on an empty reference — so the cross-reference
+  // was inert on all eleven of them. `pack lint` has its own check and caught
+  // it, which is exactly why nobody noticed the installer's did not: two
+  // validators disagreeing, and the quiet one trusted.
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  assert.ok(pack.aggregates && pack.aggregates.length > 0, "the fixture has no aggregates");
+  pack.aggregates[0].bounded_context = "BC-999";
+  assert.throws(() => validatePackModel(pack, packRoot), /BC-999/);
+});
+
+test("validatePackModel still honours `context`, the name the schema used", () => {
+  // Both spellings are accepted while the schema catches up: a pack authored
+  // against the published schema must not silently lose the check either.
+  const { pack, packRoot } = loadPack(FIXTURE_ROOT, FIXTURE_ID);
+  delete pack.aggregates[0].bounded_context;
+  pack.aggregates[0].context = "BC-999";
+  assert.throws(() => validatePackModel(pack, packRoot), /BC-999/);
+});
+
 // ── safeResolve ───────────────────────────────────────────────────────────────
 
 test("safeResolve returns absolute path within project dir", () => {
