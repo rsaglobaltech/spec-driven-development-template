@@ -113,19 +113,30 @@ function renderIndex(packs, options: any = {}) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/docs.css">
+<script>
+  // Same pre-paint theme read as the rest of the site, so following a link here
+  // does not flip from light to dark.
+  (function () {
+    var t = localStorage.getItem("csda-theme");
+    if (t) document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
 <style>
+  /*
+   * The registry keeps its own layout — a card grid is not a documentation
+   * page — but takes its colours from the site's tokens rather than a second
+   * hardcoded palette. It was the one page that ignored the theme and used a
+   * different blue, which is what made the site feel like two sites.
+   */
   :root {
-    --bg:      #0b0f17;
-    --surface: #111827;
-    --card:    #161d2e;
-    --border:  #1e2d45;
-    --border2: #263552;
-    --fg:      #e2e8f0;
-    --muted:   #64748b;
-    --accent:  #6366f1;
-    --accent2: #06b6d4;
-    --green:   #10b981;
-    --shadow:  0 4px 24px rgba(0,0,0,0.4);
+    --surface: var(--bg-soft);
+    --card:    var(--bg-soft);
+    --border:  var(--line);
+    --border2: var(--line);
+    --muted:   var(--fg-soft);
+    --accent2: var(--accent);
+    --shadow:  0 4px 24px rgb(0 0 0 / 0.14);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -345,13 +356,13 @@ function renderIndex(packs, options: any = {}) {
   <div class="hero__inner">
     <h1>${escape(title)}</h1>
     <p class="hero__sub">
-      Curated domain packs for <code style="font-family:'IBM Plex Mono',monospace;font-size:0.85rem;color:#94a3b8">create-spec-driven-app</code> —
+      Curated domain packs for <code style="font-family:'IBM Plex Mono',monospace;font-size:0.85rem;color:var(--fg-soft)">create-spec-driven-app</code> —
       each ships requirements, DDD aggregates, events, and Gherkin scenarios ready to expand into any project.
     </p>
     <div class="hero__kpis">
-      <div class="kpi"><span class="kpi__val" style="color:#818cf8">${packs.length}</span><span class="kpi__label">Packs</span></div>
+      <div class="kpi"><span class="kpi__val" style="color:var(--accent)">${packs.length}</span><span class="kpi__label">Packs</span></div>
       <div class="kpi"><span class="kpi__val" style="color:#4ade80">${passed}</span><span class="kpi__label">Verified</span></div>
-      <div class="kpi"><span class="kpi__val" style="color:#818cf8">${totalReqs}</span><span class="kpi__label">Requirements</span></div>
+      <div class="kpi"><span class="kpi__val" style="color:var(--accent)">${totalReqs}</span><span class="kpi__label">Requirements</span></div>
       <div class="kpi"><span class="kpi__val" style="color:#60a5fa">${totalScenarios}</span><span class="kpi__label">Scenarios</span></div>
     </div>
   </div>

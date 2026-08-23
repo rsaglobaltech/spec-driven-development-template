@@ -33,7 +33,10 @@ const DOCS = path.join(ROOT, "docs");
 const REPO = "https://github.com/rsaglobaltech/spec-driven-development-template";
 
 /** Assets copied through untouched. */
-const VERBATIM = ["styles.css", "app.js", "index.html", "roi.html", "assets"];
+// `roi.html` used to be here. A calculator that estimates a saving is a sales
+// artefact, not documentation, and it was the only page on the site written in
+// a different voice.
+const VERBATIM = ["styles.css", "app.js", "index.html", "assets"];
 
 interface Page {
   /** `harness`, `case-studies/case-1` — the path without extension. */
@@ -99,6 +102,24 @@ function rewriteLink(href: string, slug: string): string {
   return hash ? `${html}#${hash}` : html;
 }
 
+/**
+ * A heading's plain text, for the anchor id and the contents list.
+ *
+ * Repeated until it stops changing: one pass of `/<[^>]+>/g` leaves a nested or
+ * malformed tag behind — `<<b>i>` becomes `<i>` — which CodeQL reports as
+ * `js/incomplete-multi-character-sanitization`. Nothing here reaches a browser
+ * as markup, but a half-stripped heading would still produce a wrong anchor.
+ */
+function stripTags(html: string): string {
+  let out = String(html);
+  let previous;
+  do {
+    previous = out;
+    out = out.replace(/<[^>]*>/g, "");
+  } while (out !== previous);
+  return out.trim();
+}
+
 function renderMarkdown(
   source: string,
   currentSlug: string
@@ -111,7 +132,7 @@ function renderMarkdown(
 
   renderer.heading = ({ tokens, depth }: any) => {
     const text = renderer.parser.parseInline(tokens);
-    const plain = text.replace(/<[^>]+>/g, "").trim();
+    const plain = stripTags(text);
     if (depth === 1 && !title) title = plain;
     const id = slugifyHeading(plain, taken);
     if (depth >= 2 && depth <= 3) headings.push({ id, text: plain, level: depth });

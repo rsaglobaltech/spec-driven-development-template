@@ -201,6 +201,44 @@ test("the assets the pages ask for are published", () => {
   }
 });
 
+test("no page on the site links a reader to a raw markdown file", () => {
+  // The complaint that started this: following a link landed you on
+  // `text/markdown`, unstyled, mid-source. A link to a `.md` is only allowed
+  // when it leaves for GitHub, where the file genuinely lives.
+  const { dir } = site();
+  try {
+    const offenders = [];
+    for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".html"))) {
+      const html = fs.readFileSync(path.join(dir, file), "utf8");
+      for (const match of html.matchAll(/href="([^"]*\.md(?:#[^"]*)?)"/g)) {
+        if (!match[1].startsWith("https://github.com/")) offenders.push(`${file} → ${match[1]}`);
+      }
+    }
+    assert.deepEqual(
+      offenders,
+      [],
+      `these send a reader to raw markdown:\n  ${offenders.join("\n  ")}`
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the ROI calculator is gone, and nothing still points at it", () => {
+  // Removed on request: a page that estimates a saving is a sales artefact, and
+  // it was the only one written in a different voice.
+  const { dir } = site();
+  try {
+    assert.equal(fs.existsSync(path.join(dir, "roi.html")), false);
+    for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".html"))) {
+      const html = fs.readFileSync(path.join(dir, file), "utf8");
+      assert.ok(!html.includes("roi.html"), `${file} still links to the ROI page`);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // ── The landing page ─────────────────────────────────────────────────────────
 
 test("the landing page states the version this repository is on", () => {
