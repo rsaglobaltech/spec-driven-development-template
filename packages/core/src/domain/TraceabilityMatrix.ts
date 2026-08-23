@@ -179,7 +179,7 @@ export class TraceabilityMatrix {
     const scenarioId = fields.scenarioId || this.nextScenarioId(parsedRows);
     const row = this.buildRow({ ...fields, requirement: reqId, scenarioId });
 
-    let out = content.replace(/\s*$/, "");
+    let out = content.trimEnd();
     if (!content.includes("| Requirement | Scenario ID |")) {
       const RICH_HEADER =
         "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";

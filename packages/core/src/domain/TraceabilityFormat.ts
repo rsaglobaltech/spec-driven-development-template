@@ -118,13 +118,16 @@ const RE_TRACE_LINE = /^\s*<!--\s*csda:trace\s+(REQ-[A-Za-z0-9.]+)\s+(.+?)\s*-->
 const UNSAFE_KEY = /^(__proto__|constructor|prototype)$/;
 
 export function parseMatrixTraceLines(content: string): Record<string, Record<string, string>> {
-  const found: Record<string, Record<string, string>> = {};
+  const found: Record<string, Record<string, string>> = Object.create(null);
   for (const line of String(content || "")
     .replace(/\r\n/g, "\n")
     .split("\n")) {
     const match = RE_TRACE_LINE.exec(line);
     if (!match) continue;
-    const entry = found[match[1]] || (found[match[1]] = {});
+    // `Object.create(null)`: the keys come out of a file, so the object must not
+    // have a prototype for them to reach. The name check below says what is
+    // refused; this makes the refusal structural.
+    const entry = found[match[1]] || (found[match[1]] = Object.create(null));
     // A token with no `=` continues the value before it, so a person who writes
     // `depends=REQ-001, REQ-002` with a space keeps both. Splitting on
     // whitespace alone would drop the second silently, which is the failure

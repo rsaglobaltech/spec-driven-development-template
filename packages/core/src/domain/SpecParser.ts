@@ -26,12 +26,22 @@
  *   <!-- csda:trace uc=UC-007 cmd=CMD-011 feature=features/billing/x.feature -->
  */
 
-const RE_H1 = /^#\s+(.+?)\s*$/;
-const RE_H2 = /^##\s+(.+?)\s*$/;
-const RE_REQUIREMENT = /^###\s+Requirement:\s*(.+?)\s*$/;
-const RE_SCENARIO = /^####\s+Scenario:\s*(.+?)\s*$/;
+/**
+ * These patterns are line-oriented, so they use `[ \t]` rather than `\s` and
+ * capture greedily to the end of the line.
+ *
+ * `\s` matches a newline, and a lazy `(.+?)` followed by `\s*$` backtracks
+ * quadratically on a long run of whitespace — CodeQL's `js/polynomial-redos`,
+ * and a real cost on a spec file somebody pasted from a word processor.
+ * Capturing to end-of-line and trimming in code says the same thing in linear
+ * time.
+ */
+const RE_H1 = /^#[ \t]+(.*)$/;
+const RE_H2 = /^##[ \t]+(.*)$/;
+const RE_REQUIREMENT = /^###[ \t]+Requirement:[ \t]*(.*)$/;
+const RE_SCENARIO = /^####[ \t]+Scenario:[ \t]*(.*)$/;
 const RE_TRACE_OPEN = /^\s*<!--\s*csda:trace\b/;
-const RE_STEP = /^\s*[-*]\s+(.*)$/;
+const RE_STEP = /^[ \t]*[-*][ \t]+(.*)$/;
 
 // `REQ-014 — Dynamic peak pricing` → ["REQ-014", "Dynamic peak pricing"].
 // The separator may be an em dash, en dash, hyphen or colon; any amount of
@@ -40,7 +50,8 @@ const RE_STEP = /^\s*[-*]\s+(.*)$/;
 // The prefix list is closed on purpose. A permissive `[A-Z]{2,4}-\w+` would
 // read "TOTP-based two-factor auth" as an id of "TOTP-based", silently
 // mangling every requirement whose name starts with an acronym.
-const RE_LABEL_WITH_ID = /^((?:REQ|SCN|UC|CMD|QRY|AGG|EVT)-[A-Za-z0-9.]+)\s*(?:[—–:-]\s*)?(.*)$/;
+const RE_LABEL_WITH_ID =
+  /^((?:REQ|SCN|UC|CMD|QRY|AGG|EVT)-[A-Za-z0-9.]+)[ \t]*(?:[—–:-][ \t]*)?(.*)$/;
 
 export const REQ_ID = /^REQ-\d+$/;
 export const SCN_ID = /^SCN-[A-Za-z0-9.-]+$/;
@@ -77,7 +88,9 @@ export function parseTraceComment(raw: string): TraceComment {
   const trace = {};
   const body = raw
     .replace(/^\s*<!--\s*csda:trace\b/, "")
-    .replace(/-->\s*$/, "")
+    // `[ \t]*$` rather than `\s*$`: this is one line, and `\s` matching a
+    // newline is what makes the pattern backtrack.
+    .replace(/-->[ \t]*$/, "")
     .trim();
   const re = /([a-z_]+)\s*=\s*("([^"]*)"|'([^']*)'|(\S+))/gi;
   let m;
@@ -206,7 +219,7 @@ export function parseMarkdown(source: string): DocumentNode {
     // it sits under, wherever inside it appears.
     if (traceBuffer !== null) {
       traceBuffer.push(line);
-      if (/-->/.test(line)) {
+      if (line.includes("-->")) {
         const parsed = parseTraceComment(traceBuffer.join("\n"));
         if (requirement) requirement.trace = { ...requirement.trace, ...parsed };
         traceBuffer = null;
@@ -214,7 +227,7 @@ export function parseMarkdown(source: string): DocumentNode {
       continue;
     }
     if (RE_TRACE_OPEN.test(line)) {
-      if (/-->/.test(line)) {
+      if (line.includes("-->")) {
         const parsed = parseTraceComment(line);
         if (requirement) requirement.trace = { ...requirement.trace, ...parsed };
       } else {
@@ -226,7 +239,7 @@ export function parseMarkdown(source: string): DocumentNode {
     let m;
 
     if ((m = RE_H1.exec(line)) !== null) {
-      if (doc.title === null) doc.title = m[1];
+      if (doc.title === null) doc.title = m[1].trimEnd();
       closeRequirement();
       section = null;
       continue;
@@ -235,7 +248,7 @@ export function parseMarkdown(source: string): DocumentNode {
     if ((m = RE_H2.exec(line)) !== null) {
       closeRequirement();
       section = {
-        heading: m[1],
+        heading: m[1].trimEnd(),
         line: lineNo,
         body: [],
         requirements: [],
@@ -246,7 +259,7 @@ export function parseMarkdown(source: string): DocumentNode {
 
     if ((m = RE_REQUIREMENT.exec(line)) !== null) {
       closeRequirement();
-      const { id, name } = splitLabel(m[1]);
+      const { id, name } = splitLabel(m[1].trimEnd());
       requirement = {
         id,
         name,
@@ -266,8 +279,9 @@ export function parseMarkdown(source: string): DocumentNode {
     }
 
     if ((m = RE_SCENARIO.exec(line)) !== null) {
-      const { id, name } = splitLabel(m[1]);
-      scenario = { id, name, heading: m[1], line: lineNo, steps: [] };
+      const heading = m[1].trimEnd();
+      const { id, name } = splitLabel(heading);
+      scenario = { id, name, heading, line: lineNo, steps: [] };
       if (requirement) requirement.scenarios.push(scenario);
       continue;
     }

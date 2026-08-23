@@ -20,7 +20,10 @@ export const GHERKIN_STEP = /^\s*(GIVEN|WHEN|THEN|AND|BUT|DADO|CUANDO|ENTONCES|Y
  * writes when they mean to come back later.
  */
 export function isPlaceholderStep(step: string): boolean {
-  const withoutComments = String(step).replace(/<!--[\s\S]*?-->/g, " ");
+  // `(?:[^-]|-(?!->))*` instead of a lazy `[\s\S]*?`: it consumes without ever
+  // needing to backtrack, which is the difference between linear and quadratic
+  // on a step that contains many dashes.
+  const withoutComments = String(step).replace(/<!--(?:[^-]|-(?!->))*-->/g, " ");
   // The parser hands steps over without their bullet, but this is exported and
   // a caller may well pass the raw line, so both forms have to read the same.
   const withoutBullet = withoutComments.replace(/^\s*[-*]\s*/, "");

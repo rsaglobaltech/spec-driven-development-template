@@ -53,22 +53,34 @@ const GH_CONFIG = [
  * the conformance kit uses, so no network and no provider-specific stubbing.
  */
 function runPull(dir: string, issues: unknown[], extra: string[] = []) {
+  // The issues go in a file the shim reads, not interpolated into its source.
+  // `JSON.stringify` is not an escape for JavaScript source — U+2028 and U+2029
+  // are valid in JSON strings and terminate a line in a script — and building
+  // code out of data is the habit worth not having in a test either
+  // (js/bad-code-sanitization).
   const shim = path.join(dir, "shim.js");
+  const issuesFile = path.join(dir, "issues.json");
+  fs.writeFileSync(issuesFile, JSON.stringify(issues), "utf8");
   fs.writeFileSync(
     shim,
     [
+      `const issues = require("node:fs").readFileSync(process.argv[2], "utf8");`,
       `globalThis.fetch = async () => ({ ok: true, status: 200,`,
-      `  json: async () => (${JSON.stringify(issues)}), text: async () => "" });`,
-      `const target = process.argv[2];`,
-      `process.argv = [process.argv[0], target, ...process.argv.slice(3)];`,
+      `  json: async () => JSON.parse(issues), text: async () => "" });`,
+      `const target = process.argv[3];`,
+      `process.argv = [process.argv[0], target, ...process.argv.slice(4)];`,
       `require(target);`,
     ].join("\n"),
     "utf8"
   );
-  return spawnSync(process.execPath, [shim, CLI_DIR, "pull", "--project-dir", dir, ...extra], {
-    encoding: "utf8",
-    env: { ...process.env, CSDA_PULL_TOK: "tok" },
-  });
+  return spawnSync(
+    process.execPath,
+    [shim, issuesFile, CLI_DIR, "pull", "--project-dir", dir, ...extra],
+    {
+      encoding: "utf8",
+      env: { ...process.env, CSDA_PULL_TOK: "tok" },
+    }
+  );
 }
 
 const ISSUE = {

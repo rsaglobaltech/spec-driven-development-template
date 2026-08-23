@@ -20,6 +20,7 @@ export * from "./domain/Gherkin";
 export * from "./domain/GherkinDialects";
 export * from "./domain/GherkinQuality";
 export * from "./domain/GherkinTags";
+export * from "./domain/GitSafety";
 export * from "./domain/HarnessConfig";
 export * from "./domain/HarnessReport";
 export * from "./domain/HarnessRun";

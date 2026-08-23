@@ -11,7 +11,11 @@
 import { blockText } from "./SpecParser";
 
 const yamlString = (v) =>
-  `"${String(v === undefined || v === null ? "" : v).replace(/"/g, '\\"')}"`;
+  // Backslash first: escaping only the quote leaves `\\` before it able to
+  // escape the escape, and the value breaks out of its own string.
+  `"${String(v === undefined || v === null ? "" : v)
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')}"`;
 
 /**
  * Express a delta's requirements in the pack's own model shape.

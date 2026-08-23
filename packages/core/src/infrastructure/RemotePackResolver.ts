@@ -15,6 +15,7 @@
  */
 
 import * as fs from "node:fs";
+import { assertSafeGitRef, assertSafeGitRepo } from "../domain/GitSafety";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
@@ -96,17 +97,23 @@ export function resolveRemotePack(options) {
     fs.rmSync(targetDir, { recursive: true, force: true });
   }
 
+  // Checked before git sees it: a value starting with `-` is an option to git,
+  // and `--upload-pack=<cmd>` runs a command. `--` below stops the parsing; this
+  // stops what `--` cannot (js/second-order-command-line-injection).
+  const repo = assertSafeGitRepo(opts.repo, "pack repository");
+  const version = assertSafeGitRef(opts.version, "pack version");
+
   fs.mkdirSync(path.dirname(targetDir), { recursive: true });
 
   // Shallow clone with the specific ref. Works for tags and branches.
   // Falls back to a full clone + checkout when --branch fails (e.g. for SHAs).
   try {
-    runGit(["clone", "--depth", "1", "--branch", opts.version, opts.repo, targetDir]);
+    runGit(["clone", "--depth", "1", "--branch", version, "--", repo, targetDir]);
   } catch {
     // Either the ref is a SHA or shallow-with-branch isn't supported.
     fs.rmSync(targetDir, { recursive: true, force: true });
-    runGit(["clone", opts.repo, targetDir]);
-    runGit(["checkout", "--detach", opts.version], { cwd: targetDir });
+    runGit(["clone", "--", repo, targetDir]);
+    runGit(["checkout", "--detach", version, "--"], { cwd: targetDir });
   }
 
   const commit = runGit(["rev-parse", "HEAD"], { cwd: targetDir });
@@ -132,7 +139,12 @@ export function createPackBundle(options) {
   try {
     // A mirror clone carries every branch and tag — bundles from shallow
     // clones are rejected by git, so this must be a full mirror.
-    runGit(["clone", "--mirror", opts.repo, mirrorDir], { timeout: 300_000 });
+    runGit(
+      ["clone", "--mirror", "--", assertSafeGitRepo(opts.repo, "pack repository"), mirrorDir],
+      {
+        timeout: 300_000,
+      }
+    );
     const outAbs = path.resolve(opts.out);
     fs.mkdirSync(path.dirname(outAbs), { recursive: true });
     runGit(["bundle", "create", outAbs, "--all"], { cwd: mirrorDir });

@@ -109,6 +109,34 @@ H16, all four measured before anything was written and reproduced after.
   inside quotes, so `responsibilities: ["Invoice line items, totals, status,
   aging"]` parsed as four items carrying stray quote characters.
 
+### Security
+
+- **A pack repository could make git run a command.** `csda expand --pack-repo`
+  and `csda specops contribute` passed a caller-named repository straight to
+  `git clone`. Two shapes turn that into execution, both of them git behaving as
+  documented: a value beginning with `-` is read as an option, so
+  `--upload-pack=<cmd>` runs `<cmd>`; and `ext::` is a transport whose job is to
+  run a command.
+
+  Both are refused now, with a message that says what to use instead, and the
+  positional arguments are separated with `--`. Passing the value as its own
+  argv element was never the defence — git parses argv, not the shell.
+
+- **Fifteen regular expressions could backtrack quadratically.** All the same
+  shape: `\s` matching a newline in a line-oriented pattern, or a lazy group
+  followed by `\s*$`. Line patterns use `[ \t]` now and capture to the end of
+  the line, trimming in code.
+
+- **Two YAML writers escaped the quote but not the backslash**, so a value
+  ending in `\` escaped its own escape and broke out of its string.
+
+- **Matrix trace lines are parsed onto a prototype-less object**, since the keys
+  come out of a file.
+
+Found by putting the branch through CodeQL for the first time. Twenty-one alerts
+were fixed rather than dismissed; nothing was waved through to make a release
+date.
+
 - **The published CLI did nothing on Windows.** `bin/create-spec-driven-app.js`
   is a two-line shim that `require`s the built entry point, so `require.main` is
   the shim and the guard recognised it by name — with

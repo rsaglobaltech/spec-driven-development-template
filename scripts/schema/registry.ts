@@ -53,7 +53,8 @@ export function toYaml(schema) {
     "# Dependencies are enablers, not gates (ADR-0018): `requires` says what makes",
     "# an artefact easier to write, never what blocks it.",
     `name: ${schema.name}`,
-    `description: "${schema.description.replace(/"/g, '\\"')}"`,
+    // Backslash first — see PackContribution.yamlString.
+    `description: "${String(schema.description).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`,
     "artifacts:",
   ];
   for (const a of schema.artifacts) {

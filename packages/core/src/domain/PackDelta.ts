@@ -255,7 +255,11 @@ export function changeIdFor(packId, fromVersion, toVersion) {
   const slug = (v) =>
     String(v)
       .replace(/[^a-zA-Z0-9.]+/g, "-")
-      .replace(/^-+|-+$/g, "")
+      // Two anchored passes rather than one alternation: `/^-+|-+$/g` scans the
+      // whole string for the second branch and backtracks over a long run of
+      // dashes.
+      .replace(/^-+/, "")
+      .replace(/-+$/, "")
       .toLowerCase();
   return `upgrade-${slug(packId.split("/").pop())}-${slug(toVersion)}`;
 }

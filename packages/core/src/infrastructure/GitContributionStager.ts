@@ -8,6 +8,7 @@
  */
 
 import * as fs from "node:fs";
+import { assertSafeGitRef, assertSafeGitRepo } from "../domain/GitSafety";
 import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -29,11 +30,13 @@ export function stageContribution(repo, version, branch, files, outDir) {
   const dir = outDir || fs.mkdtempSync(path.join(os.tmpdir(), "csda-contribute-"));
   fs.mkdirSync(dir, { recursive: true });
 
-  git(["clone", "--quiet", repo, dir], undefined);
+  // See `GitSafety`: `--` stops git reading a leading `-` as an option, and the
+  // check stops `ext::`, which a separator cannot.
+  git(["clone", "--quiet", "--", assertSafeGitRepo(repo, "pack repository"), dir], undefined);
   // Branch from the version the project actually consumed, so the diff a
   // maintainer sees is against the code the contribution was written on.
   try {
-    git(["checkout", "--quiet", version], dir);
+    git(["checkout", "--quiet", assertSafeGitRef(version, "pack version"), "--"], dir);
   } catch {
     // A lockfile can pin a commit that is not a branch tip; detached HEAD is fine.
   }

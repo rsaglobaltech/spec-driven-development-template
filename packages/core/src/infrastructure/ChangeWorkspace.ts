@@ -211,7 +211,7 @@ export function reserveReqRange(projectDir, count) {
 
 // ── Task progress ─────────────────────────────────────────────────────────────
 
-const TASK_LINE = /^\s*[-*]\s+\[( |x|X)\]\s+(.*)$/;
+const TASK_LINE = /^[ \t]*[-*][ \t]+\[( |x|X)\][ \t]+(.*)$/;
 
 export function parseTasks(markdown) {
   const tasks = [];
