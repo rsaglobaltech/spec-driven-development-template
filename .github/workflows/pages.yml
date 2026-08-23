@@ -46,6 +46,17 @@ jobs:
         # renders them, with a sidebar, search and working internal links.
         run: node dist/scripts/docs/build-site.js --out _site
 
+      - name: Rasterise the social card
+        # og:image has to be a PNG — no major link scraper renders SVG. The SVG
+        # is the source of truth and is versioned; the PNG is generated here so
+        # the repository keeps shipping no binaries.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends librsvg2-bin fonts-dejavu-core
+          rsvg-convert -w 1200 -h 630 -f png \
+            -o _site/assets/og-card.png docs/assets/og-card.svg
+          test -s _site/assets/og-card.png
+
       - name: Build pack registry
         # Generator emits index.html and manifest.json into --out
         run: |

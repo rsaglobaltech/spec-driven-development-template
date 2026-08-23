@@ -123,6 +123,10 @@ function renderIndex(packs, options: any = {}) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="${escape(title)}">
+<meta property="og:image" content="https://rsaglobaltech.github.io/spec-driven-development-template/assets/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../assets/docs.css">
 <script>
   // Same pre-paint theme read as the rest of the site, so following a link here

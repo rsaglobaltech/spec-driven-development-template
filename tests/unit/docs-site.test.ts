@@ -403,3 +403,33 @@ test("the landing page lists every agent tool it claims a number for", () => {
   const missing = ALL_TOOLS.filter((tool) => !html.includes(`<code>${tool}</code>`));
   assert.deepEqual(missing, [], `counted but not listed: ${missing.join(", ")}`);
 });
+
+test("the project wears one mark everywhere", () => {
+  // The README said 🧭 and the site said ⬡ — two brands for one product, and
+  // nothing would ever have reported it.
+  const MARK = "⬡";
+  const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8").split("\n")[2];
+  assert.ok(readme.includes(MARK), `the README heading no longer carries ${MARK}: ${readme}`);
+  const html = fs.readFileSync(path.join(DOCS, "index.html"), "utf8");
+  assert.ok(html.includes(`<span aria-hidden="true">${MARK}</span>`), "the site header lost its mark");
+});
+
+test("the social card and the favicon are published, and the pages point at them", () => {
+  const { dir } = site();
+  try {
+    for (const asset of ["assets/favicon.svg", "assets/og-card.svg"]) {
+      assert.ok(fs.existsSync(path.join(dir, asset)), `missing ${asset}`);
+    }
+    // The PNG is rasterised in the Pages workflow, so only the SVG is here —
+    // but every page must already ask for the PNG, or the card never appears.
+    for (const page of ["index.html", "getting-started.html", "case-studies/case-1.html"]) {
+      const html = fs.readFileSync(path.join(dir, page), "utf8");
+      assert.match(html, /rel="icon"[^>]+favicon\.svg/, `${page} has no favicon`);
+      assert.match(html, /property="og:image"[^>]+og-card\.png/, `${page} has no social card`);
+    }
+    const workflow = fs.readFileSync(path.join(ROOT, ".github/workflows/pages.yml"), "utf8");
+    assert.match(workflow, /og-card\.png/, "nothing rasterises the card the pages ask for");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

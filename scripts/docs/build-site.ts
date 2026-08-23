@@ -30,6 +30,9 @@ import { NAV, navEntry, neighbours } from "./nav";
 import { diagrams, inlineDiagrams } from "./blocks";
 
 const ROOT = path.resolve(__dirname, "..", "..", "..");
+
+/** Absolute base for metadata a link scraper resolves without a page context. */
+const SITE = "https://rsaglobaltech.github.io/spec-driven-development-template";
 const DOCS = path.join(ROOT, "docs");
 const REPO = "https://github.com/rsaglobaltech/spec-driven-development-template";
 
@@ -242,6 +245,11 @@ function pageShell(page: Page, version: string): string {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="icon" href="${up}assets/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="${escapeHtml(page.title)} — create-spec-driven-app">
+<meta property="og:description" content="${escapeHtml(entry?.blurb || page.title)}">
+<meta property="og:image" content="${SITE}/assets/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="${up}assets/docs.css">
 <script>
   // Applied before paint so the page never flashes the wrong theme.
