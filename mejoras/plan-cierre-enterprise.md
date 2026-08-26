@@ -1413,7 +1413,7 @@ Ahí está toda la deuda de abajo.
 | DV-03 | `[x]` | `CHANGELOG.md` — `[Unreleased]` está vacío | Seis commits de features detrás: `--strict-requirements`, `--strict-links`, la sección de deriva de valores de `report` y la ruta 2 de resolución de divergencias. **Hecho.** `[Unreleased]` con las cuatro entradas y el porqué de cada restricción — incluida una entrada de `Documentation` que admite el desliz de `--strict-scenarios` |
 | DV-04 | `[x]` | Un ADR para el cruce de línea | Pasar de comprobar papeleo a comprobar contenido es exactamente lo que ADR-0019…0022 registran. Y hay una decisión concreta sin registrar: **`--strict-values` se rechazó como gate y se degradó a informe agregado**, razonado en `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §8.6 y en ningún ADR. **Hecho.** [`ADR-0023`](../docs/specs/adr/0023-checking-content-gate-or-report.md) — «a gate where it is decidable, a report where it is not». Cinco reglas, cuatro alternativas rechazadas, e indexado en `docs/specs/adr/README.md` |
 | DV-05 | `[x]` | Documentar el informe de deriva de valores | `csda report` gana una sección y `--record` tres campos aditivos. `docs/` no lo menciona en ningún sitio. **Hecho.** Documentado en `docs/validating.md` como sección propia, no como gate, con las tres rutas de resolución |
-| DV-06 | `[x]` | Abrir el PR | **Hecho el 2026-08-26 — [PR #132](https://github.com/rsaglobaltech/spec-driven-development-template/pull/132)**, 9 commits sobre `origin/main`, cabeza `3df1a1a`. `main` está protegida (C9-02), así que la revisión es la puerta |
+| DV-06 | `[x]` | Abrir el PR | **Hecho el 2026-08-26, al segundo intento.** #132 y #133 se abrieron sobre una `origin/main` **obsoleta en local** —nunca se hizo `fetch`— cuando el track de verificación ya estaba mergeado como #131 (`cd15591`, squash, 10:56). #132 salió `CONFLICTING` por commits duplicados y **por eso no corrió CI**: sin merge-ref GitHub no lanza el workflow. Rehecho con cherry-pick de los cuatro commits que sí aportan sobre `origin/main`. Ver §12.15 |
 
 **Cerrada el 2026-08-26.** Las seis tareas hechas en la misma sesión. La rama deja de ser trabajo invisible: lo que hacía no estaba en ningún documento que un usuario abra, y ahora sí. **Sigue sin publicarse versión** — D17 se mantiene: esto era hacer mergeable la rama, no sacar la 0.8.0.
 
@@ -1455,6 +1455,57 @@ No bloquea nada hoy porque nadie de fuera ha mirado. En cuanto **G3** ocurra
 que vende trazabilidad exigida por CI, con dieciocho requisitos propios sin
 escenario. Es el mismo defecto de la serie H visto desde fuera en vez de desde
 el gate.
+
+---
+
+## 12.15 Dos defectos de proceso, encontrados abriendo PRs (2026-08-26)
+
+Ninguno es de producto. Los dos costaron trabajo real el mismo día, y los dos
+son invisibles hasta que alguien abre un PR.
+
+### P3 · Un PR apilado no tiene CI, y nada lo dice
+
+`.github/workflows/ci.yml` dispara con:
+
+```yaml
+on:
+  pull_request:
+    branches: [main]
+```
+
+El filtro `branches:` en un evento `pull_request` mira la **rama base**, no la
+rama de trabajo. Un PR cuya base es otra rama de feature —lo normal al apilar
+un arreglo sobre una revisión en curso— **no lanza ningún workflow**, y GitHub
+lo presenta como «no checks reported», que es indistinguible de «CI aún no ha
+arrancado».
+
+Pasó con #133, apilado sobre #132. La revisión habría leído el diff sin una
+sola comprobación detrás, y nada en la interfaz lo advierte.
+
+**Salidas, ninguna gratis:** añadir `feature/**` al filtro (CI corre de más),
+usar `merge_group`, o prohibir apilar y exigir base `main` siempre. Sin decidir.
+
+### P4 · Un `origin/main` obsoleto en local convierte un merge en un conflicto
+
+El track de verificación se mergeó como **#131** (`cd15591`, squash) a las
+10:56. La sesión que abrió #132 no hizo `git fetch` en ningún momento, midió
+`origin/main...HEAD` contra una referencia de hace horas, leyó «0 por detrás» y
+abrió el PR sobre esa premisa.
+
+Resultado: #132 llegó `CONFLICTING` con seis commits que ya estaban en `main` en
+forma de squash — y git **no reconoce un squash-merge**, así que un rebase
+normal intenta reaplicarlos en vez de descartarlos. Se rehízo con cherry-pick
+de los cuatro commits que sí aportaban.
+
+**Lo que sí sobrevivió intacto: #131 mergeó el código sin nada de su
+documentación.** Comprobado contra `origin/main`: `[Unreleased]` vacío,
+`docs/validating.md` sin mención de ningún flag nuevo, `commands.md:29`
+anunciando dos puertas de cuatro. DV-01…DV-05 valían enteros; lo duplicado era
+solo el código.
+
+**Regla que sale de aquí:** `git fetch` antes de medir distancia a `main`, y
+antes de abrir cualquier PR. Es la versión de red de la regla que D16 ya
+escribió para el disco — *una fila del plan no es evidencia; se comprueba*.
 
 ---
 
@@ -1503,3 +1554,4 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | 2026-08-26 | No se construye un IDE agéntico propio; se construye el plano de control — MCP para el agente, Studio para la persona (D15) | Se valoró clonar [kiro.dev](https://kiro.dev). Forkear VS Code cuesta una persona a tiempo completo en rebase de upstream, marketplace propio, auth, updater y firma en tres SO, antes de escribir producto, y para competir de frente con algo gratis y respaldado por AWS. Lo que Kiro no puede copiar sin dejar de ser Kiro es la neutralidad de agente del harness, y eso ya existe. Las piezas del plano de control también: `packages/mcp-spec-driven`, `csda studio`, `csda report`, el LSP y las extensiones. Lo que falta es coherencia, no código nuevo: el servidor MCP expone 7 herramientas de 32 comandos. Detalle y tareas en §12.13 |
 | 2026-08-26 | El plan se depura contra el repo antes de responder qué falta para 1.0 (D16) | Cuatro afirmaciones del propio plan estaban desfasadas y todas hacia el lado pesimista: §12.11 daba H13/H15/H16 por abiertos cuando 0.7.0 los cerró, §12.12 daba P2 por sin publicar cuando `04c0c76` ya publica `csda report`, §12.10 daba G1 por cumplido «con matiz» cuando 0.7.0 es la release aditiva y limpia que ese matiz pedía, y C10-06 —escrito ese mismo día— heredaba el error de P2. Regla que sale de aquí: **una fila del plan no es evidencia; se comprueba contra el disco antes de citarla.** Es la misma disciplina de §1 de `PLAN_PREDICTABLE_CODE_EVOLUTION.md`, aplicada a este fichero |
 | 2026-08-26 | La rama de verificación **no se publica todavía**; primero se salda su deuda de documentación y se mergea (D17) | Decisión del usuario: no sacar versión nueva aún. El trabajo de D14 está hecho y verde —`typecheck`, `format:check`, `docs:agent-contract:check`, `selfcheck` y los dos gates nuevos sobre este propio repo—, pero la rama toca **un solo fichero de `docs/`**, el `[Unreleased]` del CHANGELOG está vacío y no hay ADR del cruce de línea ni del rechazo de `--strict-values` como gate. Publicar así repetiría lo que DV-02 destapó: **`--strict-scenarios` salió en 0.7.0 sin documentar**, o sea un gate en manos de usuarios que no saben que existe. Tareas en §12.14 |
+| 2026-08-26 | Las ramas se rehacen sobre `main` en vez de rebasarse, y #132/#133 se cierran (D18) | El track de verificación ya estaba en `main` como #131 (`cd15591`, squash) desde las 10:56; el `origin/main` local nunca se refrescó. Un rebase no sirve —git no reconoce un squash-merge y reaplicaría los seis commits duplicados—, así que se hace cherry-pick de los cuatro que sí aportan: documentación, ADR-0023, H19 y H20. Un solo PR contra `main`, que además es el único que **tiene CI**: #133 estaba apilado y el filtro `pull_request: branches: [main]` lo dejaba sin workflow. Detalle en §12.15 |
