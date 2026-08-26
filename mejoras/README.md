@@ -266,6 +266,21 @@ deriva documental que esto existe para detectar.
 Ver el detalle y lo que se descarta expresamente (Z3, tree-sitter, proofs
 criptográficas) en `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §5 y §8.4.
 
+**Además, el 2026-08-26: tres rutas ante una divergencia (§11 del plan) —
+ruta 2 hecha.** §8.6 detecta `diverging`; no ofrecía nada que hacer con eso.
+Medido antes de construir: rutas 1 (arreglar código) y 3 (retirar el
+requisito) no necesitaban herramienta nueva — `report` ya da `file:line`, y
+`change new --capability` + `REMOVED Requirements` a mano ya cubre el
+retiro. Ruta 2 sí era pegamento real: `csda change new <id>
+--from-value-drift REQ-ID:value_id` genera un delta `MODIFIED Requirements`
+con el `value_<id>` reescrito al valor del código y un `TODO:` para la
+prosa — nunca reescribe la frase sola, esa es la misma contención de `pack
+infer` con lo que no puede inferir. Reutiliza `readCapabilityRequirements`
+(extraído a `scripts/lib/capability-specs.ts`, un solo lector para `report` y
+`change`, lección F1/A3) y `renderRequirement` ya existente. 14 tests nuevos,
+generado y pasado por `csda change validate` de verdad, no solo por fixtures
+de texto.
+
 **Sin fecha:** `B3`, `D2`, `D3`, `C8-03`, `C8-04`.
 
 ---

@@ -3,8 +3,7 @@ import * as path from "node:path";
 import { resolveProjectDir } from "../../../lib/project-root";
 import { parseTraceability, classify, detectOrphans, fileExists } from "../spec/PlanCommand";
 import { BaseCommand } from "../../../lib/command";
-import { parseSpec } from "../../../../packages/core/src/domain/SpecParser";
-import { CAPABILITIES_DIR } from "../../../../packages/core/src/infrastructure/ChangeWorkspace";
+import { readCapabilityRequirements } from "../../../lib/capability-specs";
 import { declaredPaths } from "../../../../packages/core/src/domain/DeclaredArtifacts";
 import {
   declaredSpecValues,
@@ -48,38 +47,6 @@ export function buildReport(projectDir: string) {
     requirements: items,
     declaredValues: buildDeclaredValues(projectDir, items),
   };
-}
-
-/**
- * Every capability spec's requirements, paired with which file declared them
- * (`docs/specs/capabilities/<cap>/spec.md` relative to `projectDir`).
- *
- * Absent entirely on most projects — `csda init` never writes this
- * directory, it belongs to the change-lifecycle structure (`csda change`).
- * No directory is not an error here; it is "nothing to report yet".
- */
-function readCapabilityRequirements(projectDir: string) {
-  const capabilitiesDir = path.join(projectDir, CAPABILITIES_DIR);
-  if (!fs.existsSync(capabilitiesDir)) return [];
-
-  const out: Array<{ req: any; specFile: string }> = [];
-  const entries = fs
-    .readdirSync(capabilitiesDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .sort((a, b) => a.name.localeCompare(b.name));
-  for (const entry of entries) {
-    const specPath = path.join(capabilitiesDir, entry.name, "spec.md");
-    if (!fs.existsSync(specPath)) continue;
-    const rel = path.relative(projectDir, specPath).split(path.sep).join("/");
-    let spec: any;
-    try {
-      spec = parseSpec(fs.readFileSync(specPath, "utf8"));
-    } catch {
-      continue;
-    }
-    for (const req of spec.requirements || []) out.push({ req, specFile: rel });
-  }
-  return out;
 }
 
 /**

@@ -134,7 +134,7 @@ rinden, no por quién los tenga.
 | Idea | Valor | Nota honesta |
 |---|---|---|
 | **Counterexamples concretos** — cuando una comprobación falla, devolver el input exacto que la rompe | **Alto.** Es la diferencia entre «diverge» y una reproducción | Es también la más cara: sin solver hay que generarlos, y `fast-check` (ya en devDeps) hace justo eso. Ruta barata inexplorada |
-| **Tres rutas ante una divergencia** — arreglar código / actualizar spec / retirar el requisito | **Alto y barato.** El ciclo de cambio ya existe (`csda change`), y `ArchiveChangeUseCase` ya sabe reescribir la matriz | Es pegamento entre piezas que ya están, no motor nuevo |
+| ~~**Tres rutas ante una divergencia**~~ — arreglar código / actualizar spec / retirar el requisito | **Ruta 2 hecha el 2026-08-26 — ver §11.** Rutas 1 y 3 no necesitaban herramienta nueva | Era pegamento entre piezas que ya estaban, no motor nuevo |
 | **Watch mode** | Bajo hoy | Aparcado por §13. Observar una puerta que no comprueba lo que dice no aporta |
 | **Modo YOLO de reparación automática** | Bajo | El harness ya es el bucle desatendido, con presupuesto (`C1`) y worktrees. Esto sería un segundo bucle peor |
 | **Compliance SOC 2 / HIPAA / PCI-DSS** | Cero por ahora | Ver §5. Vuelve a la mesa cuando haya algo real que certificar |
@@ -442,3 +442,61 @@ H19— y todos aparecieron **ejecutando**, ninguno leyendo.
 
 Así que la regla de §1 no es papeleo: es la misma disciplina aplicada al documento que
 propone el trabajo.
+
+---
+
+## 11. Tres rutas ante una divergencia — ruta 2 hecha el 2026-08-26
+
+§8.6 detecta que un valor diverge; no hacía nada con ese hallazgo. §7 nombraba
+tres rutas de resolución (arreglar código / actualizar spec / retirar el
+requisito) como «alto valor, barato» porque `csda change` y
+`ArchiveChangeUseCase` ya existen. Medido antes de construir nada: **dos de
+las tres rutas no necesitaban herramienta nueva.**
+
+- **Ruta 1 — arreglar el código.** `csda report` ya da `codeFile:codeLine`
+  para cada `diverging` (§8.6). Abrir el fichero y arreglarlo no necesita un
+  comando nuevo.
+- **Ruta 3 — retirar el requisito.** Ya es `csda change new <id> --capability
+  <cap>` con una sección `## REMOVED Requirements` escrita a mano — el
+  mecanismo de retiro no distingue por qué se retira un requisito.
+- **Ruta 2 — actualizar la spec.** Esta sí es pegamento real: encontrar el
+  requisito, encontrar el valor del código, escribir el delta. **Hecha.**
+
+### `csda change new <id> --from-value-drift REQ-ID:value_id`
+
+```bash
+$ csda change new fix-timeout --from-value-drift REQ-200:session_timeout
+  ✔ Change fix-timeout created (lite · REQ ids REQ-201…REQ-203 reserved)
+    + docs/specs/changes/fix-timeout/specs/auth/spec.md
+```
+
+Genera un delta `## MODIFIED Requirements` con la requirement **completa**
+copiada tal cual (`renderRequirement`, ya existente en `SpecParser.ts:439`,
+la reutiliza sin reescribirla) — MODIFIED reemplaza el nodo entero
+(`DeltaSpec.ts` `apply`), así que hace falta el requisito completo, no un
+fragmento. Dos cambios sobre la copia:
+
+1. **`value_<id>` en el `csda:trace` se reescribe al valor del código.** Es un
+   campo estructurado — reescribirlo es exacto, no una interpretación.
+2. **La prosa NO se reescribe.** «expira a los 15 minutos» no se convierte en
+   «a los 30» automáticamente — eso sería adivinar cómo debería sonar la
+   frase en nombre de un humano. Se añade un `TODO:` explícito en su lugar,
+   la misma contención que `pack infer` ya usa para lo que no puede inferir
+   (ADR-0014).
+
+**Ficheros a escanear, de nuevo sin campo nuevo:** se reutiliza el mismo
+Technical/Test artifact que `--strict-links` y §8.6 ya leen — vía
+`readCapabilityRequirements`, extraído a `scripts/lib/capability-specs.ts`
+porque `report` y `change` ya lo necesitaban ambos (la lección F1/A3: un solo
+lector, no dos que puedan divergir).
+
+**Cuatro salidas limpias, sin dejar un directorio de cambio a medias:**
+`value_drift_requirement_not_found`, `value_drift_id_not_declared`,
+`value_drift_no_code_value`, `value_drift_already_matches` — esta última
+existe a propósito: si el valor ya coincide, no hay nada que proponer, y
+crear un cambio vacío sería peor que negarse.
+
+**Medido, no solo probado con fixtures:** generado, pasado por `csda change
+validate` de verdad, y comprobado que el delta resultante lo acepta el
+parser real (`parseDelta`), no solo que el texto «se parece» a uno válido.
+14 tests nuevos (5 dominio puro + 9 wiring de CLI).

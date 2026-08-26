@@ -47,8 +47,13 @@ import {
   templateProposal,
   templateTasks,
   templateDesign,
+  templateValueDriftDelta,
 } from "../../../../packages/core/src/domain/ChangeTemplates";
 import { ValidateChangeUseCase } from "../../../../packages/core/src/application/ValidateChangeUseCase";
+import { readCapabilityRequirements } from "../../../lib/capability-specs";
+import { declaredSpecValues, declaredCodeValues } from "../../../../packages/core/src/domain/ValueAnnotations";
+import { declaredPaths } from "../../../../packages/core/src/domain/DeclaredArtifacts";
+import { parseTraceability } from "../spec/PlanCommand";
 import { main as instructionsMain } from "../../../change/instructions";
 
 /**
@@ -97,6 +102,8 @@ function usage() {
       `    ${c.green}--project-dir <path>${c.reset}  ${c.dim}Project root (default: auto-detected).${c.reset}\n` +
       `    ${c.green}--json${c.reset}                ${c.dim}One JSON document on stdout; prose on stderr.${c.reset}\n` +
       `    ${c.green}--capability <name>${c.reset}   ${c.dim}(new) Seed a delta for this capability.${c.reset}\n` +
+      `    ${c.green}--from-value-drift <REQ:id>${c.reset} ${c.dim}(new) Propose a spec update for a diverging` +
+      ` declared value (§8.6).${c.reset}\n` +
       `    ${c.green}--full${c.reset}                ${c.dim}(new) Full rigor — also scaffold design.md.${c.reset}\n` +
       `    ${c.green}--artifact <name>${c.reset}     ${c.dim}(author) Which artefact to write. Default: proposal.${c.reset}\n` +
       `    ${c.green}--agent <cmd>${c.reset}         ${c.dim}(author) Agent command; must contain {prompt_file}.${c.reset}\n` +
@@ -117,6 +124,7 @@ export interface ChangeOptions {
   force: boolean;
   full: boolean;
   capability: string | null;
+  fromValueDrift: string | null;
   schema?: string;
   reserve: number;
   yes?: boolean;
@@ -135,6 +143,7 @@ function parseArgs(argv) {
     force: false,
     full: false,
     capability: null,
+    fromValueDrift: null,
     reserve: 3,
     positional: [],
   };
@@ -142,6 +151,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
     else if (a === "--capability" && argv[i + 1]) opts.capability = argv[++i];
+    else if (a === "--from-value-drift" && argv[i + 1]) opts.fromValueDrift = argv[++i];
     else if (a === "--schema" && argv[i + 1]) opts.schema = argv[++i];
     else if (a === "--reserve" && argv[i + 1]) opts.reserve = parseInt(argv[++i], 10) || 3;
     else if (a === "--artifact" && argv[i + 1]) opts.artifact = argv[++i];
@@ -169,6 +179,121 @@ function parseArgs(argv) {
 // that keep the existing `opts`-first call sites unchanged.
 const fail = (opts, nullShape, diags) => agentIo(opts.json).fail(nullShape, diags);
 const emit = (opts, payload, renderHuman) => agentIo(opts.json).emit(payload, renderHuman);
+
+/**
+ * Route 2 of the three-way resolution for a declared-value divergence
+ * (§8.6): `REQ-ID:value_id` becomes a `MODIFIED Requirements` delta
+ * proposing the spec take the code's value. Routes 1 ("fix the code") and 3
+ * ("retire the requirement") need no tooling of their own — `csda report`
+ * already points at the code file:line for route 1, and route 3 is
+ * `change new` with a hand-written `REMOVED Requirements` section, same as
+ * retiring any other requirement.
+ */
+function resolveValueDriftDelta(
+  projectDir: string,
+  spec: string
+): { capability: string; content: string } | { diagnostics: any[] } {
+  const sep = spec.indexOf(":");
+  const reqId = sep === -1 ? "" : spec.slice(0, sep);
+  const valueId = sep === -1 ? "" : spec.slice(sep + 1);
+  if (!reqId || !valueId) {
+    return {
+      diagnostics: [
+        error("invalid_value_drift_spec", `"${spec}" is not REQ-ID:value_id.`, {
+          fix: "e.g. --from-value-drift REQ-100:session_timeout",
+        }),
+      ],
+    };
+  }
+
+  const found = readCapabilityRequirements(projectDir).find((c) => c.req.id === reqId);
+  if (!found) {
+    return {
+      diagnostics: [
+        error("value_drift_requirement_not_found", `No capability spec declares ${reqId}.`, {
+          target: reqId,
+          fix: "Check the id, or that docs/specs/capabilities/ exists.",
+        }),
+      ],
+    };
+  }
+  const { req, capability } = found;
+
+  const specValue = declaredSpecValues(req.trace).find((v) => v.id === valueId);
+  if (!specValue) {
+    return {
+      diagnostics: [
+        error(
+          "value_drift_id_not_declared",
+          `declares no value_${valueId} in its csda:trace.`,
+          {
+            target: reqId,
+            fix: `Add value_${valueId}=<literal> to its csda:trace, or check the id.`,
+          }
+        ),
+      ],
+    };
+  }
+
+  let rows: any[] = [];
+  const tracePath = path.join(projectDir, "docs/specs/traceability.md");
+  if (fs.existsSync(tracePath)) {
+    try {
+      rows = parseTraceability(fs.readFileSync(tracePath, "utf8"));
+    } catch {
+      rows = [];
+    }
+  }
+  const row = rows.find((r) => r.requirement === reqId);
+
+  const codeFiles = new Set<string>();
+  for (const cell of [row && row.technicalArtifact, row && row.testArtifact]) {
+    for (const rel of declaredPaths(cell)) codeFiles.add(rel.split("#")[0]);
+  }
+
+  let codeValue: string | null = null;
+  for (const rel of codeFiles) {
+    const abs = path.join(projectDir, rel);
+    if (!fs.existsSync(abs)) continue;
+    const hit = declaredCodeValues(fs.readFileSync(abs, "utf8")).find((e) => e.id === valueId);
+    if (hit) {
+      codeValue = hit.value;
+      break;
+    }
+  }
+
+  if (codeValue === null) {
+    return {
+      diagnostics: [
+        error(
+          "value_drift_no_code_value",
+          `No \`csda:value ${valueId}=\` marker found in ${reqId}'s declared Technical/Test artifact.`,
+          {
+            target: reqId,
+            fix: "Either the marker is missing, or the declared file doesn't exist yet — see `csda report` / --strict-links.",
+          }
+        ),
+      ],
+    };
+  }
+
+  if (codeValue === specValue.value) {
+    return {
+      diagnostics: [
+        error(
+          "value_drift_already_matches",
+          `value_${valueId} already matches the code (${codeValue}) — nothing to propose.`,
+          { target: reqId }
+        ),
+      ],
+    };
+  }
+
+  return {
+    capability,
+    content: templateValueDriftDelta(capability, req, valueId, specValue.value, codeValue),
+  };
+}
 
 // ── new ───────────────────────────────────────────────────────────────────────
 
@@ -203,6 +328,25 @@ function cmdNew(opts) {
     ]);
   }
 
+  if (opts.capability && opts.fromValueDrift) {
+    return fail(opts, nullShape, [
+      error(
+        "conflicting_seed_flags",
+        "--capability and --from-value-drift cannot both be given.",
+        { fix: "Use one or the other — they seed the delta two different ways." }
+      ),
+    ]);
+  }
+
+  let valueDrift: { capability: string; content: string } | null = null;
+  if (opts.fromValueDrift) {
+    const resolved = resolveValueDriftDelta(projectDir, opts.fromValueDrift);
+    if ("diagnostics" in resolved) {
+      return fail(opts, nullShape, resolved.diagnostics);
+    }
+    valueDrift = resolved;
+  }
+
   const reqRange = reserveReqRange(projectDir, opts.reserve);
   const config = {
     ...DEFAULT_CONFIG,
@@ -228,6 +372,9 @@ function cmdNew(opts) {
       path.join(p.changeSpecs(changeId), opts.capability, "spec.md"),
       templateDelta(opts.capability, reqRange[0], phrases(projectDir))
     );
+  }
+  if (valueDrift) {
+    write(path.join(p.changeSpecs(changeId), valueDrift.capability, "spec.md"), valueDrift.content);
   }
 
   emit(
