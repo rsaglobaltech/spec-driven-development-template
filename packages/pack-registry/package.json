@@ -1,5 +1,5 @@
 {
-  "name": "@spec-driven/pack-registry",
+  "name": "@specgate/pack-registry",
   "version": "0.1.0",
   "description": "Internal build tool for the pack registry site. Not published: it imports the CLI's own pack loader (scripts/domain-pack/common), so it cannot stand alone. Invoked by `npm run registry:build` and the Pages workflow.",
   "license": "MIT",

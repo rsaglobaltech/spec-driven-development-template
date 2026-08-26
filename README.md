@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⬡ specgate
+# ⬡ Specgate
 
 **Specs as executable contracts — requirements, scenarios and traceability that CI enforces.**
 
@@ -19,6 +19,9 @@
 ---
 
 ## ⚡ Start
+
+> **Just renamed** ([ADR-0024](docs/specs/adr/0024-the-tool-is-renamed-the-format-is-not.md)): until the
+> first release under the new name the registries still hold `create-spec-driven-app` and the `csda` image — both kept as aliases.
 
 **Existing codebase** — the common enterprise case:
 

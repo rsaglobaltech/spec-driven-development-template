@@ -1,6 +1,6 @@
 {
-  "name": "vscode-spec-driven",
-  "displayName": "Spec-Driven Development",
+  "name": "specgate-vscode",
+  "displayName": "Specgate",
   "description": "pack.yaml squigglies, project validate on save, and traceability matrix navigation.",
   "version": "0.1.0",
   "publisher": "rsaglobaltech",

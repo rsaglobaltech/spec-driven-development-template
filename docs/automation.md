@@ -131,6 +131,13 @@ The generated CI configs call `npx`, which needs Node. Plenty of build agents
 do not have it — a Java shop's Jenkins agent, a locked-down runner — and that
 is the whole reason the Docker image and the Maven and Gradle plugins exist.
 
+> **Image name during the rename.** The pinned examples below name
+> `ghcr.io/rsaglobaltech/csda:<version>` because those exact tags exist and keep
+> working — a published tag is never rebuilt in place, so nothing is
+> republished under the new name retroactively. Tags cut **after** the rename
+> land under `ghcr.io/rsaglobaltech/specgate`. Pin whichever one you actually
+> pulled; they are the same tool.
+
 **Docker.** Mount the workspace and run the gate:
 
 ```bash
