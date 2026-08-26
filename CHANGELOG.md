@@ -100,6 +100,27 @@ deliberately *not* built, is [ADR-0023](docs/specs/adr/0023-checking-content-gat
   `no-op` stage, kept separate from `gate` in the run record because the fix is
   never in the code: it is the agent's write permissions or its prompt.
 
+- **A generated project did not pass its own gates (H20).**
+  `templates/base/spec.md.tpl` §8 shipped a pre-filled `REQ-001` example, and
+  `traceability.md.tpl` carries only `REQ-000` — so every project born from
+  `csda init` failed `validate --strict-tdd` with `[TDD-3]` before anyone wrote
+  a line. `ensureTraceabilityCoverage` could not save it: it reconciles feature
+  files that have no row, not requirements.
+
+  Worse than a red gate on day one: `csda harness run` on a new project **burned
+  all three agent attempts** failing on something the agent neither caused nor
+  could fix. And it contradicted the README's L2 — *"a PR gate enforcing spec and
+  test coverage, ~1 hour"* — since the gate was red before the hour started.
+
+  The placeholder row is gone, replaced by a comment pointing at
+  `csda req add "<what the requirement does>"`, which writes the row in `spec.md`
+  **and** in the matrix at once. The example use case no longer references a
+  requirement id that does not exist. A generated project now passes all four of
+  its gates, pinned by a test that runs them — the defect was invisible from
+  inside, because plain `validate` was green throughout.
+
+  Found while building the fixture to reproduce H19.
+
 - **The test suite was asserting the defect.** Sixteen harness tests handed the
   runner `true {prompt_file}` — a command that reads nothing, writes nothing and
   exits 0 — as the stand-in for "an agent whose work passes the gate", and one
