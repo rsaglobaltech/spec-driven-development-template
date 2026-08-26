@@ -44,8 +44,17 @@ export interface GherkinDialect {
   readonly but: readonly string[];
 }
 
-/** The version of `@cucumber/gherkin` this table was generated from. */
-export const DIALECT_TABLE_VERSION = "42.0.0";
+/**
+ * The version of `@cucumber/gherkin` this table was generated from.
+ *
+ * Bumped to 42.0.1 for #141 after the drift test confirmed the keyword data is
+ * byte-identical to 42.0.0 — only the stamp was stale. The two tests are
+ * deliberately separate: one compares every keyword against the installed
+ * table, the other records which version that comparison ran against. A patch
+ * release that changes no dialect still has to move this line, so the number in
+ * the file never claims more than it was checked against.
+ */
+export const DIALECT_TABLE_VERSION = "42.0.1";
 
 export const DIALECTS: Readonly<Record<string, GherkinDialect>> = {
   en: {
