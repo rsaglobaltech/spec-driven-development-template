@@ -5,6 +5,7 @@ import { parseTraceability, classify, detectOrphans } from "./PlanCommand";
 import { readLock } from "../../../specops/lock";
 import { errorMessage } from "../../../lib/diagnostics";
 import { BaseCommand } from "../../../lib/command";
+import { runMonorepoFanout } from "../../../lib/monorepo-fanout";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -160,6 +161,11 @@ export class StatusCommand extends BaseCommand {
     } catch (err: any) {
       process.stderr.write(`${errorMessage(err)}\n`);
       process.exit(2);
+    }
+
+    const monorepo = runMonorepoFanout(projectDir, "status.js");
+    if (monorepo !== null) {
+      process.exit(monorepo.failures === 0 ? 0 : 1);
     }
 
     const tracePath = path.join(projectDir, "docs/specs/traceability.md");
