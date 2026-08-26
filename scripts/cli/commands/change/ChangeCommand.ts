@@ -51,7 +51,10 @@ import {
 } from "../../../../packages/core/src/domain/ChangeTemplates";
 import { ValidateChangeUseCase } from "../../../../packages/core/src/application/ValidateChangeUseCase";
 import { readCapabilityRequirements } from "../../../lib/capability-specs";
-import { declaredSpecValues, declaredCodeValues } from "../../../../packages/core/src/domain/ValueAnnotations";
+import {
+  declaredSpecValues,
+  declaredCodeValues,
+} from "../../../../packages/core/src/domain/ValueAnnotations";
 import { declaredPaths } from "../../../../packages/core/src/domain/DeclaredArtifacts";
 import { parseTraceability } from "../spec/PlanCommand";
 import { main as instructionsMain } from "../../../change/instructions";
@@ -223,14 +226,10 @@ function resolveValueDriftDelta(
   if (!specValue) {
     return {
       diagnostics: [
-        error(
-          "value_drift_id_not_declared",
-          `declares no value_${valueId} in its csda:trace.`,
-          {
-            target: reqId,
-            fix: `Add value_${valueId}=<literal> to its csda:trace, or check the id.`,
-          }
-        ),
+        error("value_drift_id_not_declared", `declares no value_${valueId} in its csda:trace.`, {
+          target: reqId,
+          fix: `Add value_${valueId}=<literal> to its csda:trace, or check the id.`,
+        }),
       ],
     };
   }
@@ -330,11 +329,9 @@ function cmdNew(opts) {
 
   if (opts.capability && opts.fromValueDrift) {
     return fail(opts, nullShape, [
-      error(
-        "conflicting_seed_flags",
-        "--capability and --from-value-drift cannot both be given.",
-        { fix: "Use one or the other — they seed the delta two different ways." }
-      ),
+      error("conflicting_seed_flags", "--capability and --from-value-drift cannot both be given.", {
+        fix: "Use one or the other — they seed the delta two different ways.",
+      }),
     ]);
   }
 

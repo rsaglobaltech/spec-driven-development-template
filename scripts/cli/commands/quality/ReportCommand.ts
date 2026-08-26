@@ -321,8 +321,11 @@ export function renderHtml(report: any, opts: any) {
           const cls = it.status === "matched" ? "done" : "todo";
           const codeCell = it.codeFile
             ? `<code>${esc(it.codeValue)}</code> <span class="meta">${esc(it.codeFile)}:${esc(it.codeLine)}</span>`
-            : "<span class=\"no\">·</span>";
-          const specCell = it.specValue !== null ? `<code>${esc(it.specValue)}</code>` : '<span class="no">·</span>';
+            : '<span class="no">·</span>';
+          const specCell =
+            it.specValue !== null
+              ? `<code>${esc(it.specValue)}</code>`
+              : '<span class="no">·</span>';
           return (
             `<tr><td class="req">${esc(it.requirement)}</td><td><code>${esc(it.id)}</code></td>` +
             `<td>${specCell}</td><td>${codeCell}</td>` +
@@ -333,7 +336,9 @@ export function renderHtml(report: any, opts: any) {
       `</tbody></table></div>`
     : "";
 
-  const hasValueTrend = history.some((h: any) => typeof h.valuesTotal === "number" && h.valuesTotal > 0);
+  const hasValueTrend = history.some(
+    (h: any) => typeof h.valuesTotal === "number" && h.valuesTotal > 0
+  );
   const trendBlock = sparkline(history)
     ? `<div class="trend"><span class="trend-label">${
         hasValueTrend ? "Coverage (green) · Value match (blue, dashed)" : "Coverage trend"

@@ -120,9 +120,7 @@ test("--strict-links strips a line-range anchor before checking existence", () =
     const file = tracePath(projectDir);
     fs.writeFileSync(
       file,
-      fs
-        .readFileSync(file, "utf8")
-        .replace("`API /health`, smoke test", "`README.md#L1-L10`"),
+      fs.readFileSync(file, "utf8").replace("`API /health`, smoke test", "`README.md#L1-L10`"),
       "utf8"
     );
     // The file exists; only the anchor is fictional. Should pass.

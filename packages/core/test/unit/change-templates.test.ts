@@ -24,7 +24,11 @@ const REQ = {
       name: "Expires",
       heading: "SCN-200a — Expires",
       line: 9,
-      steps: ["GIVEN a session idle for 15 minutes", "WHEN the user tries to use it", "THEN it has expired"],
+      steps: [
+        "GIVEN a session idle for 15 minutes",
+        "WHEN the user tries to use it",
+        "THEN it has expired",
+      ],
     },
   ],
   trace: { uc: "Login", value_session_timeout: "15m" },

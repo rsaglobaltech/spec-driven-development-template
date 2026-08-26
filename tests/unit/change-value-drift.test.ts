@@ -82,7 +82,13 @@ test("generates a MODIFIED delta proposing the spec take the code's value", () =
     writeCode(root, "src/auth.ts", "// csda:value session_timeout=30m\n");
     addMatrixRow(root, "| REQ-200 | SCN-200a | - | - | - | - | - | `src/auth.ts` | TBD | In Dev |");
 
-    const r = run(root, ["change", "new", "fix-timeout", "--from-value-drift", "REQ-200:session_timeout"]);
+    const r = run(root, [
+      "change",
+      "new",
+      "fix-timeout",
+      "--from-value-drift",
+      "REQ-200:session_timeout",
+    ]);
     assert.equal(r.status, 0, r.stdout + r.stderr);
 
     const deltaPath = path.join(root, "docs/specs/changes/fix-timeout/specs/auth/spec.md");

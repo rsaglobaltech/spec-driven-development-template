@@ -71,7 +71,9 @@ const VALUE_PREFIX = "value_";
  * reads the convention out of the flat object it returns. No parser change,
  * no new field.
  */
-export function declaredSpecValues(trace: Record<string, string> | null | undefined): SpecValueEntry[] {
+export function declaredSpecValues(
+  trace: Record<string, string> | null | undefined
+): SpecValueEntry[] {
   const out: SpecValueEntry[] = [];
   if (!trace) return out;
   for (const key of Object.keys(trace)) {

@@ -355,8 +355,12 @@ test("--record appends valuesTotal/valuesMatched/valuesDiverging additively", ()
     fs.mkdirSync(path.dirname(historyPath), { recursive: true });
     fs.writeFileSync(
       historyPath,
-      JSON.stringify({ ts: "2026-01-01T00:00:00.000Z", total: 1, implemented: 0, implementedPct: 0 }) +
-        "\n"
+      JSON.stringify({
+        ts: "2026-01-01T00:00:00.000Z",
+        total: 1,
+        implemented: 0,
+        implementedPct: 0,
+      }) + "\n"
     );
 
     const r = cli("report", "--project-dir", dir, "--record", "--json", "--stdout");

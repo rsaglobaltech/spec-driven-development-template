@@ -20,7 +20,11 @@ import { csdaTagsIn } from "../../../../packages/core/src/domain/GherkinTags";
 import { parseTraceabilityRows } from "../../../../packages/core/src/domain/TraceabilityFormat";
 import { analyseRequirementText } from "../../../../packages/core/src/domain/RequirementSyntax";
 import { declaredPaths } from "../../../../packages/core/src/domain/DeclaredArtifacts";
-import { parseSpec, blockText, requirementKey } from "../../../../packages/core/src/domain/SpecParser";
+import {
+  parseSpec,
+  blockText,
+  requirementKey,
+} from "../../../../packages/core/src/domain/SpecParser";
 import { CAPABILITIES_DIR } from "../../../../packages/core/src/infrastructure/ChangeWorkspace";
 
 export class ValidateSpecsCommand extends BaseCommand {
@@ -349,9 +353,9 @@ export class ValidateSpecsCommand extends BaseCommand {
     if (!fs.existsSync(capabilitiesDir)) return;
 
     const findings = [];
-    for (const entry of fs.readdirSync(capabilitiesDir, { withFileTypes: true }).sort((a, b) =>
-      a.name.localeCompare(b.name)
-    )) {
+    for (const entry of fs
+      .readdirSync(capabilitiesDir, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name))) {
       if (!entry.isDirectory()) continue;
       const specPath = path.join(capabilitiesDir, entry.name, "spec.md");
       if (!fs.existsSync(specPath)) continue;

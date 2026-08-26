@@ -99,7 +99,9 @@ export function analyseRequirementText(
         REQUIREMENT_SYNTAX_CODES.MISSING_THEN,
         `${opts.target} opens with "IF" but never resolves with "THEN" — the trigger names a ` +
           "condition and never says what the system does about it.",
-        at({ fix: 'Complete the EARS unwanted-behaviour form: "IF <trigger>, THEN the system SHALL …".' })
+        at({
+          fix: 'Complete the EARS unwanted-behaviour form: "IF <trigger>, THEN the system SHALL …".',
+        })
       )
     );
   }
