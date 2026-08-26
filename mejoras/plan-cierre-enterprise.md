@@ -1157,9 +1157,23 @@ tres puntos sin que nada protestara. Ahora 76/72/82 — un punto de holgura, par
 que un refactor ajeno no lo dispare pero una regresión real sí.
 
 **G5 · La política de soporte se escribe sin la frase que la anula.**
-`docs/release-process.md` dice hoy *«esa es la intención, no una promesa, hasta
-que esté escrito aquí sin esta frase»*. En 1.0 se borra esa frase — y con ella
-se acepta mantener una línea más el minor anterior seis meses.
+✅ **Cumplido el 2026-08-26.** La cláusula de escape ya no está en
+`docs/release-process.md`, y con ella se acepta el compromiso: una línea
+soportada más el minor anterior **seis meses** desde que sale su sucesor,
+arreglos de seguridad y de corrección, features no.
+
+Se escribió también lo que cuesta —dos líneas con camino de release durante seis
+meses tras cada minor, y cada fix evaluado contra el minor anterior— porque una
+promesa que nadie costeó es exactamente cómo el párrafo acabó necesitando una
+cláusula de escape la primera vez. Si deja de ser sostenible, se cambia el
+párrafo en una release y se dice bajo Breaking; no se deja de cumplir en
+silencio.
+
+**Y salió una mentira documental al tirar del hilo:** `SECURITY.md` declaraba
+`0.2.x` como única versión soportada — **cinco minors tarde**, sin que nadie lo
+revisara desde que se escribió. Corregido a `0.7.x`, con la nota de que la tabla
+se mueve con la release o se convierte en la clase de afirmación que existe para
+evitar.
 
 ### Fuera del alcance de 1.0
 
@@ -1532,7 +1546,7 @@ Foto tomada al cerrar, con los issues abiertos como destino de cada pendiente.
 | Pendiente | Issue | Bloquea 1.0 |
 |---|---|---|
 | **G3** — un equipo de fuera adopta y reporta | [#100](https://github.com/rsaglobaltech/spec-driven-development-template/issues/100) | **Sí** |
-| **G5** — la política de soporte pierde la frase que la anula | [#101](https://github.com/rsaglobaltech/spec-driven-development-template/issues/101) | **Sí** |
+| ~~**G5**~~ — **cerrado el 2026-08-26**: la cláusula de escape fuera, el compromiso aceptado, y `SECURITY.md` corregido (declaraba `0.2.x` cinco minors tarde) | [#101](https://github.com/rsaglobaltech/spec-driven-development-template/issues/101) | ~~Sí~~ |
 | H18 — un test que parsee la salida de cada comando del contrato | [#135](https://github.com/rsaglobaltech/spec-driven-development-template/issues/135) | No, pero no publicaría 1.0 sin él |
 | P3 — CI ciego a los PR apilados | [#136](https://github.com/rsaglobaltech/spec-driven-development-template/issues/136) | No |
 | C10-01 — ejecutar ADR-0019 o revocarlo | [#137](https://github.com/rsaglobaltech/spec-driven-development-template/issues/137) | No |
@@ -1540,13 +1554,14 @@ Foto tomada al cerrar, con los issues abiertos como destino de cada pendiente.
 | C10-06 — publicar `csda studio` (estático + Mermaid empaquetado) | [#139](https://github.com/rsaglobaltech/spec-driven-development-template/issues/139) | No |
 | C8-01 — dogfood CsdaStudioApp, fases 8–10 | [#109](https://github.com/rsaglobaltech/spec-driven-development-template/issues/109) | No; y ver #137 antes de gastar más |
 
-### G5 no se ha tocado a propósito
+### G5 — cerrado el mismo día, por decisión explícita
 
-Es una línea de `docs/release-process.md:38`, y por eso mismo no la borro sin que
-alguien lo decida: borrarla **es** aceptar mantener el minor anterior seis meses.
-Eso es un compromiso de mantenimiento, no una edición de documentación. Queda en
-[#101](https://github.com/rsaglobaltech/spec-driven-development-template/issues/101),
-donde ya estaba.
+Era una línea de `docs/release-process.md`, y no se tocó hasta que hubo decisión,
+porque borrarla **es** aceptar mantener el minor anterior seis meses — compromiso
+de mantenimiento, no edición de documentación. Decidido y hecho el 2026-08-26.
+
+**Queda G3 como único gate de 1.0 abierto**, y es el que no depende de escribir
+nada: alguien de fuera tiene que usarlo y contarlo.
 
 ### La lectura del 1.0 no ha cambiado
 
