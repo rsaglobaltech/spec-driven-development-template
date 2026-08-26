@@ -75,6 +75,39 @@ deliberately *not* built, is [ADR-0023](docs/specs/adr/0023-checking-content-gat
   fixing the code (the report already gives `file:line`) and retiring the
   requirement (`--capability` with a `## REMOVED Requirements` section).
 
+### Fixed
+
+- **The gate approved an agent that wrote nothing (H19).** The gate runs *before*
+  `csda done`, so at gate time the requirement is still `Draft` — and
+  `--strict-tdd`'s "no `Test Artifact = TBD` past Draft" rule does not apply to a
+  Draft row. `done` then moved the status to `Implemented` and nothing validated
+  again.
+
+  Reproduced against a freshly generated project with
+  `--agent "cat {prompt_file} > /dev/null"`: **`✅ REQ-000 pass (1 attempt)`**.
+  The branch carried the archived prompt and one changed line — the matrix row
+  moved to `Implemented`, its Test artifact still `TBD`. No code, no test. It is
+  H1's root cause exactly: the gate approving what it did not check.
+
+  The harness now refuses an attempt whose diff is empty, before the gate rather
+  than after — a green gate over an empty diff proves nothing, and stopping
+  early also spares the project's test command. The archived prompt does not
+  count as work, because the harness writes it itself. This is a hard failure
+  rather than another opt-in flag: `--strict-artifacts` cannot catch it (it
+  compares against the paths the row declares, and a row declaring none has
+  nothing to compare), and an agent that produced no files has no legitimate
+  reading — the condition ADR-0023 sets for a gate. The attempt ends at a new
+  `no-op` stage, kept separate from `gate` in the run record because the fix is
+  never in the code: it is the agent's write permissions or its prompt.
+
+- **The test suite was asserting the defect.** Sixteen harness tests handed the
+  runner `true {prompt_file}` — a command that reads nothing, writes nothing and
+  exits 0 — as the stand-in for "an agent whose work passes the gate", and one
+  more used a scripted agent with an empty write list. Every assertion built on
+  them was pinning H19 as correct behaviour. They now use an agent that writes
+  one file, which is the cheapest thing a real agent does. Same shape as H3,
+  where a test weakened its own clean-tree check in order to pass.
+
 ### Documentation
 
 - **The four opt-in gates are documented together** in

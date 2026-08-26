@@ -928,6 +928,26 @@ function scriptedAgent(parent, writes, opts: any = {}) {
   return `"${process.execPath}" "${file}" {prompt_file}`;
 }
 
+/**
+ * The smallest agent that is not a no-op.
+ *
+ * These tests used to hand the harness `true {prompt_file}` — a command that
+ * reads nothing, writes nothing and exits 0 — as the stand-in for "an agent
+ * whose work passes the gate". Every assertion built on it was quietly
+ * asserting **H19**: an agent that produced no files reporting `pass`, with the
+ * requirement moved to `Implemented`. The suite was not merely blind to the
+ * defect, it encoded it as correct — the same shape as H3, where a test
+ * weakened its own clean-tree check to keep passing.
+ *
+ * The harness now refuses an empty attempt, so the stand-in has to do what the
+ * cheapest real agent does: write one file.
+ */
+function minimalAgent(parent) {
+  return scriptedAgent(parent, [
+    ["src/harness-fixture.ts", "export const writtenByTheFixtureAgent = true;\n"],
+  ]);
+}
+
 function runHarness(projectDir, agent, extra = []) {
   return spawnSync(
     process.execPath,
@@ -952,7 +972,7 @@ function runHarness(projectDir, agent, extra = []) {
 test("the fixture's gate really can pass, or the guard test below proves nothing", () => {
   const { parent, projectDir } = greenableProject();
   try {
-    const r = runHarness(projectDir, "true {prompt_file}");
+    const r = runHarness(projectDir, minimalAgent(parent));
     assert.match(r.stdout + r.stderr, /1 passed/, `${r.stdout}${r.stderr}`);
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
@@ -1288,7 +1308,7 @@ test("after exhausted attempts, --resume picks up at the next attempt", () => {
     const head = git("log", "-1", "--format=%s", "harness/REQ-000").stdout;
     assert.match(head, /FAILED the gate/, "the exhausted run should have left a wip commit");
 
-    const resumed = runHarness(projectDir, "true {prompt_file}", [
+    const resumed = runHarness(projectDir, minimalAgent(parent), [
       "--resume",
       "--max-attempts",
       "3",
@@ -1359,7 +1379,7 @@ function projectWithMissingFeature() {
 test("a requirement with no feature warns, with a fix, and still runs by default", () => {
   const { parent, projectDir } = projectWithMissingFeature();
   try {
-    const r = runHarness(projectDir, "true {prompt_file}");
+    const r = runHarness(projectDir, minimalAgent(parent));
     const out = r.stdout + r.stderr;
     assert.match(out, /requirement_has_no_feature/, out);
     assert.match(out, /csda req link REQ-000 --feature/, "a blocker without a fix just stops you");
@@ -1374,7 +1394,7 @@ test("a requirement with no feature warns, with a fix, and still runs by default
 test("--skip-not-ready skips it instead, naming the blocker", () => {
   const { parent, projectDir } = projectWithMissingFeature();
   try {
-    const r = runHarness(projectDir, "true {prompt_file}", ["--skip-not-ready"]);
+    const r = runHarness(projectDir, minimalAgent(parent), ["--skip-not-ready"]);
     const out = r.stdout + r.stderr;
     assert.match(out, /1 skipped/, out);
     assert.match(out, /Not ready for an agent: requirement_has_no_feature/);
@@ -1401,7 +1421,7 @@ test("an unrunnable scenario skips even without --skip-not-ready", () => {
     git("add", "-A");
     git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "shout");
 
-    const r = runHarness(projectDir, "true {prompt_file}");
+    const r = runHarness(projectDir, minimalAgent(parent));
     const out = r.stdout + r.stderr;
     assert.match(out, /1 skipped/, out);
     assert.match(out, /requirement_scenario_unrunnable/);
@@ -1415,7 +1435,7 @@ test("a ready requirement runs clean, with no readiness noise", () => {
   // readiness rules, the rules are wrong.
   const { parent, projectDir } = greenableProject();
   try {
-    const r = runHarness(projectDir, "true {prompt_file}", ["--skip-not-ready"]);
+    const r = runHarness(projectDir, minimalAgent(parent), ["--skip-not-ready"]);
     const out = r.stdout + r.stderr;
     assert.match(out, /1 passed/, out);
     assert.doesNotMatch(out, /requirement_has_no_feature/);
@@ -1499,7 +1519,7 @@ function cucumberProject() {
 test("a filter matching nothing exits 0, and the gate no longer believes it", () => {
   const { parent, projectDir } = cucumberProject();
   try {
-    const r = runHarness(projectDir, "true {prompt_file}", [
+    const r = runHarness(projectDir, minimalAgent(parent), [
       "--test-cmd",
       "npx cucumber-js --tags '@does-not-exist'",
     ]);
@@ -1518,7 +1538,7 @@ test("a run that really covers the requirement still passes", () => {
   // check is worse than the exit code it replaced.
   const { parent, projectDir } = cucumberProject();
   try {
-    const r = runHarness(projectDir, "true {prompt_file}", [
+    const r = runHarness(projectDir, minimalAgent(parent), [
       "--test-cmd",
       "npx cucumber-js features/core/health.feature",
     ]);
@@ -1535,7 +1555,7 @@ test("a non-Cucumber command is judged by its exit code, exactly as before", () 
   // must not be failed by a reader that never applied.
   const { parent, projectDir } = greenableProject();
   try {
-    const r = runHarness(projectDir, "true {prompt_file}", ["--test-cmd", "true"]);
+    const r = runHarness(projectDir, minimalAgent(parent), ["--test-cmd", "true"]);
     assert.match(r.stdout + r.stderr, /1 passed/, r.stdout + r.stderr);
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
@@ -1607,7 +1627,7 @@ function runAll(projectDir, agent, extra = []) {
 test("without a ceiling every requirement runs — the baseline the rest is measured against", () => {
   const { parent, projectDir } = threeRequirementProject();
   try {
-    const r = runAll(projectDir, "true {prompt_file}");
+    const r = runAll(projectDir, minimalAgent(parent));
     assert.match(r.stdout + r.stderr, /3 passed/, r.stdout + r.stderr);
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
@@ -1620,7 +1640,7 @@ test("--max-requirements stops the run inside a single level, not only between l
   // all three run past `--max-requirements 2`. Measured before it was fixed.
   const { parent, projectDir } = threeRequirementProject();
   try {
-    const r = runAll(projectDir, "true {prompt_file}", ["--max-requirements", "2"]);
+    const r = runAll(projectDir, minimalAgent(parent), ["--max-requirements", "2"]);
     const out = r.stdout + r.stderr;
     assert.match(out, /2 passed/, out);
     assert.match(out, /1 skipped/, out);
@@ -1635,7 +1655,7 @@ test("the same ceiling holds when the level runs in parallel", () => {
   // question before starting each one.
   const { parent, projectDir } = threeRequirementProject();
   try {
-    const r = runAll(projectDir, "true {prompt_file}", [
+    const r = runAll(projectDir, minimalAgent(parent), [
       "--max-requirements",
       "2",
       "--concurrency",
@@ -1652,7 +1672,13 @@ test("the same ceiling holds when the level runs in parallel", () => {
 test("--budget-seconds stops the run and still writes the ledger", () => {
   const { parent, projectDir } = threeRequirementProject();
   try {
-    const slow = scriptedAgent(parent, [], { sleepMs: 3000 });
+    // Writes, then sleeps: what is under test is the ceiling, not an empty
+    // attempt, and the harness now refuses one (H19).
+    const slow = scriptedAgent(
+      parent,
+      [["src/harness-fixture.ts", "export const writtenByTheFixtureAgent = true;\n"]],
+      { sleepMs: 3000 }
+    );
     const r = runAll(projectDir, slow, ["--budget-seconds", "2"]);
     const out = r.stdout + r.stderr;
     assert.match(out, /1 passed/, out);
