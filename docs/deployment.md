@@ -1,6 +1,6 @@
 # Deployment
 
-This page documents how `create-spec-driven-app`'s public surfaces are deployed.
+This page documents how `specgate`'s public surfaces are deployed.
 
 ## GitHub Pages site
 
@@ -17,7 +17,7 @@ After a successful run, you can reach:
 - **Comparisons matrix** — `/comparisons.md`
 - **Pack registry** — `/packs/index.html`
 - **Pack manifest (JSON)** — `/packs/manifest.json`
-- **Spec coverage report** — `/report.html` — this repository's own `csda report`
+- **Spec coverage report** — `/report.html` — this repository's own `specgate report`
   (P2): done/pending, orphan features, specops drift. A snapshot from the last
   deploy, not live — re-run the workflow (or push a change under the trigger
   paths above) to refresh it.

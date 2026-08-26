@@ -1,6 +1,6 @@
-# Comparison: `create-spec-driven-app` vs. alternatives
+# Comparison: `specgate` vs. alternatives
 
-This document positions `create-spec-driven-app` honestly against the tools
+This document positions `specgate` honestly against the tools
 teams commonly evaluate when adopting Spec-Driven Development or AI-assisted
 scaffolding: **OpenSpec**, GitHub `spec-kit`, Cursor rules, Aider conventions,
 and plain `README.md` files.
@@ -10,7 +10,7 @@ best current exponent of the change-lifecycle idea, and several things in this
 tool exist because of it.
 
 > **Bias disclosure.** This is written by the maintainers of
-> `create-spec-driven-app`. Where we lose, we say so. We have asked the
+> `specgate`. Where we lose, we say so. We have asked the
 > maintainers of each compared tool for review; their feedback (if received)
 > is referenced in footnotes.
 
@@ -18,7 +18,7 @@ tool exist because of it.
 
 ## 1. At-a-glance matrix
 
-| Capability | `create-spec-driven-app` | **OpenSpec** | GitHub `spec-kit` | Cursor `.cursorrules` | Aider `CONVENTIONS.md` | Plain `README.md` |
+| Capability | `specgate` | **OpenSpec** | GitHub `spec-kit` | Cursor `.cursorrules` | Aider `CONVENTIONS.md` | Plain `README.md` |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | **Generates an initial repo structure** | ✅ | ⚠️ minimal | ✅ | ❌ | ❌ | ❌ |
 | **Ships with a domain pack format** | ✅ (YAML+schema) | ❌ | ⚠️ ad-hoc | ❌ | ❌ | ❌ |
@@ -38,7 +38,7 @@ tool exist because of it.
 | **Zero-install (just docs)** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | **Agent JSON contract, documented and tested** | ✅ generated from source | ✅ hand-written | ❌ | ❌ | ❌ | ❌ |
 | **Slash commands for agent tools** | ✅ 8 tools | ✅ | ❌ | n/a | ❌ | ❌ |
-| **Configurable artefact graph** | ✅ `csda schema` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Configurable artefact graph** | ✅ `specgate schema` | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Multi-repo spec sharing** | ✅ private packs | ⚠️ Stores | ❌ | ❌ | ❌ | ❌ |
 | **Time to first value** | ⚠️ minutes | ✅ minutes | ✅ minutes | ✅ instant | ✅ instant | ✅ instant |
 
@@ -48,7 +48,7 @@ tool exist because of it.
 
 ## 2. When each tool wins
 
-### `create-spec-driven-app` wins when…
+### `specgate` wins when…
 
 - Your team needs **explicit traceability** between requirements, scenarios,
   and code (regulated industries, audited deliveries).
@@ -117,7 +117,7 @@ those two things, their smaller surface is the better tool.
 
 ---
 
-## 3. When `create-spec-driven-app` loses
+## 3. When `specgate` loses
 
 These are the honest trade-offs. We'd rather you choose a different tool than
 adopt ours and regret it.
@@ -135,16 +135,16 @@ adopt ours and regret it.
 
 ## 4. Migration paths
 
-### From OpenSpec → `create-spec-driven-app`
+### From OpenSpec → `specgate`
 
 The delta format is deliberately the same, so the specs come across as-is.
 
-1. `csda adopt` in the repo — it never overwrites an existing file.
+1. `specgate adopt` in the repo — it never overwrites an existing file.
 2. Move `openspec/changes/<id>/` to `docs/specs/changes/<id>/` and add a
-   `change.yaml` (`csda change new <id>` writes one to copy).
+   `change.yaml` (`specgate change new <id>` writes one to copy).
 3. Move `openspec/specs/<capability>/spec.md` to
    `docs/specs/capabilities/<capability>/spec.md`.
-4. `csda change validate` — the `ADDED`/`MODIFIED`/`REMOVED` grammar is
+4. `specgate change validate` — the `ADDED`/`MODIFIED`/`REMOVED` grammar is
    compatible; what it will flag is missing RFC-2119 keywords and scenario
    steps that are prose rather than `- GIVEN` bullets.
 5. Optionally add `<!-- csda:trace uc=… cmd=… -->` comments where you want
@@ -155,21 +155,21 @@ The delta format is deliberately the same, so the specs come across as-is.
 are the tax for the matrix and the CI gate; if you do not want those, you do
 not want this tool.
 
-### From `spec-kit` → `create-spec-driven-app`
+### From `spec-kit` → `specgate`
 
-1. Run `npx create-spec-driven-app init --config your.config --out ./next`.
+1. Run `npx specgate init --config your.config --out ./next`.
 2. Copy your existing `spec-kit` artefacts into the generated `docs/specs/`.
 3. Run `validate` — it will tell you what's missing in the traceability matrix.
 4. Keep `spec-kit` running for 1 release cycle as a parallel checker.
 
-### From `.cursorrules` → `create-spec-driven-app`
+### From `.cursorrules` → `specgate`
 
-1. Generate a project with `csda init`.
+1. Generate a project with `specgate init`.
 2. Move your Cursor rules into `AGENTS.md` and `AI_RULES.md` (we generate both).
 3. Reference the generated traceability matrix from your rules so Cursor
    reads them on every prompt.
 
-### From plain `README.md` → `create-spec-driven-app`
+### From plain `README.md` → `specgate`
 
 1. Generate a project as above.
 2. Copy the existing README into `docs/specs/glossary.md`.

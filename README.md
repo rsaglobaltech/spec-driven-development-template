@@ -1,12 +1,12 @@
 <div align="center">
 
-# ⬡ create-spec-driven-app
+# ⬡ specgate
 
 **Specs as executable contracts — requirements, scenarios and traceability that CI enforces.**
 
 [![CI](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/ci.yml/badge.svg)](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/ci.yml)
-[![npm latest](https://img.shields.io/npm/v/create-spec-driven-app?logo=npm&label=npm)](https://www.npmjs.com/package/create-spec-driven-app)
-[![npm beta](https://img.shields.io/npm/v/create-spec-driven-app/beta?logo=npm&label=beta)](https://www.npmjs.com/package/create-spec-driven-app)
+[![npm latest](https://img.shields.io/npm/v/specgate?logo=npm&label=npm)](https://www.npmjs.com/package/specgate)
+[![npm beta](https://img.shields.io/npm/v/specgate/beta?logo=npm&label=beta)](https://www.npmjs.com/package/specgate)
 [![Docs](https://img.shields.io/badge/docs-github_pages-0e8078)](https://rsaglobaltech.github.io/spec-driven-development-template/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](#-license)
 
@@ -24,21 +24,21 @@
 
 ```bash
 cd your-repo
-npx create-spec-driven-app@latest onboard   # reads the repo, proposes its capabilities
-npx create-spec-driven-app@latest adopt     # writes the spec skeleton, touches no code
-npx create-spec-driven-app@latest validate .
+npx specgate@latest onboard   # reads the repo, proposes its capabilities
+npx specgate@latest adopt     # writes the spec skeleton, touches no code
+npx specgate@latest validate .
 ```
 
 **New project:**
 
 ```bash
-npx create-spec-driven-app@latest init      # interactive wizard
+npx specgate@latest init      # interactive wizard
 ```
 
 Requires **Node.js ≥ 22** — or none at all with the Docker image:
 
 ```bash
-docker run --rm -v "$PWD:/workspace" ghcr.io/rsaglobaltech/csda validate . --strict-tdd
+docker run --rm -v "$PWD:/workspace" ghcr.io/rsaglobaltech/specgate validate . --strict-tdd
 ```
 
 → [Getting started](docs/getting-started.md) · [Quickstart for joiners](docs/quickstart.md)
@@ -56,13 +56,13 @@ Each level is useful on its own and never requires the ones above it.
 
 ## 🛠️ What it does
 
-**A daily loop, not a one-shot scaffolder.** `csda status` says where the
-project stands and what to run next; `csda plan` is the queue; `csda req` adds
-and links requirements so nobody hand-edits the ten-column matrix; `csda done`
+**A daily loop, not a one-shot scaffolder.** `specgate status` says where the
+project stands and what to run next; `specgate plan` is the queue; `specgate req` adds
+and links requirements so nobody hand-edits the ten-column matrix; `specgate done`
 closes them.
 → [Quickstart](docs/quickstart.md) · [Command reference](docs/commands.md)
 
-**Specs that are checked.** `csda validate` fails the build when a requirement
+**Specs that are checked.** `specgate validate` fails the build when a requirement
 has no scenario, no test, or no row in the traceability matrix. `--strict-tdd`
 fails it when a requirement moves past Draft without a test.
 → [Writing specs](docs/writing-specs.md) · [Validating](docs/validating.md)
@@ -80,14 +80,14 @@ upgrade as intent with `specops diff --as-change`, not as a file diff.
 
 **An agent surface that is a contract.** Twelve commands speak JSON with stable
 diagnostic codes and a `fix` on each — every command of the daily loop, and a
-test asserts it. `csda agents init` wires the loop into eight agent tools from
+test asserts it. `specgate agents init` wires the loop into eight agent tools from
 one definition.
 → [Agents](docs/agents.md) · [The agent contract](docs/specs/agent-contract.md)
 
-**Unattended delivery.** `csda harness run` drives plan → agent → verify → done
+**Unattended delivery.** `specgate harness run` drives plan → agent → verify → done
 for every pending requirement, each in its own git worktree. It never merges.
-`csda ci init` generates the gate for GitHub, GitLab, Azure or Jenkins, and
-`csda alm sync` keeps Jira or Azure Boards in step.
+`specgate ci init` generates the gate for GitHub, GitLab, Azure or Jenkins, and
+`specgate alm sync` keeps Jira or Azure Boards in step.
 
 **Any agent CLI.** No agent runtime, no SDK dependency: the agent is any shell
 command containing `{prompt_file}` — `claude -p < {prompt_file}`, `aider --yes
@@ -96,8 +96,8 @@ else. Commit your team's commands in `.harness/profiles.yaml` and pick one by
 name.
 → [Automation](docs/automation.md) · [The harness](docs/harness.md) · [Jira and Azure Boards](docs/alm.md)
 
-**It stays current.** `csda update` refreshes the generated agent files after an
-upgrade, three-way merging your edits rather than clobbering them. `csda doctor`
+**It stays current.** `specgate update` refreshes the generated agent files after an
+upgrade, three-way merging your edits rather than clobbering them. `specgate doctor`
 reports what has drifted, with a fix per finding.
 → [Command reference](docs/commands.md)
 

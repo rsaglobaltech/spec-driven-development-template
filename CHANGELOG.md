@@ -8,6 +8,33 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ## [Unreleased]
 
+### Changed
+
+- **The tool is now called Specgate.** npm package `specgate`, binary
+  `specgate`. `create-spec-driven-app` described a scaffolder in the
+  `create-react-app` mould, and the product stopped being one several minors
+  ago — it has a change lifecycle, an enforcing gate, an agent harness,
+  versioned domain packs and ALM sync. The new name states the differentiator:
+  the gate enforces the specs.
+
+  **Nothing breaks.** `csda` and `create-spec-driven-app` both remain as alias
+  binaries, and neither is removed in the 0.x line — an `npx` invocation that
+  worked before still works.
+
+  **The on-disk format is deliberately unchanged.** `csda:trace`, `csda:value`,
+  `csda:allow-placeholders` and the `.csda/` directory keep their names. Those
+  are not branding: they are a parsed format and a config directory that live
+  inside *user* repositories, and renaming them would be a silent breaking
+  change to every adopted project — surfacing as "requirement not found" rather
+  than as "your marker prefix changed". Reading both prefixes is a real
+  migration feature, not a find-and-replace, and it is not built here.
+  [ADR-0024](docs/specs/adr/0024-the-tool-is-renamed-the-format-is-not.md)
+  records the decision so the mismatch is not mistaken for an oversight.
+
+  Historical records keep the old name where it was accurate when written:
+  earlier CHANGELOG entries, ADRs 0008–0010, the published article and the case
+  study are left alone.
+
 The release that starts checking content instead of only paperwork. Every check
 until now answered "are these documents internally consistent?"; none answered
 "does the code say what the spec says?". These do — for the narrow slice where

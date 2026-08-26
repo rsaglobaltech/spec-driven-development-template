@@ -107,7 +107,7 @@ jobs:
           OWNER: ${{ github.repository_owner }}
         run: |
           OWNER_LC="$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
-          echo "name=@${OWNER_LC}/create-spec-driven-app" >> "$GITHUB_OUTPUT"
+          echo "name=@${OWNER_LC}/specgate" >> "$GITHUB_OUTPUT"
           echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Set publish settings
@@ -160,7 +160,7 @@ jobs:
           mkdir -p "$PKG_DIR"
           cp -R . "$PKG_DIR"
           cd "$PKG_DIR"
-          npm pkg set name="@${OWNER_LC}/create-spec-driven-app"
+          npm pkg set name="@${OWNER_LC}/specgate"
 
       - name: Publish to GitHub Packages (dry run)
         if: steps.publish_settings.outputs.dry_run == 'true'

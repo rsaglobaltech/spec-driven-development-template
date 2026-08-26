@@ -44,8 +44,8 @@ function error(msg: string): void {
 function banner(): string {
   return (
     `\n` +
-    `  ${c.bold}${c.cyan}🧭 create-spec-driven-app${c.reset}  ${c.dim}v${VERSION}${c.reset}\n` +
-    `  ${c.dim}Spec-Driven Development scaffolding — specs as executable contracts.${c.reset}\n`
+    `  ${c.bold}${c.cyan}🧭 specgate${c.reset}  ${c.dim}v${VERSION}${c.reset}\n` +
+    `  ${c.dim}Specs as executable contracts — requirements, scenarios and traceability that CI enforces.${c.reset}\n`
   );
 }
 
@@ -76,49 +76,49 @@ function example(line: string, comment?: string): string {
  * for what they teach, so they are declared here rather than derived.
  */
 const EXAMPLES =
-  example(`npx create-spec-driven-app@latest init`, "Generate a new project (wizard)") +
+  example(`npx specgate@latest init`, "Generate a new project (wizard)") +
   example(
-    `npx create-spec-driven-app@latest adopt --project-dir ./my-existing-repo`,
+    `npx specgate@latest adopt --project-dir ./my-existing-repo`,
     "Adopt SDD on an existing codebase"
   ) +
   example(
-    `npx create-spec-driven-app@latest init --config ./project.config --out ./projects`,
+    `npx specgate@latest init --config ./project.config --out ./projects`,
     "Generate a new project from a config file"
   ) +
   example(
-    `npx create-spec-driven-app@latest validate ./projects/my-app --strict-tdd`,
+    `npx specgate@latest validate ./projects/my-app --strict-tdd`,
     "Validate with the TDD gate"
   ) +
   example(
-    `npx create-spec-driven-app@latest expand --pack-root ./domain-packs \\\n        --pack parking-management/backend --project-dir ./projects/my-app \\\n        --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking ops"`,
+    `npx specgate@latest expand --pack-root ./domain-packs \\\n        --pack parking-management/backend --project-dir ./projects/my-app \\\n        --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking ops"`,
     "Apply a local pack"
   ) +
   example(
-    `npx create-spec-driven-app@latest expand --pack-repo https://github.com/acme/parking-specops.git \\\n        --pack-version v0.1.0 --pack backend --project-dir ./projects/smart-parking \\\n        --var PROJECT_NAME="Smart Parking"`,
+    `npx specgate@latest expand --pack-repo https://github.com/acme/parking-specops.git \\\n        --pack-version v0.1.0 --pack backend --project-dir ./projects/smart-parking \\\n        --var PROJECT_NAME="Smart Parking"`,
     "Apply a remote pack pinned to a git tag"
   ) +
   example(
-    `npx create-spec-driven-app@latest specops sync --project-dir ./projects/smart-parking`,
+    `npx specgate@latest specops sync --project-dir ./projects/smart-parking`,
     "Re-expand everything in .specops.lock / specops.config.yaml"
   ) +
   example(
-    `npx create-spec-driven-app@latest specops diff --project-dir ./projects/smart-parking --pack-version v0.2.0`,
+    `npx specgate@latest specops diff --project-dir ./projects/smart-parking --pack-version v0.2.0`,
     "Preview a version bump"
   ) +
   example(
-    `npx create-spec-driven-app@latest plan --project-dir ./projects/smart-parking`,
+    `npx specgate@latest plan --project-dir ./projects/smart-parking`,
     "Show what requirements still need work"
   ) +
   example(
-    `npx create-spec-driven-app@latest plan --project-dir ./projects/smart-parking --format json`,
+    `npx specgate@latest plan --project-dir ./projects/smart-parking --format json`,
     "Same, machine-readable for AI agents"
   ) +
   example(
-    `npx create-spec-driven-app@latest done REQ-007 --check`,
+    `npx specgate@latest done REQ-007 --check`,
     "Mark REQ-007 Implemented (after validate passes)"
   ) +
   example(
-    `npx create-spec-driven-app@latest pack init --out ./domain-packs --name "Billing Backend" --type contracts`,
+    `npx specgate@latest pack init --out ./domain-packs --name "Billing Backend" --type contracts`,
     "Scaffold a contracts-flavoured pack"
   );
 
@@ -128,7 +128,7 @@ const EXAMPLES =
  * The surface grew past twenty, which is more than anyone reads. A new user
  * needs `init` or `adopt` once, then lives in status → plan → req → change →
  * validate → done. Everything else is real but not first — `--help --all`
- * shows it, and `csda config set profile full` makes that the default.
+ * shows it, and `specgate config set profile full` makes that the default.
  *
  * Both help profiles are rendered from the surface registry, so a command
  * cannot exist without appearing in one of them or being deliberately absent
@@ -144,17 +144,17 @@ function usageCore() {
   process.stdout.write(
     banner() +
       section("USAGE") +
-      `    ${c.cyan}csda${c.reset} ${c.bold}<command>${c.reset} [options]\n` +
+      `    ${c.cyan}specgate${c.reset} ${c.bold}<command>${c.reset} [options]\n` +
       `    ${c.dim}Run ‘<command> --help’ for per-command details.${c.reset}\n` +
       renderGroups(coreHelpRows()) +
       section("MORE") +
       `    ${c.dim}${hiddenCommandCount()} more commands cover packs, automation, agents and reporting.${c.reset}\n` +
-      `    ${c.green}csda --help --all${c.reset}${c.dim}                    show every command${c.reset}\n` +
-      `    ${c.green}csda config set profile full${c.reset}${c.dim}         make that the default${c.reset}\n` +
+      `    ${c.green}specgate --help --all${c.reset}${c.dim}                    show every command${c.reset}\n` +
+      `    ${c.green}specgate config set profile full${c.reset}${c.dim}         make that the default${c.reset}\n` +
       section("EXAMPLES") +
-      example(`npx create-spec-driven-app@latest adopt`, "Existing codebase") +
-      example(`npx create-spec-driven-app@latest init`, "New project (wizard)") +
-      example(`csda status`, "Start of day") +
+      example(`npx specgate@latest adopt`, "Existing codebase") +
+      example(`npx specgate@latest init`, "New project (wizard)") +
+      example(`specgate status`, "Start of day") +
       "\n"
   );
 }
@@ -185,7 +185,7 @@ function usageFull() {
   process.stdout.write(
     banner() +
       section("USAGE") +
-      `    ${c.cyan}create-spec-driven-app${c.reset} ${c.bold}<command>${c.reset} [options]\n` +
+      `    ${c.cyan}specgate${c.reset} ${c.bold}<command>${c.reset} [options]\n` +
       `    ${c.dim}Run ‘<command> --help’ for per-command details.${c.reset}\n` +
       renderGroups(helpRows()) +
       section("GLOBAL FLAGS") +
@@ -345,7 +345,7 @@ function dispatchValidate(validateArgs: string[]): void {
 function dispatchHarnessPrompt(args: string[]): void {
   const reqId = args[2];
   if (!reqId || !/^REQ-\d+$/.test(reqId)) {
-    error("`harness prompt` expects a REQ-id, e.g. `csda harness prompt REQ-001`.");
+    error("`harness prompt` expects a REQ-id, e.g. `specgate harness prompt REQ-001`.");
     usage();
     process.exit(2);
   }

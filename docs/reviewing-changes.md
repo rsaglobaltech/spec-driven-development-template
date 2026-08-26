@@ -14,7 +14,7 @@ day one; this is the loop for every day after.
 ### 1. Open the change
 
 ```bash
-csda change new add-dynamic-pricing
+specgate change new add-dynamic-pricing
 ```
 
 ```
@@ -32,7 +32,7 @@ when the change also needs a `design.md` and contract artefacts.
 ### 2. Let the tool tell you what to write next
 
 ```bash
-csda change status
+specgate change status
 ```
 
 ```
@@ -101,11 +101,11 @@ comment, and the only one `plan` and the harness read rather than the matrix:
 
 Several are separated by commas — `depends=REQ-014, REQ-016`. What it changes:
 
-- **`csda plan` orders the queue** so a requirement never comes before the work
+- **`specgate plan` orders the queue** so a requirement never comes before the work
   it needs, and marks one whose dependency is still pending as `⛔ blocked`.
   Blocked work stops appearing under "next steps", because recommending it was
   never useful.
-- **`csda validate` fails** on a cycle (`requirement_cycle`), on a dependency
+- **`specgate validate` fails** on a cycle (`requirement_cycle`), on a dependency
   that names no requirement in the project (`unknown_dependency`), and on a
   requirement that depends on itself (`self_dependency`). Each says which ids
   are involved and what to delete.
@@ -116,18 +116,18 @@ Declaring nothing means no dependencies, so a project that never writes a
 ### 3b. Or have an agent draft it
 
 ```bash
-csda change author add-dynamic-pricing --artifact proposal --agent "claude -p < {prompt_file}"
-csda change author add-dynamic-pricing --artifact specs   --agent-profile local-claude
+specgate change author add-dynamic-pricing --artifact proposal --agent "claude -p < {prompt_file}"
+specgate change author add-dynamic-pricing --artifact specs   --agent-profile local-claude
 ```
 
 This is the `spec-author` role of the multi-agent harness, and it is a separate
-loop from `csda harness run` on purpose. That loop is built around a
+loop from `specgate harness run` on purpose. That loop is built around a
 requirement — a worktree per REQ, a branch named for it, a gate of
 `validate --strict-tdd` plus your tests. A change has no requirement yet;
 writing one is the job. So authoring has its own scope and its own gate.
 
 The prompt is not a second description of what an artefact is for: it is
-`csda change instructions` rendered for an agent, so the rules, the reserved
+`specgate change instructions` rendered for an agent, so the rules, the reserved
 REQ range and the template are the same ones a person is shown.
 
 **The scope is enforced, not requested.** The agent may write inside
@@ -135,7 +135,7 @@ REQ range and the template are the same ones a person is shown.
 put back before you see it: a file it created is deleted, a file it modified is
 restored from git. An agent asked to *describe* a change, and able to edit the
 capability spec it is describing, can make the change unnecessary instead of
-proposing it — quietly, in a diff that looks like the work. `csda change
+proposing it — quietly, in a diff that looks like the work. `specgate change
 archive` is what moves a delta into a capability spec, after a human has read
 it.
 
@@ -150,14 +150,14 @@ what an agent would be asked before paying for it.
 ### 4. Validate
 
 ```bash
-csda change validate add-dynamic-pricing
+specgate change validate add-dynamic-pricing
 ```
 
 ```
   ✔ add-dynamic-pricing (1 delta(s))
 ```
 
-You rarely need to run this by hand: plain `csda validate` validates every
+You rarely need to run this by hand: plain `specgate validate` validates every
 active change, so a broken delta fails the PR gate on its own. A project with
 no `docs/specs/changes/` directory is unaffected.
 
@@ -166,7 +166,7 @@ no `docs/specs/changes/` directory is unaffected.
 Archiving is the step that earns the ceremony. Preview first:
 
 ```bash
-csda change archive add-dynamic-pricing --dry-run
+specgate change archive add-dynamic-pricing --dry-run
 ```
 
 ```
@@ -181,7 +181,7 @@ Unchecked tasks block it (`archive_tasks_incomplete`); `--force` overrides.
 Then apply:
 
 ```bash
-csda change archive add-dynamic-pricing --yes
+specgate change archive add-dynamic-pricing --yes
 ```
 
 ```
@@ -201,13 +201,13 @@ added the matrix row:
 | REQ-014 | SCN-014 | `features/pricing/dynamic_pricing.feature` | UC-007 | CMD-011 | AGG-Pricing | EVT-PriceApplied | - | TBD | Draft |
 ```
 
-`csda plan` lists it as pending immediately. It arrives as `Draft`, which
+`specgate plan` lists it as pending immediately. It arrives as `Draft`, which
 `--strict-tdd` deliberately tolerates — an accepted proposal is not yet a
 commitment to have written the test. The gate bites the moment you start:
 
 ```bash
 # after moving the row's status to In Dev
-csda validate . --strict-tdd
+specgate validate . --strict-tdd
 ```
 
 ```

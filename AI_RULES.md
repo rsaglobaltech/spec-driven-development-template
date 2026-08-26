@@ -1,6 +1,6 @@
 <!-- csda:allow-placeholders — this file documents the {{VAR}} template syntax. -->
 
-# AI Rules — `create-spec-driven-app`
+# AI Rules — `specgate`
 
 The rulebook for any agent or contributor working on **this repository** — the
 CLI itself, not the projects it generates. Generated projects get their own
@@ -42,7 +42,7 @@ document lie is worse than no change at all.
 
 | Path | What |
 |---|---|
-| `bin/create-spec-driven-app.ts` | The only dispatcher. It never implements logic — it spawns a script from `dist/scripts/`. |
+| `bin/specgate.ts` | The only dispatcher. It never implements logic — it spawns a script from `dist/scripts/`. |
 | `scripts/` | One file per command. `scripts/lib/` holds shared helpers. |
 | `templates/` | `{{VARIABLE}}` interpolation only. **Never put logic in a template** — the renderer has no conditionals. Compute in TypeScript and pass the result in. |
 | `packs/` | The 11 shipped domain packs. `npm run registry:build` lints every one in CI. |
@@ -91,7 +91,7 @@ with its own migration, not a side effect of another change.
 ```bash
 npm run verify      # typecheck · eslint · prettier · tests · pack dry-run
 npm run test:all    # every suite, including BDD and the package tests
-csda validate .     # this repo passes its own gate — keep it that way
+specgate validate .     # this repo passes its own gate — keep it that way
 ```
 
 ## Comments

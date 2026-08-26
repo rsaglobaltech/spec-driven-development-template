@@ -88,7 +88,7 @@ jobs:
       # The tool has to pass its own gate. spec.md's success criteria claim it
       # does; before this step, nothing checked.
       - name: Validate this repository against its own spec gate
-        run: node bin/create-spec-driven-app.js validate .
+        run: node bin/specgate.js validate .
 
       - name: Build pack registry
         run: npm run registry:build

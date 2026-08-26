@@ -18,7 +18,7 @@ the harness, opencode/Claude, and the human reviewer live.
 
 ```text
                                           ┌──────────────────────────────────┐
-                                          │   create-spec-driven-app (TOOL)  │
+                                          │   specgate (TOOL)  │
                                           │   npm package · CLI binary       │
                                           │   commands: init, specops,       │
                                           │   pack, plan, done, validate,    │
@@ -32,13 +32,13 @@ the harness, opencode/Claude, and the human reviewer live.
        │  pack.yaml                      │              │              │  spec.md           ◄─ rendered     │
        │  templates/                     │              │              │  AI_RULES.md       ◄─ rendered     │
        │    AI_RULES.md.tpl              │              │              │  features/**/*.feature ◄─ rendered │
-       │    spec.md.tpl                  │   csda       │   csda       │  docs/specs/                       │
+       │    spec.md.tpl                  │   specgate       │   specgate       │  docs/specs/                       │
        │    features/**/*.feature.tpl    ├──pack lint──►│◄─specops add │  pom.xml | build.gradle | …        │
        │                                 │   --graph    │   --pack-repo│  src/main, src/test                │
        │  git tags: v0.1.0, v0.2.0 …     │   --strict   │   --version  │  .specops.lock  ── points back     │
        │                                 │   pack infer │   --var …    │  .specops/baseline/  (merge base)  │
        │  AUTHORED by domain experts     │              │              │  .specops/harness-prompts/ (audit) │
-       │  Stack-agnostic                 │              │  csda        │  harness.config.yaml               │
+       │  Stack-agnostic                 │              │  specgate        │  harness.config.yaml               │
        │                                 │              │  specops sync│                                    │
        │                                 │              │  --pack-vers │  IMPLEMENTED by humans + agents    │
        │                                 │              │              │  ONE per stack (Spring / Quarkus / │
@@ -46,7 +46,7 @@ the harness, opencode/Claude, and the human reviewer live.
                                                         │              │                                    │
                                                         │              │  Iteration loop:                   │
                                                         │              │  ┌──────────────────────────────┐  │
-                                                        │              │  │  csda harness run --req REQ  │  │
+                                                        │              │  │  specgate harness run --req REQ  │  │
                                                         │              │  │                              │  │
                                                         │              │  │  ┌────────────────────────┐  │  │
                                                         │              │  │  │ git worktree           │  │  │
@@ -105,9 +105,9 @@ Three lifecycles, three responsibilities.
 Read top-to-bottom — every step is a real command somebody runs.
 
 ```text
-Day 1 (human)            ┌──► csda init  (scaffold from project.yaml)
+Day 1 (human)            ┌──► specgate init  (scaffold from project.yaml)
                          │
-Day 1 (human)            ├──► csda specops add  (pulls pack, renders specs)
+Day 1 (human)            ├──► specgate specops add  (pulls pack, renders specs)
                          │
 Day 1 (human + AI)       ├──► Bootstrap prompt → opencode / Claude
                          │     PHASE 1: build files, BDD wired, hex skeleton,
@@ -115,19 +115,19 @@ Day 1 (human + AI)       ├──► Bootstrap prompt → opencode / Claude
                          │
                          ├──► git commit "phase 1 complete"
                          │
-Day N (AI via harness)   ├──► csda harness prompt REQ-001   (preview)
-                         ├──► csda harness run    --req REQ-001
+Day N (AI via harness)   ├──► specgate harness prompt REQ-001   (preview)
+                         ├──► specgate harness run    --req REQ-001
                          │       └─ worktree, prompt(prefix+facts+Gherkin+AI_RULES),
                          │          agent writes code, gate, done, commit on
                          │          harness/REQ-001
                          │
                          ├──► human reviews + merges harness/REQ-001
                          │
-                         ├──► csda harness run --req REQ-002
+                         ├──► specgate harness run --req REQ-002
                          │   …
                          │
-Pack v0.2.0 ships        ├──► csda specops diff --pack-version v0.2.0
-                         ├──► csda specops sync --pack-version v0.2.0
+Pack v0.2.0 ships        ├──► specgate specops diff --pack-version v0.2.0
+                         ├──► specgate specops sync --pack-version v0.2.0
                          │   …
                          └──► continues
 ```
@@ -170,7 +170,7 @@ order — top to bottom — by [`scripts/harness/prompt.ts`](../../scripts/harne
 │  # Implement REQ-NNN                                                │
 │  ## Requirement facts                                               │
 │    feature_file · test_artifact · technical_artifact · status …    │
-│  ## Suggested approach        (hint from `csda plan`)              │
+│  ## Suggested approach        (hint from `specgate plan`)              │
 │  ## Gherkin scenario          (inlined from features/…feature)     │
 │  ## Project rules             (AI_RULES.md inlined verbatim)       │
 │  ## Definition of done                                              │
@@ -183,7 +183,7 @@ order — top to bottom — by [`scripts/harness/prompt.ts`](../../scripts/harne
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-`csda harness prompt REQ-NNN` prints exactly that text to stdout — no git,
+`specgate harness prompt REQ-NNN` prints exactly that text to stdout — no git,
 no agent invocation, no gate. Use it to inspect what an agent receives.
 Every prompt the harness actually sends during `harness run` is also
 mirrored to `.specops/harness-prompts/REQ-NNN-<timestamp>-attempt-N.md`
@@ -203,8 +203,8 @@ parking-management-specops@v0.1.0      ◄── one spec, stack-agnostic
         └──► smart-parking-micronaut/   (STACK=Micronaut,   JUnit+Cucumber)
 ```
 
-Each implementation is its own repo, with its own `csda init` (different
-`STACK`), its own `csda specops add` (same pack + version + domain vars),
+Each implementation is its own repo, with its own `specgate init` (different
+`STACK`), its own `specgate specops add` (same pack + version + domain vars),
 its own bootstrap prompt run, and its own harness loop. The pack's
 `spec.md`, `features/**` and traceability matrix are **identical** across
 all three; `AI_RULES.md` differs because its `{{STACK}}` substitution does.
@@ -235,7 +235,7 @@ Useful patterns:
 source of truth — explicitly **immutable** for the agent. The harness
 prompt says so; `specops sync` is the only legitimate path to change
   them (and even then, three-way merges preserve local edits).
-- **`docs/specs/traceability.md`** is the matrix; `csda done` owns it.
+- **`docs/specs/traceability.md`** is the matrix; `specgate done` owns it.
   Agents must not hand-edit it.
 - **`.specops.lock`** records which pack and version the project consumes
   and the `--var` values used. Commit it.

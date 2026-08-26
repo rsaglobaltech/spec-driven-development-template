@@ -16,7 +16,7 @@ deliberately.
 
 ```bash
 # 1. Scaffold a pack
-npx create-spec-driven-app@latest pack init \
+npx specgate@latest pack init \
   --out ./domain-packs \
   --name "Billing Backend" \
   --type backend
@@ -29,7 +29,7 @@ npx create-spec-driven-app@latest pack init \
 #              scenarios, outputs.files, rules
 
 # 3. Lint
-npx create-spec-driven-app@latest pack lint \
+npx specgate@latest pack lint \
   --pack-root ./domain-packs \
   --pack billing/backend
 ```
@@ -76,7 +76,7 @@ The recommended ergonomic path is `specops add` (npm-install-style):
 
 ```bash
 # From inside your project (auto-detected project dir)
-csda specops add \
+specgate specops add \
   --pack-repo https://github.com/acme/billing-specops.git \
   --pack-version v0.1.0 \
   --pack backend \
@@ -90,7 +90,7 @@ csda specops add \
 Lower-level alternative (`expand`) — same behaviour, more flags:
 
 ```bash
-csda expand \
+specgate expand \
   --pack-root ./domain-packs \
   --pack billing/backend \
   --project-dir /tmp/acme-energy-hub \
@@ -102,7 +102,7 @@ csda expand \
 To take a pack OFF the project:
 
 ```bash
-csda specops remove parking-management/backend
+specgate specops remove parking-management/backend
 ```
 
 > `remove` drops the entry from `.specops.lock` but does **not** delete generated files — you might have hand-edited tests pointing at them. Use `git status` afterwards and clean up by hand.
@@ -199,7 +199,7 @@ packs:
 Then on a fresh clone:
 
 ```bash
-npx create-spec-driven-app@latest specops sync --project-dir .
+npx specgate@latest specops sync --project-dir .
 ```
 
 When `.specops.lock` is absent, `sync` reads `specops.config.yaml`, expands every listed pack, and writes the lockfile. When the lockfile exists, the lockfile wins — `specops.config.yaml` is the **intent**, the lockfile is the **resolved state** (think `package.json` vs `package-lock.json`).
@@ -214,7 +214,7 @@ When `.specops.lock` is absent, `sync` reads `specops.config.yaml`, expands ever
 
 ```bash
 # 1. Preview the change (no writes)
-npx create-spec-driven-app@latest specops diff \
+npx specgate@latest specops diff \
   --project-dir ./smart-parking \
   --pack parking-management/backend \
   --pack-version v0.2.0
@@ -227,13 +227,13 @@ npx create-spec-driven-app@latest specops diff \
 #   1 added · 2 modified · 9 unchanged
 
 # 2. Apply once you're satisfied
-npx create-spec-driven-app@latest specops sync \
+npx specgate@latest specops sync \
   --project-dir ./smart-parking \
   --pack parking-management/backend \
   --pack-version v0.2.0
 
 # 3. Re-validate
-npx create-spec-driven-app@latest validate ./smart-parking --strict-tdd
+npx specgate@latest validate ./smart-parking --strict-tdd
 
 # 4. Commit the updated .specops.lock and the regenerated spec files
 git add .specops.lock docs/specs features

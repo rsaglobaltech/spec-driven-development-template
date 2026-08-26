@@ -8,8 +8,8 @@ unticked long after 0.1.4 shipped).
 
 | Artefact | Registry | Workflow | Status |
 |---|---|---|---|
-| `create-spec-driven-app` | npm, public | `publish-npm.yml` | Live |
-| `@rsaglobaltech/create-spec-driven-app` | GitHub Packages | `publish-github-packages.yml` | Live |
+| `specgate` | npm, public | `publish-npm.yml` | Live |
+| `@rsaglobaltech/specgate` | GitHub Packages | `publish-github-packages.yml` | Live |
 | CLI image | `ghcr.io` | `publish-docker.yml` | Live, `linux/amd64` and `linux/arm64` |
 | `csda-maven-plugin` | Maven Central or an internal Nexus | none yet | C7-05 |
 | `csda-gradle-plugin` | Gradle Plugin Portal or an internal repo | none yet | C7-06 |
@@ -140,8 +140,8 @@ unpublished packages, no coverage output.
 ## Verifying a published release
 
 ```bash
-npx create-spec-driven-app@X.Y.Z --help
-npx create-spec-driven-app@X.Y.Z init --config ./project.config --out /tmp --dry-run
+npx specgate@X.Y.Z --help
+npx specgate@X.Y.Z init --config ./project.config --out /tmp --dry-run
 ```
 
 ## After the release

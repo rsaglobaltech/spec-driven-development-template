@@ -37,8 +37,8 @@ Tools exposed by the server:
 | `update_traceability` | Idempotently appends a row to `traceability.md`. |
 | `lint_pack` | Runs `pack lint` and returns structured errors. |
 | `validate_project` | Runs `validate` (or `validate --strict-tdd`) and parses the output. |
-| `plan` | Returns the same JSON as `csda plan --format json`. |
-| `mark_requirement_done` | Mirrors `csda done <REQ>` (supports `--check`/`--strict`). |
+| `plan` | Returns the same JSON as `specgate plan --format json`. |
+| `mark_requirement_done` | Mirrors `specgate done <REQ>` (supports `--check`/`--strict`). |
 
 Restart the client; the tools appear in the model's tool list as `spec-driven.*`.
 
@@ -52,11 +52,11 @@ Restart the client; the tools appear in the model's tool list as `spec-driven.*`
 running *before* the session can end rather than after it in CI.
 
 ```bash
-csda agents init --tool claude-plugin --project-dir ./csda-plugin
+specgate agents init --tool claude-plugin --project-dir ./csda-plugin
 ```
 
 That writes a complete plugin: `.claude-plugin/plugin.json`, the six commands
-of the loop under `commands/csda/`, an `.mcp.json` pointing at the spec-driven
+of the loop under `commands/specgate/`, an `.mcp.json` pointing at the spec-driven
 MCP server, and `hooks/hooks.json` with the gate.
 
 **The hook is the part no other target can offer.** Every other tool here gets
@@ -70,7 +70,7 @@ The spec gate is failing, so this work is not finished:
     fix: Write the test first, then set its path in the row's
          'Test artifact' column.
 
-Run `csda validate . --strict-tdd` to see all of it.
+Run `specgate validate . --strict-tdd` to see all of it.
 ```
 
 The session does not end while that is true. `validate --strict-tdd` stops
@@ -81,9 +81,9 @@ something it cannot walk past.
 the same prompt reaches it, the findings are reported and the session ends: by
 then the agent has been told, and a human needs to see the answer more than the
 loop needs another turn. A project without `spec.md`, or a machine without
-`csda` on `PATH`, is left alone entirely.
+`specgate` on `PATH`, is left alone entirely.
 
-`claude-plugin` is the one target `csda agents init` does *not* write by
+`claude-plugin` is the one target `specgate agents init` does *not* write by
 default — a plugin is an installable artefact, not something to scatter into
 every project.
 
@@ -107,7 +107,7 @@ Settings:
 | --- | --- | --- |
 | `spec-driven.validateOnSave` | `false` | Run `validate` on every file save. |
 | `spec-driven.codeLens` | `true` | Show "Reveal in traceability" code lenses. |
-| `spec-driven.cliPath` | `npx create-spec-driven-app` | Override if you ship the CLI vendored. |
+| `spec-driven.cliPath` | `npx specgate` | Override if you ship the CLI vendored. |
 | `spec-driven.schemaPath` | bundled | Point at a custom `pack.schema.json`. |
 
 ---
@@ -115,7 +115,7 @@ Settings:
 ---
 ## Drive delivery with the harness
 
-`csda harness run` drives plan → agent → verify → done for every pending
+`specgate harness run` drives plan → agent → verify → done for every pending
 requirement, each in its own git worktree, in dependency order, and it never
 merges.
 
@@ -149,7 +149,7 @@ spec-gate:
   image: ghcr.io/rsaglobaltech/csda:0.2.1
   stage: test
   script:
-    - csda validate . --strict-tdd
+    - specgate validate . --strict-tdd
 ```
 
 In Jenkins:
@@ -157,7 +157,7 @@ In Jenkins:
 ```groovy
 stage('Spec gate') {
     agent { docker { image 'ghcr.io/rsaglobaltech/csda:0.2.1' } }
-    steps { sh 'csda validate . --strict-tdd' }
+    steps { sh 'specgate validate . --strict-tdd' }
 }
 ```
 
@@ -197,12 +197,12 @@ Plain shell (works without husky/lefthook):
 # .git/hooks/pre-commit  (chmod +x)
 #!/usr/bin/env bash
 set -e
-echo "→ csda validate --strict-tdd"
-npx --yes create-spec-driven-app@0.1.0 validate . --strict-tdd
-echo "→ csda specops diff (must be clean)"
-DIFF=$(npx --yes create-spec-driven-app@0.1.0 specops diff --format json 2>/dev/null || true)
+echo "→ specgate validate --strict-tdd"
+npx --yes specgate@0.1.0 validate . --strict-tdd
+echo "→ specgate specops diff (must be clean)"
+DIFF=$(npx --yes specgate@0.1.0 specops diff --format json 2>/dev/null || true)
 if echo "$DIFF" | grep -q '"added":\[\([^]].\)\]\|"modified":\[\([^]].\)\]'; then
-  echo "✖ Pack content drifted. Run \`csda specops sync\` and commit again."
+  echo "✖ Pack content drifted. Run \`specgate specops sync\` and commit again."
   exit 1
 fi
 ```
@@ -212,7 +212,7 @@ Or with **husky** (`package.json`):
 ```bash
 npm install --save-dev husky
 npx husky init
-echo 'npx --yes create-spec-driven-app@latest validate . --strict-tdd' > .husky/pre-commit
+echo 'npx --yes specgate@latest validate . --strict-tdd' > .husky/pre-commit
 ```
 
 Mirror the same call in CI (see §4) so the gate survives `--no-verify`.
@@ -223,7 +223,7 @@ Mirror the same call in CI (see §4) so the gate survives `--no-verify`.
 
 ## Sync requirements with Jira or Azure Boards
 
-`csda alm sync` keeps the traceability matrix and the board in step — creating
+`specgate alm sync` keeps the traceability matrix and the board in step — creating
 an issue for each unlinked requirement, closing it when the requirement is
 done, and reporting drift rather than resolving it.
 

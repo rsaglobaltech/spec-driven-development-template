@@ -1,5 +1,5 @@
 name: "Spec Driven Validate"
-description: "Runs create-spec-driven-app validate on a generated project and posts a summary comment on the PR."
+description: "Runs specgate validate on a generated project and posts a summary comment on the PR."
 
 inputs:
   project-dir:
@@ -28,16 +28,16 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
-    - name: Install create-spec-driven-app
+    - name: Install specgate
       shell: bash
-      run: npm install -g create-spec-driven-app@latest
+      run: npm install -g specgate@latest
 
     - name: Run validate
       id: validate
       shell: bash
       run: |
         set +e
-        OUTPUT=$(create-spec-driven-app validate "${{ inputs.project-dir }}" 2>&1)
+        OUTPUT=$(specgate validate "${{ inputs.project-dir }}" 2>&1)
         EXIT_CODE=$?
         set -e
 

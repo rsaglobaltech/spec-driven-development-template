@@ -3,7 +3,7 @@
 **Goal:** every requirement in the matrix has exactly one issue on the board,
 and the two never quietly disagree.
 
-`csda alm sync` creates an issue for each unlinked `REQ`, closes the issue when
+`specgate alm sync` creates an issue for each unlinked `REQ`, closes the issue when
 its requirement reaches a done status, and reports **drift** — an issue closed
 while its requirement is still open — without resolving it for you.
 
@@ -78,7 +78,7 @@ provider: npm:csda-alm-youtrack
 ```
 
 ```bash
-npm install --save-dev csda-alm-youtrack   # you install it; csda never does
+npm install --save-dev csda-alm-youtrack   # you install it; specgate never does
 ```
 
 The split is not a preference. Every connector is somebody else's API, changing
@@ -124,8 +124,8 @@ product owner opens the ticket, make it appear in the repo*. It does, as a
 **change**, never as a matrix row:
 
 ```bash
-csda alm pull --label spec-driven            # one change per labelled issue
-csda alm pull --label spec-driven --dry-run  # see what it would open
+specgate alm pull --label spec-driven            # one change per labelled issue
+specgate alm pull --label spec-driven --dry-run  # see what it would open
 ```
 
 Each pulled issue becomes `docs/specs/changes/alm-<key>/` with a proposal
@@ -138,7 +138,7 @@ description and a status; it has no executable acceptance criterion. Generating
 Gherkin from prose would invent the one thing the spec exists to pin down, and
 the gate would then be checking fiction. The empty scenario marks the only work
 that cannot be automated — yours, or the `spec-author` role's via
-[`csda change author`](reviewing-changes.md).
+[`specgate change author`](reviewing-changes.md).
 
 Pulling twice is safe: a change that already exists is skipped, so edits you
 have started are never overwritten.
@@ -151,10 +151,10 @@ and says so rather than failing at the first request.
 
 ```bash
 export JIRA_TOKEN=…  JIRA_USER=…
-csda alm sync --dry-run     # plan only: no issue is created or closed
-csda alm sync               # do it, and write .specops/alm-map.json
-csda alm status             # the REQ ↔ issue mapping, no network
-csda alm link REQ-007 HIE-42   # adopt an issue that already exists
+specgate alm sync --dry-run     # plan only: no issue is created or closed
+specgate alm sync               # do it, and write .specops/alm-map.json
+specgate alm status             # the REQ ↔ issue mapping, no network
+specgate alm link REQ-007 HIE-42   # adopt an issue that already exists
 ```
 
 `.specops/alm-map.json` is the mapping and **belongs in git**: it is what makes

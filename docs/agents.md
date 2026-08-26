@@ -13,14 +13,14 @@ prose at a caller that asked for a document.
 ## Wire it in
 
 ```bash
-csda agents init                          # every tool below
-csda agents init --tool claude,cursor     # or pick
-csda agents init --dry-run                # list destinations, write nothing
+specgate agents init                          # every tool below
+specgate agents init --tool claude,cursor     # or pick
+specgate agents init --dry-run                # list destinations, write nothing
 ```
 
 This writes the six slash commands (`/csda:explore`, `/csda:propose`,
 `/csda:verify`, `/csda:apply`, `/csda:archive`, `/csda:onboard`) and the
-instruction file each tool reads — `.cursor/rules/csda.mdc`,
+instruction file each tool reads — `.cursor/rules/specgate.mdc`,
 `.github/copilot-instructions.md`, `CONVENTIONS.md`, `AGENTS.md` and so on.
 
 Existing files are never overwritten without `--force`.
@@ -29,10 +29,10 @@ Existing files are never overwritten without `--force`.
 
 ## Antigravity
 
-Antigravity gets two files, because it reads both halves of what csda offers:
+Antigravity gets two files, because it reads both halves of what specgate offers:
 
 ```
-.agents/rules/csda.md        the workspace rulebook
+.agents/rules/specgate.md        the workspace rulebook
 .agents/mcp_config.json      a live MCP connection to the project's own specs
 ```
 
@@ -67,7 +67,7 @@ that looks like the agent's fault.
 Instead they call the engine:
 
 ```bash
-csda change instructions specs --json
+specgate change instructions specs --json
 ```
 
 which returns the template, the rules the validator actually enforces, the
@@ -83,7 +83,7 @@ the engine is right*.
 ## The contract
 
 ```bash
-csda validate . --json 2>/dev/null | jq .
+specgate validate . --json 2>/dev/null | jq .
 ```
 
 - One JSON document on stdout. Prose goes to stderr.
@@ -107,8 +107,8 @@ source, and CI fails when it drifts.
 for carrying out a step, with no template:
 
 ```bash
-csda change instructions apply --json
-csda change instructions archive --json
+specgate change instructions apply --json
+specgate change instructions archive --json
 ```
 
 ---

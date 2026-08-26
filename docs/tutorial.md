@@ -2,16 +2,16 @@
 # 🚗 End-to-end tutorial — building **Smart Parking**
 
 A friendly, step-by-step walk through **every** command in
-`create-spec-driven-app`. We build one real backend project — **Smart
+`specgate`. We build one real backend project — **Smart
 Parking** — on top of the public demo pack
 [`rsaglobaltech/parking-management-specops`](https://github.com/rsaglobaltech/parking-management-specops).
 
 You do **not** need to understand the whole tool up front. Each step
 explains the _concept_ first, then the command, then what you should see.
 
-> **`csda`** is the short name for `create-spec-driven-app`. If you have not
-> installed it globally, replace every `csda` in this guide with
-> `npx create-spec-driven-app@latest`.
+> **`specgate`** is the short name for `specgate`. If you have not
+> installed it globally, replace every `specgate` in this guide with
+> `npx specgate@latest`.
 
 ---
 
@@ -84,16 +84,16 @@ folder. After that, you `cd` into it and stay there.
 
 - **Node.js ≥ 22** and **git** on your `PATH`.
 - Network access the first time you run `specops add` — it clones the pack
-  repo into a per-user cache (`~/.cache/csda/packs/…`). After that it is
+  repo into a per-user cache (`~/.cache/specgate/packs/…`). After that it is
   offline.
 
-Optionally install the CLI globally so `csda` works everywhere:
+Optionally install the CLI globally so `specgate` works everywhere:
 
 ```bash
-npm install -g create-spec-driven-app@latest
-csda --version          # 0.2.0
-csda --help             # the eight commands of the daily loop
-csda --help --all       # the whole surface
+npm install -g specgate@latest
+specgate --version          # 0.2.0
+specgate --help             # the eight commands of the daily loop
+specgate --help --all       # the whole surface
 ```
 
 ---
@@ -134,7 +134,7 @@ LANG: en
 MODULES: "" # e.g. auth,billing
 EOF
 
-csda init --config ./smart-parking.yaml --out .
+specgate init --config ./smart-parking.yaml --out .
 cd smart-parking          # ← from here on, you stay inside the project
 ```
 
@@ -185,7 +185,7 @@ project.
 ### Do it
 
 ```bash
-csda specops add \
+specgate specops add \
   --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \
   --pack-version v0.1.0 \
   --pack backend \
@@ -233,7 +233,7 @@ status values are valid, and the Gherkin parses.
 ### Do it
 
 ```bash
-csda validate .
+specgate validate .
 ```
 
 A clean run prints `Validation passed` and a feature count.
@@ -244,7 +244,7 @@ Plain `validate` checks structure. `--strict-tdd` adds the rule that **the
 matrix may not run ahead of reality**:
 
 ```bash
-csda validate . --strict-tdd
+specgate validate . --strict-tdd
 ```
 
 It additionally fails when:
@@ -272,7 +272,7 @@ at the filesystem, then tells you, per requirement, what is missing.
 ### Do it
 
 ```bash
-csda plan
+specgate plan
 ```
 
 ```text
@@ -293,7 +293,7 @@ Each requirement lands in one bucket: `NEEDS_FEATURE`, `NEEDS_EVERYTHING`,
 ### Machine-readable mode
 
 ```bash
-csda plan --format json
+specgate plan --format json
 ```
 
 Emits a stable JSON structure (`summary`, `next_steps[]`,
@@ -321,7 +321,7 @@ same four moves:
 
 ```bash
 # After the test + code for REQ-001 exist and pass:
-csda done REQ-001 --check
+specgate done REQ-001 --check
 ```
 
 `done` flips that requirement's `Status` cell in `traceability.md` to
@@ -330,7 +330,7 @@ the matrix can never claim something is done while the gates are red.
 `--strict` uses `validate --strict-tdd` instead. `--status <Status>` targets
 another terminal state (`Verified`, `Released`, …).
 
-Re-run `csda plan` — `REQ-001` is now under **✅ Done**.
+Re-run `specgate plan` — `REQ-001` is now under **✅ Done**.
 
 ---
 
@@ -380,17 +380,17 @@ Feature: Reserve a parking spot
 EOF
 ```
 
-### 7.3 Add the traceability row — with `csda req`, not by hand
+### 7.3 Add the traceability row — with `specgate req`, not by hand
 
 The matrix is a ten-column pipe table. Editing it by hand is the single most
 common source of broken links in a spec-driven project, and one misplaced `|`
-breaks the row silently. `csda req` writes it for you:
+breaks the row silently. `specgate req` writes it for you:
 
 ```bash
-csda req add "Reserve a parking spot in advance"
+specgate req add "Reserve a parking spot in advance"
 #   ✔  Added REQ-101 (SCN-101, status Draft)
 
-csda req link REQ-101 \
+specgate req link REQ-101 \
   --feature features/reservations/reserve_spot.feature \
   --uc UC-101 --cmd ReserveSpotCommand \
   --agg ParkingFacility --evt SpotReserved
@@ -400,18 +400,18 @@ csda req link REQ-101 \
 and `req link` fills the columns you name and leaves the rest alone.
 
 > `AI_RULES.md` tells every agent never to edit `traceability.md` directly.
-> The same applies to you: `csda req`, `csda done` and `csda change archive`
+> The same applies to you: `specgate req`, `specgate done` and `specgate change archive`
 > are the three things that write it.
 
 ### 7.4 Validate, plan, implement, close
 
 ```bash
-csda status                      # where the project stands, and what is next
-csda validate . --strict-tdd     # confirms REQ-101 is wired in correctly
-csda plan                        # REQ-101 now appears as pending
+specgate status                      # where the project stands, and what is next
+specgate validate . --strict-tdd     # confirms REQ-101 is wired in correctly
+specgate plan                        # REQ-101 now appears as pending
 # …write ReservationServiceTest, then ReservationService.java…
-csda req link REQ-101 --test ReservationServiceTest --code ReservationService.java
-csda done REQ-101 --strict
+specgate req link REQ-101 --test ReservationServiceTest --code ReservationService.java
+specgate done REQ-101 --strict
 ```
 
 That is the whole consumer loop: **spec → scenario → matrix row → validate
@@ -448,7 +448,7 @@ with new scenarios and fixes. You decide _when_ to adopt it. Two commands:
 
 ```bash
 # still inside smart-parking/
-csda specops diff --pack-version v0.2.0
+specgate specops diff --pack-version v0.2.0
 ```
 
 ```text
@@ -466,7 +466,7 @@ csda specops diff --pack-version v0.2.0
 ### 8.2 Apply it — `specops sync`
 
 ```bash
-csda specops sync --pack-version v0.2.0
+specgate specops sync --pack-version v0.2.0
 ```
 
 `sync` re-renders the pack and, for every file, compares **three versions**:
@@ -496,13 +496,13 @@ untouched instead of writing markers), `--pack <id>` (sync just one pack).
 ### 8.3 After a sync
 
 ```bash
-csda validate . --strict-tdd
-csda plan                        # new REQs from the pack now show as pending
+specgate validate . --strict-tdd
+specgate plan                        # new REQs from the pack now show as pending
 git add .specops.lock .specops/ docs/ features/
 git commit -m "chore: sync parking pack to v0.2.0"
 ```
 
-> Running `csda specops sync` **without** `--pack-version` just re-renders
+> Running `specgate specops sync` **without** `--pack-version` just re-renders
 > everything at the versions already pinned in `.specops.lock` — handy
 > after a fresh clone, or to regenerate a file someone deleted.
 
@@ -513,7 +513,7 @@ git commit -m "chore: sync parking pack to v0.2.0"
 > 📍 **Run from:** inside your project — `smart-parking/`.
 
 ```bash
-csda specops remove backend
+specgate specops remove backend
 ```
 
 `remove` drops the pack's entry from `.specops.lock`. It deliberately does
@@ -539,7 +539,7 @@ So far you have _consumed_ a pack. Eventually you will want to package
 
 ```bash
 cd ~/sandbox
-csda pack init --out ./domain-packs --name "Reservations Backend" --type backend
+specgate pack init --out ./domain-packs --name "Reservations Backend" --type backend
 # flavours: backend · frontend · contracts
 ```
 
@@ -552,7 +552,7 @@ folder.
 cross-reference integrity, and **scenario quality**.
 
 ```bash
-csda pack lint --pack-root ./domain-packs --pack reservations/backend
+specgate pack lint --pack-root ./domain-packs --pack reservations/backend
 ```
 
 The scenario-quality rules flag vague or thin Gherkin — a `Scenario
@@ -563,7 +563,7 @@ has drifted from its template title.
 
 ```bash
 # In CI — and before a pack feeds the harness — promote those to errors:
-csda pack lint --pack-root ./domain-packs --pack reservations/backend --strict
+specgate pack lint --pack-root ./domain-packs --pack reservations/backend --strict
 ```
 
 This matters because the pack's scenarios become the **reward signal** for
@@ -578,10 +578,10 @@ The hardest part of authoring a pack is keeping the
 
 ```bash
 # Mermaid (default) — renders natively in GitHub and VS Code
-csda pack lint --pack-root ./domain-packs --pack reservations/backend --graph
+specgate pack lint --pack-root ./domain-packs --pack reservations/backend --graph
 
 # Graphviz DOT
-csda pack lint --pack-root ./domain-packs --pack reservations/backend --graph --graph-format dot
+specgate pack lint --pack-root ./domain-packs --pack reservations/backend --graph --graph-format dot
 ```
 
 A reference to an ID/name that does not exist becomes a red **missing**
@@ -595,7 +595,7 @@ the scenarios last has a waterfall smell. `pack infer` flips it: write the
 `.feature` first, get a proposed `pack.yaml` skeleton back.
 
 ```bash
-csda pack infer --from ./drafts/reserve_spot.feature
+specgate pack infer --from ./drafts/reserve_spot.feature
 ```
 
 It heuristically maps a `@REQ-NNN` tag → a requirement reference; the
@@ -607,7 +607,7 @@ PascalCase token in a `Then` step → an event; each `Scenario:` → a
 
 ```bash
 # Review the proposal, then merge the parts you want:
-csda pack infer --from ./drafts/reserve_spot.feature >> domain-packs/reservations/backend/pack.yaml
+specgate pack infer --from ./drafts/reserve_spot.feature >> domain-packs/reservations/backend/pack.yaml
 ```
 
 ---
@@ -635,7 +635,7 @@ Feature: Capacity waitlist
     And a "DriverWaitlisted" event is emitted
 EOF
 
-csda pack infer --from drafts/waitlist.feature
+specgate pack infer --from drafts/waitlist.feature
 ```
 
 ### 11.2 Merge the inferred skeleton into `pack.yaml`
@@ -649,8 +649,8 @@ fields at it.
 ### 11.3 Lint — including the graph
 
 ```bash
-csda pack lint --pack-root . --pack backend --strict
-csda pack lint --pack-root . --pack backend --graph
+specgate pack lint --pack-root . --pack backend --strict
+specgate pack lint --pack-root . --pack backend --graph
 ```
 
 `--strict` catches a weak new scenario; `--graph` shows the new
@@ -673,9 +673,9 @@ the normal Step 7 flow — **from inside their own implementation project**:
 
 ```bash
 # 📍 inside smart-parking/  (NOT the pack repo)
-csda specops diff --pack-version v0.2.0     # preview: + waitlist feature, ~ matrix
-csda specops sync --pack-version v0.2.0     # three-way merge into the project
-csda plan                                   # REQ-006 now shows as pending
+specgate specops diff --pack-version v0.2.0     # preview: + waitlist feature, ~ matrix
+specgate specops sync --pack-version v0.2.0     # three-way merge into the project
+specgate plan                                   # REQ-006 now shows as pending
 ```
 
 That is the full pack-author loop: **draft scenario → `pack infer` → merge
@@ -701,10 +701,10 @@ delta stating only what moves — and archiving it writes the matrix rows for yo
 ### Open it
 
 ```bash
-csda change new reservations-need-a-deposit
+specgate change new reservations-need-a-deposit
 #   ✔ Change reservations-need-a-deposit created (lite · REQ ids REQ-102…REQ-104 reserved)
 
-csda change status
+specgate change status
 #   ✔ proposal   proposal.md
 #   ▶ specs      specs/**/spec.md
 #   Next → Write specs/**/spec.md
@@ -715,7 +715,7 @@ The reserved ID range means two changes in flight never hand out the same
 
 ### Write the delta
 
-Only what moves. `csda change instructions specs` prints the template, the
+Only what moves. `specgate change instructions specs` prints the template, the
 rules the validator enforces and your project's declared stack:
 
 ```markdown
@@ -745,9 +745,9 @@ scenario. Steps are plain `- GIVEN` bullets, and the body needs `SHALL`,
 ### Review, archive, implement
 
 ```bash
-csda change validate                       # runs inside `csda validate` too
-csda change archive reservations-need-a-deposit --dry-run
-csda change archive reservations-need-a-deposit --yes
+specgate change validate                       # runs inside `specgate validate` too
+specgate change archive reservations-need-a-deposit --dry-run
+specgate change archive reservations-need-a-deposit --yes
 ```
 
 Archiving is the part that earns the ceremony. It applies the delta to
@@ -758,11 +758,11 @@ proposed `.feature` files into `features/`, and files the change under
 The moment it lands, the requirement is real work again:
 
 ```bash
-csda plan                        # the modified REQ is pending once more
-csda validate . --strict-tdd     # fails with [TDD-1] once you move it to In Dev
+specgate plan                        # the modified REQ is pending once more
+specgate validate . --strict-tdd     # fails with [TDD-1] once you move it to In Dev
 ```
 
-> **It composes with packs.** When the pack itself changes, `csda specops diff
+> **It composes with packs.** When the pack itself changes, `specgate specops diff
 > --as-change` derives exactly this kind of proposal from the version bump — so
 > you review an upstream upgrade as intent rather than as a file diff. That is
 > Step 7 with one extra flag.
@@ -790,16 +790,16 @@ The complete prompt, ready to paste, lives at
 - it is your **Lead Architect**;
 - the current directory is the only scope;
 - `spec.md`, `AI_RULES.md`, `features/**/*.feature` are **read-only**;
-- to make `csda validate . --strict-tdd` + the project test command pass
+- to make `specgate validate . --strict-tdd` + the project test command pass
   with the first bounded context end-to-end — then **stop**.
 
 ```bash
 # 1. Open opencode/Claude/Cursor inside smart-parking/
 # 2. Paste docs/bootstrap-prompt.md verbatim, then "go".
 # 3. When the agent is done, prove it:
-csda validate . --strict-tdd
+specgate validate . --strict-tdd
 mvn -B test          # or your stack's test command
-csda plan            # remaining REQs show as pending
+specgate plan            # remaining REQs show as pending
 git commit -am "phase 1: bootstrap"
 ```
 
@@ -838,7 +838,7 @@ review and merge `harness/*` yourself.
 Start by generating the two files rather than copying them out of this page:
 
 ```bash
-csda harness init
+specgate harness init
 ```
 
 It writes `harness.config.yaml` and `.harness/prompt-prefix.md`, detects your
@@ -892,7 +892,7 @@ universal directives are not duplicated and not forgotten.
 ### 12.2 Dry-run first
 
 ```bash
-csda harness run --dry-run
+specgate harness run --dry-run
 ```
 
 `--dry-run` builds and prints the prompt for every pending requirement
@@ -903,11 +903,11 @@ receive before you spend tokens.
 
 ```bash
 # the working tree must be clean — the harness refuses a dirty tree
-csda harness run --agent 'opencode run "$(cat {prompt_file})"' --test-cmd "mvn -q test"
+specgate harness run --agent 'opencode run "$(cat {prompt_file})"' --test-cmd "mvn -q test"
 ```
 
 (If you put the agent and test command in `harness.config.yaml`, plain
-`csda harness run` is enough.)
+`specgate harness run` is enough.)
 
 ```text
 ── harness report ──
@@ -932,7 +932,7 @@ throw away.
 ### 12.4 Inspect what the agent will receive (`harness prompt`)
 
 ```bash
-csda harness prompt REQ-001
+specgate harness prompt REQ-001
 ```
 
 Prints the exact prompt the harness _would_ hand the agent for one REQ —
@@ -963,8 +963,8 @@ parking-management-specops@v0.1.0      ◄── one spec, stack-agnostic
         └──► smart-parking-micronaut/   (STACK=Micronaut,   JUnit+Cucumber)
 ```
 
-Each project runs its own `csda init` with a different `STACK` in the
-config, its own `csda specops add` against the **same** pack repo +
+Each project runs its own `specgate init` with a different `STACK` in the
+config, its own `specgate specops add` against the **same** pack repo +
 version + domain `--var`s, its own bootstrap-prompt run, and its own
 harness loop. `spec.md`, `features/**` and `traceability.md` are
 **identical** across stacks (rendered from the same pack); `AI_RULES.md`
@@ -997,25 +997,25 @@ The `mcp-spec-driven` server exposes `plan`, `mark_requirement_done`,
 ### Slash commands, for eight tools at once
 
 ```bash
-csda agents init                     # or --tool claude,cursor
+specgate agents init                     # or --tool claude,cursor
 ```
 
 That writes `/csda:explore`, `/csda:propose`, `/csda:verify`, `/csda:apply`,
 `/csda:archive` and `/csda:onboard`, plus the instruction file each tool reads
 — `.cursor/rules/`, `.github/copilot-instructions.md`, `CONVENTIONS.md` and so
 on. They are thin on purpose: rather than restating the delta grammar, which
-would be stale the moment it moved, they call `csda change instructions
+would be stale the moment it moved, they call `specgate change instructions
 <artifact> --json` for it.
 
-After a CLI upgrade, `csda update` three-way merges those files so your edits
+After a CLI upgrade, `specgate update` three-way merges those files so your edits
 survive.
 
 ### Keeping an existing repository honest
 
 This tutorial started from `init`, on a blank page. On a repository that
-already has code, start with `csda onboard` — it reads the layout and proposes
-the capabilities the code already implies — then `csda adopt`, which writes the
-spec skeleton without touching a line of source. `csda doctor` reports what has
+already has code, start with `specgate onboard` — it reads the layout and proposes
+the capabilities the code already implies — then `specgate adopt`, which writes the
+spec skeleton without touching a line of source. `specgate doctor` reports what has
 drifted, with a fix per finding.
 
 ---
@@ -1026,29 +1026,29 @@ The 📍 / 📦 column is the thing to remember — **where** you run it.
 
 | Command                                                               | Run from      | What it does                                                             |
 | --------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------ |
-| `csda init --config <f.yaml> --out <dir>`                             | 📍 parent dir | Scaffold a new spec-driven project                                       |
-| `csda validate <dir> [--strict-tdd]`                                  | 📍 project    | Check structure, traceability, Gherkin; `--strict-tdd` adds the TDD gate |
-| `csda plan [--format json]`                                           | 📍 project    | List requirements still needing work                                     |
-| `csda done REQ-NNN [--check\|--strict]`                               | 📍 project    | Mark a requirement done in the matrix                                    |
-| `csda status`                                                         | 📍 project    | Daily dashboard: totals, orphans, pack versions, next command            |
-| `csda req add\|link\|done\|list`                                        | 📍 project    | Manage matrix rows without hand-editing the table                        |
-| `csda fix [--dry-run]`                                                | 📍 project    | Apply the repairs `validate` suggests                                    |
-| `csda change new <id> [--lite\|--full]`                                | 📍 project    | Open a change against specs that already shipped                         |
-| `csda change status \| validate \| show \| list`                        | 📍 project    | What to write next · check the deltas · inspect · enumerate              |
-| `csda change archive <id> [--dry-run\|--yes]`                          | 📍 project    | Merge the delta into the specs + matrix, then file the change away       |
-| `csda specops add --pack-repo … --pack-version … --pack … --var …`    | 📍 project    | Pull a pack in; writes `.specops.lock` + `.specops/` baseline            |
-| `csda specops diff [--pack-version …]`                                | 📍 project    | Preview what a sync would change — writes nothing                        |
-| `csda specops sync [--pack-version …]`                                | 📍 project    | Re-render + three-way merge the pack into the project                    |
-| `csda specops remove <pack-id>`                                       | 📍 project    | Drop a pack from `.specops.lock`                                         |
-| `csda specops diff --as-change`                                       | 📍 project    | Turn an upstream pack bump into a reviewable change proposal             |
-| `csda specops contribute --change <id>`                               | 📍 project    | Send a local change back upstream to the pack (never pushes)             |
-| `csda validate --against-lock`                                        | 📍 project    | Fail CI when the project has drifted from the locked pack version        |
-| `csda expand --pack-repo … --pack-version … --pack …`                 | 📍 project    | Low-level pack render (what `sync` calls)                                |
-| `csda harness run --agent "… {prompt_file}" [--test-cmd …]`           | 📍 project    | Run the plan→agent→verify→done loop per requirement                      |
-| `csda pack init --out … --name … --type backend\|frontend\|contracts` | 📦 pack repo  | Scaffold a pack skeleton                                                 |
-| `csda pack lint --pack-root … --pack … [--strict]`                    | 📦 pack repo  | Lint a pack: schema, cross-refs, scenario quality                        |
-| `csda pack lint … --graph [--graph-format mermaid\|dot]`              | 📦 pack repo  | Render the pack reference graph; CI link-check                           |
-| `csda pack infer --from <feature> [--format json]`                    | 📦 pack repo  | Propose a `pack.yaml` skeleton from a `.feature`                         |
+| `specgate init --config <f.yaml> --out <dir>`                             | 📍 parent dir | Scaffold a new spec-driven project                                       |
+| `specgate validate <dir> [--strict-tdd]`                                  | 📍 project    | Check structure, traceability, Gherkin; `--strict-tdd` adds the TDD gate |
+| `specgate plan [--format json]`                                           | 📍 project    | List requirements still needing work                                     |
+| `specgate done REQ-NNN [--check\|--strict]`                               | 📍 project    | Mark a requirement done in the matrix                                    |
+| `specgate status`                                                         | 📍 project    | Daily dashboard: totals, orphans, pack versions, next command            |
+| `specgate req add\|link\|done\|list`                                        | 📍 project    | Manage matrix rows without hand-editing the table                        |
+| `specgate fix [--dry-run]`                                                | 📍 project    | Apply the repairs `validate` suggests                                    |
+| `specgate change new <id> [--lite\|--full]`                                | 📍 project    | Open a change against specs that already shipped                         |
+| `specgate change status \| validate \| show \| list`                        | 📍 project    | What to write next · check the deltas · inspect · enumerate              |
+| `specgate change archive <id> [--dry-run\|--yes]`                          | 📍 project    | Merge the delta into the specs + matrix, then file the change away       |
+| `specgate specops add --pack-repo … --pack-version … --pack … --var …`    | 📍 project    | Pull a pack in; writes `.specops.lock` + `.specops/` baseline            |
+| `specgate specops diff [--pack-version …]`                                | 📍 project    | Preview what a sync would change — writes nothing                        |
+| `specgate specops sync [--pack-version …]`                                | 📍 project    | Re-render + three-way merge the pack into the project                    |
+| `specgate specops remove <pack-id>`                                       | 📍 project    | Drop a pack from `.specops.lock`                                         |
+| `specgate specops diff --as-change`                                       | 📍 project    | Turn an upstream pack bump into a reviewable change proposal             |
+| `specgate specops contribute --change <id>`                               | 📍 project    | Send a local change back upstream to the pack (never pushes)             |
+| `specgate validate --against-lock`                                        | 📍 project    | Fail CI when the project has drifted from the locked pack version        |
+| `specgate expand --pack-repo … --pack-version … --pack …`                 | 📍 project    | Low-level pack render (what `sync` calls)                                |
+| `specgate harness run --agent "… {prompt_file}" [--test-cmd …]`           | 📍 project    | Run the plan→agent→verify→done loop per requirement                      |
+| `specgate pack init --out … --name … --type backend\|frontend\|contracts` | 📦 pack repo  | Scaffold a pack skeleton                                                 |
+| `specgate pack lint --pack-root … --pack … [--strict]`                    | 📦 pack repo  | Lint a pack: schema, cross-refs, scenario quality                        |
+| `specgate pack lint … --graph [--graph-format mermaid\|dot]`              | 📦 pack repo  | Render the pack reference graph; CI link-check                           |
+| `specgate pack infer --from <feature> [--format json]`                    | 📦 pack repo  | Propose a `pack.yaml` skeleton from a `.feature`                         |
 
 **Three ways to add a requirement, side by side:**
 

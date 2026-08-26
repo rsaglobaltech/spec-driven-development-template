@@ -14,10 +14,10 @@ matrix on a codebase that already exists, without touching a line of code.
 cd your-existing-repo
 
 # Detects the stack from pom.xml / build.gradle / package.json / go.mod
-npx create-spec-driven-app@latest adopt
+npx specgate@latest adopt
 
 # Passes immediately — the generated baseline REQ-001 anchors the matrix
-npx create-spec-driven-app@latest validate .
+npx specgate@latest validate .
 ```
 
 What `adopt` writes (and only if the file does not already exist):
@@ -33,7 +33,7 @@ What `adopt` writes (and only if the file does not already exist):
 Override anything the detection got wrong with `--var`:
 
 ```bash
-npx create-spec-driven-app@latest adopt \
+npx specgate@latest adopt \
   --var DOMAIN="health information exchange" \
   --var TEST_CMD="./mvnw -B verify"
 ```
@@ -57,7 +57,7 @@ cp examples/project.config.example /tmp/acme-energy-hub.config
 #   PROJECT_NAME, PROJECT_SLUG, PROJECT_TYPE, DOMAIN, STACK, API_STYLE, TESTING
 
 # 3. Scaffold
-npx create-spec-driven-app@latest init \
+npx specgate@latest init \
   --config /tmp/acme-energy-hub.config \
   --out /tmp
 
@@ -97,20 +97,20 @@ Scaffolding is day one. From day two the loop is four commands, and none of them
 asks you to edit the ten-column matrix by hand.
 
 ```bash
-csda status                      # where things stand, and what to run next
-csda plan                        # the queue: what still needs a test or code
-csda req add "Operators can export a monthly report"
-csda req link REQ-007 --feature features/reporting/export.feature \
+specgate status                      # where things stand, and what to run next
+specgate plan                        # the queue: what still needs a test or code
+specgate req add "Operators can export a monthly report"
+specgate req link REQ-007 --feature features/reporting/export.feature \
                       --test src/ReportTest.java
-csda done REQ-007 --check        # validates first, then flips the status
+specgate done REQ-007 --check        # validates first, then flips the status
 ```
 
-`csda status` is the one to start the day with — it names the single next
+`specgate status` is the one to start the day with — it names the single next
 command, so you never have to remember which of the others applies.
 
 If `validate` complains about something mechanical — an orphan `.feature`, a
-requirement in `spec.md` with no row — `csda fix --dry-run` shows what it would
-repair, and `csda fix` applies it.
+requirement in `spec.md` with no row — `specgate fix --dry-run` shows what it would
+repair, and `specgate fix` applies it.
 
 ---
 
