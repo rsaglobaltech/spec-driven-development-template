@@ -215,7 +215,9 @@ export function assertNoSecrets(line: string, where: string): void {
   const pattern =
     /(ghp_|gho_|ghs_|github_pat_)[A-Za-z0-9_]{8,}|sk-[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY/;
   if (pattern.test(line)) {
-    throw new Error(`credential-shaped string in "${where}" — capture aborted, look at it yourself`);
+    throw new Error(
+      `credential-shaped string in "${where}" — capture aborted, look at it yourself`
+    );
   }
 }
 
