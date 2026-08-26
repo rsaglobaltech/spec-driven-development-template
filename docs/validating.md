@@ -61,6 +61,118 @@ npx create-spec-driven-app@latest validate . --strict-tdd
 
 > When a `REQ` is intentionally not yet implemented, set its status in `traceability.md` to `Deferred` — `--strict-tdd` accepts that as an explicit signal and won't fail.
 
+## The other three gates
+
+`--strict-tdd` is one of four opt-in gates. Every one of them is **additive** to
+the normal checks and **off by default**, for the same reason: each one is
+legitimate to fail while a project is still finding its shape, and a gate that
+fires on honest work gets switched off for good.
+
+Turn them on one at a time, in CI, once the repository is clean for that rule.
+
+### `--strict-scenarios` — the scenarios say something falsifiable
+
+Applies the pack's eight scenario quality rules to `features/**/*.feature`:
+
+- No scenario Cucumber would see as empty. Upper-case `GIVEN`/`WHEN`/`THEN` is
+  the usual cause — Gherkin keywords are case-sensitive, so the real parser
+  absorbs them as description and the scenario runs zero steps and exits `0`.
+- Every scenario has a `When` and a `Then`, at least three steps, and a title
+  that names the behaviour.
+- No vague, unfalsifiable step text; no `Scenario Outline` without `Examples`.
+
+`csda doctor` reports the same rules as advisories rather than failures, which
+is the gradual path for a repository brought in with `csda adopt`.
+
+### `--strict-requirements` — the requirement states an obligation
+
+Over `docs/specs/capabilities/**/spec.md`:
+
+- Every requirement states an obligation — `SHALL`, `MUST`, `SHOULD`, `MAY`,
+  `DEBE`, `DEBERÁ`.
+- A requirement that opens with `IF` resolves with `THEN` in the same sentence.
+
+**What it deliberately does not do:** parse EARS grammar. No regex can reliably
+tell "the system" from a response clause, and a check that claims to enforce a
+grammar it does not parse is worse than no check. These two rules are what a
+regex can assert honestly — nothing wider.
+
+The point is upstream of any code checking: `- Max 5 failed attempts per hour
+per user` is not something a machine can hold code to. This gate makes the
+requirement itself say something before anything tries to verify against it.
+
+### `--strict-links` — the matrix points at files that exist
+
+Every Feature file / Technical artifact / Test artifact the matrix declares as
+a path still exists on disk. A cell may anchor a line range
+(`src/auth/login.ts#L15-L89`); the anchor is not part of the path.
+
+**Why it is opt-in, measured rather than assumed.** The first version ran
+unconditionally, on the theory that "this path does not exist" has no
+legitimate reading. The test suite disproved that immediately: a `Draft` or
+`In Dev` row routinely names the file a requirement is *going to* land in,
+before anyone writes it. Planning ahead is not documentary drift.
+
+---
+
+---
+
+## Declared-value drift — a report, not a gate
+
+The one thing none of the four gates catches is the case where the spec and the
+code both exist, both are consistent, and **disagree**: *session timeout is 30m
+but the spec requires 15m*. `--strict-requirements` checks the shape of the
+sentence; `--strict-links` checks that the file exists; neither reads what is
+in it.
+
+Annotate the value on both sides, and `csda report` compares them:
+
+```markdown
+<!-- csda:trace uc=Login value_session_timeout=15m -->
+```
+
+```ts
+// csda:value session_timeout=15m
+```
+
+`csda:value` is a plain literal string found by scanning line by line, so it
+reads the same behind `//`, `#`, `--`, or no comment marker at all — the same
+reason `csda:trace` works in any markdown file. Comparison is exact string
+equality between two things a human or an agent wrote on purpose.
+
+Each identifier lands in one of four states: **matched**, **diverging**,
+**spec only**, **code only**. The report gains a section listing them with
+`file:line` for the code side, and `--record` appends `valuesTotal`,
+`valuesMatched` and `valuesDiverging` to the history — additive, so an older
+history line simply lacks them.
+
+**Why this is a report and not `--strict-values`.** Two reasons, both about
+scale. Annotating every checkable fact is hand work that grows with the number
+of facts while coverage does not; and the more complex a system gets, the
+smaller the fraction of its requirements that reduce to a scalar at all. A hard
+gate over a partial, hand-maintained set of annotations would mostly measure
+who remembered to annotate. See ADR-0023.
+
+**It does not interpret units.** `15m` and `900000` are different strings, and
+this compares strings. Claiming otherwise would be asserting authority over two
+grammars it does not parse.
+
+### Acting on a divergence
+
+Three routes, and only one of them needed a new command:
+
+1. **Fix the code** — the report already gives `file:line`. Open it.
+2. **Update the spec** — `csda change new <id> --from-value-drift REQ-ID:value_id`
+   writes the delta: the full requirement copied into a `## MODIFIED
+   Requirements` section with `value_<id>` rewritten to the code's value.
+   **The prose is not rewritten** — turning "expires after 15 minutes" into
+   "after 30" would be guessing how a sentence should sound on someone's
+   behalf, so it leaves an explicit `TODO:` instead. Review it, then
+   `csda change validate` and `csda change archive` as usual.
+3. **Retire the requirement** — already `csda change new <id> --capability <cap>`
+   with a `## REMOVED Requirements` section. The removal mechanism does not
+   care why something is removed.
+
 ---
 
 ---

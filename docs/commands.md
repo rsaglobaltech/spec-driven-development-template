@@ -26,13 +26,14 @@ Each command takes `--json`. See [the agent contract](specs/agent-contract.md).
 | `csda req add \| link \| done \| list` | Manage matrix rows without hand-editing the ten-column table. |
 | `csda done <REQ>` | Mark a requirement Implemented. `--check` validates first. |
 | `csda fix` | Apply the repairs `validate` suggests. `--dry-run` previews. |
-| `csda validate [--strict-tdd] [--against-lock]` | The gate. Structure, traceability, Gherkin, TDD, and drift from the locked pack. |
+| `csda validate [--strict-tdd] [--strict-scenarios] [--strict-requirements] [--strict-links] [--against-lock]` | The gate. Structure, traceability and Gherkin always; four opt-in gates on top. |
 
 ## Changing a spec that already shipped
 
 | Command | What it does |
 | --- | --- |
 | `csda change new <id> [--lite\|--full] [--schema <name>]` | Open a change. Reserves a `REQ` range so two changes in flight never collide. |
+| `csda change new <id> --from-value-drift <REQ-ID>:<value_id>` | Seed the change from a value `csda report` found diverging — the delta arrives written. |
 | `csda change status` | Which artefact to write next, in dependency order. |
 | `csda change instructions <artifact>` | The template, the rules the validator enforces, the project's stack, and what writing it unblocks. |
 | `csda change author <id>` | Have an agent write one artefact, confined to the change directory and gated by `change validate`. |
@@ -65,7 +66,7 @@ Each command takes `--json`. See [the agent contract](specs/agent-contract.md).
 | `csda alm sync` | Sync requirements with Jira or Azure Boards — create, close, report drift. |
 | `csda alm status` | The requirement ↔ issue mapping, without touching the network. |
 | `csda alm link <REQ> <issue>` | Adopt an issue that already exists into the mapping. |
-| `csda report` | Spec-coverage dashboard as a self-contained HTML file. |
+| `csda report` | Spec-coverage dashboard as a self-contained HTML file. Includes declared-value drift when the project annotates any. |
 | `csda doctor` | Diagnose the project and the environment. Every finding ships a fix. |
 
 → [Automation](automation.md) · [The harness](harness.md) · [Jira and Azure Boards](alm.md)

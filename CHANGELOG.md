@@ -8,6 +8,85 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ## [Unreleased]
 
+The release that starts checking content instead of only paperwork. Every check
+until now answered "are these documents internally consistent?"; none answered
+"does the code say what the spec says?". These do — for the narrow slice where
+that question has an honest answer. The reasoning, including what was
+deliberately *not* built, is [ADR-0023](docs/specs/adr/0023-checking-content-gate-or-report.md).
+
+### Added
+
+- **`csda validate --strict-requirements`** fails when a requirement in
+  `docs/specs/capabilities/**/spec.md` states no obligation (`SHALL`, `MUST`,
+  `SHOULD`, `MAY`, `DEBE`, `DEBERÁ`), or opens with `IF` and never resolves with
+  `THEN`. It does **not** parse EARS grammar — no regex tells "the system" from
+  a response clause reliably, and a check claiming a grammar it cannot parse is
+  the H13 mistake. These two rules are what a regex can assert honestly.
+
+  The point is upstream of any code checking: `- Max 5 failed attempts per hour
+  per user` is not something a machine can hold code to. RFC 2119 detection also
+  stops being duplicated — `DeltaSpec` enforced it for requirements inside a
+  change while a capability spec at rest was never checked; both now read one
+  definition.
+
+- **`csda validate --strict-links`** fails when a Feature file, Technical
+  artifact or Test artifact the matrix declares as a path no longer exists on
+  disk. A cell may anchor a line range (`src/auth/login.ts#L15-L89`); the anchor
+  is not part of the path.
+
+  Opt-in, and that was measured rather than assumed: the first version ran
+  unconditionally on the theory that a missing path has no legitimate reading,
+  and the test suite disproved it at once — a `Draft` or `In Dev` row routinely
+  names the file a requirement is *going to* land in. Planning ahead is not
+  documentary drift.
+
+- **Declared-value drift in `csda report`.** Annotate a value on both sides —
+  `value_<id>=<literal>` in a `csda:trace` comment, `csda:value <id>=<literal>`
+  in the source — and the report classifies each identifier as `matched`,
+  `diverging`, `spec_only` or `code_only`, with `file:line` for the code side.
+  `--record` gains `valuesTotal`, `valuesMatched` and `valuesDiverging`, and the
+  sparkline gains a second dotted series once the whole history carries them.
+  All additive: an older history line simply lacks the fields.
+
+  This is the case the other gates structurally cannot catch — spec and code
+  both present, both internally consistent, and disagreeing. **It is a report,
+  not a gate**, and that is a deliberate rejection of `--strict-values`: the
+  cost of annotating grows with the number of checkable facts while coverage
+  does not, and the fraction of requirements that reduce to a scalar shrinks as
+  a system gets more complex. A hard gate over a partial, hand-maintained
+  annotation set would mostly measure who remembered to annotate.
+
+  It compares strings and does not interpret units. `15m` and `900000` are
+  different values here, on purpose.
+
+- **`csda change new <id> --from-value-drift <REQ-ID>:<value_id>`** turns a
+  diverging value into a reviewable change. It writes a `## MODIFIED
+  Requirements` delta carrying the full requirement, with the structured
+  `value_<id>` rewritten to the value the code declares.
+
+  **The prose is left alone.** Turning "expires after 15 minutes" into "after
+  30" would be guessing how a sentence should read on someone's behalf, so it
+  leaves an explicit `TODO:` instead — the same restraint `pack infer` already
+  applies to what it cannot infer (ADR-0014). Four named exits rather than a
+  half-written change directory, including `value_drift_already_matches`:
+  proposing a change when there is nothing to change is worse than refusing.
+
+  The other two routes out of a divergence needed no new command and got none —
+  fixing the code (the report already gives `file:line`) and retiring the
+  requirement (`--capability` with a `## REMOVED Requirements` section).
+
+### Documentation
+
+- **The four opt-in gates are documented together** in
+  [validating.md](docs/validating.md), with what each one deliberately does not
+  check. **`--strict-scenarios` shipped in 0.7.0 and appeared in no user-facing
+  document** — only in `docs/specs/harness.md`. A gate users cannot find is a
+  gate that does not exist for them.
+
+- **`ADR-0023`** records the rule the three additions follow: a content check is
+  a gate only when failing it is always a defect; otherwise opt-in, or a report;
+  and no check asserts a grammar it does not parse.
+
 ## [0.7.0] — 2026-08-23
 
 The release that closes the gate on itself. Every item below came from running
