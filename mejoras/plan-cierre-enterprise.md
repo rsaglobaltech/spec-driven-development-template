@@ -1411,7 +1411,9 @@ Ahí está toda la deuda de abajo.
 | DV-03 | `[x]` | `CHANGELOG.md` — `[Unreleased]` está vacío | Seis commits de features detrás: `--strict-requirements`, `--strict-links`, la sección de deriva de valores de `report` y la ruta 2 de resolución de divergencias. **Hecho.** `[Unreleased]` con las cuatro entradas y el porqué de cada restricción — incluida una entrada de `Documentation` que admite el desliz de `--strict-scenarios` |
 | DV-04 | `[x]` | Un ADR para el cruce de línea | Pasar de comprobar papeleo a comprobar contenido es exactamente lo que ADR-0019…0022 registran. Y hay una decisión concreta sin registrar: **`--strict-values` se rechazó como gate y se degradó a informe agregado**, razonado en `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §8.6 y en ningún ADR. **Hecho.** [`ADR-0023`](../docs/specs/adr/0023-checking-content-gate-or-report.md) — «a gate where it is decidable, a report where it is not». Cinco reglas, cuatro alternativas rechazadas, e indexado en `docs/specs/adr/README.md` |
 | DV-05 | `[x]` | Documentar el informe de deriva de valores | `csda report` gana una sección y `--record` tres campos aditivos. `docs/` no lo menciona en ningún sitio. **Hecho.** Documentado en `docs/validating.md` como sección propia, no como gate, con las tres rutas de resolución |
-| DV-06 | `[ ]` | Abrir el PR | Sin PR no hay revisión, y `main` está protegida (C9-02) |
+| DV-06 | `[x]` | Abrir el PR | **Hecho el 2026-08-26 — [PR #132](https://github.com/rsaglobaltech/spec-driven-development-template/pull/132)**, 9 commits sobre `origin/main`, cabeza `3df1a1a`. `main` está protegida (C9-02), así que la revisión es la puerta |
+
+**Cerrada el 2026-08-26.** Las seis tareas hechas en la misma sesión. La rama deja de ser trabajo invisible: lo que hacía no estaba en ningún documento que un usuario abra, y ahora sí. **Sigue sin publicarse versión** — D17 se mantiene: esto era hacer mergeable la rama, no sacar la 0.8.0.
 
 ### Lo que salió al hacer DV-01…DV-05 (2026-08-26)
 
