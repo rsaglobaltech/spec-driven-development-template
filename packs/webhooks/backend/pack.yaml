@@ -125,38 +125,19 @@ events:
   - id: EVT-001
     name: SubscriptionCreated
     aggregate: Subscription
-    payload:
-      - subscriptionId: string
-      - consumerId: string
-      - eventTypes: array
-      - targetUrl: string
-      - createdAt: datetime
+    payload: [subscriptionId: string, consumerId: string, eventTypes: array, targetUrl: string, createdAt: datetime]
   - id: EVT-002
     name: SubscriptionPaused
     aggregate: Subscription
-    payload:
-      - subscriptionId: string
-      - pausedAt: datetime
-      - reason: string
+    payload: [subscriptionId: string, pausedAt: datetime, reason: string]
   - id: EVT-003
     name: DeliverySucceeded
     aggregate: DeliveryAttempt
-    payload:
-      - deliveryId: string
-      - subscriptionId: string
-      - eventId: string
-      - attempts: int
-      - succeededAt: datetime
+    payload: [deliveryId: string, subscriptionId: string, eventId: string, attempts: int, succeededAt: datetime]
   - id: EVT-004
     name: DeliveryFailed
     aggregate: DeliveryAttempt
-    payload:
-      - deliveryId: string
-      - subscriptionId: string
-      - eventId: string
-      - attempts: int
-      - failedAt: datetime
-      - reason: string
+    payload: [deliveryId: string, subscriptionId: string, eventId: string, attempts: int, failedAt: datetime, reason: string]
 
 outputs:
   files:
