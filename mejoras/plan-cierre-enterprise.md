@@ -1509,6 +1509,51 @@ escribió para el disco — *una fila del plan no es evidencia; se comprueba*.
 
 ---
 
+## 12.16 Dónde queda todo — cierre de la sesión del 2026-08-26
+
+Foto tomada al cerrar, con los issues abiertos como destino de cada pendiente.
+**No se ha publicado versión** (D17 sigue en pie).
+
+### Cerrado hoy
+
+| | Qué |
+|---|---|
+| DV-01…DV-06 | §12.14 entera. La documentación que #131 mergeó sin traer |
+| ADR-0023 | La regla: gate solo si fallar siempre es defecto; si no, opt-in o informe |
+| H19 | El gate aprobaba a un agente que no escribió nada. Reproducido, arreglado, fijado |
+| H20 | Un proyecto recién generado no pasaba sus propias puertas |
+| P3, P4 | Los dos defectos de proceso de §12.15 |
+| — | 17 artefactos de build de Gradle dejan de estar versionados. El árbol queda limpio por primera vez |
+
+### Abierto, con dueño
+
+| Pendiente | Issue | Bloquea 1.0 |
+|---|---|---|
+| **G3** — un equipo de fuera adopta y reporta | [#100](https://github.com/rsaglobaltech/spec-driven-development-template/issues/100) | **Sí** |
+| **G5** — la política de soporte pierde la frase que la anula | [#101](https://github.com/rsaglobaltech/spec-driven-development-template/issues/101) | **Sí** |
+| H18 — un test que parsee la salida de cada comando del contrato | [#135](https://github.com/rsaglobaltech/spec-driven-development-template/issues/135) | No, pero no publicaría 1.0 sin él |
+| P3 — CI ciego a los PR apilados | [#136](https://github.com/rsaglobaltech/spec-driven-development-template/issues/136) | No |
+| C10-01 — ejecutar ADR-0019 o revocarlo | [#137](https://github.com/rsaglobaltech/spec-driven-development-template/issues/137) | No |
+| C10-02…05 — paridad MCP (7 herramientas de 32 comandos) | [#138](https://github.com/rsaglobaltech/spec-driven-development-template/issues/138) | No |
+| C10-06 — publicar `csda studio` (estático + Mermaid empaquetado) | [#139](https://github.com/rsaglobaltech/spec-driven-development-template/issues/139) | No |
+| C8-01 — dogfood CsdaStudioApp, fases 8–10 | [#109](https://github.com/rsaglobaltech/spec-driven-development-template/issues/109) | No; y ver #137 antes de gastar más |
+
+### G5 no se ha tocado a propósito
+
+Es una línea de `docs/release-process.md:38`, y por eso mismo no la borro sin que
+alguien lo decida: borrarla **es** aceptar mantener el minor anterior seis meses.
+Eso es un compromiso de mantenimiento, no una edición de documentación. Queda en
+[#101](https://github.com/rsaglobaltech/spec-driven-development-template/issues/101),
+donde ya estaba.
+
+### La lectura del 1.0 no ha cambiado
+
+Sigue a **una release, una frase y un usuario real**. Lo de hoy no acerca ninguno
+de los tres — acerca que la release, cuando se haga, no salga con las puertas sin
+documentar ni con el gate aprobando trabajo vacío.
+
+---
+
 ## 13. Backlog aparcado
 
 Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el motivo.
