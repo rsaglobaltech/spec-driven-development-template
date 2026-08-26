@@ -137,6 +137,58 @@ test("a generated project passes every gate it ships with", () => {
   }
 });
 
+/**
+ * `csda req` had two silent failures, both found timing a newcomer's first
+ * path through the tool on 2026-08-26.
+ *
+ * `execute()` matched "list" / "add" / "link" and fell off the end of the
+ * function for anything else — `--help` and any misspelled subcommand printed
+ * nothing and exited 0. Worse: `req done <REQ>` fell into that same silent gap,
+ * and `req`'s own "Next:" hint recommends it after every `add` and `list`.
+ * Following the tool's own advice did nothing.
+ */
+test("req --help prints usage instead of nothing", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-req-help-"));
+  try {
+    const init = runCli(["init", "--yes", "--out", tempRoot, "--no-git"]);
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(tempRoot, "my-spec-driven-app");
+
+    const help = runCli(["req", "--help"], { cwd: projectDir });
+    assert.equal(help.status, 0, help.stdout + help.stderr);
+    assert.match(help.stdout, /csda req add/);
+    assert.match(help.stdout, /csda req done/);
+
+    const unknown = runCli(["req", "bogus-subcommand"], { cwd: projectDir });
+    assert.equal(unknown.status, 2, "an unrecognised req subcommand must not exit 0 silently");
+    assert.match(unknown.stdout, /csda req add/, "should fall back to the same usage text");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("req done marks the requirement Implemented, not a silent no-op", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-req-done-"));
+  try {
+    const init = runCli(["init", "--yes", "--out", tempRoot, "--no-git"]);
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+    const projectDir = path.join(tempRoot, "my-spec-driven-app");
+
+    const done = runCli(["req", "done", "REQ-000"], { cwd: projectDir });
+    assert.equal(done.status, 0, done.stdout + done.stderr);
+    assert.match(done.stdout, /Implemented/);
+
+    const matrix = fs.readFileSync(path.join(projectDir, "docs/specs/traceability.md"), "utf8");
+    assert.match(
+      matrix,
+      /\| REQ-000 \|.*\| Implemented \|/,
+      "the matrix row must actually flip — this is what req done exists to do"
+    );
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("can init and validate a generated project end-to-end", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-e2e-"));
   const slug = `spec-driven-${Date.now()}`;

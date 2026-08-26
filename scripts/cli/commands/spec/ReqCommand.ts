@@ -7,6 +7,7 @@ import { BaseCommand } from "../../../lib/command";
 import { DiskTraceabilityRepository } from "../../../../packages/core/src/infrastructure/DiskTraceabilityRepository";
 import { AddRequirementUseCase } from "../../../../packages/core/src/application/AddRequirementUseCase";
 import { LinkRequirementUseCase } from "../../../../packages/core/src/application/LinkRequirementUseCase";
+import { DoneCommand } from "./DoneCommand";
 import { TraceabilityMatrix } from "../../../../packages/core/src/domain/TraceabilityMatrix";
 
 const COLOR_ENABLED =
@@ -117,6 +118,35 @@ function collectFieldFlags(argv: string[]) {
   return { fields, status, rest };
 }
 
+/**
+ * `req --help`, or a subcommand nobody wrote, used to hand execution to
+ * nothing: `execute()` matched `list` / `add` / `link` and fell off the end of
+ * the function otherwise, exiting 0 with no output. `req done <REQ>` was the
+ * worse case — `cmdList`'s own "Next:" hint recommends it, and following that
+ * hint did nothing at all. Found 2026-08-26 timing a newcomer's first path
+ * through the tool.
+ */
+function usage(): void {
+  process.stdout.write(
+    `
+  📝 ${c.bold}csda req${c.reset} — add, link and close requirements without hand-editing the matrix
+
+` +
+      `  ${c.dim}csda req${c.reset}                          list requirements and their status
+` +
+      `  ${c.dim}csda req add${c.reset} "<title>"             add one, Draft
+` +
+      `  ${c.dim}csda req link${c.reset} REQ-007 --test <path>  set a field (--feature/--test/--code/--uc/--cmd/--status)
+` +
+      `  ${c.dim}csda req done${c.reset} REQ-007               mark Implemented (same as csda done REQ-007)
+
+` +
+      `  Run ${c.cyan}csda req <subcommand> --help${c.reset} for a subcommand's own flags.
+
+`
+  );
+}
+
 function cmdList(tracePath: string, io?: any) {
   const rows = parseTraceability(readMatrix(tracePath));
   const reqs = rows.filter((r) => /^REQ-\d+/.test(r.requirement || ""));
@@ -186,6 +216,11 @@ export class ReqCommand extends BaseCommand {
     const tracePath = path.join(resolvedDir, "docs", "specs", "traceability.md");
     const sub = stripped[0];
 
+    if (sub === "--help" || sub === "-h") {
+      usage();
+      process.exit(0);
+    }
+
     if (!sub || sub === "list") {
       const io = agentIo(wantsJson(stripped));
       const code = cmdList(tracePath, io);
@@ -253,5 +288,16 @@ export class ReqCommand extends BaseCommand {
       );
       process.exit(0);
     }
+
+    if (sub === "done") {
+      // Delegates rather than reimplements — `csda req done` is the same
+      // operation as the top-level `csda done`, and DoneCommand.execute()
+      // already calls process.exit itself, so this never falls through.
+      new DoneCommand(["--project-dir", resolvedDir, ...stripped.slice(1)]).execute();
+      return;
+    }
+
+    usage();
+    process.exit(2);
   }
 }
