@@ -112,7 +112,13 @@ computed — `strict_tdd_*` covers `strict_tdd_1` through `strict_tdd_3`.
 | `change_id_required` | `scripts/cli/commands/change/ChangeCommand.ts` |
 | `change_not_found` | `scripts/cli/commands/change/ChangeCommand.ts` |
 | `change_required` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `conflicting_seed_flags` | `scripts/cli/commands/change/ChangeCommand.ts` |
 | `invalid_change_id` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `invalid_value_drift_spec` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `value_drift_already_matches` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `value_drift_id_not_declared` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `value_drift_no_code_value` | `scripts/cli/commands/change/ChangeCommand.ts` |
+| `value_drift_requirement_not_found` | `scripts/cli/commands/change/ChangeCommand.ts` |
 | `missing_proposal` | `packages/core/src/application/ValidateChangeUseCase.ts` |
 | `no_deltas` | `packages/core/src/application/ValidateChangeUseCase.ts` |
 | `delta_empty` | `packages/core/src/domain/DeltaSpec.ts` |

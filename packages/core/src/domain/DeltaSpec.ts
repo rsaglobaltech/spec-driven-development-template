@@ -1,5 +1,8 @@
 import { parseSpec, parseDelta, requirementKey, renderSpec, REQ_ID, blockText } from "./SpecParser";
 import { error, warning } from "./Diagnostic";
+// RFC2119 lives in RequirementSyntax.ts now (F6) — this is the only importer,
+// so nothing needs a re-export.
+import { RFC2119 } from "./RequirementSyntax";
 
 export const VALID_SECTIONS = [
   "## Purpose",
@@ -7,8 +10,6 @@ export const VALID_SECTIONS = [
   "## MODIFIED Requirements",
   "## REMOVED Requirements",
 ];
-
-export const RFC2119 = /\b(SHALL|MUST|SHOULD|MAY|DEBE|DEBERÁ|DEBERA)\b/;
 export const GHERKIN_STEP = /^\s*(GIVEN|WHEN|THEN|AND|BUT|DADO|CUANDO|ENTONCES|Y)\b/i;
 
 /**

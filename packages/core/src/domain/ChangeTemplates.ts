@@ -11,6 +11,7 @@
  */
 
 import { Phrases } from "./Language";
+import { renderRequirement } from "./SpecParser";
 
 export function templateProposal(changeId) {
   return `# Proposal: ${changeId}
@@ -84,6 +85,48 @@ ${t.systemShall(t.observableBehaviour)}
 - THEN ${t.outcome}
 
 <!-- csda:trace uc=UC-000 feature=features/<area>/<name>.feature -->
+`;
+}
+
+/**
+ * Route 2 of the three-way resolution for a declared-value divergence
+ * (§8.6 → §11): "update the spec". Routes 1 ("fix the code") and 3 ("retire
+ * the requirement") need no new tooling — they are pointed at from the
+ * report and use `change new`/manual editing exactly as they already do.
+ * This is the one route that is glue between pieces that already exist:
+ * `csda report` finds the divergence, `renderRequirement` already knows how
+ * to serialise a requirement node, and `ArchiveChangeUseCase` already knows
+ * how to apply a `MODIFIED Requirements` delta.
+ *
+ * The `value_<id>` trace key is rewritten to the code's value — that part is
+ * exact, because it is a structured field. The prose is **not**
+ * rewritten automatically: "the session times out after 15 minutes" cannot
+ * be turned into "after 30 minutes" without risking a sentence that reads
+ * wrong, which is exactly the kind of guess this project refuses to make on
+ * a human's behalf. A `TODO:` marks it instead — the same restraint
+ * `pack infer` already uses for whatever it cannot infer (ADR-0014).
+ */
+export function templateValueDriftDelta(
+  capability: string,
+  req: any,
+  valueId: string,
+  oldValue: string,
+  newValue: string
+): string {
+  const updated = {
+    ...req,
+    trace: { ...req.trace, [`value_${valueId}`]: newValue },
+    text:
+      `${req.text || ""}`.trim() +
+      `\n\nTODO: this requirement's prose still says \`${valueId}\` is \`${oldValue}\`. ` +
+      `Update it to state \`${newValue}\`, the value the code actually declares, or reject ` +
+      `this change if the code is what should change instead.`,
+  };
+  return `# Delta — ${capability}
+
+## MODIFIED Requirements
+
+${renderRequirement(updated)}
 `;
 }
 

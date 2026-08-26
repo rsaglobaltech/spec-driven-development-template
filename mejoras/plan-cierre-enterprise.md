@@ -1168,6 +1168,24 @@ depende de escribir más código, salvo G4, que es una línea.
 Dicho de otro modo: 1.0 no está a X tareas de distancia, está a **dos releases
 tranquilas y un usuario real** de distancia.
 
+**Actualización 2026-08-25 — se cambia el orden (D14).** Se decide anteponer el
+cierre del hueco de verificación (ver `PLAN_PREDICTABLE_CODE_EVOLUTION.md`) a los
+gates que quedan. Coste explícito, para no reabrir esto por olvido:
+
+- **1.0 se retrasa.** `GATE-G3` y `GATE-G5` siguen exactamente como estaban —
+  abiertos, sin código pendiente— pero dejan de ser lo próximo que se ataca.
+- **`GATE-G1` se pone a prueba con la release más grande que ha tenido el
+  proyecto.** G1 se cumplió con 0.5.0 y 0.6.0, y el propio matiz de la sección
+  ya lo advertía: *"las dos limpias son releases de arreglos […] la prueba de
+  verdad llega con la siguiente release que añada algo"*. La primera release
+  aditiva del proyecto es también, con este cambio, la de mayor alcance —
+  justo el escenario que G1 existía para medir, ahora sin el colchón de haber
+  visto antes una release aditiva pequeña pasar limpia.
+- El argumento de venta pasa, para esta fase, de la estabilidad a la
+  verificación. No se borra el texto anterior de esta sección — sigue siendo
+  cierto sobre lo medido hasta el 2026-08-17. Se fecha esta actualización para
+  que quede claro qué se sabía cuándo.
+
 ---
 
 ## 12.11 El harness en producción — defectos encontrados ejecutándolo
@@ -1297,3 +1315,4 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | 2026-08-17 | **0.3.0 publicada** (D10) | 34 commits sin publicar desde 0.2.1, con media release ausente del CHANGELOG. npm `latest` = 0.3.0 con procedencia SLSA, `ghcr.io/rsaglobaltech/csda:0.3.0` multi-arch, notas de release escritas. Verificada desde cero con `npx create-spec-driven-app@0.3.0` generando un proyecto móvil |
 | 2026-08-17 | Publicar plugins Maven/Gradle, la extensión de VS Code, el scope npm y el registry queda **aplazado** (D9) | No es prioridad ahora. No bloquea nada: el CLI ya está en npm y la imagen en ghcr, que son las dos vías reales. Marcadas `[-]` con motivo, no descartadas — ver §12.8 |
 | 2026-08-16 | Los refactors `import/export` y `strict mode` no se mergean | 96 ficheros entre los dos, todos tocados también por el merge enterprise. Sin valor para el usuario y con coste de conflicto alto. Si se quieren, son tarea propia sobre `main` |
+| 2026-08-25 | Se antepone cerrar el hueco de verificación (`csda validate` solo comprueba papeleo, no código) a los gates de 1.0 que faltan (D14) | Al revisar `PLAN_PREDICTABLE_CODE_EVOLUTION.md` se confirmó que el hueco real frente a Predictable Code es uno solo — `--strict-tdd` son 3 reglas sobre la matriz, cero parsers de código en el repo — y se decide ir a por él ya. Se acepta el coste: `GATE-G3`/`GATE-G5` quedan pospuestos, y `GATE-G1` se pondrá a prueba con la primera release aditiva grande del proyecto en vez de con una pequeña primero. Detalle del coste en §12.10 |

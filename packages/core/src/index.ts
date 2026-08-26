@@ -35,6 +35,7 @@ export * from "./domain/RequirementGraph";
 export * from "./domain/RunBudget";
 export * from "./domain/RequirementPlan";
 export * from "./domain/RequirementReadiness";
+export * from "./domain/RequirementSyntax";
 export * from "./domain/ResumeState";
 export * from "./domain/SpecDiff";
 export * from "./domain/SpecParser";
@@ -44,6 +45,7 @@ export * from "./domain/TraceabilityFormat";
 export * from "./domain/TraceabilityMerge";
 export * from "./domain/TraceabilityMatrix";
 export * from "./domain/ValidationReport";
+export * from "./domain/ValueAnnotations";
 export * from "./domain/YamlLite";
 
 // ── Application ports ────────────────────────────────────────────────────────

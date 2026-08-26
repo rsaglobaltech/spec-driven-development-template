@@ -1,6 +1,6 @@
 # Índice de `mejoras/` — qué hay abierto y dónde mirar
 
-**Actualizado:** 2026-08-22
+**Actualizado:** 2026-08-26
 
 > **Empieza por aquí.** Este fichero es el mapa: qué es cada documento y **todo
 > lo que está abierto en una sola lista**. Los demás ficheros son el detalle.
@@ -83,6 +83,13 @@ el resto son de referencia histórica.
 `GATE-G1` (dos releases sin breaking), `GATE-G2` (bucle completo de punta a
 punta) y `GATE-G4` (gate de cobertura) están **cerrados**.
 
+**Actualización 2026-08-25 (D14, plan de cierre §12.10).** `GATE-G3` y
+`GATE-G5` siguen exactamente así — abiertos, sin código pendiente— pero dejan
+de ser lo próximo que se ataca. Se antepone cerrar el hueco de verificación
+descrito en `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §4: `csda validate` comprueba
+que el papeleo es coherente, no que el código haga lo que la spec dice. Ver
+§5 más abajo.
+
 > **Matiz que importa ahora:** G1 se cumplió con dos releases **de arreglos**.
 > La prueba real llega con la siguiente release que **añada** algo — es decir,
 > con lo primero que se implemente de las propuestas de §3.4.
@@ -155,7 +162,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | ~~F3~~ | **Hecho (2026-08-22).** `scenario_has_no_steps` y `keyword_case_invalid` son errores por sí solos, sin `--strict`, con fichero:línea y la grafía que funciona. Al ejecutarlo se destapó que `pack init` **seguía generando `GIVEN/WHEN/THEN`**: `F2` arregló los packs escritos, no el generador que los escribe. Corregido y con guarda sobre los cuatro tipos de proyecto. La parte de `validate` era `A3` | Bajo |
 | ~~F4~~ | **Hecho (2026-08-23).** `expand` y el andamio etiquetan `@REQ-NNN @SCN-NNN`; `validate` comprueba por fin que el escenario que la matriz declara **existe** en su fichero. Un fichero sin etiquetas se deja en paz: la adopción no se convierte en muro. El filtrado del gate por etiqueta ya funcionaba — solo faltaban las etiquetas | Medio |
 | ~~F5~~ | **Hecho (2026-08-22), cierra `H15`.** `core/domain/CucumberMessages` lee el NDJSON de `--format message`: existe el escenario, **se ejecutó**, tenía pasos, todos `PASSED`, y cuántos corrieron. Construido contra un flujo real, no de memoria — de ahí que los pasos de *hook* no cuenten como pasos. Opcional: sin Cucumber, la puerta sigue siendo el código de salida | Medio |
-| F6  | EARS opcional en la línea de requisito                                           | Bajo  |
+| ~~F6~~ | **Hecho (2026-08-25).** `csda validate --strict-requirements` sobre `docs/specs/capabilities/**/spec.md`: falta de obligación RFC 2119 (ahora también fuera de los deltas — única fuente movida a `RequirementSyntax.ts`, `DeltaSpec` la importa) y la única forma EARS que un regex puede comprobar honestamente, `IF` sin `THEN`. Opt-in, mismo motivo que `A3`. Detalle en `valoracion-bdd-gherkin-era-agentes.md` | Bajo |
 
 ### 3.5 Trabajo de campo vivo
 
@@ -223,7 +230,69 @@ Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.
 **En paralelo, y sin depender de nada:** `P2` (una tarde), `GATE-G5` (una línea),
 `C8-01` y `C8-02` (que es de donde salen los defectos de verdad).
 
-**Sin fecha:** `B3`, `D2`, `D3`, `F6`, `C8-03`, `C8-04`.
+**Tanda 4 — verificación, antepuesta el 2026-08-25 (D14).** ~~`F6`~~ **hecho
+(2026-08-25)** — sin un valor declarado y comprobable en la spec no había nada
+que una puerta nueva pudiera leer; ahora `--strict-requirements` lo comprueba
+en reposo. ~~§8.5, mitad 1~~ **hecho (2026-08-25)** — `csda validate
+--strict-links` comprueba que Feature file / Technical artifact / Test
+artifact sigan existiendo en disco. Corrección medida en el camino: la primera
+versión era incondicional y rompió `tests/unit/validate-strict-tdd.test.ts`
+(una fila `Draft`/`In Dev` declara con normalidad un fichero que aún no
+existe) — opt-in, misma promesa que `--strict-scenarios`. ~~§8.6~~ **hecho
+(2026-08-26).** `packages/core/src/domain/ValueAnnotations.ts` (dominio, puro,
+12 tests) + `buildDeclaredValues` en `ReportCommand.ts` (I/O, 12 tests).
+`value_<id>=<literal>` en el `csda:trace` de la spec, `// csda:value
+<id>=<literal>` en el código (cadena literal, no comentario reconocido por
+lenguaje), igualdad exacta, ficheros tomados de los mismos Technical/Test
+artifact que `--strict-links` ya valida. **Corrección de alcance en la misma
+sesión, antes de escribir código:** la primera versión era un gate
+`--strict-values` calcado de los otros tres flags; objeción correcta —
+valor-por-valor con gate duro no escala: el coste de anotar crece con el
+número de hechos comprobables mientras la cobertura no, y cuanto más complejo
+el proyecto menor la fracción de requisitos que son un valor escalar y no una
+regla con ramas. Se cambió la entrega, no la anotación: **sin flag nuevo en
+`validate`** — una sección nueva de `csda report` (matched / diverging /
+spec_only / code_only, sin fallar nada), `--record` con tres campos aditivos
+en el historial, `sparkline()` con una segunda serie punteada cuando todo el
+historial la tiene. `tests/unit/architecture.test.ts` no se tocó, sus cuatro
+reglas siguen en verde. Medido contra este propio repo: cero anotaciones hoy
+→ `declaredValues` todo cero, sección oculta — el mismo trato que
+`orphanFeatures`. **Pendiente, y a propósito no fabricado para la demo:**
+anotar un requisito real de este repo o de `csda-studio-app` — los REQ-1xx de
+`change-lifecycle` siguen en `Draft` sin artefacto técnico declarado, así que
+inventar un enlace solo para ver `matched` en verde habría sido la misma
+deriva documental que esto existe para detectar.
+
+Ver el detalle y lo que se descarta expresamente (Z3, tree-sitter, proofs
+criptográficas) en `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §5 y §8.4.
+
+**Además, el 2026-08-26: tres rutas ante una divergencia (§11 del plan) —
+ruta 2 hecha.** §8.6 detecta `diverging`; no ofrecía nada que hacer con eso.
+Medido antes de construir: rutas 1 (arreglar código) y 3 (retirar el
+requisito) no necesitaban herramienta nueva — `report` ya da `file:line`, y
+`change new --capability` + `REMOVED Requirements` a mano ya cubre el
+retiro. Ruta 2 sí era pegamento real: `csda change new <id>
+--from-value-drift REQ-ID:value_id` genera un delta `MODIFIED Requirements`
+con el `value_<id>` reescrito al valor del código y un `TODO:` para la
+prosa — nunca reescribe la frase sola, esa es la misma contención de `pack
+infer` con lo que no puede inferir. Reutiliza `readCapabilityRequirements`
+(extraído a `scripts/lib/capability-specs.ts`, un solo lector para `report` y
+`change`, lección F1/A3) y `renderRequirement` ya existente. 14 tests nuevos,
+generado y pasado por `csda change validate` de verdad, no solo por fixtures
+de texto.
+
+**Aparcado el 2026-08-26, tras medir: counterexamples concretos.** La nota de
+`PLAN_PREDICTABLE_CODE_EVOLUTION.md` §7 lo llamaba "ruta barata" porque
+`fast-check` ya está en devDeps. Medido antes de construir:
+`tests/unit/property-based.test.ts` lo usa contra funciones de **este propio
+repo**, importadas en el mismo proceso — barato solo porque la función ya
+vive ahí. Un counterexample real de "tu código viola tu spec" exige
+**ejecutar código del usuario**, que rompe el agnóstico-a-lenguaje que
+sostiene `csda:trace`/`csda:value` toda la sesión y abre una superficie de
+confianza nueva. Va a la fila de Z3/SMT/Lean 4 — horizonte, no la próxima
+tarea. Detalle en el plan §7.
+
+**Sin fecha:** `B3`, `D2`, `D3`, `C8-03`, `C8-04`.
 
 ---
 
