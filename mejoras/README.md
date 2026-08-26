@@ -239,16 +239,27 @@ artifact sigan existiendo en disco. Corrección medida en el camino: la primera
 versión era incondicional y rompió `tests/unit/validate-strict-tdd.test.ts`
 (una fila `Draft`/`In Dev` declara con normalidad un fichero que aún no
 existe) — opt-in, misma promesa que `--strict-scenarios`. **Siguiente, diseño
-cerrado el 2026-08-26, implementación pendiente por decisión explícita:**
-`--strict-values` (§8.6 del plan). `value_<id>=<literal>` en el `csda:trace`
-de la spec, `// csda:value <id>=<literal>` en el código (cadena literal, no
+cerrado y corregido el 2026-08-26, implementación pendiente por decisión
+explícita:** §8.6 del plan. `value_<id>=<literal>` en el `csda:trace` de la
+spec, `// csda:value <id>=<literal>` en el código (cadena literal, no
 comentario reconocido por lenguaje — funciona igual en cualquiera), igualdad
 exacta, ficheros a escanear tomados de los mismos Technical/Test artifact que
-`--strict-links` ya valida. Detección de deriva entre dos declaraciones
-explícitas, no verificación de comportamiento — dicho así en el propio diseño
-para que no se venda como más de lo que es. No empezar sin dogfoodearlo antes
-sobre este repo o `csda-studio-app`, la misma disciplina que corrigió
-`--strict-links`.
+`--strict-links` ya valida. **Corrección de alcance en la misma sesión:** la
+primera versión era un gate `--strict-values` calcado de los otros tres flags;
+objeción correcta — valor-por-valor con gate duro no escala: el coste de
+anotar crece con el número de hechos comprobables mientras la cobertura no, y
+cuanto más complejo el proyecto menor la fracción de requisitos que son un
+valor escalar y no una regla con ramas. Se cambió la entrega, no la anotación:
+una sección nueva de `csda report` (mapa de deriva agregado — matched /
+diverging / spec_only / code_only, sin fallar nada) con tendencia en el
+tiempo reutilizando `--record` y el historial JSONL que `report` ya tiene, en
+vez de un flag que falla el commit. Es también la apuesta para competir de
+verdad: Predictable Code vende "proof en tiempo real" sin evidencia externa
+verificable; un mapa de deriva con historial es una promesa que sí podemos
+sostener. Detección de deriva entre dos declaraciones explícitas, no
+verificación de comportamiento — dicho así en el propio diseño para que no
+se venda como más de lo que es. No empezar sin dogfoodearlo antes sobre este
+repo o `csda-studio-app`, la misma disciplina que corrigió `--strict-links`.
 
 Ver el detalle y lo que se descarta expresamente (Z3, tree-sitter, proofs
 criptográficas) en `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §5 y §8.4.

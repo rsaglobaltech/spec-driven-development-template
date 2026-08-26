@@ -233,7 +233,7 @@ Ninguna de las dos es verificación formal y ninguna debe llamarse así. Es la
 puerta comprobando una cosa más de las que hoy da por buenas — el patrón de la
 Tanda 1, la que cerró H14, H15 y H16.
 
-### 8.6 · Mitad 2 de §8.5, diseñada el 2026-08-26 — sin implementar
+### 8.6 · Mitad 2 de §8.5, diseñada el 2026-08-26, corregida el 2026-08-26 — sin implementar
 
 > **Estado: diseño cerrado, implementación pendiente por decisión explícita.**
 > No se escribe código de esto hasta que se retome en otra sesión.
@@ -244,6 +244,42 @@ lo detecta — `--strict-requirements` valida la forma de la frase, no lo que
 dice; `--strict-links` valida que el fichero exista, no lo que contiene. Falta
 comparar un valor declarado en la spec contra el mismo valor declarado en el
 código, sin AST y sin pretender entender ninguno de los dos.
+
+**Corrección de alcance, la misma sesión.** La primera versión de este diseño
+proponía `--strict-values` como gate binario, calcado de `--strict-requirements`
+y `--strict-links`. Objeción correcta: valor-por-valor con gate duro no escala
+con el tamaño del proyecto, por dos razones distintas.
+
+1. **El coste de anotar crece con el número de hechos comprobables, la
+   cobertura no.** Cada hecho exige escribir la pareja de anotaciones a mano.
+   Un proyecto grande acumula cientos de pares; cuantos más, más probable que
+   alguien actualice un lado y olvide el otro — que el check detecta, pero solo
+   para lo que alguien llegó a anotar en ambos lados primero.
+2. **Cuanto más complejo el sistema, menor la fracción de requisitos que son un
+   valor escalar.** Un timeout o un límite de reintentos se presta a esto; una
+   regla de negocio con ramas (*"10% de descuento si el pedido supera $100, 5%
+   en el resto"*) no es un valor, y la igualdad literal no la toca. La cobertura
+   real de este mecanismo se encoge, en términos relativos, según crece la
+   complejidad de lo que el proyecto declara.
+
+**La corrección no es rediseñar la anotación — es rediseñar la entrega.** El
+par de anotaciones explícitas se queda igual que en la versión anterior de este
+diseño: sigue siendo la única forma honesta de comparar un valor sin AST y sin
+heurística de nombres. Lo que cambia es que deja de ser un gate que falla el
+commit y pasa a ser una sección de `csda report` — un mapa de deriva agregado,
+no un veredicto binario por valor. Un proyecto grande con cobertura parcial de
+anotaciones ve su mapa parcial y prioriza; no falla en bloque por no haberlo
+anotado todo. Es el mismo principio que ya rige `report`: `needsTest` y
+`orphanFeatures` son listas para atender, no gates.
+
+**Esto es, además, la vía real para competir de tú a tú en esto.**
+Predictable Code vende *"proof en tiempo real"* — una afirmación sin evidencia
+externa, en beta privada, sin dato de cómo se comporta a escala. Un mapa de
+deriva agregado con tendencia en el tiempo, sobre algo que ya construimos
+(`report --record`, el historial JSONL, el sparkline), es una promesa que sí
+podemos sostener y que además encaja con lo que CSDA ya es — multi-proyecto,
+packs, auditoría como markdown legible, no como teatro criptográfico. No
+igualamos su frase; ofrecemos una honesta y verificable en su lugar.
 
 **Restricción de quien retoma esto: no tocar `tests/unit/architecture.test.ts`
 ni sus cuatro reglas.** El diseño de abajo se ajusta a ellas por construcción —
@@ -307,8 +343,8 @@ las dos anotaciones, no de la herramienta.
 |---|---|---|---|
 | Extraer `value_*` de un `TraceComment` ya parseado | Dominio, puro | `packages/core/src/domain/ValueAnnotations.ts` (nuevo) — función `declaredSpecValues(trace)` | Recibe un objeto ya en memoria, no toca disco |
 | Parsear `csda:value clave=valor` de un texto de código | Dominio, puro | mismo fichero — función `declaredCodeValues(source: string)` | Recibe una cadena ya en memoria — la misma disciplina que `Gherkin.ts` o `GherkinQuality.ts` con el texto de un `.feature` |
-| Comparar ambos mapas y producir `Diagnostic[]` | Dominio, puro | mismo fichero — función `compareDeclaredValues(specValues, codeValues, opts)` | Solo estructuras de datos entrando y saliendo; sin `fs`, sin `path` |
-| Leer el capability spec, la matriz y los ficheros de código; llamar a las tres funciones de arriba; imprimir | Comando (I/O) | `scripts/cli/commands/quality/ValidateSpecsCommand.ts`, junto a `checkRequirementSyntax` y `checkDeclaredArtifactsExist` | Exactamente donde vive hoy toda lectura de disco de `validate` — el propio comentario de `ValidateProjectUseCase.ts` ya dice que "los checks sobre el layout en disco se quedan con el comando" |
+| Comparar ambos mapas y producir el modelo de comparación (no un `Diagnostic[]` — ver superficie, abajo) | Dominio, puro | mismo fichero — función `compareDeclaredValues(specValues, codeValues, opts)` | Solo estructuras de datos entrando y saliendo; sin `fs`, sin `path` |
+| Leer el capability spec, la matriz y los ficheros de código; llamar a las tres funciones de arriba; agregar al modelo del reporte; opcionalmente anexar al historial | Comando (I/O) | `scripts/cli/commands/quality/ReportCommand.ts`, dentro de `buildReport()` (`:10`, el modelo que devuelve empieza en `:29`) | Es donde ya vive toda la agregación de `report` — `readSpecops` (`:44`) es el mismo patrón: leer del disco, devolver un bloque del modelo |
 
 Ninguna pieza nueva importa desde `scripts/` hacia `packages/core/src` en la
 dirección prohibida, ninguna hace I/O dentro de `domain/`, y `application/`
@@ -317,31 +353,62 @@ que ya usan `--strict-requirements` y `--strict-links` alcanza. Las cuatro
 reglas de `tests/unit/architecture.test.ts` quedan intactas por construcción,
 no por vigilancia.
 
-#### Superficie propuesta (sin implementar)
+#### Superficie propuesta (sin implementar) — reporte, no gate
 
-- Flag nuevo en `validate`: **`--strict-values`**. Opt-in — un proyecto sin
-  ninguna anotación `value_*`/`csda:value` no tiene nada que comparar, mismo
-  no-op que `--strict-links` en un proyecto recién creado.
-- Código de diagnóstico nuevo: `declared_value_diverges` — mensaje con el
-  identificador, el valor que dice la spec, el valor que dice el código, y los
-  dos ficheros (`file:línea` en ambos lados, porque `csda:value` también lleva
-  número de línea).
-- Un identificador declarado en la spec sin su pareja en el código (o
-  viceversa) **no es error** por defecto — solo se compara cuando ambos lados
-  declaran el mismo identificador. Ese es el precedente de `A2`/`--strict-artifacts`:
-  una comprobación que solo se pronuncia sobre lo que puede sustanciar.
+**Sin flag nuevo en `validate`.** Nada falla el commit por esto. `csda report`
+agrega una sección nueva al modelo que ya devuelve `buildReport()`
+(`ReportCommand.ts:29`):
+
+```ts
+declaredValues: {
+  total: number,       // pares con el mismo identificador en ambos lados
+  matched: number,
+  diverging: number,
+  specOnly: number,    // declarado en la spec, sin csda:value en el código
+  codeOnly: number,    // csda:value en el código, sin value_ en ningún requisito
+  items: Array<{
+    id: string, requirement: string,
+    specValue: string, specFile: string, specLine: number,
+    codeValue: string | null, codeFile: string | null, codeLine: number | null,
+    status: "matched" | "diverging" | "spec_only" | "code_only",
+  }>,
+}
+```
+
+- **`specOnly` y `codeOnly` no son error, son inventario.** Un identificador
+  anotado en un solo lado no es una promesa incumplida, es cobertura parcial —
+  exactamente lo que un mapa de deriva tiene que poder mostrar sin fallar nada.
+- **HTML**: una tabla junto a las de `needsTest`/`orphanFeatures` ya existentes
+  en el reporte (mismo `esc()` de `:103`, mismo estilo de fila).
+- **Tendencia en el tiempo, reutilizando `--record`.** `appendHistory`
+  (`ReportCommand.ts:91`) hoy escribe `{ts, total, implemented,
+  implementedPct}` por ejecución en `reports/spec-coverage-history.jsonl`.
+  Se le añaden tres campos — `valuesTotal`, `valuesMatched`,
+  `valuesDiverging` — de forma aditiva: una línea de historial vieja sin esos
+  campos se sigue leyendo, `readHistory` (`:73`) ya descarta líneas que no
+  parseen sin perder el resto. `sparkline()` (`:120`) gana una segunda serie
+  con el mismo mecanismo que ya traza `implementedPct`.
+- **`csda doctor` como advisory, sin gate — extensión natural, no parte de
+  este diseño.** Igual que `--strict-scenarios` también aparece en `doctor`
+  como aviso (`DoctorCommand.ts`), un `diverging` podría listarse ahí. Se deja
+  como costura abierta, no como trabajo de esta fase.
 
 #### Lo que esto no hace, dicho para que no se olvide
 
 No verifica que el código *en efecto* respete el valor en tiempo de ejecución —
 solo que la anotación del código coincida con la de la spec. Un `SESSION_TIMEOUT
 = "15m"` correctamente anotado y después ignorado por el código real seguiría
-pasando. Es detección de deriva entre dos declaraciones explícitas, no
-verificación de comportamiento — exactamente el techo que §5 fija a propósito.
-Y depende de adopción: nadie escribe `csda:value` por scaffolding automático
-todavía, así que el primer uso real es dogfoodearlo sobre este propio repo o
-sobre `csda-studio-app` (§3.5 de `mejoras/README.md`) antes de generalizarlo,
-la misma disciplina que ya midió y corrigió `--strict-links`.
+apareciendo como `matched`. Es detección de deriva entre dos declaraciones
+explícitas, no verificación de comportamiento — el techo que §5 fija a
+propósito, sin moverlo por cambiar de gate a reporte.
+
+**Tampoco bloquea nada, y es a propósito — no un downgrade.** La versión
+gate habría podido fallar un commit por una anotación de menos en un proyecto
+grande, que es precisamente el escenario que motivó la corrección. Depende de
+adopción: nadie escribe `csda:value` por scaffolding automático todavía, así
+que el primer uso real es dogfoodearlo sobre este propio repo o sobre
+`csda-studio-app` (§3.5 de `mejoras/README.md`) antes de generalizarlo, la
+misma disciplina que ya midió y corrigió `--strict-links`.
 
 ---
 
