@@ -2,6 +2,7 @@
 import {
   ReportCommand,
   buildReport,
+  buildDeclaredValues,
   readSpecops,
   renderHtml,
   renderJson,
@@ -13,6 +14,7 @@ import {
 export {
   ReportCommand,
   buildReport,
+  buildDeclaredValues,
   readSpecops,
   renderHtml,
   renderJson,

@@ -3,6 +3,14 @@ import * as path from "node:path";
 import { resolveProjectDir } from "../../../lib/project-root";
 import { parseTraceability, classify, detectOrphans, fileExists } from "../spec/PlanCommand";
 import { BaseCommand } from "../../../lib/command";
+import { parseSpec } from "../../../../packages/core/src/domain/SpecParser";
+import { CAPABILITIES_DIR } from "../../../../packages/core/src/infrastructure/ChangeWorkspace";
+import { declaredPaths } from "../../../../packages/core/src/domain/DeclaredArtifacts";
+import {
+  declaredSpecValues,
+  declaredCodeValues,
+  compareDeclaredValues,
+} from "../../../../packages/core/src";
 
 const HISTORY_REL = "reports/spec-coverage-history.jsonl";
 const DONE_CATEGORY = "DONE";
@@ -38,6 +46,111 @@ export function buildReport(projectDir: string) {
     orphanFeatures: orphans,
     specops: readSpecops(projectDir),
     requirements: items,
+    declaredValues: buildDeclaredValues(projectDir, items),
+  };
+}
+
+/**
+ * Every capability spec's requirements, paired with which file declared them
+ * (`docs/specs/capabilities/<cap>/spec.md` relative to `projectDir`).
+ *
+ * Absent entirely on most projects — `csda init` never writes this
+ * directory, it belongs to the change-lifecycle structure (`csda change`).
+ * No directory is not an error here; it is "nothing to report yet".
+ */
+function readCapabilityRequirements(projectDir: string) {
+  const capabilitiesDir = path.join(projectDir, CAPABILITIES_DIR);
+  if (!fs.existsSync(capabilitiesDir)) return [];
+
+  const out: Array<{ req: any; specFile: string }> = [];
+  const entries = fs
+    .readdirSync(capabilitiesDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .sort((a, b) => a.name.localeCompare(b.name));
+  for (const entry of entries) {
+    const specPath = path.join(capabilitiesDir, entry.name, "spec.md");
+    if (!fs.existsSync(specPath)) continue;
+    const rel = path.relative(projectDir, specPath).split(path.sep).join("/");
+    let spec: any;
+    try {
+      spec = parseSpec(fs.readFileSync(specPath, "utf8"));
+    } catch {
+      continue;
+    }
+    for (const req of spec.requirements || []) out.push({ req, specFile: rel });
+  }
+  return out;
+}
+
+/**
+ * The declared-value drift model (§8.6): for every capability-spec
+ * requirement that declares a `value_<id>=` in its `csda:trace`, read the
+ * code file(s) its matrix row already points at (the same Technical/Test
+ * artifact `--strict-links` checks exist) and compare.
+ *
+ * A requirement with no `value_*` key contributes nothing — this only ever
+ * reports on what was explicitly annotated, same restraint as
+ * `DeclaredArtifacts`.
+ */
+export function buildDeclaredValues(projectDir: string, items: any[]) {
+  const byRequirement = new Map<string, any>();
+  for (const it of items) if (it && it.requirement) byRequirement.set(it.requirement, it);
+
+  let matched = 0;
+  let diverging = 0;
+  let specOnly = 0;
+  let codeOnly = 0;
+  const allItems: any[] = [];
+
+  for (const { req, specFile } of readCapabilityRequirements(projectDir)) {
+    const specEntries = declaredSpecValues(req.trace);
+    if (specEntries.length === 0) continue;
+
+    const row = byRequirement.get(req.id);
+    const codeFiles = new Set<string>();
+    for (const cell of [row && row.technical_artifact, row && row.test_artifact]) {
+      for (const p of declaredPaths(cell)) codeFiles.add(p.split("#")[0]);
+    }
+
+    const codeEntries: Array<{ id: string; value: string; line: number; file: string }> = [];
+    for (const rel of codeFiles) {
+      const abs = path.join(projectDir, rel);
+      if (!fs.existsSync(abs)) continue;
+      let text: string;
+      try {
+        text = fs.readFileSync(abs, "utf8");
+      } catch {
+        continue;
+      }
+      for (const e of declaredCodeValues(text)) codeEntries.push({ ...e, file: rel });
+    }
+
+    for (const c of compareDeclaredValues(specEntries, codeEntries)) {
+      allItems.push({
+        id: c.id,
+        requirement: req.id,
+        specValue: c.specValue,
+        specFile,
+        specLine: req.line,
+        codeValue: c.codeValue,
+        codeFile: c.codeFile,
+        codeLine: c.codeLine,
+        status: c.status,
+      });
+      if (c.status === "matched") matched++;
+      else if (c.status === "diverging") diverging++;
+      else if (c.status === "spec_only") specOnly++;
+      else if (c.status === "code_only") codeOnly++;
+    }
+  }
+
+  return {
+    total: matched + diverging,
+    matched,
+    diverging,
+    specOnly,
+    codeOnly,
+    items: allItems,
   };
 }
 
@@ -91,11 +204,17 @@ function readHistory(projectDir: string) {
 function appendHistory(projectDir: string, report: any, now: Date) {
   const file = path.join(projectDir, HISTORY_REL);
   fs.mkdirSync(path.dirname(file), { recursive: true });
+  const dv = report.declaredValues || { total: 0, matched: 0, diverging: 0 };
   const entry = {
     ts: now.toISOString(),
     total: report.total,
     implemented: report.implemented,
     implementedPct: report.implementedPct,
+    // Additive (§8.6) — an older history line simply lacks these; readHistory
+    // only requires `implementedPct` to accept a line, so nothing breaks.
+    valuesTotal: dv.total,
+    valuesMatched: dv.matched,
+    valuesDiverging: dv.diverging,
   };
   fs.appendFileSync(file, JSON.stringify(entry) + "\n");
 }
@@ -117,22 +236,47 @@ const CATEGORY_LABELS: Record<string, string> = {
   NEEDS_EVERYTHING: "Nothing yet",
 };
 
+/** One series as SVG polyline coordinates, `w`×`h`, 0–100 scale. */
+function sparklineCoords(pts: number[], w: number, h: number, max: number) {
+  const step = w / (pts.length - 1);
+  return pts.map((p, i) => `${(i * step).toFixed(1)},${(h - (p / max) * h).toFixed(1)}`).join(" ");
+}
+
 export function sparkline(history: any[]) {
   const pts = history.map((h) => h.implementedPct);
   if (pts.length < 2) return "";
   const w = 240;
   const h = 40;
   const max = 100;
-  const step = w / (pts.length - 1);
-  const coords = pts
-    .map((p, i) => `${(i * step).toFixed(1)},${(h - (p / max) * h).toFixed(1)}`)
-    .join(" ");
+  const coords = sparklineCoords(pts, w, h, max);
   const last = coords.split(" ").pop()!.split(",");
+
+  // The declared-value trend (§8.6) is a second, dashed series — drawn only
+  // when *every* history point has it, never interpolated across a gap left
+  // by runs recorded before this feature existed or before anything was
+  // annotated. A trend line implying data between two points is worse than
+  // no trend line.
+  let valueSeries = "";
+  const valuePts = history.map((h) =>
+    typeof h.valuesTotal === "number" && h.valuesTotal > 0
+      ? Math.round((h.valuesMatched / h.valuesTotal) * 1000) / 10
+      : null
+  );
+  if (valuePts.every((p) => p !== null)) {
+    const vCoords = sparklineCoords(valuePts as number[], w, h, max);
+    const vLast = vCoords.split(" ").pop()!.split(",");
+    valueSeries =
+      `<polyline fill="none" stroke="#1c7ed6" stroke-width="2" stroke-dasharray="4 2" ` +
+      `points="${vCoords}"/>` +
+      `<circle cx="${vLast[0]}" cy="${vLast[1]}" r="3" fill="#1c7ed6"/>`;
+  }
+
   return (
     `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" ` +
     `aria-label="Coverage trend over ${pts.length} runs">` +
     `<polyline fill="none" stroke="#2f9e44" stroke-width="2" points="${coords}"/>` +
     `<circle cx="${last[0]}" cy="${last[1]}" r="3" fill="#2f9e44"/>` +
+    valueSeries +
     `</svg>`
   );
 }
@@ -186,8 +330,46 @@ export function renderHtml(report: any, opts: any) {
         .join("")}</ul>`
     : "";
 
+  // §8.6 — declared-value drift. Only rendered when there is something
+  // annotated at all: a project with no `value_*`/`csda:value` pair has
+  // nothing to show, the same restraint `orphanBlock` already applies.
+  const dv = report.declaredValues || { total: 0, specOnly: 0, codeOnly: 0, items: [] };
+  const dvSeen = dv.total + dv.specOnly + dv.codeOnly;
+  const STATUS_LABELS: Record<string, string> = {
+    matched: "Matched",
+    diverging: "Diverges",
+    spec_only: "Spec only",
+    code_only: "Code only",
+  };
+  const declaredValuesBlock = dvSeen
+    ? `<h2>Declared values (§8.6)</h2>` +
+      `<p class="meta">${dv.matched} matched · ${dv.diverging} diverging · ` +
+      `${dv.specOnly} spec-only · ${dv.codeOnly} code-only</p>` +
+      `<div class="table-wrap"><table><thead><tr>` +
+      `<th>Requirement</th><th>Id</th><th>Spec value</th><th>Code value</th><th>State</th>` +
+      `</tr></thead><tbody>` +
+      dv.items
+        .map((it: any) => {
+          const cls = it.status === "matched" ? "done" : "todo";
+          const codeCell = it.codeFile
+            ? `<code>${esc(it.codeValue)}</code> <span class="meta">${esc(it.codeFile)}:${esc(it.codeLine)}</span>`
+            : "<span class=\"no\">·</span>";
+          const specCell = it.specValue !== null ? `<code>${esc(it.specValue)}</code>` : '<span class="no">·</span>';
+          return (
+            `<tr><td class="req">${esc(it.requirement)}</td><td><code>${esc(it.id)}</code></td>` +
+            `<td>${specCell}</td><td>${codeCell}</td>` +
+            `<td><span class="badge ${cls}">${esc(STATUS_LABELS[it.status] || it.status)}</span></td></tr>`
+          );
+        })
+        .join("\n") +
+      `</tbody></table></div>`
+    : "";
+
+  const hasValueTrend = history.some((h: any) => typeof h.valuesTotal === "number" && h.valuesTotal > 0);
   const trendBlock = sparkline(history)
-    ? `<div class="trend"><span class="trend-label">Coverage trend</span>${sparkline(history)}</div>`
+    ? `<div class="trend"><span class="trend-label">${
+        hasValueTrend ? "Coverage (green) · Value match (blue, dashed)" : "Coverage trend"
+      }</span>${sparkline(history)}</div>`
     : "";
 
   const pctTone = pct >= 80 ? "good" : pct >= 40 ? "warn" : "bad";
@@ -258,6 +440,7 @@ export function renderHtml(report: any, opts: any) {
     ${tile(report.pending, "Pending")}
     ${tile(report.needsTest.length, "Missing a test", report.needsTest.length ? "warn" : "good")}
     ${tile(report.orphanFeatures.length, "Orphan features", report.orphanFeatures.length ? "bad" : "good")}
+    ${dvSeen ? tile(dv.diverging, "Value drift", dv.diverging ? "bad" : "good") : ""}
   </div>
   <div class="bar"><span style="width:${pct}%"></span></div>
   ${trendBlock}
@@ -274,6 +457,7 @@ ${rows}
   </div>
   ${specopsBlock}
   ${orphanBlock}
+  ${declaredValuesBlock}
 </main>
 </body>
 </html>

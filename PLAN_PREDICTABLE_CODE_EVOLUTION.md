@@ -233,10 +233,18 @@ Ninguna de las dos es verificación formal y ninguna debe llamarse así. Es la
 puerta comprobando una cosa más de las que hoy da por buenas — el patrón de la
 Tanda 1, la que cerró H14, H15 y H16.
 
-### 8.6 · Mitad 2 de §8.5, diseñada el 2026-08-26, corregida el 2026-08-26 — sin implementar
+### 8.6 · Mitad 2 de §8.5 — hecho el 2026-08-26
 
-> **Estado: diseño cerrado, implementación pendiente por decisión explícita.**
-> No se escribe código de esto hasta que se retome en otra sesión.
+> **Estado: implementado.** `packages/core/src/domain/ValueAnnotations.ts`
+> (dominio, puro, 12 tests) + `buildDeclaredValues` en
+> `scripts/cli/commands/quality/ReportCommand.ts` (I/O, 12 tests). Sin flag
+> nuevo en `validate` — `csda report` gana la sección, `--record` gana tres
+> campos aditivos en el historial, `sparkline()` gana una segunda serie
+> punteada cuando todo el historial la tiene. Medido contra este propio repo:
+> con cero anotaciones, `declaredValues` es todo cero y la sección no
+> aparece — igual que `orphanFeatures` cuando no hay huérfanos.
+> `tests/unit/architecture.test.ts` sigue en verde sin tocarlo, por
+> construcción — la restricción explícita de quien pidió esto.
 
 **El problema, en el ejemplo que la propia página del rival usa:** *"session
 timeout is 30m but spec requires 15m"*. Ninguna comprobación de este documento
@@ -281,10 +289,9 @@ podemos sostener y que además encaja con lo que CSDA ya es — multi-proyecto,
 packs, auditoría como markdown legible, no como teatro criptográfico. No
 igualamos su frase; ofrecemos una honesta y verificable en su lugar.
 
-**Restricción de quien retoma esto: no tocar `tests/unit/architecture.test.ts`
-ni sus cuatro reglas.** El diseño de abajo se ajusta a ellas por construcción —
-se explica dónde vive cada pieza y por qué — precisamente para que la próxima
-sesión no tenga que decidirlo de nuevo.
+**Restricción cumplida: `tests/unit/architecture.test.ts` no se tocó.** Sus
+cuatro reglas siguen en verde — la tabla de abajo explica dónde vive cada
+pieza y por qué, y es la razón de que no hiciera falta tocarlas.
 
 #### La decisión: anotación explícita a ambos lados, comparada por igualdad literal
 
@@ -353,7 +360,7 @@ que ya usan `--strict-requirements` y `--strict-links` alcanza. Las cuatro
 reglas de `tests/unit/architecture.test.ts` quedan intactas por construcción,
 no por vigilancia.
 
-#### Superficie propuesta (sin implementar) — reporte, no gate
+#### Superficie — reporte, no gate
 
 **Sin flag nuevo en `validate`.** Nada falla el commit por esto. `csda report`
 agrega una sección nueva al modelo que ya devuelve `buildReport()`
@@ -406,9 +413,11 @@ propósito, sin moverlo por cambiar de gate a reporte.
 gate habría podido fallar un commit por una anotación de menos en un proyecto
 grande, que es precisamente el escenario que motivó la corrección. Depende de
 adopción: nadie escribe `csda:value` por scaffolding automático todavía, así
-que el primer uso real es dogfoodearlo sobre este propio repo o sobre
-`csda-studio-app` (§3.5 de `mejoras/README.md`) antes de generalizarlo, la
-misma disciplina que ya midió y corrigió `--strict-links`.
+que el siguiente paso real es anotar un requisito de verdad — de este propio
+repo o de `csda-studio-app` (§3.5 de `mejoras/README.md`) — y ver la sección
+aparecer con datos reales, no sintéticos. Los 24 tests nuevos (12 dominio + 12
+comando) cubren la lógica; ninguno sustituye a esa primera anotación real,
+la misma disciplina que ya midió y corrigió `--strict-links`.
 
 ---
 

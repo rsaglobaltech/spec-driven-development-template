@@ -45,6 +45,7 @@ export * from "./domain/TraceabilityFormat";
 export * from "./domain/TraceabilityMerge";
 export * from "./domain/TraceabilityMatrix";
 export * from "./domain/ValidationReport";
+export * from "./domain/ValueAnnotations";
 export * from "./domain/YamlLite";
 
 // ── Application ports ────────────────────────────────────────────────────────
