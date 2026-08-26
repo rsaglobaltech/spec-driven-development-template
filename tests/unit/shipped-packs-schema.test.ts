@@ -122,16 +122,44 @@ test("a curated pack renders its context and producer, not a column of dashes", 
   assert.deepEqual(aggregate.responsibilities, ["Invoice line items, totals, status, aging"]);
 });
 
-test("both payload spellings the curated packs use are valid", () => {
-  // Ten packs write `payload: [fileId: string]`, which reads as a string;
-  // file-storage writes a block sequence of mappings, which reads as an object.
-  // Both are in use and both are readable, so the schema describes both rather
-  // than retiring one by a rule nobody was enforcing.
-  const inline = loadPack(PACKS_DIR, "billing/backend").pack;
-  const block = loadPack(PACKS_DIR, "file-storage/backend").pack;
+test("all eleven curated packs write the inline string payload spelling", () => {
+  // Issue #116 (and ADR-0020's own 2026-08-23 amendment) said one pack —
+  // file-storage — used a block sequence of mappings (`payload:\n  - fileId:
+  // string`, reading as an object per entry) against ten using the string
+  // form (`payload: [fileId: string]`). Walking all eleven for this fix found
+  // five in the object form, not one: file-storage, multi-tenant, reporting,
+  // search, webhooks. The earlier count was never re-verified after being
+  // written. All five migrated 2026-08-26 (ADR-0020) — every curated pack now
+  // writes the same spelling, so a diff between two packs' payloads is a real
+  // difference, not a notation accident.
+  for (const id of shippedPackIds()) {
+    const { pack } = loadPack(PACKS_DIR, id);
+    for (const event of pack.events || []) {
+      for (const field of event.payload || []) {
+        assert.equal(
+          typeof field,
+          "string",
+          `${id} event ${event.id} payload should be the string spelling, got ${typeof field}`
+        );
+      }
+    }
+  }
+});
 
+test("the object payload spelling still validates, for a community pack that already uses it", () => {
+  // The schema documents both spellings deliberately (ADR-0020): retiring the
+  // object form would reject a pack this repository does not control. Proven
+  // against a mutated clone of a real pack, not a curated one, now that none
+  // of the eleven use this form.
+  const inline = loadPack(PACKS_DIR, "billing/backend").pack;
   assert.equal(typeof inline.events[0].payload[0], "string");
-  assert.equal(typeof block.events[0].payload[0], "object");
   assert.ok(validate(inline), "the inline spelling must validate");
-  assert.ok(validate(block), "the block spelling must validate");
+
+  const block = JSON.parse(JSON.stringify(inline));
+  block.events[0].payload = block.events[0].payload.map((field) => {
+    const [key, type] = field.split(":").map((s) => s.trim());
+    return { [key]: type };
+  });
+  assert.equal(typeof block.events[0].payload[0], "object");
+  assert.ok(validate(block), "the block spelling must still validate");
 });

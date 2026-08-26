@@ -110,24 +110,15 @@ events:
   - id: EVT-001
     name: TenantProvisioned
     aggregate: Tenant
-    payload:
-      - tenantId: string
-      - name: string
-      - provisionedAt: datetime
+    payload: [tenantId: string, name: string, provisionedAt: datetime]
   - id: EVT-002
     name: TenantDeprovisioned
     aggregate: Tenant
-    payload:
-      - tenantId: string
-      - deprovisionedAt: datetime
-      - reason: string
+    payload: [tenantId: string, deprovisionedAt: datetime, reason: string]
   - id: EVT-003
     name: QuotaExceeded
     aggregate: TenantContext
-    payload:
-      - tenantId: string
-      - quotaName: string
-      - exceededAt: datetime
+    payload: [tenantId: string, quotaName: string, exceededAt: datetime]
 
 outputs:
   files:
