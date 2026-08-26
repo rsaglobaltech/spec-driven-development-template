@@ -229,15 +229,119 @@ razón por la que `declared_artifact_untouched` en `DeclaredArtifacts` ya es un
 warning, no una certeza. Se corrigió a opt-in, misma promesa que
 `--strict-scenarios`.
 
-**Sin hacer, y sigue sin diseño suficiente:** que lo que la spec **declara como
-valor** (§8.1, `F6`) coincida con lo que el código declara en el mismo sitio. A
-diferencia de la existencia de un fichero, "el mismo valor" no tiene una lectura
-sin AST que no sea frágil — queda para cuando haya un diseño concreto, no una
-frase.
-
 Ninguna de las dos es verificación formal y ninguna debe llamarse así. Es la
 puerta comprobando una cosa más de las que hoy da por buenas — el patrón de la
 Tanda 1, la que cerró H14, H15 y H16.
+
+### 8.6 · Mitad 2 de §8.5, diseñada el 2026-08-26 — sin implementar
+
+> **Estado: diseño cerrado, implementación pendiente por decisión explícita.**
+> No se escribe código de esto hasta que se retome en otra sesión.
+
+**El problema, en el ejemplo que la propia página del rival usa:** *"session
+timeout is 30m but spec requires 15m"*. Ninguna comprobación de este documento
+lo detecta — `--strict-requirements` valida la forma de la frase, no lo que
+dice; `--strict-links` valida que el fichero exista, no lo que contiene. Falta
+comparar un valor declarado en la spec contra el mismo valor declarado en el
+código, sin AST y sin pretender entender ninguno de los dos.
+
+**Restricción de quien retoma esto: no tocar `tests/unit/architecture.test.ts`
+ni sus cuatro reglas.** El diseño de abajo se ajusta a ellas por construcción —
+se explica dónde vive cada pieza y por qué — precisamente para que la próxima
+sesión no tenga que decidirlo de nuevo.
+
+#### La decisión: anotación explícita a ambos lados, comparada por igualdad literal
+
+Ni AST ni heurística de nombres. Dos anotaciones, mismo identificador, texto
+literal comparado por igualdad — el mismo trato que `csda:trace` ya da a
+`depends=` y `context=`: explícito, determinista, y la herramienta no
+interpreta nada, solo compara lo que un humano (o un agente) ya escribió dos
+veces a propósito.
+
+**Lado spec — dentro del `csda:trace` que el requisito ya lleva:**
+
+```markdown
+### Requirement: REQ-AUTH-002 — Token expiry
+
+El sistema SHALL expirar el token de sesión a los 15 minutos de inactividad.
+
+<!-- csda:trace uc=Login value_session_timeout=15m -->
+```
+
+Sin campo nuevo en el parser: `parseTraceComment` (`SpecParser.ts:96`) ya acepta
+cualquier clave `[a-z_]+`. La convención es solo de nombrado — toda clave con
+el prefijo `value_` declara un valor comprobable; lo que sigue al prefijo
+(`session_timeout`) es el identificador que ambos lados comparten.
+
+**Lado código — un marcador de una línea, en el lenguaje que sea:**
+
+```ts
+// csda:value session_timeout=15m
+const SESSION_TIMEOUT = "15m";
+```
+
+No es un comentario reconocido por lenguaje — es una cadena literal buscada en
+el texto del fichero, igual que `csda:trace` es una cadena literal buscada en
+markdown. Funciona idéntico en `.ts`, `.py`, `.java`, `.go` sin saber nada de
+ninguno, porque no analiza sintaxis: solo busca la frase `csda:value clave=valor`
+en cualquier línea. Esto es lo que de verdad resuelve la pregunta multi-lenguaje
+que el documento original creía necesitar tree-sitter para responder — el precio
+es que alguien tiene que escribirlo, dos veces, a propósito.
+
+**Qué ficheros se escanean — reutilizando el enlace que ya existe.** Nada de
+campo nuevo para nombrar el fichero: se escanean los mismos `Technical
+artifact` / `Test artifact` que `--strict-links` ya valida que existen para
+ese requisito, correlacionando `req.id` (capability spec) con `row.requirement`
+(matriz) — la misma correlación por id que `--strict-requirements` no necesitó
+pero que aquí sí hace falta, porque el valor vive en el código, no en la spec.
+
+**Comparación: igualdad de cadena exacta, nada más.** `15m` contra `15m` pasa;
+`15m` contra `900000` falla, aunque ambos signifiquen lo mismo. Interpretar
+unidades es el trabajo que este documento entero existe para no reclamar
+(§5, la trampa H13) — normalizar la unidad es responsabilidad de quien escribe
+las dos anotaciones, no de la herramienta.
+
+#### Dónde vive cada pieza — por qué no rompe `architecture.test.ts`
+
+| Pieza | Capa | Fichero (nuevo o existente) | Por qué esa capa |
+|---|---|---|---|
+| Extraer `value_*` de un `TraceComment` ya parseado | Dominio, puro | `packages/core/src/domain/ValueAnnotations.ts` (nuevo) — función `declaredSpecValues(trace)` | Recibe un objeto ya en memoria, no toca disco |
+| Parsear `csda:value clave=valor` de un texto de código | Dominio, puro | mismo fichero — función `declaredCodeValues(source: string)` | Recibe una cadena ya en memoria — la misma disciplina que `Gherkin.ts` o `GherkinQuality.ts` con el texto de un `.feature` |
+| Comparar ambos mapas y producir `Diagnostic[]` | Dominio, puro | mismo fichero — función `compareDeclaredValues(specValues, codeValues, opts)` | Solo estructuras de datos entrando y saliendo; sin `fs`, sin `path` |
+| Leer el capability spec, la matriz y los ficheros de código; llamar a las tres funciones de arriba; imprimir | Comando (I/O) | `scripts/cli/commands/quality/ValidateSpecsCommand.ts`, junto a `checkRequirementSyntax` y `checkDeclaredArtifactsExist` | Exactamente donde vive hoy toda lectura de disco de `validate` — el propio comentario de `ValidateProjectUseCase.ts` ya dice que "los checks sobre el layout en disco se quedan con el comando" |
+
+Ninguna pieza nueva importa desde `scripts/` hacia `packages/core/src` en la
+dirección prohibida, ninguna hace I/O dentro de `domain/`, y `application/`
+no se toca — no hace falta un nuevo caso de uso, el patrón de comando+dominio
+que ya usan `--strict-requirements` y `--strict-links` alcanza. Las cuatro
+reglas de `tests/unit/architecture.test.ts` quedan intactas por construcción,
+no por vigilancia.
+
+#### Superficie propuesta (sin implementar)
+
+- Flag nuevo en `validate`: **`--strict-values`**. Opt-in — un proyecto sin
+  ninguna anotación `value_*`/`csda:value` no tiene nada que comparar, mismo
+  no-op que `--strict-links` en un proyecto recién creado.
+- Código de diagnóstico nuevo: `declared_value_diverges` — mensaje con el
+  identificador, el valor que dice la spec, el valor que dice el código, y los
+  dos ficheros (`file:línea` en ambos lados, porque `csda:value` también lleva
+  número de línea).
+- Un identificador declarado en la spec sin su pareja en el código (o
+  viceversa) **no es error** por defecto — solo se compara cuando ambos lados
+  declaran el mismo identificador. Ese es el precedente de `A2`/`--strict-artifacts`:
+  una comprobación que solo se pronuncia sobre lo que puede sustanciar.
+
+#### Lo que esto no hace, dicho para que no se olvide
+
+No verifica que el código *en efecto* respete el valor en tiempo de ejecución —
+solo que la anotación del código coincida con la de la spec. Un `SESSION_TIMEOUT
+= "15m"` correctamente anotado y después ignorado por el código real seguiría
+pasando. Es detección de deriva entre dos declaraciones explícitas, no
+verificación de comportamiento — exactamente el techo que §5 fija a propósito.
+Y depende de adopción: nadie escribe `csda:value` por scaffolding automático
+todavía, así que el primer uso real es dogfoodearlo sobre este propio repo o
+sobre `csda-studio-app` (§3.5 de `mejoras/README.md`) antes de generalizarlo,
+la misma disciplina que ya midió y corrigió `--strict-links`.
 
 ---
 

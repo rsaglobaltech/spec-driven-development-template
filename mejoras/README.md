@@ -238,9 +238,18 @@ en reposo. ~~§8.5, mitad 1~~ **hecho (2026-08-25)** — `csda validate
 artifact sigan existiendo en disco. Corrección medida en el camino: la primera
 versión era incondicional y rompió `tests/unit/validate-strict-tdd.test.ts`
 (una fila `Draft`/`In Dev` declara con normalidad un fichero que aún no
-existe) — opt-in, misma promesa que `--strict-scenarios`. **Siguiente:** la
-mitad 2 de §8.5 (que el valor que la spec declara coincida con el que declara
-el código en el mismo sitio) sigue sin diseño suficiente para implementarse.
+existe) — opt-in, misma promesa que `--strict-scenarios`. **Siguiente, diseño
+cerrado el 2026-08-26, implementación pendiente por decisión explícita:**
+`--strict-values` (§8.6 del plan). `value_<id>=<literal>` en el `csda:trace`
+de la spec, `// csda:value <id>=<literal>` en el código (cadena literal, no
+comentario reconocido por lenguaje — funciona igual en cualquiera), igualdad
+exacta, ficheros a escanear tomados de los mismos Technical/Test artifact que
+`--strict-links` ya valida. Detección de deriva entre dos declaraciones
+explícitas, no verificación de comportamiento — dicho así en el propio diseño
+para que no se venda como más de lo que es. No empezar sin dogfoodearlo antes
+sobre este repo o `csda-studio-app`, la misma disciplina que corrigió
+`--strict-links`.
+
 Ver el detalle y lo que se descarta expresamente (Z3, tree-sitter, proofs
 criptográficas) en `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §5 y §8.4.
 
