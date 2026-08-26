@@ -110,7 +110,11 @@ test("every flag in the recording still exists in the source", () => {
       if (!source.includes(flag)) missing.push(`${step.id}: ${flag}`);
     }
   }
-  assert.deepEqual(missing, [], `flags the recording uses and the source does not define:\n  ${missing.join("\n  ")}`);
+  assert.deepEqual(
+    missing,
+    [],
+    `flags the recording uses and the source does not define:\n  ${missing.join("\n  ")}`
+  );
 });
 
 function readAll(dir) {
@@ -213,7 +217,10 @@ test("the recording proves the loop the page promises", () => {
   // that skipped one would be illustrating a different product.
   const surfaces = REC.steps.map((s) => s.surface);
   for (const required of ["init", "plan", "harness run", "validate"]) {
-    assert.ok(surfaces.includes(required), `the page promises \`csda ${required}\` and the terminal never runs it`);
+    assert.ok(
+      surfaces.includes(required),
+      `the page promises \`csda ${required}\` and the terminal never runs it`
+    );
   }
 });
 
