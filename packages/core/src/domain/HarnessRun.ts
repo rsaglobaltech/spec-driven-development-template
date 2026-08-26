@@ -86,6 +86,13 @@ export interface AttemptRecord {
     | "agent-timeout"
     | "agent-error"
     | "write-scope"
+    /**
+     * The agent wrote no files at all, so there was nothing to gate (H19).
+     * Its own stage because the fix is never in the code — it is the agent's
+     * write permissions or its prompt, and `harness report` should not file it
+     * under a failing gate.
+     */
+    | "no-op"
     | "gate"
     /** Green gate, but the diff missed the declared artifacts (A2, --strict-artifacts). */
     | "artifacts"

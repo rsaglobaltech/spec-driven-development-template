@@ -1225,6 +1225,7 @@ habría llegado al 1.0.
 | H13 | **El JSON Schema no lo aplica nadie.** ADR-0020 lo declaró «única autoridad», pero el CLI no valida contra él: es una pista `$schema` para el editor y un test contra un fixture. Los once packs curados **fallarían** el esquema — sus `aggregates` usan `bounded_context`/`responsibilities` donde el esquema exige `context`/`invariants`, y `additionalProperties: false` prohíbe los extras. Lo que sí se comprueba es `validatePackModel` + las once reglas de `pack lint`, que son reales y sustanciales **Cerrado el 2026-08-23 por 0.7.0** — `schemas/pack.schema.json` pasa a 1.3.0 y describe el formato que **existe**; los once packs curados dejan de fallar el esquema que ADR-0020 llama autoridad, y el renderer deja de producir documentos de dominio vacíos | Descubierto al documentar el modelo DDD para el artículo. Se eligió la primera de las dos salidas —aplicar el esquema de verdad— porque la situación de entonces era la peor de las tres: **afirmaba una autoridad que no ejercía** |
 | H15 | **Un filtro de escenario que no casa nada sale 0.** `cucumber-js --tags "@NO-EXISTE"` devuelve «0 scenarios» y exit 0. Si el agente renombra el escenario, `{scenario}` deja de casar y el gate va verde sin ejecutar nada **Cerrado el 2026-08-23 por 0.7.0** — el filtro de escenario deja de aprobar una cuenta de cero | Anotado el 2026-08-22. `filterHint` solo avisaba cuando contaba **de más**, nunca cuando contaba cero, y con una expresión regular sobre prosa. La salida limpia sigue siendo el protocolo de mensajes de Cucumber —propuesta F5, aún sin hacer—: 0.7.0 cierra el agujero, no la fragilidad del método |
 | H16 | **El gate no comprueba que el agente no tocó `spec.md`, `AI_RULES.md` ni `features/**`.** El prompt se lo prohíbe; nada lo verifica. El agente tiene permiso de escritura sobre el fichero que define su propio criterio de éxito **Cerrado el 2026-08-23 por 0.7.0** — hay guardia de alcance de escritura antes del gate: `spec.md`, `AI_RULES.md`, `features/**`, `docs/specs/**`, `.specops.lock` y `harness.config.yaml`, configurable con `protected_paths` / `allow_paths` | Anotado el 2026-08-22. `validate --strict-tdd` comprueba que el feature exista, no que diga lo mismo que antes; por eso hizo falta una guardia aparte. Era la propuesta A1 de `propuesta-harness-planificacion.md` |
+| H19 | **Sin `test_cmd`, el gate no comprueba que los artefactos existan.** Un agente que no escribe nada pasa `validate --strict-tdd` y el requisito se marca Implemented **Cerrado el 2026-08-26.** Reproducido con `--agent "cat {prompt_file} > /dev/null"` sobre un proyecto recién generado: `✅ REQ-000 pass (1 attempt)`, fila a `Implemented`, Test artifact en `TBD`, cero ficheros. El harness rechaza ahora un intento con diff vacío, **antes** del gate, en una etapa propia `no-op`. Predicado puro en `packages/core/src/domain/EmptyAttempt.ts` con 7 tests | Encontrado el 2026-08-20 probando `E1-02` con un agente vacío. Es de la familia de H1: el gate no verifica lo que dice verificar. Pre-existente, sin arreglar |
 
 ### Los arreglos se probaron solos, en producción
 
@@ -1253,14 +1254,15 @@ se reprodujo después— pero es una forma sucia de medir y no debería repetirs
 
 *Depurado el 2026-08-26.* Esta tabla listaba **H13, H15 y H16** como abiertos
 cuando su propia entrada de `CHANGELOG.md` dice que 0.7.0 los cerró el
-2026-08-23, junto con H14. Movidos arriba. Queda **H19**, y de H18 queda solo
-su lección —el test que parsee la salida de cada comando del contrato—, no el
-defecto, que se arregló el 2026-08-20.
+2026-08-23, junto con H14. Movidos arriba. **H19 cerrado el 2026-08-26** y también
+movido. Queda de H18 solo su lección —el test que parsee la salida de cada comando
+del contrato—, no el defecto, que se arregló el 2026-08-20. **Y entra H20**, que
+salió montando el fixture para reproducir H19.
 
 | # | Problema | Nota |
 |---|---|---|
+| H20 | **Un proyecto recién generado no pasa su propio `validate --strict-tdd`.** `csda init --yes` escribe en `spec.md` un `REQ-001` de plantilla («Describe the first business requirement») que no tiene fila en `docs/specs/traceability.md`, así que `[TDD-3]` dispara desde el minuto cero | Encontrado el 2026-08-26 montando el fixture de H19. Peor de lo que parece: `harness run` sobre un proyecto nuevo **quema los tres intentos del agente** fallando por algo que el agente no causó ni puede arreglar. Y contradice el nivel L2 de adopción del README —«a PR gate enforcing spec and test coverage, ~1 hour»—: la puerta está roja antes de escribir nada. Sin arreglar |
 | H18 | **`harness run --format json` violaba la regla 1 del contrato** — prosa y documento JSON en el mismo stdout, así que `\| jq .` no parseaba. Arreglado el 2026-08-20 en `E1-02` (la prosa va a stderr en modo JSON) | Estaba desde siempre y nadie lo vio porque **nada parseaba esa salida** hasta que el pool de workers lo intentó. Lección: un comando listado en el contrato y que ningún consumidor parsea no está verificado. Falta un test que parsee la salida de cada comando del contrato |
-| H19 | **Sin `test_cmd`, el gate no comprueba que los artefactos existan.** Un agente que no escribe nada pasa `validate --strict-tdd` y el requisito se marca Implemented | Encontrado el 2026-08-20 probando `E1-02` con un agente vacío. Es de la familia de H1: el gate no verifica lo que dice verificar. Pre-existente, sin arreglar |
 
 ---
 

@@ -130,6 +130,33 @@ for (const id of IDS) {
   });
 }
 
+/**
+ * An agent that writes one file, because the harness refuses an empty attempt.
+ *
+ * These runs used to pass `true {prompt_file}` — nothing read, nothing
+ * written, exit 0. That stand-in encoded **H19**: the gate approving an agent
+ * that produced no files. What is under test here is branch stacking and
+ * profile selection, not the agent, so the cheapest honest agent is one that
+ * leaves a single file behind.
+ */
+let writingAgentSeq = 0;
+function writingAgent(projectDir: string): string {
+  // Beside the project, never inside it: a stray file in the working tree makes
+  // the harness refuse to start, which is H2 all over again.
+  writingAgentSeq += 1;
+  const file = path.join(path.dirname(projectDir), `writing-agent-${writingAgentSeq}.js`);
+  fs.writeFileSync(
+    file,
+    'const fs = require("node:fs");\n' +
+      'const p = require("node:path");\n' +
+      'const t = p.join(process.cwd(), "src", "harness-fixture.ts");\n' +
+      "fs.mkdirSync(p.dirname(t), { recursive: true });\n" +
+      'fs.writeFileSync(t, "export const writtenByTheFixtureAgent = true;\\n", "utf8");\n',
+    "utf8"
+  );
+  return `"${process.execPath}" "${file}" {prompt_file}`;
+}
+
 test("no shipped pack declares a schema newer than this CLI reads", () => {
   const { PACK_SCHEMA_VERSION, isNewerThan } = require("../../packages/core/src/domain/PackSpec");
   for (const id of IDS) {
@@ -260,7 +287,7 @@ test("a pack's depends_on reaches plan and stacks the harness branch", () => {
         "--project-dir",
         projectDir,
         "--agent",
-        "true {prompt_file}",
+        writingAgent(projectDir),
         "--max-attempts",
         "1",
       ],
@@ -343,11 +370,11 @@ test("a requirement's bounded context is derived and matched to a profile", () =
         "profiles_version: 1",
         "profiles:",
         "  payments:",
-        '    agent: "true {prompt_file}"',
+        `    agent: ${JSON.stringify(writingAgent(projectDir))}`,
         "    match:",
         "      bounded_context: Payments",
         "  everything-else:",
-        '    agent: "true {prompt_file}"',
+        `    agent: ${JSON.stringify(writingAgent(projectDir))}`,
         "    match:",
         '      bounded_context: "*"',
         "",
@@ -374,7 +401,7 @@ test("a requirement's bounded context is derived and matched to a profile", () =
         "--project-dir",
         projectDir,
         "--agent",
-        "true {prompt_file}",
+        writingAgent(projectDir),
         "--max-attempts",
         "1",
       ],
