@@ -1541,11 +1541,37 @@ Foto tomada al cerrar, con los issues abiertos como destino de cada pendiente.
 | P3, P4 | Los dos defectos de proceso de §12.15 |
 | — | 17 artefactos de build de Gradle dejan de estar versionados. El árbol queda limpio por primera vez |
 
+### El tracker, revisado entero el 2026-08-26
+
+Los 21 issues abiertos cruzados **contra el CLI**, no contra el recuerdo — después
+de que este mismo plan mintiera cuatro veces en un día sobre qué estaba hecho.
+Resultado: el inventario era honesto salvo una cosa, y quedan **20**.
+
+- **#101 (G5) cerrado a mano**, porque no se autocerró: el cuerpo de #142 decía
+  `Closes **GATE-G5** (#101)` y el parser de GitHub exige la palabra clave pegada
+  a la referencia. `closingIssuesReferences` daba 0. Una palabra de cierre que no
+  cierra es la misma forma que todo lo demás de hoy: algo que afirma más de lo
+  que hace.
+- **#32, #33 y #34** (del 15 de mayo) tenían **el cuerpo vacío** y ninguna
+  etiqueta — solo un título con formato de nota suelta. Verificados contra el
+  CLI: `harness --verbose`, `init --multi-stack` y las seis mejoras de
+  `pack infer` **siguen sin existir**, así que eran válidos, solo ilegibles.
+  Reescritos con el estado medido y etiquetados.
+- **#109 y #110** llevan `help wanted` sobre trabajo que ocurre en **otros
+  repositorios**, que es exactamente lo que atrajo dos PRs de farmeo de bounties
+  (#118, #119, cerrados). Se les añadió qué hace falta de verdad y qué forma tiene
+  la evidencia.
+- **#103 y #107 estaban bien escritos** y merecen decirse: #103 ya documenta qué
+  parte funciona y nadie había anotado, con salida medida; #107 se distingue solo
+  del reviewer consultivo que ya existe. Lo contrario del problema de hoy.
+
+Estado final: **20 abiertos, todos con etiqueta y con cuerpo.**
+
 ### Abierto, con dueño
 
 | Pendiente | Issue | Bloquea 1.0 |
 |---|---|---|
-| **G3** — un equipo de fuera adopta y reporta | [#100](https://github.com/rsaglobaltech/spec-driven-development-template/issues/100) | **Sí** |
+| **G3** — un equipo de fuera adopta y reporta | [#100](https://github.com/rsaglobaltech/spec-driven-development-template/issues/100) | **Sí — y ya es el único** |
 | ~~**G5**~~ — **cerrado el 2026-08-26**: la cláusula de escape fuera, el compromiso aceptado, y `SECURITY.md` corregido (declaraba `0.2.x` cinco minors tarde) | [#101](https://github.com/rsaglobaltech/spec-driven-development-template/issues/101) | ~~Sí~~ |
 | H18 — un test que parsee la salida de cada comando del contrato | [#135](https://github.com/rsaglobaltech/spec-driven-development-template/issues/135) | No, pero no publicaría 1.0 sin él |
 | P3 — CI ciego a los PR apilados | [#136](https://github.com/rsaglobaltech/spec-driven-development-template/issues/136) | No |
