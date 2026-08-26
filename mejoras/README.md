@@ -281,6 +281,17 @@ infer` con lo que no puede inferir. Reutiliza `readCapabilityRequirements`
 generado y pasado por `csda change validate` de verdad, no solo por fixtures
 de texto.
 
+**Aparcado el 2026-08-26, tras medir: counterexamples concretos.** La nota de
+`PLAN_PREDICTABLE_CODE_EVOLUTION.md` §7 lo llamaba "ruta barata" porque
+`fast-check` ya está en devDeps. Medido antes de construir:
+`tests/unit/property-based.test.ts` lo usa contra funciones de **este propio
+repo**, importadas en el mismo proceso — barato solo porque la función ya
+vive ahí. Un counterexample real de "tu código viola tu spec" exige
+**ejecutar código del usuario**, que rompe el agnóstico-a-lenguaje que
+sostiene `csda:trace`/`csda:value` toda la sesión y abre una superficie de
+confianza nueva. Va a la fila de Z3/SMT/Lean 4 — horizonte, no la próxima
+tarea. Detalle en el plan §7.
+
 **Sin fecha:** `B3`, `D2`, `D3`, `C8-03`, `C8-04`.
 
 ---

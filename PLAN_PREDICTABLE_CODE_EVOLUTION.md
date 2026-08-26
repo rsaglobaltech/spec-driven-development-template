@@ -133,12 +133,44 @@ rinden, no por quién los tenga.
 
 | Idea | Valor | Nota honesta |
 |---|---|---|
-| **Counterexamples concretos** — cuando una comprobación falla, devolver el input exacto que la rompe | **Alto.** Es la diferencia entre «diverge» y una reproducción | Es también la más cara: sin solver hay que generarlos, y `fast-check` (ya en devDeps) hace justo eso. Ruta barata inexplorada |
+| **Counterexamples concretos** — cuando una comprobación falla, devolver el input exacto que la rompe | **Alto en teoría.** Es la diferencia entre «diverge» y una reproducción | **Recosteado el 2026-08-26 — no es barato, y la nota original se equivocó.** Ver `Z3 / SMT` abajo: pertenece a esa fila, no a esta |
 | ~~**Tres rutas ante una divergencia**~~ — arreglar código / actualizar spec / retirar el requisito | **Ruta 2 hecha el 2026-08-26 — ver §11.** Rutas 1 y 3 no necesitaban herramienta nueva | Era pegamento entre piezas que ya estaban, no motor nuevo |
 | **Watch mode** | Bajo hoy | Aparcado por §13. Observar una puerta que no comprueba lo que dice no aporta |
 | **Modo YOLO de reparación automática** | Bajo | El harness ya es el bucle desatendido, con presupuesto (`C1`) y worktrees. Esto sería un segundo bucle peor |
 | **Compliance SOC 2 / HIPAA / PCI-DSS** | Cero por ahora | Ver §5. Vuelve a la mesa cuando haya algo real que certificar |
 | **Z3 / SMT** · **tree-sitter multi-lenguaje** · **`specs/_viewer.html`** · **plugin de Codex** | — | Ver §5 y §6 |
+
+### Por qué «counterexamples concretos» no era barato — medido el 2026-08-26
+
+La nota original decía: *"sin solver hay que generarlos, y `fast-check` (ya en
+devDeps) hace justo eso. Ruta barata inexplorada."* Antes de construir nada
+se comprobó dónde usa este repo `fast-check` de verdad —
+`tests/unit/property-based.test.ts` — y resulta que genera counterexamples
+para **funciones de este propio repo**, importadas y llamadas en el mismo
+proceso donde el test ya corre (`renderTemplate` de `PackSpec.ts`, requerida
+directamente). Es barato **porque la función ya vive en el mismo runtime**,
+no porque `fast-check` resuelva el problema general.
+
+Un counterexample real de "tu código viola tu spec" —lo que Predictable Code
+vende— exige **ejecutar el código del usuario**: importar su función,
+generarle inputs, encontrar el que rompe una propiedad. Medido contra lo que
+esta sesión ya construyó, eso no es una extensión, es otra categoría:
+
+- Rompe la propiedad que sostuvo `csda:trace`/`csda:value` toda la sesión —
+  funcionan igual en cualquier lenguaje porque **nunca ejecutan nada**, solo
+  leen texto. Ejecutar código solo es posible en el único runtime que el CLI
+  ya tiene, JS/TS — deja de ser agnóstico al lenguaje.
+- Necesita cargar y llamar módulos del proyecto del usuario desde el CLI:
+  superficie de confianza nueva, no comparable a leer un fichero.
+- Necesita un contrato de anotación nuevo (qué función probar, qué propiedad
+  cumplir) — no una extensión de `csda:trace`, un formato distinto.
+
+**Decisión: aparcado, no descartado.** Pertenece a la fila de Z3/SMT/Lean 4 —
+horizonte a costear y decidir con diseño explícito cuando llegue el momento,
+no algo que se cuela como "barato" porque una dependencia de test ya estaba
+instalada. Es la misma disciplina que corrigió `--strict-links` (incondicional
+→ opt-in) y `--strict-values` (gate → reporte): medir antes de construir, y
+corregir la nota anterior en vez de heredarla.
 
 ---
 
