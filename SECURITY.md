@@ -30,12 +30,19 @@ Credit goes in the advisory and the changelog unless you ask otherwise.
 
 | Version | Supported |
 | --- | :-: |
-| 0.2.x | ✅ |
-| 0.1.x | ❌ |
+| 0.7.x | ✅ |
+| < 0.7 | ❌ |
 
 Pre-1.0, only the latest minor gets fixes. Backports to an older minor are not
-promised; the upgrade path is forward. Once 1.0 ships, this table is replaced by
-the support policy in `docs/release-process.md`.
+promised; the upgrade path is forward.
+
+This table said `0.2.x` until 2026-08-26, five minors after the fact — a support
+claim nobody had checked since it was written. Keep it moving with the release,
+or it becomes the same kind of statement it exists to prevent.
+
+**From 1.0 on**, this table is replaced by the support policy in
+[docs/release-process.md](docs/release-process.md), which commits to the current
+line plus the previous minor for six months.
 
 The guarantees themselves — pinning, digests, signing, air-gapped installs and
 the SBOM — are documented in [docs/supply-chain.md](docs/supply-chain.md).

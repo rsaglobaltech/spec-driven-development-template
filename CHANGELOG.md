@@ -129,6 +129,26 @@ deliberately *not* built, is [ADR-0023](docs/specs/adr/0023-checking-content-gat
   one file, which is the cheapest thing a real agent does. Same shape as H3,
   where a test weakened its own clean-tree check in order to pass.
 
+### Changed
+
+- **The support policy is a commitment now, not an intention (`GATE-G5`).**
+  `docs/release-process.md` carried an escape clause saying the post-1.0 policy
+  held only until the clause itself was deleted. It is deleted, and its absence
+  is the commitment: from 1.0 on, one supported line plus the previous minor for
+  **six months** from the day its successor ships — security and correctness
+  fixes both, features not backported.
+
+  What that costs is written down beside it, because a promise nobody costed is
+  how the paragraph came to need an escape hatch in the first place: two lines
+  need a release path for six months after every minor, and a fix landing on
+  `main` has to be evaluated against the previous minor rather than only forward.
+
+- **`SECURITY.md` listed `0.2.x` as the supported version — five minors late.**
+  Nobody had revisited the table since it was written, so the security policy
+  was making a support claim that had been false since 0.3.0. Corrected to
+  `0.7.x`, with a note that the table moves with the release or it becomes the
+  same kind of unchecked statement it exists to prevent.
+
 ### Documentation
 
 - **The four opt-in gates are documented together** in

@@ -34,9 +34,22 @@ otherwise would be a commitment one maintainer cannot keep. The same table is
 in [SECURITY.md](../SECURITY.md#supported-versions) for vulnerabilities
 specifically.
 
-Once 1.0 ships, the intent is one supported line at a time plus the previous
-minor for six months. That is intent, not a promise, until it is written here
-without this sentence.
+**From 1.0 on, this is a commitment and not an intention.** One supported line
+at a time, plus the previous minor for **six months** from the day its successor
+ships. Security fixes and correctness fixes both; a feature does not get
+backported.
+
+Until 2026-08-26 this paragraph ended with an escape clause saying it held only
+until the clause itself was deleted. Deleting it *is* the commitment — that was
+the point of writing it that way — so it is gone, and the git history has the
+wording for anyone who wants it. This closes `GATE-G5` on the road to 1.0.
+
+What it costs is worth naming, because a promise nobody costed is how the first
+version of this paragraph came to need an escape hatch: for six months after
+every minor, two lines need a release path, and a fix that lands on `main` has
+to be evaluated against the previous minor rather than only forward. If that
+ever stops being sustainable, the honest move is to change this paragraph in a
+release and say so under Breaking — not to quietly stop doing it.
 
 **Node.js.** `package.json` declares `>=22` and CI tests Node 22 and 24 across
 Linux, macOS and Windows — the floor and the current LTS, so a break at either
