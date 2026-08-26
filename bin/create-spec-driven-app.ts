@@ -322,6 +322,8 @@ function dispatchValidate(validateArgs: string[]): void {
   const VALIDATE_FLAGS = new Set([
     "--strict-tdd",
     "--strict-scenarios",
+    "--strict-requirements",
+    "--strict-links",
     "--against-lock",
     "--json",
   ]);

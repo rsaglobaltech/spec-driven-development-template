@@ -18,6 +18,10 @@ import { findCliRoot } from "../../../lib/project-root";
 import { analyseGherkinSource } from "../../../../packages/core/src/domain/GherkinQuality";
 import { csdaTagsIn } from "../../../../packages/core/src/domain/GherkinTags";
 import { parseTraceabilityRows } from "../../../../packages/core/src/domain/TraceabilityFormat";
+import { analyseRequirementText } from "../../../../packages/core/src/domain/RequirementSyntax";
+import { declaredPaths } from "../../../../packages/core/src/domain/DeclaredArtifacts";
+import { parseSpec, blockText, requirementKey } from "../../../../packages/core/src/domain/SpecParser";
+import { CAPABILITIES_DIR } from "../../../../packages/core/src/infrastructure/ChangeWorkspace";
 
 export class ValidateSpecsCommand extends BaseCommand {
   private io: any = null;
@@ -33,7 +37,8 @@ export class ValidateSpecsCommand extends BaseCommand {
   private usage() {
     process.stdout.write(
       "🔎 Usage:\n" +
-        "  validate_specs.js <project_dir> [--strict-tdd] [--strict-scenarios] [--against-lock]\n\n" +
+        "  validate_specs.js <project_dir> [--strict-tdd] [--strict-scenarios] " +
+        "[--strict-requirements] [--strict-links] [--against-lock]\n\n" +
         "Checks:\n" +
         "- minimum SDD structure\n" +
         "- required files\n" +
@@ -52,7 +57,13 @@ export class ValidateSpecsCommand extends BaseCommand {
         "--strict-tdd additionally enforces:\n" +
         "- No 'Test Artifact = TBD' when Status is In Dev or later\n" +
         "- Every requirement has at least one traceability row\n" +
-        "- Every scenario row has a non-empty Scenario ID\n"
+        "- Every scenario row has a non-empty Scenario ID\n\n" +
+        "--strict-requirements additionally enforces, over docs/specs/capabilities/**/spec.md:\n" +
+        "- Every requirement states an obligation (SHALL / MUST / SHOULD / MAY / DEBE / DEBERÁ)\n" +
+        "- A requirement that opens with IF resolves with THEN in the same sentence\n\n" +
+        "--strict-links additionally enforces:\n" +
+        "- Every Feature file / Technical artifact / Test artifact the matrix declares as a\n" +
+        "  path still exists on disk\n"
     );
   }
 
@@ -75,7 +86,13 @@ export class ValidateSpecsCommand extends BaseCommand {
     process.exit(exitCode);
   }
 
-  private validateMonorepo(targetDir: string, strictTdd: boolean, strictScenarios: boolean) {
+  private validateMonorepo(
+    targetDir: string,
+    strictTdd: boolean,
+    strictScenarios: boolean,
+    strictRequirements: boolean,
+    strictLinks: boolean
+  ) {
     const cfgPath = path.join(targetDir, "specops.config.yaml");
     if (!fs.existsSync(cfgPath)) return null;
     let cfg: any;
@@ -110,6 +127,8 @@ export class ValidateSpecsCommand extends BaseCommand {
       const args = [scriptPath, subDir];
       if (strictTdd) args.push("--strict-tdd");
       if (strictScenarios) args.push("--strict-scenarios");
+      if (strictRequirements) args.push("--strict-requirements");
+      if (strictLinks) args.push("--strict-links");
       const r = spawnSync(process.execPath, args, { encoding: "utf8" });
       process.stdout.write(r.stdout || "");
       process.stderr.write(r.stderr || "");
@@ -231,12 +250,148 @@ export class ValidateSpecsCommand extends BaseCommand {
     }
   }
 
+  /**
+   * Does a declared link still point at something that exists? (F6 follow-on,
+   * `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §8.5)
+   *
+   * The plan names the first honest check beyond paperwork: not formal
+   * verification, just the matrix's own promises kept — a file gets renamed
+   * or deleted and the row that names it is never updated, so the matrix
+   * points a reader (or an agent) at code that is not there.
+   *
+   * **`--strict-links`, not unconditional — measured, not assumed.** The
+   * first version of this check ran by default on the theory that "this path
+   * does not exist" has no legitimate reading. `tests/unit/validate-strict-
+   * tdd.test.ts` disproved that immediately: a `Draft` or `In Dev` row
+   * routinely names the file a requirement is *going to* land in before
+   * anyone writes it — planning ahead, not documentary drift. That is exactly
+   * the shape `DeclaredArtifacts`' own `declared_artifact_untouched` already
+   * treats as a warning, not a certainty, and the same reasoning applies here.
+   * Opt-in, same promise as `--strict-scenarios`: a project with aspirational
+   * rows does not fail its next `validate` over this.
+   */
+  private checkDeclaredArtifactsExist(targetDir: string, traceContent: string) {
+    let rows: any[] = [];
+    try {
+      rows = parseTraceabilityRows(traceContent).rows || [];
+    } catch {
+      return;
+    }
+
+    const findings: any[] = [];
+    const seen = new Set<string>();
+    const columns: Array<[string, string]> = [
+      ["feature file", "featureFile"],
+      ["technical artifact", "technicalArtifact"],
+      ["test artifact", "testArtifact"],
+    ];
+
+    for (const row of rows) {
+      for (const [label, key] of columns) {
+        for (const declared of declaredPaths(row[key])) {
+          // A cell may anchor a line range (`src/auth/login.ts#L15-L89`); the
+          // anchor is not part of the filesystem path.
+          const rel = declared.split("#")[0];
+          if (!rel || seen.has(`${row.requirement || row.feature}::${rel}`)) continue;
+          if (fs.existsSync(path.join(targetDir, rel))) continue;
+          seen.add(`${row.requirement || row.feature}::${rel}`);
+          findings.push(
+            error(
+              "declared_artifact_missing",
+              `${row.requirement || row.feature || "a row"}'s ${label} \`${rel}\` does not exist.`,
+              {
+                target: row.requirement || row.feature,
+                file: "docs/specs/traceability.md",
+                fix: `Fix the path, or restore ${rel} if it was removed by mistake.`,
+              }
+            )
+          );
+        }
+      }
+    }
+    if (findings.length === 0) return;
+
+    if (this.io.json) {
+      this.io.fail({ validation: null }, findings);
+      return;
+    }
+    this.logError(`Declared artifacts that no longer exist: ${findings.length}`);
+    for (const f of findings) process.stderr.write(`  ${formatDiagnostic(f)}\n`);
+    this.logFix([
+      "The matrix is pointing at a file that is not there — fix the path,",
+      "or restore the file if it was removed by mistake.",
+    ]);
+    process.exit(1);
+  }
+
+  /**
+   * `--strict-requirements`: EARS-checkable requirement prose, at rest (F6).
+   *
+   * `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §8.1 names the prerequisite for any
+   * code-level verifier: the spec has to say something a machine can check.
+   * `DeltaSpec` already enforces an obligation keyword (`no_rfc2119_keyword`),
+   * but only inside a delta — a capability spec at rest, `docs/specs/
+   * capabilities/<cap>/spec.md`, has never been checked. This reads every one
+   * of those, the only `spec.md` grammar in the project with a real parser
+   * (§8.3), and applies the same rule plus the one EARS shape a regex can
+   * check honestly.
+   *
+   * **Opt-in, same reasoning as `--strict-scenarios`.** A project's capability
+   * specs may predate this check; failing the default `validate` on them would
+   * teach people to skip the gate rather than fix the prose.
+   *
+   * **A project with no `docs/specs/capabilities/` is not a failure.** Most
+   * scaffolded projects never grow one — it is the change-lifecycle structure,
+   * not something `csda init` writes. Nothing to check is not a violation.
+   */
+  private checkRequirementSyntax(targetDir: string) {
+    const capabilitiesDir = path.join(targetDir, CAPABILITIES_DIR);
+    if (!fs.existsSync(capabilitiesDir)) return;
+
+    const findings = [];
+    for (const entry of fs.readdirSync(capabilitiesDir, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    )) {
+      if (!entry.isDirectory()) continue;
+      const specPath = path.join(capabilitiesDir, entry.name, "spec.md");
+      if (!fs.existsSync(specPath)) continue;
+      const rel = path.relative(targetDir, specPath).split(path.sep).join("/");
+      const spec = parseSpec(fs.readFileSync(specPath, "utf8"));
+      for (const req of spec.requirements) {
+        const text = blockText(req.text);
+        if (!text.trim()) continue;
+        findings.push(
+          ...analyseRequirementText(text, {
+            target: req.id || requirementKey(req) || req.name,
+            file: rel,
+            line: req.line,
+          })
+        );
+      }
+    }
+    if (findings.length === 0) return;
+
+    if (this.io.json) {
+      this.io.fail({ validation: null }, findings);
+      return;
+    }
+    this.logError(`--strict-requirements violations detected: ${findings.length}`);
+    for (const f of findings) process.stderr.write(`  ${formatDiagnostic(f)}\n`);
+    this.logFix([
+      "State an obligation (SHALL / MUST / SHOULD / MAY, or DEBE / DEBERÁ), and if the",
+      "requirement opens with IF, resolve it with THEN in the same sentence.",
+    ]);
+    process.exit(1);
+  }
+
   public execute(): void {
     const rawArgs = this.args[0] === "validate" ? this.args.slice(1) : this.args;
     const argv = rawArgs;
     this.io = agentIo(wantsJson(argv));
     const strictTdd = argv.includes("--strict-tdd");
     const strictScenarios = argv.includes("--strict-scenarios");
+    const strictRequirements = argv.includes("--strict-requirements");
+    const strictLinks = argv.includes("--strict-links");
     const againstLock = argv.includes("--against-lock");
     const positional = argv.filter((a) => !a.startsWith("-"));
 
@@ -252,7 +407,13 @@ export class ValidateSpecsCommand extends BaseCommand {
       ]);
     }
 
-    const monorepo = this.validateMonorepo(targetDir, strictTdd, strictScenarios);
+    const monorepo = this.validateMonorepo(
+      targetDir,
+      strictTdd,
+      strictScenarios,
+      strictRequirements,
+      strictLinks
+    );
     if (monorepo !== null) {
       process.exit(monorepo.failures === 0 ? 0 : 1);
     }
@@ -338,6 +499,10 @@ export class ValidateSpecsCommand extends BaseCommand {
       this.checkScenarioQuality(targetDir, featureFiles);
     }
 
+    if (strictRequirements) {
+      this.checkRequirementSyntax(targetDir);
+    }
+
     const offenders = findUnresolvedPlaceholders(targetDir).map((rel) => path.join(targetDir, rel));
     if (offenders.length > 0) {
       this.logError("Unresolved placeholders detected");
@@ -419,6 +584,9 @@ export class ValidateSpecsCommand extends BaseCommand {
     }
 
     this.checkScenarioTags(targetDir, traceContent);
+    if (strictLinks) {
+      this.checkDeclaredArtifactsExist(targetDir, traceContent);
+    }
 
     for (const ff of featureFiles.sort()) {
       const rel = path.relative(targetDir, ff).split(path.sep).join("/");

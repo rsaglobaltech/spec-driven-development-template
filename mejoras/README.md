@@ -1,6 +1,6 @@
 # Índice de `mejoras/` — qué hay abierto y dónde mirar
 
-**Actualizado:** 2026-08-22
+**Actualizado:** 2026-08-25
 
 > **Empieza por aquí.** Este fichero es el mapa: qué es cada documento y **todo
 > lo que está abierto en una sola lista**. Los demás ficheros son el detalle.
@@ -83,6 +83,13 @@ el resto son de referencia histórica.
 `GATE-G1` (dos releases sin breaking), `GATE-G2` (bucle completo de punta a
 punta) y `GATE-G4` (gate de cobertura) están **cerrados**.
 
+**Actualización 2026-08-25 (D14, plan de cierre §12.10).** `GATE-G3` y
+`GATE-G5` siguen exactamente así — abiertos, sin código pendiente— pero dejan
+de ser lo próximo que se ataca. Se antepone cerrar el hueco de verificación
+descrito en `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §4: `csda validate` comprueba
+que el papeleo es coherente, no que el código haga lo que la spec dice. Ver
+§5 más abajo.
+
 > **Matiz que importa ahora:** G1 se cumplió con dos releases **de arreglos**.
 > La prueba real llega con la siguiente release que **añada** algo — es decir,
 > con lo primero que se implemente de las propuestas de §3.4.
@@ -155,7 +162,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | ~~F3~~ | **Hecho (2026-08-22).** `scenario_has_no_steps` y `keyword_case_invalid` son errores por sí solos, sin `--strict`, con fichero:línea y la grafía que funciona. Al ejecutarlo se destapó que `pack init` **seguía generando `GIVEN/WHEN/THEN`**: `F2` arregló los packs escritos, no el generador que los escribe. Corregido y con guarda sobre los cuatro tipos de proyecto. La parte de `validate` era `A3` | Bajo |
 | ~~F4~~ | **Hecho (2026-08-23).** `expand` y el andamio etiquetan `@REQ-NNN @SCN-NNN`; `validate` comprueba por fin que el escenario que la matriz declara **existe** en su fichero. Un fichero sin etiquetas se deja en paz: la adopción no se convierte en muro. El filtrado del gate por etiqueta ya funcionaba — solo faltaban las etiquetas | Medio |
 | ~~F5~~ | **Hecho (2026-08-22), cierra `H15`.** `core/domain/CucumberMessages` lee el NDJSON de `--format message`: existe el escenario, **se ejecutó**, tenía pasos, todos `PASSED`, y cuántos corrieron. Construido contra un flujo real, no de memoria — de ahí que los pasos de *hook* no cuenten como pasos. Opcional: sin Cucumber, la puerta sigue siendo el código de salida | Medio |
-| F6  | EARS opcional en la línea de requisito                                           | Bajo  |
+| ~~F6~~ | **Hecho (2026-08-25).** `csda validate --strict-requirements` sobre `docs/specs/capabilities/**/spec.md`: falta de obligación RFC 2119 (ahora también fuera de los deltas — única fuente movida a `RequirementSyntax.ts`, `DeltaSpec` la importa) y la única forma EARS que un regex puede comprobar honestamente, `IF` sin `THEN`. Opt-in, mismo motivo que `A3`. Detalle en `valoracion-bdd-gherkin-era-agentes.md` | Bajo |
 
 ### 3.5 Trabajo de campo vivo
 
@@ -223,7 +230,21 @@ Barato antes de caro, y `C2` es lo que permite medir si el resto sirve.
 **En paralelo, y sin depender de nada:** `P2` (una tarde), `GATE-G5` (una línea),
 `C8-01` y `C8-02` (que es de donde salen los defectos de verdad).
 
-**Sin fecha:** `B3`, `D2`, `D3`, `F6`, `C8-03`, `C8-04`.
+**Tanda 4 — verificación, antepuesta el 2026-08-25 (D14).** ~~`F6`~~ **hecho
+(2026-08-25)** — sin un valor declarado y comprobable en la spec no había nada
+que una puerta nueva pudiera leer; ahora `--strict-requirements` lo comprueba
+en reposo. ~~§8.5, mitad 1~~ **hecho (2026-08-25)** — `csda validate
+--strict-links` comprueba que Feature file / Technical artifact / Test
+artifact sigan existiendo en disco. Corrección medida en el camino: la primera
+versión era incondicional y rompió `tests/unit/validate-strict-tdd.test.ts`
+(una fila `Draft`/`In Dev` declara con normalidad un fichero que aún no
+existe) — opt-in, misma promesa que `--strict-scenarios`. **Siguiente:** la
+mitad 2 de §8.5 (que el valor que la spec declara coincida con el que declara
+el código en el mismo sitio) sigue sin diseño suficiente para implementarse.
+Ver el detalle y lo que se descarta expresamente (Z3, tree-sitter, proofs
+criptográficas) en `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §5 y §8.4.
+
+**Sin fecha:** `B3`, `D2`, `D3`, `C8-03`, `C8-04`.
 
 ---
 

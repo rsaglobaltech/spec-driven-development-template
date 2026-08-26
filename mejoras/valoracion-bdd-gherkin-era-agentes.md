@@ -272,7 +272,7 @@ heurística sobre texto y pasa a ser una consulta sobre datos.
 | ~~**F3**~~ | Paridad con Cucumber en `pack lint` — **hecho (2026-08-22)**   | Bajo  | Alta          |
 | ~~**F4**~~ | Trazabilidad por etiquetas — **hecho (2026-08-23)**              | Medio | Media |
 | ~~**F5**~~ | El gate del harness sobre el protocolo de mensajes — **hecho (2026-08-22)** | Medio | Alta |
-| **F6** | EARS opcional en la línea de requisito                             | Bajo  | Baja          |
+| ~~**F6**~~ | EARS opcional en la línea de requisito — **hecho (2026-08-25)** | Bajo  | Baja          |
 
 ## F2 · Arreglar los 27 ficheros y blindar la regresión — **hecho (2026-08-22)**
 
@@ -557,12 +557,31 @@ ruta del feature cuando no las hay. Eso lo hace útil ya, antes de `F4`, porque
 la fila de la matriz nombra un fichero por requisito — y hará que `F4` funcione
 sin tocar este módulo el día que las etiquetas existan.
 
-## F6 · EARS opcional en la línea de requisito
+## F6 · EARS opcional en la línea de requisito — hecho (2026-08-25)
 
-`csda validate --strict-requirements`: comprobar que la frase del requisito
-sigue una de las plantillas EARS, además del RFC 2119 que ya se exige. Opcional
-y opt-in, por la misma razón que A3: un proyecto adoptado con `adopt` no puede
-reescribir sus requisitos de golpe.
+`csda validate --strict-requirements`, sobre `docs/specs/capabilities/**/spec.md`
+— el único `spec.md` con gramática real, decisión de
+`PLAN_PREDICTABLE_CODE_EVOLUTION.md` §8.3. Dos comprobaciones, no una:
+
+1. **`no_rfc2119_keyword`** — el requisito no declara obligación (SHALL / MUST
+   / SHOULD / MAY / DEBE / DEBERÁ). Ya existía dentro de `DeltaSpec` para
+   requisitos en un delta; ahora se comprueba también en la spec en reposo.
+   `RFC2119` se movió a `packages/core/src/domain/RequirementSyntax.ts` como
+   única fuente — `DeltaSpec` la importa en vez de mantener su propia copia,
+   la lección de `F1`/`A3` aplicada aquí.
+2. **`requirement_missing_then_clause`** — la única forma EARS que un regex
+   puede comprobar honestamente: un requisito que abre con `IF`/`SI` y nunca
+   resuelve con `THEN`/`ENTONCES` nombra una condición y no dice qué hace el
+   sistema. Las otras cuatro formas EARS (ubiquitous, `WHEN`, `WHILE`,
+   `WHERE`) no tienen una segunda palabra clave que pueda faltar — afirmar que
+   se valida su estructura interna sería el error de `H13` otra vez, una
+   comprobación que reclama una gramática que no analiza.
+
+Opcional y opt-in, misma razón que `A3`/`--strict-scenarios`: un proyecto sin
+`docs/specs/capabilities/` (la mayoría — no lo escribe `csda init`) no falla
+nada; uno adoptado con `adopt` no tiene que reescribir sus requisitos de golpe.
+7 tests en `tests/unit/validate-strict-requirements.test.ts`, incluida la spec
+de capability real de este propio repo.
 
 ---
 
