@@ -100,6 +100,43 @@ test("expands domain pack in dry-run mode", () => {
   assert.match(result.stdout, /Generated 5 scenario file\(s\)/);
 });
 
+/**
+ * H20 — a generated project did not pass its own gates.
+ *
+ * `templates/base/spec.md.tpl` §8 shipped a pre-filled `REQ-001` example, and
+ * `traceability.md.tpl` has only `REQ-000`. So every project born from
+ * `csda init` failed `validate --strict-tdd` with `[TDD-3]` before anyone
+ * wrote a line — and `csda harness run` on a new project burned all three
+ * agent attempts on a failure the agent neither caused nor could fix.
+ *
+ * Found on 2026-08-26 while building the fixture to reproduce H19.
+ *
+ * The check is worth its runtime because the defect is invisible from inside:
+ * the plain `validate` these tests already ran was green throughout.
+ */
+test("a generated project passes every gate it ships with", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-fresh-gates-"));
+  try {
+    const init = runCli(["init", "--yes", "--out", tempRoot, "--no-git"]);
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+
+    const projectDir = path.join(tempRoot, "my-spec-driven-app");
+    assert.ok(fs.existsSync(path.join(projectDir, "spec.md")), init.stdout + init.stderr);
+
+    for (const gate of [
+      "--strict-tdd",
+      "--strict-scenarios",
+      "--strict-requirements",
+      "--strict-links",
+    ]) {
+      const r = runCli(["validate", projectDir, gate]);
+      assert.equal(r.status, 0, `${gate} failed on a fresh project:\n${r.stdout}${r.stderr}`);
+    }
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("can init and validate a generated project end-to-end", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "csda-e2e-"));
   const slug = `spec-driven-${Date.now()}`;
@@ -1546,7 +1583,9 @@ test("harness run --push --pr-cmd publishes green branches (CI mode)", { skip: !
     "--project-dir",
     projectDir,
     "--agent",
-    `node -e "" {prompt_file}`,
+    // Writes a file: the harness refuses an attempt that produced nothing
+    // (H19), and what is under test here is publishing, not the agent.
+    `node -e "require('node:fs').writeFileSync('agent-ran.txt','ok')" {prompt_file}`,
     "--push",
     "--pr-cmd",
     // The harness runs --pr-cmd through a shell, so the log path is passed as an

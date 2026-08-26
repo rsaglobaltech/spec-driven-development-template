@@ -8,6 +8,139 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ## [Unreleased]
 
+The release that starts checking content instead of only paperwork. Every check
+until now answered "are these documents internally consistent?"; none answered
+"does the code say what the spec says?". These do — for the narrow slice where
+that question has an honest answer. The reasoning, including what was
+deliberately *not* built, is [ADR-0023](docs/specs/adr/0023-checking-content-gate-or-report.md).
+
+### Added
+
+- **`csda validate --strict-requirements`** fails when a requirement in
+  `docs/specs/capabilities/**/spec.md` states no obligation (`SHALL`, `MUST`,
+  `SHOULD`, `MAY`, `DEBE`, `DEBERÁ`), or opens with `IF` and never resolves with
+  `THEN`. It does **not** parse EARS grammar — no regex tells "the system" from
+  a response clause reliably, and a check claiming a grammar it cannot parse is
+  the H13 mistake. These two rules are what a regex can assert honestly.
+
+  The point is upstream of any code checking: `- Max 5 failed attempts per hour
+  per user` is not something a machine can hold code to. RFC 2119 detection also
+  stops being duplicated — `DeltaSpec` enforced it for requirements inside a
+  change while a capability spec at rest was never checked; both now read one
+  definition.
+
+- **`csda validate --strict-links`** fails when a Feature file, Technical
+  artifact or Test artifact the matrix declares as a path no longer exists on
+  disk. A cell may anchor a line range (`src/auth/login.ts#L15-L89`); the anchor
+  is not part of the path.
+
+  Opt-in, and that was measured rather than assumed: the first version ran
+  unconditionally on the theory that a missing path has no legitimate reading,
+  and the test suite disproved it at once — a `Draft` or `In Dev` row routinely
+  names the file a requirement is *going to* land in. Planning ahead is not
+  documentary drift.
+
+- **Declared-value drift in `csda report`.** Annotate a value on both sides —
+  `value_<id>=<literal>` in a `csda:trace` comment, `csda:value <id>=<literal>`
+  in the source — and the report classifies each identifier as `matched`,
+  `diverging`, `spec_only` or `code_only`, with `file:line` for the code side.
+  `--record` gains `valuesTotal`, `valuesMatched` and `valuesDiverging`, and the
+  sparkline gains a second dotted series once the whole history carries them.
+  All additive: an older history line simply lacks the fields.
+
+  This is the case the other gates structurally cannot catch — spec and code
+  both present, both internally consistent, and disagreeing. **It is a report,
+  not a gate**, and that is a deliberate rejection of `--strict-values`: the
+  cost of annotating grows with the number of checkable facts while coverage
+  does not, and the fraction of requirements that reduce to a scalar shrinks as
+  a system gets more complex. A hard gate over a partial, hand-maintained
+  annotation set would mostly measure who remembered to annotate.
+
+  It compares strings and does not interpret units. `15m` and `900000` are
+  different values here, on purpose.
+
+- **`csda change new <id> --from-value-drift <REQ-ID>:<value_id>`** turns a
+  diverging value into a reviewable change. It writes a `## MODIFIED
+  Requirements` delta carrying the full requirement, with the structured
+  `value_<id>` rewritten to the value the code declares.
+
+  **The prose is left alone.** Turning "expires after 15 minutes" into "after
+  30" would be guessing how a sentence should read on someone's behalf, so it
+  leaves an explicit `TODO:` instead — the same restraint `pack infer` already
+  applies to what it cannot infer (ADR-0014). Four named exits rather than a
+  half-written change directory, including `value_drift_already_matches`:
+  proposing a change when there is nothing to change is worse than refusing.
+
+  The other two routes out of a divergence needed no new command and got none —
+  fixing the code (the report already gives `file:line`) and retiring the
+  requirement (`--capability` with a `## REMOVED Requirements` section).
+
+### Fixed
+
+- **The gate approved an agent that wrote nothing (H19).** The gate runs *before*
+  `csda done`, so at gate time the requirement is still `Draft` — and
+  `--strict-tdd`'s "no `Test Artifact = TBD` past Draft" rule does not apply to a
+  Draft row. `done` then moved the status to `Implemented` and nothing validated
+  again.
+
+  Reproduced against a freshly generated project with
+  `--agent "cat {prompt_file} > /dev/null"`: **`✅ REQ-000 pass (1 attempt)`**.
+  The branch carried the archived prompt and one changed line — the matrix row
+  moved to `Implemented`, its Test artifact still `TBD`. No code, no test. It is
+  H1's root cause exactly: the gate approving what it did not check.
+
+  The harness now refuses an attempt whose diff is empty, before the gate rather
+  than after — a green gate over an empty diff proves nothing, and stopping
+  early also spares the project's test command. The archived prompt does not
+  count as work, because the harness writes it itself. This is a hard failure
+  rather than another opt-in flag: `--strict-artifacts` cannot catch it (it
+  compares against the paths the row declares, and a row declaring none has
+  nothing to compare), and an agent that produced no files has no legitimate
+  reading — the condition ADR-0023 sets for a gate. The attempt ends at a new
+  `no-op` stage, kept separate from `gate` in the run record because the fix is
+  never in the code: it is the agent's write permissions or its prompt.
+
+- **A generated project did not pass its own gates (H20).**
+  `templates/base/spec.md.tpl` §8 shipped a pre-filled `REQ-001` example, and
+  `traceability.md.tpl` carries only `REQ-000` — so every project born from
+  `csda init` failed `validate --strict-tdd` with `[TDD-3]` before anyone wrote
+  a line. `ensureTraceabilityCoverage` could not save it: it reconciles feature
+  files that have no row, not requirements.
+
+  Worse than a red gate on day one: `csda harness run` on a new project **burned
+  all three agent attempts** failing on something the agent neither caused nor
+  could fix. And it contradicted the README's L2 — *"a PR gate enforcing spec and
+  test coverage, ~1 hour"* — since the gate was red before the hour started.
+
+  The placeholder row is gone, replaced by a comment pointing at
+  `csda req add "<what the requirement does>"`, which writes the row in `spec.md`
+  **and** in the matrix at once. The example use case no longer references a
+  requirement id that does not exist. A generated project now passes all four of
+  its gates, pinned by a test that runs them — the defect was invisible from
+  inside, because plain `validate` was green throughout.
+
+  Found while building the fixture to reproduce H19.
+
+- **The test suite was asserting the defect.** Sixteen harness tests handed the
+  runner `true {prompt_file}` — a command that reads nothing, writes nothing and
+  exits 0 — as the stand-in for "an agent whose work passes the gate", and one
+  more used a scripted agent with an empty write list. Every assertion built on
+  them was pinning H19 as correct behaviour. They now use an agent that writes
+  one file, which is the cheapest thing a real agent does. Same shape as H3,
+  where a test weakened its own clean-tree check in order to pass.
+
+### Documentation
+
+- **The four opt-in gates are documented together** in
+  [validating.md](docs/validating.md), with what each one deliberately does not
+  check. **`--strict-scenarios` shipped in 0.7.0 and appeared in no user-facing
+  document** — only in `docs/specs/harness.md`. A gate users cannot find is a
+  gate that does not exist for them.
+
+- **`ADR-0023`** records the rule the three additions follow: a content check is
+  a gate only when failing it is always a defect; otherwise opt-in, or a report;
+  and no check asserts a grammar it does not parse.
+
 ## [0.7.0] — 2026-08-23
 
 The release that closes the gate on itself. Every item below came from running

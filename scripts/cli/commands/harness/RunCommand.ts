@@ -38,6 +38,10 @@ import {
   resolveProfileAgent,
 } from "../../../../packages/core/src/infrastructure/HarnessConfigFile";
 import { checkWriteScope, parseGitStatus } from "../../../../packages/core/src/domain/WriteScope";
+import {
+  isEmptyAttempt,
+  PROMPT_ARCHIVE_DIR,
+} from "../../../../packages/core/src/domain/EmptyAttempt";
 import { checkDeclaredArtifacts } from "../../../../packages/core/src/domain/DeclaredArtifacts";
 import {
   previousFailureFromPrompt,
@@ -420,9 +424,6 @@ function runGate(worktreeDir, testCmd, timeoutMs, req: any = {}, settings: any =
  * which agent wrote what. Discarding is cheaper to reason about than trusting
  * the reviewer to behave.
  */
-/** Where prompt copies live inside the worktree, relative to its root. */
-const PROMPT_ARCHIVE_DIR = ".specops/harness-prompts";
-
 /**
  * Keep a copy of exactly what each agent was given.
  *
@@ -492,6 +493,40 @@ function worktreeChanges(worktreeDir) {
   const status = git(worktreeDir, ["status", "--porcelain", "-uall"]);
   if (status.status !== 0) return null;
   return parseGitStatus(status.stdout || "");
+}
+
+/**
+ * Did the agent write anything at all? (H19)
+ *
+ * The gate runs *before* `csda done`, so at gate time the requirement is still
+ * `Draft` — and `--strict-tdd`'s "no Test Artifact = TBD past Draft" rule does
+ * not apply to a Draft row. `done` then flips the status to `Implemented` and
+ * nothing validates again. The consequence, reproduced on 2026-08-26 with
+ * `--agent "cat {prompt_file} > /dev/null"` against a freshly generated
+ * project: **an agent that wrote zero files reported `pass (1 attempt)`**, with
+ * the row moved to `Implemented` and its Test artifact still `TBD`.
+ *
+ * `--strict-artifacts` cannot catch this either: it compares the diff against
+ * the paths the row declares, and a row that declares none has nothing to
+ * compare.
+ *
+ * So the harness asks the one question that needs no declaration and has no
+ * legitimate negative answer: did anything change? An agent that produced no
+ * files cannot have implemented a requirement, whatever the gate says about the
+ * documents around it. That makes this a hard failure rather than an opt-in
+ * flag, under the rule ADR-0023 sets out — a content check is a gate only when
+ * failing it is always a defect, and this one is.
+ *
+ * The prompt archive does not count. The harness writes it itself, so counting
+ * it would mean the harness's own bookkeeping vouches for the agent.
+ *
+ * Run **before** the gate, for the same reason `checkWriteScopeInWorktree` is:
+ * a green gate over an empty diff proves nothing, so there is no point asking
+ * it. It is also the cheaper order — an empty attempt stops before the project's
+ * test command runs.
+ */
+function producedNothing(worktreeDir) {
+  return isEmptyAttempt(touchedPaths(worktreeDir));
 }
 
 function checkWriteScopeInWorktree(worktreeDir, settings) {
@@ -694,6 +729,21 @@ function attemptRequirement(req, ctx) {
       /* each step removes its own prompt file */
     }
     if (stepFailed) continue;
+
+    // Before the gate: an agent that wrote nothing cannot have implemented
+    // anything, and the gate would approve it. See `producedNothing` (H19).
+    if (producedNothing(worktreeDir)) {
+      previousFailure =
+        `You produced no files. Nothing in the worktree changed, so there is ` +
+        `nothing implementing ${req.requirement}.\n\n` +
+        `If you could not write, that is the problem to report — a non-interactive ` +
+        `agent without tool permissions reads the prompt and cannot act on it. ` +
+        `See docs/automation.md.`;
+      warn(`${req.requirement}: the agent produced no files — nothing to gate`);
+      warn(`  fix: check the agent's write permissions (see docs/automation.md)`);
+      record("no-op");
+      continue;
+    }
 
     // Before the gate: a scenario the agent has just loosened cannot fail, so a
     // green gate proves nothing. See `checkWriteScopeInWorktree`.

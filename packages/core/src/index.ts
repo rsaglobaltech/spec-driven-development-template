@@ -13,6 +13,7 @@ export * from "./domain/ChangeTemplates";
 export * from "./domain/DeltaSpec";
 export * from "./domain/CucumberMessages";
 export * from "./domain/DeclaredArtifacts";
+export * from "./domain/EmptyAttempt";
 export * from "./domain/Diagnostic";
 export * from "./domain/DomainPack";
 export * from "./domain/FileChangeSet";

@@ -16,8 +16,11 @@ mejoras/aetherdeploy-assessment.md
 scripts/demo/**/out/
 .smoke-tmp/
 # JVM plugin build output (Java sources are tracked, build artefacts are not)
-packages/gradle-plugin/.gradle/
-packages/gradle-plugin/build/
+# Wildcards, not one line per package: `intellij-spec-driven` had 17 of these
+# committed because C0-01 only ever named `gradle-plugin`, and every session
+# since carried four modified lock files in its working tree.
+packages/*/.gradle/
+packages/*/build/
 packages/maven-plugin/target/
 # IDE
 .idea/

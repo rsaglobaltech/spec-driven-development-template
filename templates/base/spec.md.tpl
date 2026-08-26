@@ -33,9 +33,19 @@ Define functional requirements, domain language, and acceptance criteria clearly
 - Generic Domain: identity, auditing, and notifications.
 
 ## 8. Key requirements
+
+<!--
+  Add requirements with `csda req add "<what the requirement does>"`, which
+  writes the row here **and** in docs/specs/traceability.md at the same time.
+
+  Do not hand-write a row here alone. A requirement that exists in this file and
+  not in the matrix fails `csda validate --strict-tdd` with [TDD-3], and the
+  table below is the one a generated project used to ship pre-filled with an
+  example — so every new project was born with a red gate (H20).
+-->
+
 | ID | Requirement | Priority | Status |
 |---|---|---|---|
-| REQ-001 | Describe the first business requirement. | Must | Draft |
 
 ## 9. Non-functional requirements
 | ID | Requirement | Quality attribute | Status |

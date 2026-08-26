@@ -1115,6 +1115,14 @@ nuevas. Son siete y ocho entradas de `Fixed` salidas de ejecutar el harness. Que
 no rompan nada era casi inevitable — arreglar no suele romper contrato. La
 prueba de verdad llega con la siguiente release que **añada** algo.
 
+**Ese matiz también se cumplió — comprobado el 2026-08-26.** **0.7.0** (2026-08-23)
+es la release aditiva que el párrafo anterior reclamaba: seis flags nuevos
+(`--strict-scenarios`, `--skip-not-ready`, `--resume`, `--budget-seconds`,
+`--max-requirements`, `--strict-artifacts`) más la guardia de alcance de escritura,
+y **sin sección `⚠️ Breaking`**. En todo el `CHANGELOG.md` esa sección solo aparece
+en 0.2.0, 0.3.0 y 0.4.0: llevamos **tres** releases limpias seguidas, la última
+grande y aditiva. G1 deja de tener asterisco.
+
 **G2 · El bucle del harness completado de punta a punta al menos una vez.**
 ✅ **Hecho el 2026-08-17** con Claude como agente, sobre REQ-001 de
 `csda-studio-app`. El agente escribió 18 ficheros respetando las capas
@@ -1214,6 +1222,11 @@ habría llegado al 1.0.
 | H14 | **27 de los 28 escenarios de los packs curados tenían cero pasos para Cucumber.** Las plantillas escribían `GIVEN`/`WHEN`/`THEN` en mayúsculas y las palabras clave de Gherkin son sensibles a mayúsculas: el parser real las absorbía como descripción. **Cerrado el 2026-08-22 por `F2`**: los 27 ficheros pasan a la forma canónica y `tests/unit/shipped-gherkin.test.ts` parsea con `@cucumber/gherkin` cada `.feature` y `.feature.tpl` que se publica, fallando si un escenario tiene cero pasos | Medido antes y después sobre el mismo fichero: `0 steps · exit 0` → `3 steps · exit 1`. El linter propio seguía aprobándolos porque su matcher es insensible a mayúsculas — eso es `F3` |
 | H12 | **Requisitos dependientes no se expresan.** REQ-002 se apoya en REQ-001 y había que saberlo y pasar `--base-branch` a mano. Cerrado el 2026-08-20 por `E1-01`: el requisito declara `depends=REQ-NNN` en su comentario `csda:trace`, `plan` ordena la cola topológicamente y marca lo bloqueado, y `validate` falla ciclos, dependencias inexistentes y autorreferencias | Sin esto, `harness run` sin `--req` procesaba en orden de matriz y fallaba en cascada. Ver `mejoras/escalado-multiagente-conectores.md` |
 | H9 | **`--base-branch` heredaba la configuración de la base, no la de `main`.** Cerrado el 2026-08-20 por `E1-03`: la base se **deriva** del grafo (la rama de la dependencia, o la integración de varias), así que ya no se pasa a mano, y el harness avisa cuando esa base va por detrás de la línea principal, diciendo cuántos commits | Es correcto —así funciona git— pero costó dos ejecuciones de agente: el fallo falso de REQ-002 fue exactamente esto |
+| H13 | **El JSON Schema no lo aplica nadie.** ADR-0020 lo declaró «única autoridad», pero el CLI no valida contra él: es una pista `$schema` para el editor y un test contra un fixture. Los once packs curados **fallarían** el esquema — sus `aggregates` usan `bounded_context`/`responsibilities` donde el esquema exige `context`/`invariants`, y `additionalProperties: false` prohíbe los extras. Lo que sí se comprueba es `validatePackModel` + las once reglas de `pack lint`, que son reales y sustanciales **Cerrado el 2026-08-23 por 0.7.0** — `schemas/pack.schema.json` pasa a 1.3.0 y describe el formato que **existe**; los once packs curados dejan de fallar el esquema que ADR-0020 llama autoridad, y el renderer deja de producir documentos de dominio vacíos | Descubierto al documentar el modelo DDD para el artículo. Se eligió la primera de las dos salidas —aplicar el esquema de verdad— porque la situación de entonces era la peor de las tres: **afirmaba una autoridad que no ejercía** |
+| H15 | **Un filtro de escenario que no casa nada sale 0.** `cucumber-js --tags "@NO-EXISTE"` devuelve «0 scenarios» y exit 0. Si el agente renombra el escenario, `{scenario}` deja de casar y el gate va verde sin ejecutar nada **Cerrado el 2026-08-23 por 0.7.0** — el filtro de escenario deja de aprobar una cuenta de cero | Anotado el 2026-08-22. `filterHint` solo avisaba cuando contaba **de más**, nunca cuando contaba cero, y con una expresión regular sobre prosa. La salida limpia sigue siendo el protocolo de mensajes de Cucumber —propuesta F5, aún sin hacer—: 0.7.0 cierra el agujero, no la fragilidad del método |
+| H16 | **El gate no comprueba que el agente no tocó `spec.md`, `AI_RULES.md` ni `features/**`.** El prompt se lo prohíbe; nada lo verifica. El agente tiene permiso de escritura sobre el fichero que define su propio criterio de éxito **Cerrado el 2026-08-23 por 0.7.0** — hay guardia de alcance de escritura antes del gate: `spec.md`, `AI_RULES.md`, `features/**`, `docs/specs/**`, `.specops.lock` y `harness.config.yaml`, configurable con `protected_paths` / `allow_paths` | Anotado el 2026-08-22. `validate --strict-tdd` comprueba que el feature exista, no que diga lo mismo que antes; por eso hizo falta una guardia aparte. Era la propuesta A1 de `propuesta-harness-planificacion.md` |
+| H19 | **Sin `test_cmd`, el gate no comprueba que los artefactos existan.** Un agente que no escribe nada pasa `validate --strict-tdd` y el requisito se marca Implemented **Cerrado el 2026-08-26.** Reproducido con `--agent "cat {prompt_file} > /dev/null"` sobre un proyecto recién generado: `✅ REQ-000 pass (1 attempt)`, fila a `Implemented`, Test artifact en `TBD`, cero ficheros. El harness rechaza ahora un intento con diff vacío, **antes** del gate, en una etapa propia `no-op`. Predicado puro en `packages/core/src/domain/EmptyAttempt.ts` con 7 tests. [PR #133](https://github.com/rsaglobaltech/spec-driven-development-template/pull/133), apilado sobre #132. **Y la suite afirmaba el defecto**: 17 tests usaban un agente que no escribe nada como «agente cuyo trabajo pasa el gate» — H3 por segunda vez | Encontrado el 2026-08-20 probando `E1-02` con un agente vacío. Es de la familia de H1: el gate no verifica lo que dice verificar. Pre-existente, sin arreglar |
+| H20 | **Un proyecto recién generado no pasa su propio `validate --strict-tdd`.** `csda init --yes` escribe en `spec.md` un `REQ-001` de plantilla («Describe the first business requirement») que no tiene fila en `docs/specs/traceability.md`, así que `[TDD-3]` dispara desde el minuto cero **Cerrado el 2026-08-26**, el mismo día. La fila de ejemplo sale de `templates/base/spec.md.tpl` §8 y la sustituye un comentario que remite a `csda req add`, que escribe en `spec.md` **y** en la matriz a la vez. `ensureTraceabilityCoverage` no podía salvarlo: reconcilia feature files sin fila, no requisitos | Encontrado el 2026-08-26 montando el fixture de H19. Peor de lo que parece: `harness run` sobre un proyecto nuevo **quema los tres intentos del agente** fallando por algo que el agente no causó ni puede arreglar. Y contradice el nivel L2 de adopción del README —«a PR gate enforcing spec and test coverage, ~1 hour»—: la puerta está roja antes de escribir nada. Fijado por un test que corre las **cuatro** puertas sobre un proyecto recién generado — el defecto era invisible desde dentro, porque el `validate` a secas estaba verde |
 
 ### Los arreglos se probaron solos, en producción
 
@@ -1240,13 +1253,16 @@ se reprodujo después— pero es una forma sucia de medir y no debería repetirs
 
 ### Abiertos
 
+*Depurado el 2026-08-26.* Esta tabla listaba **H13, H15 y H16** como abiertos
+cuando su propia entrada de `CHANGELOG.md` dice que 0.7.0 los cerró el
+2026-08-23, junto con H14. Movidos arriba. **H19 cerrado el 2026-08-26** y también
+movido. Queda de H18 solo su lección —el test que parsee la salida de cada comando
+del contrato—, no el defecto, que se arregló el 2026-08-20. **H20 entró y se cerró el mismo día**,
+salió montando el fixture para reproducir H19.
+
 | # | Problema | Nota |
 |---|---|---|
-| H18 | **`harness run --format json` violaba la regla 1 del contrato** — prosa y documento JSON en el mismo stdout, así que `\| jq .` no parseaba. Arreglado el 2026-08-20 en `E1-02` (la prosa va a stderr en modo JSON) | Estaba desde siempre y nadie lo vio porque **nada parseaba esa salida** hasta que el pool de workers lo intentó. Lección: un comando listado en el contrato y que ningún consumidor parsea no está verificado. Falta un test que parsee la salida de cada comando del contrato |
-| H19 | **Sin `test_cmd`, el gate no comprueba que los artefactos existan.** Un agente que no escribe nada pasa `validate --strict-tdd` y el requisito se marca Implemented | Encontrado el 2026-08-20 probando `E1-02` con un agente vacío. Es de la familia de H1: el gate no verifica lo que dice verificar. Pre-existente, sin arreglar |
-| H13 | **El JSON Schema no lo aplica nadie.** ADR-0020 lo declaró «única autoridad», pero el CLI no valida contra él: es una pista `$schema` para el editor y un test contra un fixture. Los once packs curados **fallarían** el esquema — sus `aggregates` usan `bounded_context`/`responsibilities` donde el esquema exige `context`/`invariants`, y `additionalProperties: false` prohíbe los extras. Lo que sí se comprueba es `validatePackModel` + las once reglas de `pack lint`, que son reales y sustanciales | Descubierto al documentar el modelo DDD para el artículo. Dos salidas: aplicar el esquema de verdad (y migrar los packs), o rebajar ADR-0020 y dejar el esquema como ayuda de edición. **La actual es la peor: afirma autoridad que no ejerce** |
-| H15 | **Un filtro de escenario que no casa nada sale 0.** `cucumber-js --tags "@NO-EXISTE"` devuelve «0 scenarios» y exit 0. Si el agente renombra el escenario, `{scenario}` deja de casar y el gate va verde sin ejecutar nada | Anotado el 2026-08-22. `filterHint` solo avisa cuando cuenta **de más**, nunca cuando cuenta cero, y lo hace con una expresión regular sobre prosa. La salida correcta es el protocolo de mensajes — propuesta F5 |
-| H16 | **El gate no comprueba que el agente no tocó `spec.md`, `AI_RULES.md` ni `features/**`.** El prompt se lo prohíbe; nada lo verifica. El agente tiene permiso de escritura sobre el fichero que define su propio criterio de éxito | Anotado el 2026-08-22. `validate --strict-tdd` comprueba que el feature exista, no que diga lo mismo que antes. Propuesta A1 en `propuesta-harness-planificacion.md` |
+| H18 | ([#135](https://github.com/rsaglobaltech/spec-driven-development-template/issues/135)) **`harness run --format json` violaba la regla 1 del contrato** — prosa y documento JSON en el mismo stdout, así que `\| jq .` no parseaba. Arreglado el 2026-08-20 en `E1-02` (la prosa va a stderr en modo JSON) | Estaba desde siempre y nadie lo vio porque **nada parseaba esa salida** hasta que el pool de workers lo intentó. Lección: un comando listado en el contrato y que ningún consumidor parsea no está verificado. Falta un test que parsee la salida de cada comando del contrato |
 
 ---
 
@@ -1262,7 +1278,7 @@ así que quedaron sin sitio. Aquí tienen sitio.
 | ID | Hueco | Estado y coste |
 |---|---|---|
 | **P1** | **Orquestación multi-repositorio.** Una spec no se descompone en trabajo across varios repos. La unidad es el proyecto | **Abierto, v2 — revisado el 2026-08-21**, ver [p1-multirepo-revision.md](p1-multirepo-revision.md). De seis piezas, dos ya estaban hechas: `projects:` cruza repositorios y `validate` ya se despliega sobre ellos. Sigue siendo cambio de modelo lo caro — identificador supra-repo, correlación y matriz federada — y el apaño del issue **no** sirve de base, porque haría del tablero la fuente de verdad que ADR-0021 prohíbe |
-| **P2** | **Superficie de lectura para quien no abre PRs.** Las specs viven en git a propósito, porque es lo que permite que CI verifique algo; pero un product owner no entra ahí | **Abierto, barato.** `csda studio` (HTML local de solo lectura) y `csda report` (dashboard autocontenido) ya existen. Falta publicarlos — Pages ya funciona en este repo. Es la crítica más certera del artículo de InfoQ y la que menos cuesta atacar |
+| **P2** | **Superficie de lectura para quien no abre PRs.** Las specs viven en git a propósito, porque es lo que permite que CI verifique algo; pero un product owner no entra ahí | **Medio cerrado — revisado el 2026-08-26.** `csda report` **ya se publica**: `04c0c76` (P2 / #102) añadió a `pages.yml` el paso que lo genera contra este mismo repo. Lo que sigue abierto es `csda studio`, y **no es publicable tal cual**: es un servidor HTTP en el puerto 4173 que renderiza en memoria (`StudioCommand.ts:135,170-179`) y carga Mermaid desde `cdn.jsdelivr.net`, así que ni es estático ni funciona sin red. Sigue como C10-06 de §12.13 |
 
 **Por qué importan para 1.0:** ninguno bloquea. P1 está explícitamente fuera de
 alcance (D12 movió la distribución a v2 por la misma lógica). P2 es una tarde de
@@ -1271,6 +1287,270 @@ release después del 1.0.
 
 **Lo que sí bloquea sigue siendo G3:** nadie de fuera lo ha usado. P2 lo hace
 más probable, pero no lo sustituye.
+
+---
+
+## 12.13 Fase 10 — El plano de control: MCP + Studio
+
+*Decidido el 2026-08-26, al valorar si tenía sentido construir un IDE agéntico
+propio al estilo de [kiro.dev](https://kiro.dev). **La conclusión fue que no**, y
+esta fase es lo que se hace en su lugar. Va **después** del hueco de
+verificación (D14) y **no bloquea el 1.0**.*
+
+### Por qué no un IDE propio
+
+Kiro es un fork de VS Code con un flujo spec-driven fino: tres markdown
+(`requirements.md`, `design.md`, `tasks.md`), hooks y autopilot. Su fuerza es la
+superficie; su debilidad es justo donde este repo es fuerte.
+
+| | Kiro | `create-spec-driven-app` |
+|---|---|---|
+| Puerta ejecutable | No. Nada falla si un requisito no tiene escenario ni test | `validate --strict-tdd` rompe el build |
+| Trazabilidad | Implícita en los tres ficheros | Matriz de diez columnas, verificada en CI |
+| Cambio sobre lo ya entregado | Se reedita el markdown | Delta revisable como intención (`change new/validate/archive`) |
+| Dominio reutilizable | No existe | Packs versionados, firmados, con `specops diff --as-change` |
+| Agente | El suyo, y solo el suyo | Cualquiera — el harness acepta `claude`, `aider`, `opencode`, y perfiles por requisito |
+
+Esa última fila es el foso: Kiro no puede copiarla sin dejar de ser Kiro. Y
+forkear un IDE cuesta lo que no tenemos — rebase continuo sobre upstream, un
+marketplace propio (el de Microsoft no es usable en un fork), auth, updater,
+firma de binarios en tres SO. Es una persona a tiempo completo antes de escribir
+producto, para competir de frente con algo gratis y respaldado por AWS.
+
+**La decisión (D15): no se construye editor. Se construye el plano de control, y
+los IDEs ajenos pasan a ser adaptadores.** Dos superficies sobre el mismo
+núcleo, que ya existe:
+
+- **MCP para el agente.** Claude Code, Cursor, Copilot — y Kiro mismo —
+  consumen las specs por ahí. Ellos pagan el coste del IDE.
+- **Studio para la persona.** La cola, el grafo, el estado del harness, el
+  diff de intención. Es P2 de §12.12 con más ambición.
+
+El posicionamiento deja de ser «otro IDE agéntico» y pasa a ser **la capa de
+cumplimiento que hace que cualquier agente entregue trabajo trazable**.
+
+### El desalineo que destapó la valoración
+
+**El servidor MCP expone 7 herramientas de una superficie de 32 comandos.**
+`packages/mcp-spec-driven/src/tools.ts` registra `read_spec`,
+`list_requirements`, `update_traceability`, `lint_pack`, `validate_project`,
+`plan` y `mark_requirement_done`. Fuera quedan el ciclo `change` entero,
+`specops`, `harness`, `req`, `status`, `onboard`/`adopt`, `report`, `doctor` y
+`fix` — es decir, casi todo lo que distingue a esta herramienta de un linter de
+markdown. Un agente conectado por MCP hoy **no puede** proponer un cambio ni
+consumir un pack; tiene que salir a `Bash` y perder la puerta.
+
+Y es exactamente el defecto que §12.5 ya arregló para `PROJECT_TYPE`: una
+superficie aceptada por una puerta y desconocida por otra, sin ningún test que
+las fije juntas.
+
+**Hay dos cosas llamadas «studio» y no son la misma.** `csda studio`
+(`scripts/cli/commands/spec/StudioCommand.ts`, registrado en
+`scripts/lib/surface.ts:523`) sirve un HTML local de solo lectura del árbol de
+specs. `CsdaStudioApp` es un repo aparte, SPA de React, que lee `pack.yaml` y
+está parado en la fase 8 de `csda-studio-handoff.md`. Antes de invertir en
+ninguno hay que decidir cuál es el producto.
+
+### Tareas
+
+| ID | | Tarea | Detalle |
+|---|---|---|---|
+| C10-01 | `[ ]` | **Mal planteada** — ejecutar ADR-0019 o revocarlo ([#137](https://github.com/rsaglobaltech/spec-driven-development-template/issues/137)) | `csda studio` (comando, solo lectura, HTML de un fichero) vs `CsdaStudioApp` (repo aparte, React). Convergen o uno se renombra. Todo lo demás de esta fase depende de esta decisión, así que va primero |
+| C10-02 | `[ ]` | Paridad MCP ↔ superficie del CLI ([#138](https://github.com/rsaglobaltech/spec-driven-development-template/issues/138)) | Las 25 ausentes, por orden de valor: `status`, `req add/link`, el ciclo `change` completo, `specops add/diff --as-change`, `harness run`, `report`. Sin esto, «MCP como interfaz primaria» es una frase |
+| C10-03 | `[ ]` | Un test que fija las dos listas juntas | El registro MCP se deriva de `scripts/lib/surface.ts` o falla CI. Escribir 25 herramientas a mano garantiza que el desalineo vuelva. Mismo remedio que el test de los cuatro sitios de §12.5 |
+| C10-04 | `[ ]` | Contrato de límites en las herramientas que mutan | El agente no edita `docs/specs/**` ni `features/**` salvo por el ciclo `change`. Hoy eso lo impone el texto de `.harness/prompt-prefix.md`; una herramienta que lo imponga no depende de que el agente lea |
+| C10-05 | `[ ]` | `csda mcp install --client <claude\|cursor\|vscode\|kiro>` | Escribe la config del cliente. Hoy `packages/mcp-spec-driven` no tiene ruta de instalación, y **D9/D12 lo dejaron sin publicar**: esta tarea reabre esa decisión o el plano de control no tiene puerta de entrada |
+| C10-06 | `[ ]` | Publicar la superficie de lectura ([#139](https://github.com/rsaglobaltech/spec-driven-development-template/issues/139)) — **cierra la mitad que le queda a P2 de §12.12** | **Corregido el 2026-08-26, el mismo día que se escribió esta fase:** `csda report` ya está publicado desde `04c0c76`; escribí «cierra P2» sin comprobarlo. Queda `csda studio`, y antes hay que decidir qué es: hoy es un servidor HTTP que renderiza en memoria y tira de `cdn.jsdelivr.net`. Publicarlo exige salida estática y Mermaid empaquetado — que es la misma regla que el brief del Studio ya congeló («no CDN — bundle it») |
+| C10-07 | `[ ]` | El Studio deja de ser solo visor de specs | Cola de `plan`, estado del harness por rama, diff de intención de un `change` abierto. **Sigue siendo solo lectura**: git es la fuente de verdad y ADR-0021 prohíbe que el tablero la sustituya |
+| C10-08 | `[ ]` | Terminar el dogfood — fases 8–10 de `csda-studio-handoff.md` | Prerrequisito, no adorno. Parado desde 2026-05-15 en `harness run` de REQ-001…REQ-014. Es la prueba de que el flujo entrega su propio producto, que es el argumento de venta entero |
+
+### Gate de la fase
+
+**Un agente completa un requisito de punta a punta usando solo herramientas MCP
+—sin invocar `csda` por `Bash`— y la paridad superficie ↔ MCP la comprueba un
+test, no una lectura.** Es la versión MCP de G2, y por la misma razón: este tipo
+de defecto solo aparece ejecutando.
+
+### Fuera de alcance, explícito
+
+- **Un editor propio, forkeado o no.** Es la decisión D15 entera.
+- **Un servicio hospedado o backend del Studio.** Local-first, como el brief ya
+  congeló.
+- **Que el Studio escriba en el árbol.** Convertirlo en editor lo hace fuente de
+  verdad paralela, que es lo que ADR-0021 prohíbe.
+- **Publicar los plugins de Maven/Gradle y el registry.** Sigue en v2 (D12).
+  C10-05 solo reabre el caso del **paquete MCP**, que es la puerta de entrada.
+
+### Relación con el 1.0
+
+Ninguna tarea de esta fase es un gate de 1.0, y ninguna lo retrasa: van después
+del hueco de verificación (D14). Pero **C10-06 y C10-08 empujan G3** —«un equipo
+de fuera adopta y reporta»—, que es el único gate que sigue dependiendo de que
+alguien ajeno al repo lo use. Una superficie de lectura publicada y un producto
+construido con la propia herramienta son lo que hace que ese alguien aparezca.
+
+---
+
+## 12.14 Deuda de la rama de verificación, antes de mergear
+
+*Medido el 2026-08-26 contra `feature/predictable-code-plan-rewrite`: 8 commits
+por delante de `origin/main`, 0 por detrás, **sin PR**. Se anota aquí porque la
+decisión explícita es **no publicar versión nueva todavía** — así que esto no es
+una checklist de release, es lo que falta para que la rama pueda entrar.*
+
+**Lo que ya está verde**, para no repetirlo: `typecheck`, `format:check`,
+`docs:agent-contract:check` y `selfcheck` pasan, y los dos gates nuevos
+(`validate . --strict-links` y `--strict-requirements`) pasan sobre este mismo
+repositorio. El trabajo está hecho; lo que falta es que se pueda contar.
+
+**La rama toca un único fichero de `docs/`: `docs/specs/agent-contract.md`.**
+Ahí está toda la deuda de abajo.
+
+| ID | | Tarea | Detalle |
+|---|---|---|---|
+| DV-01 | `[x]` | `docs/commands.md:29` anuncia dos gates de cuatro | Dice `csda validate [--strict-tdd] [--against-lock]`. `scripts/lib/surface.ts:212` ya lista los cuatro. La ayuda del CLI y la doc de usuario no coinciden. **Hecho.** `docs/commands.md` — la fila de `validate` lista los cuatro gates, y se añaden `csda change new --from-value-drift` y la mención de deriva de valores en `report` |
+| DV-02 | `[x]` | `docs/validating.md` documenta solo `--strict-tdd` | 71 líneas, un solo gate. **Y el hallazgo incómodo: `--strict-scenarios` se publicó en 0.7.0 y nunca se documentó** — solo aparece en `docs/specs/harness.md`. No es deuda de esta rama: es deuda **ya en manos de usuarios**. **Hecho.** `docs/validating.md` pasa de 71 a 183 líneas: sección «The other three gates» con lo que cada uno **no** comprueba, y por qué `--strict-links` es opt-in (medido, no supuesto) |
+| DV-03 | `[x]` | `CHANGELOG.md` — `[Unreleased]` está vacío | Seis commits de features detrás: `--strict-requirements`, `--strict-links`, la sección de deriva de valores de `report` y la ruta 2 de resolución de divergencias. **Hecho.** `[Unreleased]` con las cuatro entradas y el porqué de cada restricción — incluida una entrada de `Documentation` que admite el desliz de `--strict-scenarios` |
+| DV-04 | `[x]` | Un ADR para el cruce de línea | Pasar de comprobar papeleo a comprobar contenido es exactamente lo que ADR-0019…0022 registran. Y hay una decisión concreta sin registrar: **`--strict-values` se rechazó como gate y se degradó a informe agregado**, razonado en `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §8.6 y en ningún ADR. **Hecho.** [`ADR-0023`](../docs/specs/adr/0023-checking-content-gate-or-report.md) — «a gate where it is decidable, a report where it is not». Cinco reglas, cuatro alternativas rechazadas, e indexado en `docs/specs/adr/README.md` |
+| DV-05 | `[x]` | Documentar el informe de deriva de valores | `csda report` gana una sección y `--record` tres campos aditivos. `docs/` no lo menciona en ningún sitio. **Hecho.** Documentado en `docs/validating.md` como sección propia, no como gate, con las tres rutas de resolución |
+| DV-06 | `[x]` | Abrir el PR | **Hecho el 2026-08-26, al segundo intento.** #132 y #133 se abrieron sobre una `origin/main` **obsoleta en local** —nunca se hizo `fetch`— cuando el track de verificación ya estaba mergeado como #131 (`cd15591`, squash, 10:56). #132 salió `CONFLICTING` por commits duplicados y **por eso no corrió CI**: sin merge-ref GitHub no lanza el workflow. Rehecho con cherry-pick de los cuatro commits que sí aportan sobre `origin/main`. Ver §12.15 |
+
+**Cerrada el 2026-08-26.** Las seis tareas hechas en la misma sesión. La rama deja de ser trabajo invisible: lo que hacía no estaba en ningún documento que un usuario abra, y ahora sí. **Sigue sin publicarse versión** — D17 se mantiene: esto era hacer mergeable la rama, no sacar la 0.8.0.
+
+### Lo que salió al hacer DV-01…DV-05 (2026-08-26)
+
+**ADR-0019 ya decidió lo que C10-01 planteaba como decisión abierta.** Al buscar
+el formato de ADR salió `0019-studio-surface.md`, *«One studio surface: `csda
+studio`, not a standalone app»*, **Accepted** el 2026-08-16. Compara las tres
+vías que habían convergido —la fase 4 de `visual-pack-authoring-todo.md`, el
+brief de `CsdaStudioApp` y el subcomando— y elige el subcomando, diciendo
+explícitamente del SPA que es *"exactamente lo que la fase 4 prohibía"*.
+
+O sea: **C10-01 de §12.13 está mal planteada.** No es «decidir cuál de los dos
+studios es el producto» — eso está decidido y aceptado. Es *«ejecutar ADR-0019,
+o revocarlo con un ADR nuevo que diga por qué»*. Y si se mantiene, arrastra a
+C10-08: el dogfood construye precisamente el standalone que el ADR descarta, lo
+cual no lo invalida como **experimento** —sigue probando el flujo de punta a
+punta— pero sí como producto. Anotado, sin tocar §12.13 todavía: es decisión de
+producto, no de documentación, y esta tanda era documentación.
+
+**Prettier no cubre markdown.** `npm run format:check` corre solo sobre
+`bin/**`, `scripts/**`, `tests/**`, `packages/**` y `features/**` en `.ts`/`.js`
+— y CI no ejecuta nada más. `docs/validating.md`, `docs/commands.md`,
+`CHANGELOG.md` y `docs/specs/adr/README.md` **ya fallaban** `prettier --check`
+antes de tocarlos, comprobado contra `HEAD`. No se han reformateado: hacerlo
+metería cientos de líneas ajenas en este diff. Deuda menor, anotada aquí para
+que no se descubra dos veces.
+
+**Verde tras los cambios:** `selfcheck` y `docs:terminal:check` siguen pasando.
+
+### Y una cosa que no es de la rama, pero se ve desde aquí
+
+**Este repositorio se dogfoodea al 18 %.** Medido con `csda status` el
+2026-08-26: **22 requisitos, 4 `done`, 18 sin fichero `.feature`**. Coincide con
+lo que `csda report` publica ya en Pages desde `04c0c76`.
+
+No bloquea nada hoy porque nadie de fuera ha mirado. En cuanto **G3** ocurra
+—un equipo externo adoptando y reportando— será lo primero que vean: el proyecto
+que vende trazabilidad exigida por CI, con dieciocho requisitos propios sin
+escenario. Es el mismo defecto de la serie H visto desde fuera en vez de desde
+el gate.
+
+---
+
+## 12.15 Dos defectos de proceso, encontrados abriendo PRs (2026-08-26)
+
+Ninguno es de producto. Los dos costaron trabajo real el mismo día, y los dos
+son invisibles hasta que alguien abre un PR.
+
+### P3 · Un PR apilado no tiene CI, y nada lo dice ([#136](https://github.com/rsaglobaltech/spec-driven-development-template/issues/136))
+
+`.github/workflows/ci.yml` dispara con:
+
+```yaml
+on:
+  pull_request:
+    branches: [main]
+```
+
+El filtro `branches:` en un evento `pull_request` mira la **rama base**, no la
+rama de trabajo. Un PR cuya base es otra rama de feature —lo normal al apilar
+un arreglo sobre una revisión en curso— **no lanza ningún workflow**, y GitHub
+lo presenta como «no checks reported», que es indistinguible de «CI aún no ha
+arrancado».
+
+Pasó con #133, apilado sobre #132. La revisión habría leído el diff sin una
+sola comprobación detrás, y nada en la interfaz lo advierte.
+
+**Salidas, ninguna gratis:** añadir `feature/**` al filtro (CI corre de más),
+usar `merge_group`, o prohibir apilar y exigir base `main` siempre. Sin decidir.
+
+### P4 · Un `origin/main` obsoleto en local convierte un merge en un conflicto
+
+El track de verificación se mergeó como **#131** (`cd15591`, squash) a las
+10:56. La sesión que abrió #132 no hizo `git fetch` en ningún momento, midió
+`origin/main...HEAD` contra una referencia de hace horas, leyó «0 por detrás» y
+abrió el PR sobre esa premisa.
+
+Resultado: #132 llegó `CONFLICTING` con seis commits que ya estaban en `main` en
+forma de squash — y git **no reconoce un squash-merge**, así que un rebase
+normal intenta reaplicarlos en vez de descartarlos. Se rehízo con cherry-pick
+de los cuatro commits que sí aportaban.
+
+**Lo que sí sobrevivió intacto: #131 mergeó el código sin nada de su
+documentación.** Comprobado contra `origin/main`: `[Unreleased]` vacío,
+`docs/validating.md` sin mención de ningún flag nuevo, `commands.md:29`
+anunciando dos puertas de cuatro. DV-01…DV-05 valían enteros; lo duplicado era
+solo el código.
+
+**Regla que sale de aquí:** `git fetch` antes de medir distancia a `main`, y
+antes de abrir cualquier PR. Es la versión de red de la regla que D16 ya
+escribió para el disco — *una fila del plan no es evidencia; se comprueba*.
+
+---
+
+## 12.16 Dónde queda todo — cierre de la sesión del 2026-08-26
+
+Foto tomada al cerrar, con los issues abiertos como destino de cada pendiente.
+**No se ha publicado versión** (D17 sigue en pie).
+
+### Cerrado hoy
+
+| | Qué |
+|---|---|
+| DV-01…DV-06 | §12.14 entera. La documentación que #131 mergeó sin traer |
+| ADR-0023 | La regla: gate solo si fallar siempre es defecto; si no, opt-in o informe |
+| H19 | El gate aprobaba a un agente que no escribió nada. Reproducido, arreglado, fijado |
+| H20 | Un proyecto recién generado no pasaba sus propias puertas |
+| P3, P4 | Los dos defectos de proceso de §12.15 |
+| — | 17 artefactos de build de Gradle dejan de estar versionados. El árbol queda limpio por primera vez |
+
+### Abierto, con dueño
+
+| Pendiente | Issue | Bloquea 1.0 |
+|---|---|---|
+| **G3** — un equipo de fuera adopta y reporta | [#100](https://github.com/rsaglobaltech/spec-driven-development-template/issues/100) | **Sí** |
+| **G5** — la política de soporte pierde la frase que la anula | [#101](https://github.com/rsaglobaltech/spec-driven-development-template/issues/101) | **Sí** |
+| H18 — un test que parsee la salida de cada comando del contrato | [#135](https://github.com/rsaglobaltech/spec-driven-development-template/issues/135) | No, pero no publicaría 1.0 sin él |
+| P3 — CI ciego a los PR apilados | [#136](https://github.com/rsaglobaltech/spec-driven-development-template/issues/136) | No |
+| C10-01 — ejecutar ADR-0019 o revocarlo | [#137](https://github.com/rsaglobaltech/spec-driven-development-template/issues/137) | No |
+| C10-02…05 — paridad MCP (7 herramientas de 32 comandos) | [#138](https://github.com/rsaglobaltech/spec-driven-development-template/issues/138) | No |
+| C10-06 — publicar `csda studio` (estático + Mermaid empaquetado) | [#139](https://github.com/rsaglobaltech/spec-driven-development-template/issues/139) | No |
+| C8-01 — dogfood CsdaStudioApp, fases 8–10 | [#109](https://github.com/rsaglobaltech/spec-driven-development-template/issues/109) | No; y ver #137 antes de gastar más |
+
+### G5 no se ha tocado a propósito
+
+Es una línea de `docs/release-process.md:38`, y por eso mismo no la borro sin que
+alguien lo decida: borrarla **es** aceptar mantener el minor anterior seis meses.
+Eso es un compromiso de mantenimiento, no una edición de documentación. Queda en
+[#101](https://github.com/rsaglobaltech/spec-driven-development-template/issues/101),
+donde ya estaba.
+
+### La lectura del 1.0 no ha cambiado
+
+Sigue a **una release, una frase y un usuario real**. Lo de hoy no acerca ninguno
+de los tres — acerca que la release, cuando se haga, no salga con las puertas sin
+documentar ni con el gate aprobando trabajo vacío.
 
 ---
 
@@ -1316,3 +1596,7 @@ Nada de esto se pierde; simplemente no entra en el cierre. Cada línea lleva el 
 | 2026-08-17 | Publicar plugins Maven/Gradle, la extensión de VS Code, el scope npm y el registry queda **aplazado** (D9) | No es prioridad ahora. No bloquea nada: el CLI ya está en npm y la imagen en ghcr, que son las dos vías reales. Marcadas `[-]` con motivo, no descartadas — ver §12.8 |
 | 2026-08-16 | Los refactors `import/export` y `strict mode` no se mergean | 96 ficheros entre los dos, todos tocados también por el merge enterprise. Sin valor para el usuario y con coste de conflicto alto. Si se quieren, son tarea propia sobre `main` |
 | 2026-08-25 | Se antepone cerrar el hueco de verificación (`csda validate` solo comprueba papeleo, no código) a los gates de 1.0 que faltan (D14) | Al revisar `PLAN_PREDICTABLE_CODE_EVOLUTION.md` se confirmó que el hueco real frente a Predictable Code es uno solo — `--strict-tdd` son 3 reglas sobre la matriz, cero parsers de código en el repo — y se decide ir a por él ya. Se acepta el coste: `GATE-G3`/`GATE-G5` quedan pospuestos, y `GATE-G1` se pondrá a prueba con la primera release aditiva grande del proyecto en vez de con una pequeña primero. Detalle del coste en §12.10 |
+| 2026-08-26 | No se construye un IDE agéntico propio; se construye el plano de control — MCP para el agente, Studio para la persona (D15) | Se valoró clonar [kiro.dev](https://kiro.dev). Forkear VS Code cuesta una persona a tiempo completo en rebase de upstream, marketplace propio, auth, updater y firma en tres SO, antes de escribir producto, y para competir de frente con algo gratis y respaldado por AWS. Lo que Kiro no puede copiar sin dejar de ser Kiro es la neutralidad de agente del harness, y eso ya existe. Las piezas del plano de control también: `packages/mcp-spec-driven`, `csda studio`, `csda report`, el LSP y las extensiones. Lo que falta es coherencia, no código nuevo: el servidor MCP expone 7 herramientas de 32 comandos. Detalle y tareas en §12.13 |
+| 2026-08-26 | El plan se depura contra el repo antes de responder qué falta para 1.0 (D16) | Cuatro afirmaciones del propio plan estaban desfasadas y todas hacia el lado pesimista: §12.11 daba H13/H15/H16 por abiertos cuando 0.7.0 los cerró, §12.12 daba P2 por sin publicar cuando `04c0c76` ya publica `csda report`, §12.10 daba G1 por cumplido «con matiz» cuando 0.7.0 es la release aditiva y limpia que ese matiz pedía, y C10-06 —escrito ese mismo día— heredaba el error de P2. Regla que sale de aquí: **una fila del plan no es evidencia; se comprueba contra el disco antes de citarla.** Es la misma disciplina de §1 de `PLAN_PREDICTABLE_CODE_EVOLUTION.md`, aplicada a este fichero |
+| 2026-08-26 | La rama de verificación **no se publica todavía**; primero se salda su deuda de documentación y se mergea (D17) | Decisión del usuario: no sacar versión nueva aún. El trabajo de D14 está hecho y verde —`typecheck`, `format:check`, `docs:agent-contract:check`, `selfcheck` y los dos gates nuevos sobre este propio repo—, pero la rama toca **un solo fichero de `docs/`**, el `[Unreleased]` del CHANGELOG está vacío y no hay ADR del cruce de línea ni del rechazo de `--strict-values` como gate. Publicar así repetiría lo que DV-02 destapó: **`--strict-scenarios` salió en 0.7.0 sin documentar**, o sea un gate en manos de usuarios que no saben que existe. Tareas en §12.14 |
+| 2026-08-26 | Las ramas se rehacen sobre `main` en vez de rebasarse, y #132/#133 se cierran (D18) | El track de verificación ya estaba en `main` como #131 (`cd15591`, squash) desde las 10:56; el `origin/main` local nunca se refrescó. Un rebase no sirve —git no reconoce un squash-merge y reaplicaría los seis commits duplicados—, así que se hace cherry-pick de los cuatro que sí aportan: documentación, ADR-0023, H19 y H20. Un solo PR contra `main`, que además es el único que **tiene CI**: #133 estaba apilado y el filtro `pull_request: branches: [main]` lo dejaba sin workflow. Detalle en §12.15 |
