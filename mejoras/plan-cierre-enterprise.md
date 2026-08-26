@@ -1262,7 +1262,7 @@ salió montando el fixture para reproducir H19.
 
 | # | Problema | Nota |
 |---|---|---|
-| H18 | **`harness run --format json` violaba la regla 1 del contrato** — prosa y documento JSON en el mismo stdout, así que `\| jq .` no parseaba. Arreglado el 2026-08-20 en `E1-02` (la prosa va a stderr en modo JSON) | Estaba desde siempre y nadie lo vio porque **nada parseaba esa salida** hasta que el pool de workers lo intentó. Lección: un comando listado en el contrato y que ningún consumidor parsea no está verificado. Falta un test que parsee la salida de cada comando del contrato |
+| H18 | ([#135](https://github.com/rsaglobaltech/spec-driven-development-template/issues/135)) **`harness run --format json` violaba la regla 1 del contrato** — prosa y documento JSON en el mismo stdout, así que `\| jq .` no parseaba. Arreglado el 2026-08-20 en `E1-02` (la prosa va a stderr en modo JSON) | Estaba desde siempre y nadie lo vio porque **nada parseaba esa salida** hasta que el pool de workers lo intentó. Lección: un comando listado en el contrato y que ningún consumidor parsea no está verificado. Falta un test que parsee la salida de cada comando del contrato |
 
 ---
 
@@ -1355,12 +1355,12 @@ ninguno hay que decidir cuál es el producto.
 
 | ID | | Tarea | Detalle |
 |---|---|---|---|
-| C10-01 | `[ ]` | Decidir cuál de los dos «studio» es el producto | `csda studio` (comando, solo lectura, HTML de un fichero) vs `CsdaStudioApp` (repo aparte, React). Convergen o uno se renombra. Todo lo demás de esta fase depende de esta decisión, así que va primero |
-| C10-02 | `[ ]` | Paridad MCP ↔ superficie del CLI | Las 25 ausentes, por orden de valor: `status`, `req add/link`, el ciclo `change` completo, `specops add/diff --as-change`, `harness run`, `report`. Sin esto, «MCP como interfaz primaria» es una frase |
+| C10-01 | `[ ]` | **Mal planteada** — ejecutar ADR-0019 o revocarlo ([#137](https://github.com/rsaglobaltech/spec-driven-development-template/issues/137)) | `csda studio` (comando, solo lectura, HTML de un fichero) vs `CsdaStudioApp` (repo aparte, React). Convergen o uno se renombra. Todo lo demás de esta fase depende de esta decisión, así que va primero |
+| C10-02 | `[ ]` | Paridad MCP ↔ superficie del CLI ([#138](https://github.com/rsaglobaltech/spec-driven-development-template/issues/138)) | Las 25 ausentes, por orden de valor: `status`, `req add/link`, el ciclo `change` completo, `specops add/diff --as-change`, `harness run`, `report`. Sin esto, «MCP como interfaz primaria» es una frase |
 | C10-03 | `[ ]` | Un test que fija las dos listas juntas | El registro MCP se deriva de `scripts/lib/surface.ts` o falla CI. Escribir 25 herramientas a mano garantiza que el desalineo vuelva. Mismo remedio que el test de los cuatro sitios de §12.5 |
 | C10-04 | `[ ]` | Contrato de límites en las herramientas que mutan | El agente no edita `docs/specs/**` ni `features/**` salvo por el ciclo `change`. Hoy eso lo impone el texto de `.harness/prompt-prefix.md`; una herramienta que lo imponga no depende de que el agente lea |
 | C10-05 | `[ ]` | `csda mcp install --client <claude\|cursor\|vscode\|kiro>` | Escribe la config del cliente. Hoy `packages/mcp-spec-driven` no tiene ruta de instalación, y **D9/D12 lo dejaron sin publicar**: esta tarea reabre esa decisión o el plano de control no tiene puerta de entrada |
-| C10-06 | `[ ]` | Publicar la superficie de lectura — **cierra la mitad que le queda a P2 de §12.12** | **Corregido el 2026-08-26, el mismo día que se escribió esta fase:** `csda report` ya está publicado desde `04c0c76`; escribí «cierra P2» sin comprobarlo. Queda `csda studio`, y antes hay que decidir qué es: hoy es un servidor HTTP que renderiza en memoria y tira de `cdn.jsdelivr.net`. Publicarlo exige salida estática y Mermaid empaquetado — que es la misma regla que el brief del Studio ya congeló («no CDN — bundle it») |
+| C10-06 | `[ ]` | Publicar la superficie de lectura ([#139](https://github.com/rsaglobaltech/spec-driven-development-template/issues/139)) — **cierra la mitad que le queda a P2 de §12.12** | **Corregido el 2026-08-26, el mismo día que se escribió esta fase:** `csda report` ya está publicado desde `04c0c76`; escribí «cierra P2» sin comprobarlo. Queda `csda studio`, y antes hay que decidir qué es: hoy es un servidor HTTP que renderiza en memoria y tira de `cdn.jsdelivr.net`. Publicarlo exige salida estática y Mermaid empaquetado — que es la misma regla que el brief del Studio ya congeló («no CDN — bundle it») |
 | C10-07 | `[ ]` | El Studio deja de ser solo visor de specs | Cola de `plan`, estado del harness por rama, diff de intención de un `change` abierto. **Sigue siendo solo lectura**: git es la fuente de verdad y ADR-0021 prohíbe que el tablero la sustituya |
 | C10-08 | `[ ]` | Terminar el dogfood — fases 8–10 de `csda-studio-handoff.md` | Prerrequisito, no adorno. Parado desde 2026-05-15 en `harness run` de REQ-001…REQ-014. Es la prueba de que el flujo entrega su propio producto, que es el argumento de venta entero |
 
@@ -1463,7 +1463,7 @@ el gate.
 Ninguno es de producto. Los dos costaron trabajo real el mismo día, y los dos
 son invisibles hasta que alguien abre un PR.
 
-### P3 · Un PR apilado no tiene CI, y nada lo dice
+### P3 · Un PR apilado no tiene CI, y nada lo dice ([#136](https://github.com/rsaglobaltech/spec-driven-development-template/issues/136))
 
 `.github/workflows/ci.yml` dispara con:
 
