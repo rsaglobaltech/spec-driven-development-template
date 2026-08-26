@@ -88,7 +88,9 @@ export function runMonorepoFanout(
   const failures = results.filter((r) => !r.ok);
   process.stdout.write("\n── monorepo summary ──\n");
   for (const r of results) {
-    process.stdout.write(`  ${r.ok ? "✅" : "❌"} ${r.project}${r.detail ? ` (${r.detail})` : ""}\n`);
+    process.stdout.write(
+      `  ${r.ok ? "✅" : "❌"} ${r.project}${r.detail ? ` (${r.detail})` : ""}\n`
+    );
   }
   process.stdout.write(
     `\n${failures.length === 0 ? "✅" : "❌"} ${results.length - failures.length}/${results.length} project(s) done\n`
