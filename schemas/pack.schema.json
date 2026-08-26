@@ -391,7 +391,7 @@
             }
           },
           "payload": {
-            "description": "A field per entry. Ten curated packs write `payload: [fileId: string]`, which reads as a string; file-storage writes a block sequence of mappings, which reads as an object. Both spellings are in use and both are readable, so both are described here rather than one of them being retired by a validator nobody was enforcing.",
+            "description": "A field per entry, as `payload: [fileId: string]` — every curated pack writes this string spelling (issue #116; five of the eleven wrote the object form before). A block sequence of mappings, reading as an object per entry, is also accepted for a community pack that already uses it; retiring it is a separate, larger decision than migrating the curated packs that used to.",
             "type": "array",
             "minItems": 1,
             "items": {

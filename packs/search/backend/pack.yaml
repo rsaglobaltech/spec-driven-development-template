@@ -110,27 +110,15 @@ events:
   - id: EVT-001
     name: DocumentIndexed
     aggregate: SearchIndex
-    payload:
-      - documentId: string
-      - indexName: string
-      - indexedAt: datetime
+    payload: [documentId: string, indexName: string, indexedAt: datetime]
   - id: EVT-002
     name: ReindexCompleted
     aggregate: SearchIndex
-    payload:
-      - indexName: string
-      - documentCount: int
-      - completedAt: datetime
+    payload: [indexName: string, documentCount: int, completedAt: datetime]
   - id: EVT-003
     name: SearchExecuted
     aggregate: SearchQuery
-    payload:
-      - queryId: string
-      - userId: string
-      - termCount: int
-      - resultCount: int
-      - latencyMs: int
-      - executedAt: datetime
+    payload: [queryId: string, userId: string, termCount: int, resultCount: int, latencyMs: int, executedAt: datetime]
 
 outputs:
   files:

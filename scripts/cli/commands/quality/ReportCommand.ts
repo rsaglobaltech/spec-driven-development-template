@@ -10,6 +10,7 @@ import {
   declaredCodeValues,
   compareDeclaredValues,
 } from "../../../../packages/core/src";
+import { runMonorepoFanout } from "../../../lib/monorepo-fanout";
 
 const HISTORY_REL = "reports/spec-coverage-history.jsonl";
 const DONE_CATEGORY = "DONE";
@@ -519,6 +520,11 @@ export class ReportCommand extends BaseCommand {
     } catch (err: any) {
       process.stderr.write(`${err.message}\n`);
       process.exit(2);
+    }
+
+    const monorepo = runMonorepoFanout(projectDir, "report.js");
+    if (monorepo !== null) {
+      process.exit(monorepo.failures === 0 ? 0 : 1);
     }
 
     const tracePath = path.join(projectDir, "docs/specs/traceability.md");

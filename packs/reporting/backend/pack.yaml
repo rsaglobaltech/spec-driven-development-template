@@ -140,48 +140,27 @@ events:
   - id: EVT-001
     name: ReportDefined
     aggregate: ReportDefinition
-    payload:
-      - reportId: string
-      - name: string
-      - version: int
-      - definedAt: datetime
+    payload: [reportId: string, name: string, version: int, definedAt: datetime]
   - id: EVT-002
     name: ReportEnqueued
     aggregate: ReportRun
-    payload:
-      - runId: string
-      - reportId: string
-      - userId: string
-      - enqueuedAt: datetime
+    payload: [runId: string, reportId: string, userId: string, enqueuedAt: datetime]
   - id: EVT-003
     name: ReportCompleted
     aggregate: ReportRun
-    payload:
-      - runId: string
-      - rowCount: int
-      - completedAt: datetime
-      - outputUri: string
+    payload: [runId: string, rowCount: int, completedAt: datetime, outputUri: string]
   - id: EVT-004
     name: ReportFailed
     aggregate: ReportRun
-    payload:
-      - runId: string
-      - failedAt: datetime
-      - reason: string
+    payload: [runId: string, failedAt: datetime, reason: string]
   - id: EVT-005
     name: ResultsExported
     aggregate: ReportRun
-    payload:
-      - runId: string
-      - format: string
-      - exportedAt: datetime
+    payload: [runId: string, format: string, exportedAt: datetime]
   - id: EVT-006
     name: ScheduleTriggered
     aggregate: ReportSchedule
-    payload:
-      - scheduleId: string
-      - reportId: string
-      - triggeredAt: datetime
+    payload: [scheduleId: string, reportId: string, triggeredAt: datetime]
 
 outputs:
   files:

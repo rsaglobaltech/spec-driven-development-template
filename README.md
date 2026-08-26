@@ -124,7 +124,7 @@ loop without versioned packs or an enforced matrix, theirs is the better fit.
 - [Supply chain](docs/supply-chain.md) — pack pinning, digests, signing, air-gapped installs, SBOM
 - [Architecture](docs/specs/architecture.md) — three repos, three lifecycles
 - [Bootstrap prompt](docs/bootstrap-prompt.md) — the one freeform-AI step
-- [Case study](docs/case-studies/case-1.md) · [ADRs](docs/specs/adr/README.md) · [Docs site](https://rsaglobaltech.github.io/spec-driven-development-template/)
+- [Case study](docs/case-studies/case-1.md) · [ADRs](docs/specs/adr/README.md) · [Docs site](https://rsaglobaltech.github.io/spec-driven-development-template/) · [Spec coverage report](https://rsaglobaltech.github.io/spec-driven-development-template/report.html)
 
 ## 🧰 Companion tools
 

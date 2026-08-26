@@ -126,39 +126,23 @@ events:
   - id: EVT-001
     name: FileUploaded
     aggregate: StoredFile
-    payload:
-      - fileId: string
-      - ownerId: string
-      - contentType: string
-      - sizeBytes: int
-      - uploadedAt: datetime
+    payload: [fileId: string, ownerId: string, contentType: string, sizeBytes: int, uploadedAt: datetime]
   - id: EVT-002
     name: FileDeleted
     aggregate: StoredFile
-    payload:
-      - fileId: string
-      - deletedAt: datetime
+    payload: [fileId: string, deletedAt: datetime]
   - id: EVT-003
     name: FileQuarantined
     aggregate: StoredFile
-    payload:
-      - fileId: string
-      - quarantinedAt: datetime
-      - reason: string
+    payload: [fileId: string, quarantinedAt: datetime, reason: string]
   - id: EVT-004
     name: PresignedUrlIssued
     aggregate: FileGrant
-    payload:
-      - fileId: string
-      - userId: string
-      - expiresAt: datetime
+    payload: [fileId: string, userId: string, expiresAt: datetime]
   - id: EVT-005
     name: FileAccessed
     aggregate: FileGrant
-    payload:
-      - fileId: string
-      - userId: string
-      - accessedAt: datetime
+    payload: [fileId: string, userId: string, accessedAt: datetime]
 
 outputs:
   files:

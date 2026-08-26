@@ -9,6 +9,7 @@ import { DiskRequirementGraphRepository } from "../../../../packages/core/src/in
 import { RequirementPlan, PlanItem } from "../../../../packages/core/src/domain/RequirementPlan";
 import { requirementReadiness } from "../../../../packages/core/src/domain/RequirementReadiness";
 import { analyseGherkinSource } from "../../../../packages/core/src/domain/GherkinQuality";
+import { runMonorepoFanout } from "../../../lib/monorepo-fanout";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -328,6 +329,11 @@ export class PlanCommand extends BaseCommand {
     } catch (err: any) {
       process.stderr.write(`${err.message}\n`);
       process.exit(2);
+    }
+
+    const monorepo = runMonorepoFanout(projectDir, "plan.js");
+    if (monorepo !== null) {
+      process.exit(monorepo.failures === 0 ? 0 : 1);
     }
 
     const repo = new DiskTraceabilityRepository();

@@ -203,3 +203,19 @@ safety rather than round-trip carefulness.
 own: `validatePackModel` cross-referenced `aggregate.context` and was therefore
 inert on all eleven packs, and `parseYamlLite` split inline flow sequences on
 every comma, so one quoted responsibility parsed as four items.
+
+**Item 3 settled, not just described (2026-08-26, issue #116) — and item 3's
+own count was wrong.** The 2026-08-23 amendment said ten packs wrote the
+string spelling and `file-storage` was the exception. Walking all eleven for
+this fix (`tests/unit/shipped-packs-schema.test.ts` now does this walk
+instead of naming one pack) found **five** writing the object spelling —
+`file-storage`, `multi-tenant`, `reporting`, `search`, `webhooks` — against
+six that already wrote the string form. The 2026-08-23 count was never
+re-verified after being written; this one is, by a test that walks every
+shipped pack rather than naming an example. All five are migrated; every
+curated pack now writes `payload: [fileId: string, …]`. The schema still
+describes both spellings — retiring the object form there is a separate,
+larger decision (it would reject any community pack that already uses it,
+which this migration has no evidence about either way) and stays out of
+scope here. `PACK_SCHEMA_VERSION` is unchanged: the schema itself did not
+change, only five packs' content did.
