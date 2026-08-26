@@ -11,8 +11,22 @@
  * Run with: npm run mutation:pilot  (builds first)
  */
 export default {
-  // The most logic-dense modules: the pack renderer and the delta engine.
-  mutate: ["dist/scripts/domain-pack/common.js", "dist/scripts/change/delta.js"],
+  // The most logic-dense modules: the pack model and the delta engine.
+  //
+  // These paths moved. `6ada847` dissolved the re-export shims, so
+  // `dist/scripts/domain-pack/common.js` stopped existing and
+  // `dist/scripts/change/delta.js` shrank to 19 lines of re-exports — and this
+  // file was never updated. Stryker only *warns* on a glob that matches nothing,
+  // so the weekly pilot kept reporting a "mutation score" over a shim: 4 mutants,
+  // one of the two targets missing entirely, and nothing red. That is H15's shape
+  // again — a filter that matches nothing and reports success.
+  //
+  // `npm run mutation:pilot` now fails when a target resolves to no file, so this
+  // cannot rot silently a third time.
+  mutate: [
+    "dist/packages/core/src/domain/PackSpec.js",
+    "dist/packages/core/src/domain/DeltaSpec.js",
+  ],
 
   testRunner: "command",
   commandRunner: {
