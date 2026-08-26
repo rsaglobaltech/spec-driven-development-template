@@ -44,7 +44,8 @@ function shippedSlugs() {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
-        if (entry.name !== "specs" && entry.name !== "assets") walk(path.join(dir, entry.name), rel);
+        if (entry.name !== "specs" && entry.name !== "assets")
+          walk(path.join(dir, entry.name), rel);
       } else if (entry.name.endsWith(".md")) {
         out.push(rel.slice(0, -3));
       }
@@ -333,7 +334,8 @@ test("every diagram the pages ask for exists, and every diagram is asked for", (
     fs.readFileSync(path.join(DOCS, "index.html"), "utf8"),
   ];
   for (const source of sources) {
-    for (const m of source.matchAll(/<!--\s*csda:diagram\s+([a-z0-9-]+)\s*-->/g)) requested.add(m[1]);
+    for (const m of source.matchAll(/<!--\s*csda:diagram\s+([a-z0-9-]+)\s*-->/g))
+      requested.add(m[1]);
   }
 
   const missing = [...requested].filter((name) => !available.has(name)).sort();
@@ -347,10 +349,7 @@ test("every diagram the pages ask for exists, and every diagram is asked for", (
 
 test("an inlined diagram reaches the page as markup, not as escaped text", () => {
   const { dir } = site();
-  const article = fs.readFileSync(
-    path.join(dir, "articles", "specs-that-cannot-lie.html"),
-    "utf8"
-  );
+  const article = fs.readFileSync(path.join(dir, "articles", "specs-that-cannot-lie.html"), "utf8");
   assert.match(article, /<svg[^>]+class="dia__svg"/, "the harness loop did not inline");
   assert.match(article, /class="chain__n"/, "the traceability chain did not inline");
   assert.doesNotMatch(article, /&lt;svg/, "the diagram was escaped instead of inlined");
@@ -384,9 +383,7 @@ test("every csda command the landing page names is a command the CLI has", () =>
   for (const m of html.matchAll(/<code[^>]*>csda ([a-z][a-z0-9 -]*)/g)) {
     const words = m[1].trim().split(/\s+/);
     // Longest match wins: `harness run --req` is `harness run`.
-    const named = known.has(`${words[0]} ${words[1]}`)
-      ? `${words[0]} ${words[1]}`
-      : words[0];
+    const named = known.has(`${words[0]} ${words[1]}`) ? `${words[0]} ${words[1]}` : words[0];
     if (!known.has(named)) invented.add(named);
   }
   assert.deepEqual(
@@ -399,7 +396,10 @@ test("every csda command the landing page names is a command the CLI has", () =>
 test("the landing page lists every agent tool it claims a number for", () => {
   const { ALL_TOOLS } = require("../../scripts/agents/init");
   const html = fs.readFileSync(path.join(DOCS, "index.html"), "utf8");
-  assert.ok(html.includes(`<dt>${ALL_TOOLS.length}</dt>`), `agent-tool count is not ${ALL_TOOLS.length}`);
+  assert.ok(
+    html.includes(`<dt>${ALL_TOOLS.length}</dt>`),
+    `agent-tool count is not ${ALL_TOOLS.length}`
+  );
   const missing = ALL_TOOLS.filter((tool) => !html.includes(`<code>${tool}</code>`));
   assert.deepEqual(missing, [], `counted but not listed: ${missing.join(", ")}`);
 });
@@ -411,7 +411,10 @@ test("the project wears one mark everywhere", () => {
   const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8").split("\n")[2];
   assert.ok(readme.includes(MARK), `the README heading no longer carries ${MARK}: ${readme}`);
   const html = fs.readFileSync(path.join(DOCS, "index.html"), "utf8");
-  assert.ok(html.includes(`<span aria-hidden="true">${MARK}</span>`), "the site header lost its mark");
+  assert.ok(
+    html.includes(`<span aria-hidden="true">${MARK}</span>`),
+    "the site header lost its mark"
+  );
 });
 
 test("the social card and the favicon are published, and the pages point at them", () => {
