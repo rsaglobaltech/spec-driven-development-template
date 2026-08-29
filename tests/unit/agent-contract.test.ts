@@ -19,10 +19,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = path.resolve(__dirname, "../../..");
+const ROOT_DIR = path.resolve(__dirname, "../..");
 const CLI = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
 
-const { render, harvestCodes, OUTPUT } = require("../../scripts/gen_agent_contract");
+const { render, harvestCodes, OUTPUT, COMMANDS } = require("../../scripts/gen_agent_contract");
 const { EXIT } = require("../../scripts/lib/agent");
 
 function cli(args, cwd?) {
@@ -158,6 +158,32 @@ test("usage errors exit 2, gate failures exit 1", () => {
 
     const missing = cli(["done", "REQ-999", "--project-dir", dir, "--json"]);
     assert.equal(missing.status, EXIT.FAILURE, "a missing requirement is a command failure");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("H18: every command in the contract emits parseable JSON on stdout", async (t) => {
+  const { root, dir } = scratchProject();
+  try {
+    for (const { command } of COMMANDS) {
+      await t.test(`Command: ${command}`, () => {
+        let cmdStr = command.replace("<dir>", dir);
+        cmdStr = cmdStr.replace("<REQ>", "REQ-999");
+        cmdStr = cmdStr.replace("<id>", "MISSING-ID");
+        cmdStr = cmdStr.replace("<artifact>", "specs");
+        
+        const args = cmdStr.split(" ");
+        const r = cli(args, dir);
+        
+        try {
+          const doc = JSON.parse(r.stdout);
+          assert.ok(doc && typeof doc === "object", `${command} should emit a JSON object, got ${r.stdout}`);
+        } catch (e) {
+          assert.fail(`Command ${command} failed to emit parseable JSON. stdout:\n${r.stdout}\nstderr:\n${r.stderr}`);
+        }
+      });
+    }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

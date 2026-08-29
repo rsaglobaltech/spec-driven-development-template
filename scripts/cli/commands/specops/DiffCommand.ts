@@ -23,6 +23,7 @@ import { resolveRemotePack } from "../../../../packages/core/src/infrastructure/
 import { deriveDelta, materialiseChange } from "../../../specops/as_change";
 import { diffDirs } from "../../../../packages/core/src/infrastructure/DirectorySnapshot";
 import type { Diagnostic } from "../../../lib/diagnostics";
+import { agentIo } from "../../../lib/agent";
 
 // Three levels up from dist/scripts/cli/commands/specops is dist/scripts.
 const EXPAND_SCRIPT = path.join(__dirname, "..", "..", "..", "expand_domain_pack.js");
@@ -268,17 +269,30 @@ export function runAsChange(args, projectDir, lock) {
 
 export class DiffCommand extends BaseCommand {
   public execute() {
+    let args;
     try {
-      const args = parseArgs(this.args);
+      args = parseArgs(this.args);
+    } catch (err: any) {
+      // parseArgs doesn't know about format, default to assuming json if --json is passed
+      const io = agentIo(this.args.includes("--json") || this.args.includes("--format") && this.args.includes("json"));
+      return io.fail({ changes: null }, [
+        { severity: "error", code: "specops_diff_usage", message: err.message || String(err) }
+      ]);
+    }
+
+    const io = agentIo(args.format === "json");
+    try {
       const projectDir = resolveProjectDir(args.projectDir);
       const lock = readLock(projectDir);
       if (!lock) {
-        error(`No .specops.lock found in ${projectDir}`);
-        process.exit(1);
+        return io.fail({ changes: null }, [
+          { severity: "error", code: "no_lockfile", message: `No .specops.lock found in ${projectDir}` }
+        ]);
       }
       if (!Array.isArray(lock.packs) || lock.packs.length === 0) {
-        error(".specops.lock has no pack entries.");
-        process.exit(1);
+        return io.fail({ changes: null }, [
+          { severity: "error", code: "specops_lock_empty", message: ".specops.lock has no pack entries." }
+        ]);
       }
 
       if (args.asChange) {
@@ -345,9 +359,10 @@ export class DiffCommand extends BaseCommand {
       } else {
         info(`Diff completed for ${matched} pack(s).`);
       }
-    } catch (err) {
-      error(err.message);
-      process.exit(1);
+    } catch (err: any) {
+      return io.fail({ changes: null }, [
+        { severity: "error", code: "specops_diff_error", message: err.message || String(err) }
+      ]);
     }
   }
 }

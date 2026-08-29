@@ -37,6 +37,8 @@ import {
   resolveHarnessSettings,
   resolveProfileAgent,
 } from "../../../../packages/core/src/infrastructure/HarnessConfigFile";
+
+import { agentIo } from "../../../lib/agent";
 import { checkWriteScope, parseGitStatus } from "../../../../packages/core/src/domain/WriteScope";
 import {
   isEmptyAttempt,
@@ -2030,9 +2032,13 @@ export class RunCommand extends BaseCommand {
       // caused it. It still fails the run, because work was left undone.
       const failed = results.filter((r) => r.result !== "pass").length;
       process.exit(failed > 0 ? 1 : 0);
-    } catch (err) {
-      error(err.message);
-      process.exit(1);
+    } catch (err: any) {
+      let isJson = false;
+      try { isJson = parseArgs(this.args).format === "json"; } catch { /* ignore */ }
+      const io = agentIo(isJson);
+      return io.fail({ results: null }, [
+        { severity: "error", code: "harness_run_error", message: err.message || String(err) }
+      ]);
     }
   }
 }

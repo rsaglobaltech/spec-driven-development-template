@@ -111,10 +111,19 @@ const pad = (n: number) => String(n).padStart(3, "0");
 export async function main(argv: string[]): Promise<void> {
   const opts = parseArgs(argv);
   const io = agentIo(opts.json || wantsJson(argv));
-  const projectDir = resolveProjectDir(opts.projectDir);
+  let projectDir: string;
+  let cfg: any;
+  let client: any;
 
-  const cfg = readAlmConfig(projectDir);
-  const client = makeClient(cfg, undefined, projectDir);
+  try {
+    projectDir = resolveProjectDir(opts.projectDir);
+    cfg = readAlmConfig(projectDir);
+    client = makeClient(cfg, undefined, projectDir);
+  } catch (e: any) {
+    return io.fail(NULL_SHAPE, [
+      error("alm_pull_error", e.message || String(e), { fix: "Check your ALM configuration." }),
+    ]);
+  }
 
   // Declared, not discovered at the first request: Jira searches with JQL,
   // GitHub with query parameters, Azure with WIQL — and a provider that cannot
