@@ -29,7 +29,7 @@ const {
 const { STEPS } = require("../../scripts/agents/commands");
 const { TOOLS } = require("../../packages/mcp-spec-driven/src/tools");
 
-const ROOT_DIR = path.resolve(__dirname, "../../..");
+const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
 const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
 
 function runCli(args: string[]) {

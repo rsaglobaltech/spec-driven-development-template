@@ -19,7 +19,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const ROOT_DIR = path.resolve(__dirname, "../../..");
+const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
 const read = (rel) => fs.readFileSync(path.join(ROOT_DIR, rel), "utf8");
 const json = (rel) => JSON.parse(read(rel));
 

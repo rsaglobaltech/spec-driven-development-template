@@ -13,7 +13,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 
-const ROOT_DIR = path.resolve(__dirname, "../../..");
+const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
 const CLI_DIR = path.join(ROOT_DIR, "dist", "scripts", "alm", "cli.js");
 
 /** A project with an alm.config.yaml pointing at github. */

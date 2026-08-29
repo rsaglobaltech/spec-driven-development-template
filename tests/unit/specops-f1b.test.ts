@@ -21,7 +21,7 @@ const { deltaToPackFragment, stageContribution } = require("../../scripts/specop
 const { depositPackChanges } = require("../../packages/core/src/infrastructure/PackChangeDeposit");
 const { parseDelta } = require("../../packages/core/src/domain/SpecParser");
 
-const ROOT_DIR = path.resolve(__dirname, "..", "..", "..");
+const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
 const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
 
 const cleanup = (...dirs) =>

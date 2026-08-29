@@ -16,7 +16,7 @@ const {
 } = require("../../scripts/alm/core");
 const { jiraClient, azureClient } = require("../../scripts/alm/clients");
 
-const ROOT_DIR = path.resolve(__dirname, "../../..");
+const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
 const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
 
 const RICH_HEADER =

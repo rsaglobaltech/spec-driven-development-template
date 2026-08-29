@@ -17,7 +17,7 @@ const {
 } = require("../../scripts/cli/commands/project/WizardCommand");
 const { parseYamlLite } = require("../../packages/core/src/domain/YamlLite");
 
-const ROOT_DIR = path.resolve(__dirname, "../../..");
+const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
 const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
 
 function cli(...args) {

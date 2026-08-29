@@ -44,7 +44,7 @@ import * as path from "node:path";
 const { Parser, AstBuilder, GherkinClassicTokenMatcher } = require("@cucumber/gherkin");
 const { IdGenerator } = require("@cucumber/messages");
 
-const ROOT_DIR = path.resolve(__dirname, "../../..");
+const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
 
 /** Where this repository keeps Gherkin it hands to other projects. */
 const SHIPPED_ROOTS = ["packs", "templates"];

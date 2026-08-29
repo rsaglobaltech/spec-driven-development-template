@@ -29,7 +29,7 @@ const {
 
 const FIXTURE_ROOT = path.resolve(__dirname, "../../../tests/fixtures/domain-packs");
 const FIXTURE_ID = "parking-management/backend";
-const REPO_ROOT = path.resolve(__dirname, "../../..");
+const REPO_ROOT = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
 
 // ── renderTemplate ────────────────────────────────────────────────────────────
 

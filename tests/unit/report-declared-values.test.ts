@@ -19,7 +19,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { buildReport, buildDeclaredValues, renderHtml, sparkline } = require("../../scripts/report");
 
-const REPO_ROOT = path.resolve(__dirname, "../../..");
+const REPO_ROOT = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
 const CLI = path.join(REPO_ROOT, "bin", "create-spec-driven-app.js");
 
 function cli(...args: string[]) {

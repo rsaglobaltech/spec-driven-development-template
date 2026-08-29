@@ -88,7 +88,7 @@ interface Subcommand {
    * package builds and publishes on its own, so it cannot read this module at
    * runtime — the link is a declaration both sides make and a test compares.
    */
-  mcp?: string;
+  mcp?: string | boolean;
 }
 
 interface Command {
@@ -103,7 +103,7 @@ interface Command {
    * package builds and publishes on its own, so it cannot read this module at
    * runtime — the link is a declaration both sides make and a test compares.
    */
-  mcp?: string;
+  mcp?: string | boolean;
 }
 
 export const SURFACE: Command[] = [
@@ -528,6 +528,13 @@ export const SURFACE: Command[] = [
       summary: "Serve a local, read-only HTML view of the spec tree (--json for agents).",
     },
   },
+  {
+    name: "mcp",
+    script: ["cli", "commands", "mcp", "index.js"],
+    subcommands: [
+      { name: "install", mcp: false, help: { group: "core", icon: "🔌", summary: "Install MCP server configuration for AI clients." } }
+    ]
+  },
 ];
 
 // ── Derived views ─────────────────────────────────────────────────────────────
@@ -629,9 +636,16 @@ export function hiddenCommandCount() {
 export function mcpTools() {
   const out = {};
   for (const command of SURFACE) {
-    if (command.mcp) out[command.mcp] = command.name;
-    for (const sub of command.subcommands || []) {
-      if (sub.mcp) out[sub.mcp] = `${command.name} ${sub.name}`;
+    if (command.subcommands) {
+      for (const sub of command.subcommands) {
+        if (command.mcp === false || sub.mcp === false) continue;
+        const toolName = (typeof sub.mcp === "string" ? sub.mcp : false) || `csda_${command.name}_${sub.name}`.replace(/-/g, "_");
+        out[toolName] = `${command.name} ${sub.name}`;
+      }
+    } else {
+      if (command.mcp === false) continue;
+      const toolName = (typeof command.mcp === "string" ? command.mcp : false) || `csda_${command.name}`.replace(/-/g, "_");
+      out[toolName] = command.name;
     }
   }
   return out;
