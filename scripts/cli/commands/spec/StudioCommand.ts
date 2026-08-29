@@ -23,10 +23,11 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}🎨 studio${c.reset}  ${c.dim}— local read-only visualizer (status + REQ graph)${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda studio${c.reset} [--port <n>] [--project-dir <path>] [--json]\n\n` +
+      `    ${c.cyan}csda studio${c.reset} [--port <n>] [--project-dir <path>] [--out <dir>] [--json]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--port <n>${c.reset}           ${c.dim}Port to serve on (default 4173).${c.reset}\n` +
       `    ${c.green}--project-dir <path>${c.reset} ${c.dim}Project root (auto-detected from cwd if omitted).${c.reset}\n` +
+      `    ${c.green}--out <dir>${c.reset}            ${c.dim}Export static HTML/JSON/Mermaid bundle to <dir>.${c.reset}\n` +
       `    ${c.green}--json${c.reset}               ${c.dim}Print the model as JSON and exit (no server).${c.reset}\n` +
       `    ${c.green}-h, --help${c.reset}           ${c.dim}Show this help.${c.reset}\n\n`
   );
@@ -36,6 +37,7 @@ export interface StudioOptions {
   projectDir: string;
   port: number;
   json: boolean;
+  out?: string;
 }
 
 export function parseArgs(argv: string[]) {
@@ -44,6 +46,7 @@ export function parseArgs(argv: string[]) {
     const a = argv[i];
     if (a === "--port" && argv[i + 1]) opts.port = Number(argv[++i]);
     else if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
+    else if (a === "--out" && argv[i + 1]) opts.out = argv[++i];
     else if (a === "--json") opts.json = true;
     else if (a === "--help" || a === "-h") {
       usage();
@@ -131,11 +134,18 @@ ${rowsHtml}
     </tbody>
   </table>
   <p class="muted">Read-only. Edit with <code>csda req</code> / <code>csda done</code>; refresh to update.</p>
-  <script type="module">
-    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  <script src="./mermaid.min.js"></script>
+  <script>
     mermaid.initialize({ startOnLoad: true });
   </script>
 </body></html>`;
+}
+
+function getMermaidPath() {
+  const local = path.join(__dirname, "../../../../../vendor/mermaid.min.js");
+  if (fs.existsSync(local)) return local;
+  // Fallback for development if run directly from scripts/
+  return path.join(__dirname, "../../../vendor/mermaid.min.js");
 }
 
 function loadModel(projectDir: string) {
@@ -167,7 +177,36 @@ export class StudioCommand extends BaseCommand {
       process.exit(0);
     }
 
+    if (opts.out) {
+      fs.mkdirSync(opts.out, { recursive: true });
+      const model = loadModel(projectDir);
+      fs.writeFileSync(path.join(opts.out, "status.json"), JSON.stringify({ schemaVersion: 1, projectDir, ...model }, null, 2) + "\n");
+      fs.writeFileSync(path.join(opts.out, "index.html"), renderHtml(projectDir, model));
+      
+      const mermaidPath = getMermaidPath();
+      if (fs.existsSync(mermaidPath)) {
+        fs.copyFileSync(mermaidPath, path.join(opts.out, "mermaid.min.js"));
+      } else {
+        process.stderr.write(`${c.red}✖${c.reset}  Bundled mermaid.min.js not found\n`);
+      }
+      
+      process.stdout.write(`\n  ${c.green}✔${c.reset}  Studio exported to ${opts.out}\n\n`);
+      process.exit(0);
+    }
+
     const server = http.createServer((req, res) => {
+      if (req.url === "/mermaid.min.js") {
+        const mermaidPath = getMermaidPath();
+        if (fs.existsSync(mermaidPath)) {
+          res.writeHead(200, { "content-type": "application/javascript" });
+          fs.createReadStream(mermaidPath).pipe(res);
+        } else {
+          res.writeHead(404);
+          res.end("Not found");
+        }
+        return;
+      }
+
       const model = loadModel(projectDir);
       if (req.url === "/status.json") {
         res.writeHead(200, { "content-type": "application/json" });

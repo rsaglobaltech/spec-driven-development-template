@@ -15,6 +15,7 @@
     "dist/packages/core/",
     "templates/",
     "examples/",
+    "vendor/",
     "README.md",
     "CHANGELOG.md"
   ],
