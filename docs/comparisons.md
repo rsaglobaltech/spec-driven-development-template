@@ -40,9 +40,20 @@ tool exist because of it.
 | **Slash commands for agent tools** | ✅ 8 tools | ✅ | ❌ | n/a | ❌ | ❌ |
 | **Configurable artefact graph** | ✅ `specgate schema` | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Multi-repo spec sharing** | ✅ private packs | ⚠️ Stores | ❌ | ❌ | ❌ | ❌ |
-| **Time to first value** | ⚠️ minutes | ✅ minutes | ✅ minutes | ✅ instant | ✅ instant | ✅ instant |
+| **Time to first value** | ✅ **< 1s CLI, measured**[^ttfv] | ✅ minutes | ✅ minutes | ✅ instant | ✅ instant | ✅ instant |
 
 ✅ supported · ⚠️ partial / via workaround · ❌ not supported · 🚧 in progress
+
+[^ttfv]: Measured 2026-08-26 on a fresh two-file Java repo:
+    `adopt` + first `validate .` — 0.23s combined, green on the first try.
+    That is the CLI's own overhead, not a claim about how fast a person
+    orients themselves; this row used to say "⚠️ minutes" as an unmeasured
+    self-rating, and turning it into a number was overdue. The honest
+    limitation: the columns for OpenSpec and `spec-kit` are not independently
+    timed here, so this is our own number next to their own stated claims, not
+    an apples-to-apples benchmark. What the CLI *cannot* make instant, in any
+    of the compared tools: writing the first real Gherkin scenario and test is
+    human time regardless of tooling.
 
 ---
 
@@ -200,7 +211,8 @@ not want this tool.
 - [Cursor `.cursorrules` documentation](https://docs.cursor.com/context/rules-for-ai)
 - [Aider CONVENTIONS.md guide](https://aider.chat/docs/usage/conventions.html)
 
-Our own column was last verified against the shipped CLI on **2026-08-16**.
+Our own column was last verified against the shipped CLI on **2026-08-16**,
+and the "Time to first value" row re-measured on **2026-08-26** (see the footnote).
 OpenSpec was reviewed **2026-08**; the other columns **2026-05**.
 Pull requests with corrections are welcome — see
 [CONTRIBUTING.md](../CONTRIBUTING.md).
