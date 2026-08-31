@@ -1266,6 +1266,108 @@ dos de estas ejecuciones estaban en marcha, así que sus procesos posteriores
 recogieron código nuevo a media ejecución. No invalida los hallazgos —cada uno
 se reprodujo después— pero es una forma sucia de medir y no debería repetirse.
 
+### La puerta de entrada brownfield, arreglada (2026-08-18)
+
+*Los cuatro salieron de ejecutar el CLI contra `lakebase-platform` y
+`lixi-platform`. Ninguno se veía leyendo el código, y los cuatro estaban en la
+primera pantalla que ve alguien que llega con un repo Java.*
+
+| # | Defecto | Nota | Estado |
+|---|---|---|---|
+| H16 | **`onboard` se escapa al proyecto padre desde un subproyecto.** En `lixi-platform/lixy-api/` (299 ficheros Java, sin adoptar) responde con la ruta, el stack y las capacidades del **repo padre** — Node/TypeScript, y encima «✔ already adopted». `resolveProjectDir` sube buscando `spec.md` y encuentra el del ancestro | En la misma carpeta `csda adopt` **sí** acierta el stack Java: dos comandos discrepan sobre en qué proyecto estás. Analizar otro proyecto en silencio es peor que fallar. `onboard` corre por definición sobre repos aún no adoptados: no debería resolver hacia arriba, o debe decir en voz alta que subió | **Cerrado** |
+| H17 | **Cero capacidades sobre un proyecto Java hexagonal.** `csda onboard --project-dir lixy-api` responde «Nothing obvious from the layout» sobre 299 ficheros con `domain/` en la raíz y 8 contextos acotados dentro. `descendThroughWrappers` solo desciende con **un** hijo, y `domain/` tiene dos: `src` y el `build/` de Gradle | **Un directorio de salida de compilación ciega el comando.** Arreglo verificado ejecutando la variante parcheada sobre el repo: (a) saltar el envoltorio `src/main/{java,kotlin}` y (b) ignorar `build`/`target`/`dist`/`out` al contar hijos. Pasa de 0 a los 8 contextos correctos. Hermano de H14 — misma causa de fondo: `NOT_DOMAIN` se aplica donde no toca | **Cerrado** |
+| H14 | **`onboard` no ve el código en un layout Java.** `countFiles` poda `src`, `main` y `java` porque están en `NOT_DOMAIN`, así que en un proyecto Maven o Gradle nunca llega a los ficheros. Medido sobre Lakebase: reporta `Platform 1 fichero` donde hay **38**, y `Catalog 2` donde hay **16** | Descubierto ejecutando `csda onboard` contra `lakebase-platform` (§12.14). La lista **se ordena por ese recuento**, así que el orden sale casi invertido: el módulo mayor y más tocado aparece el último. En repos Node la heurística funciona; en Java miente con confianza. **Confirmado por contraste**: sobre `lixi-platform` (TypeScript) el mismo comando acierta los siete contextos con recuentos correctos. Arreglo: no podar por nombre al contar — podar solo lo que no es código (`build`, `target`, `node_modules`) | **Cerrado** |
+| H15 | **`validate` da verde sobre una adopción abandonada.** En `lixi-platform`, adoptado hace meses, `validate` responde `✅ Validation passed · Features detected: 1` con un único requisito de relleno (`REQ-001 Existing behaviour is preserved`) mientras el repo tiene **297 casos de test** y 12 contratos JSON congelados que la matriz no describe | No hay diferencia observable entre «adoptado y especificado» y «adoptado y abandonado», y `validate` es el comando que la gente pone en CI. `status` sí es honesto. Arreglo barato: `validate` conoce el `baseline.feature` que él mismo escribe — si es la única feature del proyecto, avisar en vez de dar verde limpio. Ver `lixi-pilot-assessment.md` | **Cerrado** |
+
+**Medido después del arreglo**, con los mismos comandos que los destaparon:
+
+| Repo | Antes | Después |
+|---|---|---|
+| `lixy-api` desde dentro | proyecto padre, stack Node, capacidades del código muerto | su propia ruta y stack Java, **8 contextos**, y el ancestro adoptado se anuncia en vez de sustituir |
+| `lixy-api` con `--project-dir` | «Nothing obvious from the layout» | Booking(28) · Business(20) · Subscription(15) · Wallet(6) · Identity(5) · Notifications(4) … |
+| `lakebase-platform` | Platform 1 · Catalog 2 · Engine 1 · Ingestion 2 | **Platform 49 · Catalog 26 · Engine 24 · Ingestion 13 · Sql Engine 4** — el orden ya coincide con el tamaño real y con el churn |
+| `lixi-platform` | `✅ Validation passed` y nada más | pasa igual, y avisa: «Adoption never retro-filled» con los tres comandos para salir de ahí |
+
+La puerta **no se endureció**: una adopción fresca sigue pasando `validate`. Un
+gate que rechaza el primer día es un gate que nadie instala; lo que no puede es
+callarse después.
+
+Tests: `tests/unit/onboard.test.ts` (H14, H16, H17) y `tests/unit/adopt.test.ts`
+(H15), cada uno con el repo real que lo destapó citado en el comentario.
+
+### El corpus, o por qué H14/H17 no bastaban (2026-08-18)
+
+Arreglar `onboard` contra Lakebase y Lixi lo dejaba ajustado a **dos** repos. La
+comprobación honesta era medirlo contra repositorios que nadie de aquí ha tocado,
+así que se reconstruyeron los árboles reales de dieciséis proyectos públicos
+(`git/trees?recursive=1`, sin descargar contenido) y se le preguntó a cada uno.
+
+**Resultado inicial: acertaba en 5 de 16.** Nueve no proponían nada y dos
+proponían basura — a `ripgrep` le dijo que sus capacidades eran `pkg/brew` y
+`pkg/windows`, dos directorios de empaquetado. Ese es el modo de fallo que el
+propio comando declara inaceptable: *«a confident wrong answer is worse than
+silence»*.
+
+El error era estructural, no de lista: **el repositorio casi siempre declara sus
+módulos y nosotros adivinábamos en vez de leerlos.** Un directorio con su propio
+manifiesto de build es un módulo por definición del equipo, y una sola regla
+cubre Maven, Gradle, workspaces de npm/pnpm, miembros de Cargo, módulos de Go,
+gemas de Ruby, proyectos .NET y paquetes de Composer — sin un parser por
+ecosistema.
+
+Cinco reglas más, cada una nacida de un repo concreto:
+
+| Regla | La destapó |
+|---|---|
+| Puntuar los candidatos por código, no coger el primero de la lista | `ripgrep` |
+| Pesar solo ficheros de código | `nest` — sus apps de ejemplo pesaban más que los paquetes que ilustran |
+| Los módulos en capas se descienden, no se proponen | `lixy-api` — cuatro vistas de un producto no son cuatro capacidades |
+| Un reparto donde un hijo se lo lleva casi todo es un envoltorio | `django` — la raíz leía `django` (929) y `js_tests` (11) |
+| Un repo puede tener subproyectos y aun así **ser** un proyecto | `loki` — no es su operador de Kubernetes |
+| `test/`, `sample/`, `examples/` y `build-logic/` nunca son módulos | `serilog` (cuatro ensamblados de test) y `flask` (tres apps de ejemplo) |
+
+**Ahora responde en 14 de 16, y los otros dos callan a propósito** — `cobra` y
+`express` son librerías planas y cualquier estructura sería inventada.
+
+El corpus quedó como suite: `tests/unit/onboard-corpus.test.ts`, un fixture por
+forma de layout con el proyecto real que lo motiva citado en el nombre. Incluye
+la propiedad que más importa en CI: **la propuesta no cambia después de que
+alguien compile.**
+
+> Lección que vale más que el arreglo: dos repos de ejemplo no son evidencia, son
+> anécdota. El corpus costó una tarde y encontró once fallos que ninguno de los
+> dos pilotos habría enseñado nunca.
+
+### La costura que perdía la adopción entera (2026-08-19)
+
+Al preguntar «qué falta» apareció algo que no estaba anotado y que era más grave
+que cualquiera de los defectos anteriores: **`adopt` nunca llamaba a
+`proposeCapabilities`.** Los dos comandos no se hablaban.
+
+```
+csda onboard   → 8 capacidades, con evidencia y recuento
+csda adopt     → spec.md con «REQ-001 Existing behaviour is preserved»
+```
+
+Le sacábamos al repositorio su estructura real y acto seguido la tirábamos. Ahí
+es exactamente donde murió la adopción de Lixi, y ningún arreglo de `onboard` lo
+habría salvado: el comando acertaba y su respuesta no llegaba a ningún sitio.
+
+`adopt` ahora siembra un requisito por capacidad. Cada uno dice **«Proposed, not
+specified»**, nombra el directorio y el recuento de donde salió, y entra como
+`Draft` con test `TBD` — pasa `--strict-tdd` sin afirmar nada. `--no-capabilities`
+lo desactiva.
+
+Medido en Lakebase: `status` pasa de «1 requisito pendiente» a «8 requirement(s)
+missing a .feature». De página en blanco a lista de tareas.
+
+**Y el aviso de H15 sigue saltando**, que es lo correcto: sembrar propuestas no es
+especificar. La puerta solo se calla cuando hay un escenario de verdad.
+
+> Lección: los defectos de un comando se ven ejecutándolo; los defectos **entre**
+> comandos solo se ven preguntando qué falta. `onboard` y `adopt` tenían sus tests
+> verdes cada uno por su lado mientras el producto se caía por la junta.
+
 ### Abiertos
 
 *Depurado el 2026-08-26.* Esta tabla listaba **H13, H15 y H16** como abiertos
@@ -1302,6 +1404,257 @@ release después del 1.0.
 
 **Lo que sí bloquea sigue siendo G3:** nadie de fuera lo ha usado. P2 lo hace
 más probable, pero no lo sustituye.
+
+La taxonomía greenfield/brownfield/bluefield añadió **P3** y **P4** — ver §12.13.
+
+---
+
+## 12.13 Greenfield · Brownfield · Bluefield — dónde encaja este CLI
+
+*Anotado el 2026-08-18. La taxonomía llegó de fuera; la valoración es contra el
+código de v0.6.0, no contra la intención.*
+
+### La taxonomía es correcta, pero su eje no es el nuestro
+
+El planteamiento clásico ordena los tres casos sobre el **contrato de API**:
+greenfield = *design-first* (se escribe el OpenAPI y de ahí salen scaffolding,
+contratos y tests), brownfield = *code-first* (la spec se extrae del código con
+anotaciones o ingeniería inversa), bluefield = fachada limpia sobre lo viejo.
+
+Nuestra unidad de spec **no es el contrato de API, es el comportamiento**:
+requisitos con escenarios Gherkin y una matriz de trazabilidad de diez columnas.
+Consecuencia directa: **la mitad *code-first* de la definición no tiene análogo
+aquí.** De una anotación se puede derivar una firma HTTP; no se puede derivar la
+intención ni el criterio de aceptación. Un `@Operation` no dice qué debe pasar
+cuando el consentimiento del paciente está revocado.
+
+Por eso nuestra respuesta brownfield es otra, y ya está construida:
+
+| Pieza | Qué hace | Por qué no es ingeniería inversa |
+|---|---|---|
+| `csda adopt` | Instala el esqueleto. Nunca sobrescribe un fichero, nunca toca `src/` | Es mecánico y reversible; no afirma nada sobre el sistema |
+| `csda onboard` | Lee el repo y **propone** capacidades con la evidencia de cada una | Es una propuesta con la que discutir, no un dictamen. `scripts/onboard.ts` lo dice en su cabecera |
+| `csda req link` | Ata un requisito a código y test **que ya existen** | La spec se **afirma** y CI la verifica. Documentar describe; esto compromete |
+
+La diferencia importa: documentar un sistema heredado produce un texto que nadie
+vuelve a leer. Enlazar un requisito a código existente produce una fila que la
+build rompe cuando deja de ser verdad.
+
+### Greenfield no es «el escenario ideal» para nosotros — es el que menos prueba
+
+Es donde la herramienta luce, y por eso desconfío de él. El repo ya tiene esa
+decisión tomada y escrita en dos sitios:
+
+- **ADR-0015** abre reconociendo el defecto: *«Brownfield was second class»*.
+  Todo comando asumía un proyecto generado. El ciclo de cambio existe en parte
+  para corregir eso.
+- Los **dos pilotos están contrastados a propósito**: CsdaStudioApp es el
+  dogfood greenfield; HIE (`mejoras/hie-pilot-runbook.md`) es brownfield real —
+  Spring Boot 3.3 / Java 21 + HAPI FHIR, dominio regulado. Su runbook lo dice
+  sin rodeos: enlazar REQ-001..009 a código que ya está *«es el trabajo
+  brownfield de verdad, y es distinto de generarlo»*.
+
+La escalera L1–L4 de `docs/how-to.md` es la misma tesis en forma de producto:
+cada nivel sirve solo y ninguno exige los de arriba. Eso es adopción
+incremental, que es lo único que funciona sobre código ajeno.
+
+### Bluefield: el hueco real, y no lo teníamos nombrado
+
+Ni el CLI ni la documentación tienen ruta para el caso híbrido —fachada nueva
+sobre sistema viejo, *strangler fig*—, y al mirarlo aparecen tres fricciones
+concretas, no una sensación:
+
+1. **La fachada rompe la matriz.** Un requisito cuya implementación es «delegar
+   en el legacy» no tiene test propio que pruebe el comportamiento; o la fila
+   miente, o hay que escribir *characterization tests* del sistema viejo antes
+   de poder enlazar. Nada en `validate` distingue hoy esos dos casos.
+2. **`onboard` no duplica: omite en silencio.** ~~Propondrá capacidades
+   duplicadas~~ — **medido el mismo día sobre `lixi-platform` y es peor**:
+   `DOMAIN_ROOTS` devuelve la primera raíz con ≥2 hijos, así que propuso los 7
+   contextos del backend **legacy** e ignoró por completo el backend nuevo (299
+   ficheros Java) y la app Flutter (90 Dart). El «Next» que sugiere es describir
+   el sistema que se está retirando. Un duplicado se ve; una omisión no.
+3. **Suele ser multi-repo**, que es exactamente **P1**. El caso bluefield no es
+   un hueco independiente: es el que hace que P1 duela.
+
+Lo que sí encaja ya, y conviene decirlo: las **specs delta** con marcadores
+ADDED/MODIFIED/REMOVED son la forma natural de registrar una migración por
+estrangulamiento —cada trozo que pasa del legacy a lo nuevo es un `change`, no
+una reescritura de la spec entera.
+
+**Y ya no es hipotético** —aunque el ejemplo obliga a afinar la categoría—.
+`lixi-platform` migra su API Next.js a Spring WebFlux contra la misma base, y el
+equipo construyó a mano la puerta que al caso le faltaba: 12 fixtures dorados
+congelados desde la implementación vieja.
+
+Pero **allí el TypeScript es código muerto**, así que no es bluefield del todo:
+es **greenfield con contrato** —implementación nueva cuyos criterios de
+aceptación vienen de un sistema difunto—. El sistema viejo no es un codebase que
+especificar: es **la fuente de la especificación**. Es un cuarto caso, más común
+que el bluefield puro (toda reescritura acaba aquí) y **el más favorable para
+nosotros**, porque existe un oráculo ejecutable de lo que el código nuevo debe
+hacer. Detalle en [`lixi-pilot-assessment.md`](./lixi-pilot-assessment.md).
+
+### Y una promesa que hoy no tiene puerta
+
+La retrocompatibilidad que el caso brownfield exige está **declarada pero no
+verificada**. El `project_type: contracts` (ADR-0011) tiene `api_contracts[]`,
+`consumer_driven_tests[]` y `breaking_change_rules[]` en el schema, pero
+`scripts/lint_pack.ts:111-135` solo comprueba **cobertura referencial** — que
+cada REQ esté citado por alguna entrada. No se comprueba que el `schema_ref`
+exista, no hay diff de OpenAPI entre versiones, y los Pact no se verifican.
+
+O sea: un pack puede declarar «sin cambios rompedores sin subir major» y pasar
+la puerta habiendo roto a todos sus consumidores. Es la única de estas
+observaciones que es un defecto, no un hueco de alcance.
+
+### Huecos que esto añade
+
+| ID | Hueco | Estado y coste |
+|---|---|---|
+| **P3** | **Sin ruta bluefield / strangler fig.** No hay forma de expresar «este requisito lo sirve la fachada delegando en el legacy», `onboard` duplica capacidades cuando conviven dos layouts, y el caso suele ser multi-repo (→ P1) | **Abierto, v2.** No construir un «modo bluefield». Lo barato y honesto es nombrar los tres casos en la escalera L1–L4 de `docs/how-to.md` y documentar el patrón sobre lo que ya hay (change lifecycle + specs delta). El resto espera a que un usuario real lo pida |
+| **P4** | **Los contratos de API se declaran, no se verifican.** `breaking_change_rules[]` y `api_contracts[]` solo se lintan por cobertura referencial | **Abierto, barato y es un defecto.** Primer paso, casi gratis: que `pack lint` exija que el `schema_ref` exista. Segundo: diff de OpenAPI entre versiones del pack en `specops diff`. Defiende justo la promesa que el caso brownfield compra |
+
+**Prioridad frente a 1.0:** ninguno bloquea, y P3 no debería adelantarse a **G3**
+(nadie de fuera lo ha usado todavía) — inventar el caso híbrido sin un usuario
+que lo tenga es diseñar a ciegas. **P4 sí es candidato antes de 1.0**: es un
+lint, y hoy la herramienta afirma algo que no comprueba, que es exactamente el
+defecto que §12.11 nos enseñó a no tolerar.
+
+---
+
+## 12.14 Inferir specs desde código existente — el diseño, y su banco de pruebas
+
+*Anotado el 2026-08-18. Sale de la pregunta obvia que deja §12.13: si el caso
+brownfield es el que importa, ¿podemos **generar** las features desde el código
+en vez de pedirlas a mano?*
+
+### La pregunta que decide el diseño
+
+`harness run` va spec → agente → código y funciona **porque tiene puerta
+ejecutable**: `validate --strict-tdd` más el comando de test. Señal de
+recompensa real.
+
+Al revés —código → agente → spec— **no hay puerta obvia**. Un `.feature`
+generado puede ser plausible y falso, y nada falla. Eso es documentación
+generada, que es exactamente lo que esta herramienta existe para no producir.
+Sin puerta, esto es un generador de mentiras a escala.
+
+### La puerta existe y es barata
+
+**El escenario generado tiene que ejecutarse en verde contra el código sin
+tocar.** Verde → describe comportamiento real, y es un *characterization test*.
+Rojo → era una suposición, y no entra.
+
+Eso convierte «inferir specs» de documentar (inverificable) a **testear por
+caracterización** (verificable), con la misma maquinaria que ya existe: worktree
+aislado, shell-out al agente, gate, commit por ítem.
+
+**Refuerzo anti-vacuidad:** un test que pasa puede no afirmar nada. Ya tenemos
+Stryker (`mutation:pilot`, baseline 51,32 %). Gate estricto: el escenario debe
+**matar al menos un mutante** del código que dice describir.
+
+**La puerta tiene dos niveles, no uno** — corrección que trae `lixi-platform`,
+donde un equipo la construyó a mano antes que nosotros: **nivel 1, forma** —el
+conjunto de claves del JSON contra un fixture dorado, hermético y rápido, en CI
+sin levantar nada— y **nivel 2, valores** —byte a byte contra el sistema vivo,
+que es el caro. Nuestro diseño solo contemplaba el nivel 2. El 1 da la mayor
+parte del valor por una fracción del coste.
+
+**El premio medible:** hoy `report` cuenta requisitos sin código ni test. Lo
+inverso —**código sin requisito**— nunca se ha medido, y es la definición
+operativa de «adopción completa». Con los escenarios generados corriendo bajo
+cobertura, la unión de líneas cubiertas es *la parte del sistema que está
+especificada*. Un número, no una sensación.
+
+### Etapas
+
+| # | Qué | Determinista |
+|---|---|---|
+| 1 | `onboard` de hoy — capacidades del layout y stack | Sí |
+| 2 | **Cosecha de evidencia** por capacidad: símbolos exportados, rutas HTTP, comandos CLI y sobre todo **nombres de tests existentes** | Sí |
+| 3 | Pase de agente por capacidad → contrato JSON (ADR-0017) con REQ, Gherkin, enlaces candidatos, confianza y evidencia | No |
+| 4 | Gate: verde contra código intacto; con `--strict`, además un mutante muerto. Si no pasa, queda `Unverified` y no cuenta | Sí |
+| 5 | Emisión: un `csda change new` por capacidad, spec delta, revisión humana en PR | — |
+
+La etapa 2 es la infravalorada: **un test llamado `rejects_expired_token` ya es
+un enunciado de requisito.** Es determinista, gratis, offline, sin proveedor, y
+se puede entregar sola.
+
+### Lo que no se hace
+
+- **Que el LLM invente agregados y bounded contexts.** ADR-0014 lo rechazó con
+  la razón exacta —«produciría ruido confiado»— y sigue siendo verdad.
+- **Escribir directo en `spec.md` o `pack.yaml`.** ADR-0014, alternativa 2. Todo
+  sale como `change`, revisable en un PR.
+- **Volcado masivo.** Un legacy real da cientos de requisitos y nadie revisa eso.
+  Por capacidad, y ordenadas por **churn × acoplamiento** (`git log
+  --name-only`): especificar primero lo que más cambia, porque spec sobre código
+  congelado no vale nada.
+
+### Banco de pruebas: Lakebase
+
+Evaluado el mismo día — detalle completo en
+[`lakebase-pilot-assessment.md`](./lakebase-pilot-assessment.md). Resumen:
+plataforma de datos Java 21 / Spring Boot / Gradle multi-módulo, 87 ficheros de
+producción, 104 `@Test`, más un SDK y una CLI en Python. **Es mejor espécimen
+que HIE para esto**, por dos motivos que no se pueden fabricar:
+
+1. Sus nombres de test ya son enunciados de dominio (`selectExigeSelect`,
+   `autenticadoSinConcesionesDenegado`, `herenciaNoAsciende`), o sea la etapa 2
+   servida.
+2. Tiene **verdad de referencia escrita antes que nosotros**: un inventario
+   medido por módulo y una auditoría con hallazgos identificados. Permite medir
+   precisión y recall de la inferencia, no opinar sobre si «suena bien».
+
+Ejecutar el CLI contra él ya rindió un defecto (**H14**) y dos huecos.
+
+### El caso que prueba que hace falta: Lixi
+
+Evaluado el mismo día — detalle en
+[`lixi-pilot-assessment.md`](./lixi-pilot-assessment.md). No es un candidato a
+piloto: es **la prueba, ya ocurrida**, de la premisa de P5.
+
+`csda adopt` se ejecutó allí hace meses. Hoy el repo tiene **1 requisito de
+relleno**, 1 feature y 1 fila de matriz — frente a **297 casos de test** (171
+TypeScript + 126 Java) y 12 contratos JSON congelados y verificados en CI. Y
+**nada de la adopción llegó a git**: `spec.md`, `AI_RULES.md`, `features/` y
+`docs/` siguen sin comitear.
+
+> El esqueleto estaba bien puesto y `validate` pasaba. La adopción no arrancó
+> igualmente, porque el paso siguiente es «siéntate a escribir requisitos a
+> mano». **No es indisciplina del equipo: es el producto pidiendo trabajo que
+> puede automatizar.**
+
+Sus 12 fixtures de paridad son requisitos ya verificados. Convertirlos en 12
+filas de matriz con `req link`, sin escribir un solo test nuevo, es la demo de
+P5 más barata que existe. De aquí salen además **H15** y **P7**.
+
+### Huecos que esto añade
+
+| ID | Hueco | Estado y coste |
+|---|---|---|
+| **P5** | **No se pueden inferir specs desde código existente.** `onboard` propone capacidades; nadie propone requisitos, escenarios ni enlaces. Un `spec.md` vacío sigue siendo el punto donde se atasca la adopción | **Abierto, la apuesta grande post-1.0.** Etapa 2 determinista ~2-3 PD; etapas 3-4 ~5-8 PD, y el gate es la parte cara. **La etapa 2 se puede entregar sola y antes**: es un cosechador de nombres de test, sin LLM ni proveedor |
+| ~~**P6**~~ | ~~**`adopt` no sabe de monorepos.**~~ **Cerrado el 2026-08-19.** `adopt --monorepo` adopta cada módulo declarado y escribe el `specops.config.yaml` que `validate` ya sabía leer | Salió casi gratis: `findDeclaredModules` se había construido para arreglar `onboard` y la lista de módulos era la misma. Medido en Lakebase: 8 módulos adoptados, `validate .` da 8/8. **Sigue abierto L3** — un requisito transversal no tiene dónde vivir, que es **P1** dentro de un mismo repo |
+| **P7** | **Las reglas de agente son de raíz y pisan la convención del repo.** `adopt` escribe `AI_RULES.md` sin mirar si ya hay `AGENTS.md` o `CLAUDE.md` — en `lixi-platform` dejó un tercer fichero de reglas huérfano junto a dos que sí se leen. Y de fondo: **sus reglas son por ruta y las nuestras no**. Un repo con dos backends bajo reglas opuestas («nunca bloquees el event loop» vale en `lixy-api/` y no significa nada en la raíz) no puede describirse con un `AI_RULES.md` único | **Abierto, barato.** Dos piezas separables: (a) `adopt` detecta `AGENTS.md`/`CLAUDE.md` y se integra en vez de añadir un tercero — `csda agents init` ya escribe `AGENTS.md`, así que la mitad existe; (b) reglas por ruta, que es la misma forma que pide P6. Bluefield lo necesita por definición |
+
+**Prioridad frente a 1.0, revisada con Lixi encima de la mesa:** el argumento de
+«no adelantarse a G3» se sostenía cuando el único espécimen era Lakebase — un
+repo que se puede medir, pero no un usuario. Lixi es distinto: **es una adopción
+real que se murió sola**, y eso es una necesidad demostrada, no una hipótesis.
+
+Aun así P5 completo sigue sin caber en 1.0: son 8-11 PD y una dependencia de
+proveedor. Lo que sí sube de prioridad es lo que no necesita agente:
+
+- ~~**H14, H15, H16 y H17**~~ — **cerrados el 2026-08-18** en
+  `fix/brownfield-onboarding-java`. Eran la puerta de entrada entera sobre Java: o
+  te mandaba al proyecto equivocado, o callaba sobre 299 ficheros, o ordenaba al
+  revés, o certificaba una adopción vacía. Detalle y medidas en §12.11.
+- ~~**P6**~~ (`adopt --monorepo`) — **cerrado el 2026-08-19**.
+- **Etapa 2** (cosecha de nombres de test) — sin LLM, sin proveedor, sin decisión de
+  modelo. Es lo siguiente.
+- **P7 (a)** — detectar `AGENTS.md` en vez de dejar un fichero huérfano. Es una
+  comprobación de existencia.
 
 ---
 

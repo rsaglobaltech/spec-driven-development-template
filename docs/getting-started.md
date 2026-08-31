@@ -13,6 +13,9 @@ matrix on a codebase that already exists, without touching a line of code.
 ```bash
 cd your-existing-repo
 
+# Read the repository first. Writes nothing.
+npx create-spec-driven-app@latest onboard
+
 # Detects the stack from pom.xml / build.gradle / package.json / go.mod
 npx specgate@latest adopt
 
@@ -20,17 +23,34 @@ npx specgate@latest adopt
 npx specgate@latest validate .
 ```
 
+Start with `onboard`. It proposes the capabilities your layout already implies
+and names the evidence for each — the modules your build declares, or the level
+at which your code divides:
+
+```
+3. Capabilities this codebase already implies
+   · Booking       domain/src/main/java/com/acme/booking   (28 files)
+   · Business      domain/src/main/java/com/acme/business   (20 files)
+   · Wallet        domain/src/main/java/com/acme/wallet       (6 files)
+```
+
+`adopt` then seeds one **proposed** requirement per capability, so `spec.md`
+starts as a handful of statements to argue with instead of a blank page. Each
+one says it is a guess and names where it came from; each gets a `Draft` row
+with a `TBD` test, so nothing claims to be specified or verified.
+
 What `adopt` writes (and only if the file does not already exist):
 
 | File | Purpose |
 | --- | --- |
-| `spec.md` | Requirement sections; seeded with REQ-001 "existing behaviour is preserved". |
+| `spec.md` | REQ-001 "existing behaviour is preserved", plus one proposed requirement per capability. |
 | `AI_RULES.md` | Agent/human rulebook with your detected stack and test command. |
 | `features/adoption/baseline.feature` | Baseline Gherkin scenario pinning the adoption invariant. |
-| `docs/specs/traceability.md` | Rich matrix with the baseline row. |
+| `docs/specs/traceability.md` | Rich matrix with the baseline row and a row per proposal. |
 | `docs/specs/adr/README.md` | ADR index for future decisions. |
 
-Override anything the detection got wrong with `--var`:
+Override anything the detection got wrong with `--var`, and skip the proposals
+entirely with `--no-capabilities`:
 
 ```bash
 npx specgate@latest adopt \
@@ -38,8 +58,24 @@ npx specgate@latest adopt \
   --var TEST_CMD="./mvnw -B verify"
 ```
 
+### A repository with more than one module
+
+If your build declares modules — Maven or Gradle sub-projects, npm or pnpm
+workspaces, Cargo members, Go modules, gems, `.csproj` files — adopt each one
+and let `validate` aggregate:
+
+```bash
+npx create-spec-driven-app@latest adopt --monorepo
+npx create-spec-driven-app@latest validate .   # one line per module
+```
+
+That writes `specops.config.yaml` listing every module it adopted. The
+repository root stays out of it: in monorepo mode `validate` checks the
+children.
+
 Then retro-fill real requirements one at a time (recipe 2) and lock the gate
-in CI (recipes 4–5).
+in CI (recipes 4–5). Until you do, `validate` passes but says so — an adoption
+whose only scenario is the baseline certifies the skeleton, not the code.
 
 ---
 

@@ -45,6 +45,23 @@ What `validate` checks:
 
 Exit codes: `0` ok · `1` unhandled · `2` usage · `3` missing prerequisite · `4` destination conflict.
 
+### The one thing a pass does not tell you
+
+A freshly adopted repository passes on day one — deliberately, because a gate
+that rejects a new adoption is a gate nobody installs. So `validate` warns when
+the only scenario in the project is still the baseline `adopt` wrote:
+
+```
+✅ Validation passed
+⚠️ [WARN] Adoption never retro-filled — the only scenario is the adoption baseline.
+```
+
+It is a warning, not a failure: the exit code stays `0` and CI stays green. It
+exists because the alternative is worse — a project that specified nothing
+looking exactly like a healthy one at the only place most teams check. In
+`--json`, `validation.adoptionRetrofilled` carries the same fact, alongside an
+`adoption_not_retrofilled` advisory in `status[]`.
+
 ---
 
 ---
