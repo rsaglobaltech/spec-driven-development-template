@@ -12,7 +12,7 @@ document — run it locally, then make it a required check.
 Local:
 
 ```bash
-npx create-spec-driven-app@latest validate .
+npx specgate@latest validate .
 ```
 
 GitHub Actions:
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
-      - run: npx --yes create-spec-driven-app@latest validate .
+      - run: npx --yes specgate@latest validate .
 ```
 
 What `validate` checks:
@@ -54,7 +54,7 @@ Exit codes: `0` ok · `1` unhandled · `2` usage · `3` missing prerequisite · 
 **Goal:** fail PRs when a `REQ` exists in `spec.md` but has no scenario, no implementing test, or no row in `traceability.md`.
 
 ```bash
-npx create-spec-driven-app@latest validate . --strict-tdd
+npx specgate@latest validate . --strict-tdd
 ```
 
 `--strict-tdd` is in addition to the normal checks. It is intended for "no contract without a test" gates — particularly useful in `contracts` packs (see §8). Wire it into CI exactly like `validate`, just append the flag.
@@ -81,8 +81,8 @@ Applies the pack's eight scenario quality rules to `features/**/*.feature`:
   that names the behaviour.
 - No vague, unfalsifiable step text; no `Scenario Outline` without `Examples`.
 
-`csda doctor` reports the same rules as advisories rather than failures, which
-is the gradual path for a repository brought in with `csda adopt`.
+`specgate doctor` reports the same rules as advisories rather than failures, which
+is the gradual path for a repository brought in with `specgate adopt`.
 
 ### `--strict-requirements` — the requirement states an obligation
 
@@ -125,7 +125,7 @@ but the spec requires 15m*. `--strict-requirements` checks the shape of the
 sentence; `--strict-links` checks that the file exists; neither reads what is
 in it.
 
-Annotate the value on both sides, and `csda report` compares them:
+Annotate the value on both sides, and `specgate report` compares them:
 
 ```markdown
 <!-- csda:trace uc=Login value_session_timeout=15m -->
@@ -162,14 +162,14 @@ grammars it does not parse.
 Three routes, and only one of them needed a new command:
 
 1. **Fix the code** — the report already gives `file:line`. Open it.
-2. **Update the spec** — `csda change new <id> --from-value-drift REQ-ID:value_id`
+2. **Update the spec** — `specgate change new <id> --from-value-drift REQ-ID:value_id`
    writes the delta: the full requirement copied into a `## MODIFIED
    Requirements` section with `value_<id>` rewritten to the code's value.
    **The prose is not rewritten** — turning "expires after 15 minutes" into
    "after 30" would be guessing how a sentence should sound on someone's
    behalf, so it leaves an explicit `TODO:` instead. Review it, then
-   `csda change validate` and `csda change archive` as usual.
-3. **Retire the requirement** — already `csda change new <id> --capability <cap>`
+   `specgate change validate` and `specgate change archive` as usual.
+3. **Retire the requirement** — already `specgate change new <id> --capability <cap>`
    with a `## REMOVED Requirements` section. The removal mechanism does not
    care why something is removed.
 

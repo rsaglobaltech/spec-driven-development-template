@@ -20,11 +20,16 @@ function runCli(args, options = {}) {
 test("shows the core help with no args", () => {
   const result = runCli([]);
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /create-spec-driven-app/);
+  assert.match(result.stdout, /specgate/);
+  assert.doesNotMatch(
+    result.stdout,
+    /create-spec-driven-app/,
+    "the old name must not appear in the surface a newcomer meets first (ADR-0024)"
+  );
   assert.match(result.stdout, /\bUSAGE\b/i);
   // Eight commands, not twenty-one. The rest are one flag away.
   assert.match(result.stdout, /START HERE/);
-  assert.match(result.stdout, /csda --help --all/);
+  assert.match(result.stdout, /specgate --help --all/);
   assert.doesNotMatch(result.stdout, /expand --pack-root/);
 });
 

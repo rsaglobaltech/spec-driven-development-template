@@ -9,7 +9,7 @@ For reporting a vulnerability, see [SECURITY.md](../SECURITY.md).
 
 ## What a pack can do
 
-`csda specops add` clones a pack repository at a pinned tag and renders its
+`specgate specops add` clones a pack repository at a pinned tag and renders its
 templates into your project. Rendering writes files. It does not execute pack
 code — there is no install hook, no lifecycle script, no plugin entry point —
 but a malicious pack can still write a `.feature` file, an ADR, or a CI config
@@ -50,10 +50,10 @@ The digest catches the pack changing under a fixed version. `validate
 longer matching the locked pack.
 
 ```bash
-csda validate . --against-lock
+specgate validate . --against-lock
 ```
 
-`csda ci init` now emits this step for all four providers, guarded on
+`specgate ci init` now emits this step for all four providers, guarded on
 `.specops.lock` existing so a project without packs is unaffected. If you
 generated your gate before this existed, re-run `ci init --stdout` and copy the
 `Check pack drift` step across.
@@ -85,11 +85,11 @@ the check starts distinguishing anything.
 Two independent mechanisms, for two different situations.
 
 **A machine that has the pack cached already.** Packs are cached under
-`~/.cache/csda/packs/<sha256-of-repo>/<version>/`. Setting `CSDA_OFFLINE=1`
+`~/.cache/specgate/packs/<sha256-of-repo>/<version>/`. Setting `CSDA_OFFLINE=1`
 makes resolution use the cache and refuse to reach the network:
 
 ```bash
-CSDA_OFFLINE=1 csda specops add --pack-repo <url> --pack-version v1.2.0 --pack payments
+CSDA_OFFLINE=1 specgate specops add --pack-repo <url> --pack-version v1.2.0 --pack payments
 ```
 
 A cache miss is an error naming the exact directory it looked in, rather than a
@@ -101,10 +101,10 @@ it — `specops add` accepts a bundle path anywhere it accepts a URL:
 
 ```bash
 # connected side
-csda pack bundle --repo https://github.com/acme/packs.git --out acme-packs.bundle
+specgate pack bundle --repo https://github.com/acme/packs.git --out acme-packs.bundle
 
 # air-gapped side
-csda specops add --pack-repo ./acme-packs.bundle --pack-version v1.2.0 --pack payments
+specgate specops add --pack-repo ./acme-packs.bundle --pack-version v1.2.0 --pack payments
 ```
 
 The bundle carries full history and tags, so version pinning, digests and
@@ -172,6 +172,6 @@ its justification stay in the same change.
 
 ## What this does not do
 
-`csda validate` is a specification gate, not a security scanner. It checks that
+`specgate validate` is a specification gate, not a security scanner. It checks that
 requirements have scenarios, tests and traceability rows. It will not tell you
 your application has an injection flaw, and it never claims to.

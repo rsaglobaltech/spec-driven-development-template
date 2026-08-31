@@ -1,12 +1,13 @@
 {
-  "name": "create-spec-driven-app",
+  "name": "specgate",
   "version": "0.7.0",
-  "description": "CLI to scaffold Spec-Driven Development project templates.",
+  "description": "Specs as executable contracts — requirements, scenarios and traceability that CI enforces.",
   "license": "MIT",
   "type": "commonjs",
   "bin": {
-    "create-spec-driven-app": "bin/create-spec-driven-app.js",
-    "csda": "bin/create-spec-driven-app.js"
+    "specgate": "bin/create-spec-driven-app.js",
+    "csda": "bin/create-spec-driven-app.js",
+    "create-spec-driven-app": "bin/create-spec-driven-app.js"
   },
   "files": [
     "bin/",
@@ -30,8 +31,9 @@
     "spec-driven-development",
     "sdd",
     "gherkin",
-    "templates",
-    "scaffolding",
+    "traceability",
+    "ci-gate",
+    "ai-agents",
     "cli"
   ],
   "scripts": {

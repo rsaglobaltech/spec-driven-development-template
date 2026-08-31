@@ -8,13 +8,49 @@ unticked long after 0.1.4 shipped).
 
 | Artefact | Registry | Workflow | Status |
 |---|---|---|---|
-| `create-spec-driven-app` | npm, public | `publish-npm.yml` | Live |
-| `@rsaglobaltech/create-spec-driven-app` | GitHub Packages | `publish-github-packages.yml` | Live |
+| `specgate` | npm, public | `publish-npm.yml` | Live |
+| `@rsaglobaltech/specgate` | GitHub Packages | `publish-github-packages.yml` | Live |
 | CLI image | `ghcr.io` | `publish-docker.yml` | Live, `linux/amd64` and `linux/arm64` |
-| `csda-maven-plugin` | Maven Central or an internal Nexus | none yet | C7-05 |
-| `csda-gradle-plugin` | Gradle Plugin Portal or an internal repo | none yet | C7-06 |
-| `vscode-spec-driven` | VS Code Marketplace | none yet | C7-07 |
-| `@spec-driven/mcp-server`, `@spec-driven/lsp-server` | npm | none yet | C7-08, blocked on C6-03 |
+| `specgate-maven-plugin` | Maven Central or an internal Nexus | none yet | C7-05 |
+| `specgate-gradle-plugin` | Gradle Plugin Portal or an internal repo | none yet | C7-06 |
+| `specgate-vscode` | VS Code Marketplace | none yet | C7-07 |
+| `@specgate/mcp-server`, `@specgate/lsp-server` | npm | none yet | C7-08, blocked on C6-03 |
+
+## The Specgate rename — one-time cutover
+
+The package renamed from `create-spec-driven-app` to `specgate` in
+[ADR-0024](specs/adr/0024-the-tool-is-renamed-the-format-is-not.md). The
+workflows read the name from `package.json`, so the first tag cut after that
+change publishes `specgate` with no workflow edit. Three things are **not**
+automated, because each is a one-time act with no undo:
+
+**1. Deprecate the old package, pointing at the new one.** Run once, after the
+first `specgate` version is live on npm:
+
+```bash
+npm deprecate create-spec-driven-app \
+  "Renamed to `specgate`. Install `specgate` instead — same tool, same CLI, and `csda` still works as a binary alias."
+```
+
+Deprecating does **not** unpublish. Every existing version stays installable, so
+a pinned dependency keeps resolving; users get a warning, not a failure. Do not
+unpublish: npm blocks reusing an unpublished name, and someone's build would
+break for no gain.
+
+**2. The Docker image changes name with the same tag.** New tags land under
+`ghcr.io/<owner>/specgate`. Tags already published as `csda` are never rebuilt
+in place and keep working — that rule predates the rename and does not bend for
+it.
+
+**3. The sibling packages move to `@specgate/*`.** They were never published
+under `@spec-driven/*` (verified: `npm view @spec-driven/core` → 404), so there
+is nothing to deprecate — the scope change costs nothing.
+
+**Sequencing that matters.** `README.md` and the guides describe the tool by its
+new name, so the rename branch and the release that publishes `specgate` belong
+to the same event. Merging the rename and not releasing leaves a README whose
+first command does not resolve — the exact failure mode this project keeps
+finding elsewhere, in its own front door.
 
 ## Versioning
 
@@ -140,8 +176,8 @@ unpublished packages, no coverage output.
 ## Verifying a published release
 
 ```bash
-npx create-spec-driven-app@X.Y.Z --help
-npx create-spec-driven-app@X.Y.Z init --config ./project.config --out /tmp --dry-run
+npx specgate@X.Y.Z --help
+npx specgate@X.Y.Z init --config ./project.config --out /tmp --dry-run
 ```
 
 ## After the release

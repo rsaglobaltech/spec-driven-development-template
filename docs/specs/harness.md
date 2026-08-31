@@ -1,7 +1,7 @@
 # Harness — the spec-driven delivery loop
 
 **Status:** Stable (M5 — `harness run`)
-**Owner:** create-spec-driven-app
+**Owner:** specgate
 **Companion ADR:** [ADR-0013](./adr/0013-harness-run-loop.md)
 
 A spec-driven repo is already a complete environment for an AI coding
@@ -14,14 +14,14 @@ agent — it just needs an orchestrator:
 | Reward signal    | `validate --strict-tdd` + the project test command |
 | State transition | `done REQ-NNN`                                     |
 
-`csda harness run` is that orchestrator. It runs **plan → context → agent
+`specgate harness run` is that orchestrator. It runs **plan → context → agent
 → verify → done** for every pending requirement, with no human
 copy-pasting prompts.
 
 ## TL;DR
 
 ```bash
-csda harness run --agent "claude -p < {prompt_file}" --test-cmd "npm test"
+specgate harness run --agent "claude -p < {prompt_file}" --test-cmd "npm test"
 ```
 
 For each pending requirement, in an isolated `git worktree` on a fresh
@@ -126,10 +126,10 @@ When both keys are set, `prompt_prefix_file` wins.
 ## Inspect the prompt the harness will hand the agent
 
 ```bash
-csda harness prompt REQ-001
+specgate harness prompt REQ-001
 ```
 
-Friendly alias for `csda harness run --dry-run --req REQ-001`. Prints the
+Friendly alias for `specgate harness run --dry-run --req REQ-001`. Prints the
 exact prompt — prefix included — without invoking the agent, creating a
 worktree, or touching git. Use it to iterate on `AI_RULES.md` /
 `prompt_prefix`, or to copy-paste into a web AI when no CLI agent is
@@ -186,7 +186,7 @@ or vague Gherkin lets the harness wave through weak code. Hardening
 ergonomics — it is what makes the harness an amplifier of good specs
 rather than an amplifier of bad ones.
 
-Those scenario rules now run here too, not only in `pack lint`: `csda
+Those scenario rules now run here too, not only in `pack lint`: `specgate
 validate --strict-scenarios` applies them to `features/**/*.feature`, and
 `harness run` refuses a requirement whose scenario Cucumber would see as
 empty **before** creating the worktree — an attempt costs `max_attempts` ×
@@ -195,7 +195,7 @@ cannot fail.
 
 ### Filtering by tag
 
-`csda expand` tags every scenario it generates with the requirement and
+`specgate expand` tags every scenario it generates with the requirement and
 scenario it belongs to:
 
 ```gherkin
@@ -215,7 +215,7 @@ gate green and empty. Filter on the tag rather than the name:
 protocol check above already prefers tags when matching a scenario to the
 requirement under test.
 
-`csda validate` uses the same tags to check the matrix points at a scenario
+`specgate validate` uses the same tags to check the matrix points at a scenario
 that exists — a file that carries no tags is left alone, so an adopted
 repository is not failed for a link it was never given the means to make.
 
@@ -281,7 +281,7 @@ dependencies are unmet, or its row is `Deprecated`. The harness never used
 any of it as a filter, so the agent found out halfway through and the run
 paid `max_attempts` × the timeout to discover it.
 
-`csda plan --format json` now carries `ready` and `blockers[]` per
+`specgate plan --format json` now carries `ready` and `blockers[]` per
 requirement, each blocker with a `fix`:
 
 | Check | Effect |
@@ -346,7 +346,7 @@ so matching on the bounded context would have matched nothing and used the
 default every time.
 
 The link exists one step further round. Use case → command → aggregate →
-bounded context resolves for **all twenty-seven** scenarios, so `csda expand`
+bounded context resolves for **all twenty-seven** scenarios, so `specgate expand`
 follows it and records the result beside the matrix, by name rather than by
 id:
 
@@ -367,7 +367,7 @@ run ended because the account hit its monthly limit, which is the expensive
 way to find out there was no ceiling of our own.
 
 ```bash
-csda harness run --budget-seconds 3600 --max-requirements 5
+specgate harness run --budget-seconds 3600 --max-requirements 5
 ```
 
 Both are asked **before starting** each requirement, never in the middle of
@@ -377,7 +377,7 @@ spent on it. A budget bounds what a run begins.
 Exhausting one is not an error. The run ends the ordinary way, the
 requirements it never started are reported as `skipped` with the reason,
 and the ledger is still written — a run that dies halfway writes none, so
-`csda harness report` cannot say what the money bought.
+`specgate harness report` cannot say what the money bought.
 
 Neither relaxes anything: every worktree that does run passes the same
 gate.
@@ -452,7 +452,7 @@ human to pick up.
 CI dashboards. The command exits non-zero when any requirement did not
 pass.
 
-### `csda harness report` — what it has cost, and whether the gate is any good
+### `specgate harness report` — what it has cost, and whether the gate is any good
 
 Reads the run ledger (`.harness/runs/*.json`) and answers four questions
 the ledger alone does not:
@@ -473,7 +473,7 @@ catching a genuine defect look identical in the ledger; only somebody who
 looked can say which happened. So it stays `—` until a person marks one:
 
 ```bash
-csda harness report --mark-false-failure REQ-002 \
+specgate harness report --mark-false-failure REQ-002 \
   --reason "the shared module already implemented it; the row was wrong"
 ```
 

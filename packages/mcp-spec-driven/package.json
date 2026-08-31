@@ -1,5 +1,5 @@
 {
-  "name": "@spec-driven/mcp-server",
+  "name": "@specgate/mcp-server",
   "version": "0.1.0",
   "description": "Model Context Protocol server for create-spec-driven-app projects. Lets MCP-aware AI agents (Claude Desktop, Cursor, Aider, etc.) read specs, list requirements, update traceability, and run validate without scraping.",
   "license": "MIT",

@@ -8,7 +8,7 @@ plus the gate result.
 That is the whole contract. Everything below is detail.
 
 ```bash
-csda harness run --req REQ-001 --agent "claude -p < {prompt_file}"
+specgate harness run --req REQ-001 --agent "claude -p < {prompt_file}"
 ```
 
 ## The commands for the tools people actually use
@@ -28,7 +28,7 @@ cannot ask permission, so without them it reads the prompt, fails to write a
 file, and the attempt is wasted:
 
 ```bash
-csda harness run --agent "claude -p --allowedTools Read Write Edit Glob Grep 'Bash(npm:*)' < {prompt_file}"
+specgate harness run --agent "claude -p --allowedTools Read Write Edit Glob Grep 'Bash(npm:*)' < {prompt_file}"
 ```
 
 Scope them rather than reaching for `--dangerously-skip-permissions`. The agent
@@ -48,7 +48,7 @@ exec some-agent --instructions "$(cat "$1")"
 ```
 
 ```bash
-csda harness run --agent "./my-agent.sh {prompt_file}"
+specgate harness run --agent "./my-agent.sh {prompt_file}"
 ```
 
 The harness never inspects the command. If your tool reads the prompt from
@@ -107,7 +107,7 @@ An **unknown key matches nothing** rather than being ignored, so
 `bounded_contex:` — one letter short — cannot quietly become a rule that matches
 everything.
 
-`csda expand` records each requirement's bounded context beside the traceability
+`specgate expand` records each requirement's bounded context beside the traceability
 matrix, so the match has something to work with without anybody maintaining a
 second list.
 
@@ -137,14 +137,14 @@ profiles:
     cost_per_run_hint: 0.35
 ```
 
-`csda harness report` multiplies it out and labels it *declared, not measured*.
+`specgate harness report` multiplies it out and labels it *declared, not measured*.
 Attempts by a profile with no hint are counted separately, so the total never
 reads as complete when part of the run is missing from it.
 
 Put a ceiling on the run itself:
 
 ```bash
-csda harness run --budget-seconds 3600 --max-requirements 5
+specgate harness run --budget-seconds 3600 --max-requirements 5
 ```
 
 Both are checked **before starting** each requirement, never mid-attempt —
@@ -168,7 +168,7 @@ its attempt installing dependencies — put that in the gate command, which is t
 only part that knows how:
 
 ```bash
-csda harness run --test-cmd "npm ci && npm test"
+specgate harness run --test-cmd "npm ci && npm test"
 ```
 
 This was found the expensive way: an agent spent its first attempt on `npm
@@ -179,9 +179,9 @@ install` and timed out.
 Every one of these is safe to run against a real project:
 
 ```bash
-csda harness prompt REQ-001          # the exact prompt, printed, no agent
-csda harness run --dry-run           # what it would do, in order
-csda harness run --agent "true {prompt_file}" --max-attempts 1
+specgate harness prompt REQ-001          # the exact prompt, printed, no agent
+specgate harness run --dry-run           # what it would do, in order
+specgate harness run --agent "true {prompt_file}" --max-attempts 1
 ```
 
 The last one runs the whole loop with an agent that does nothing, which is the

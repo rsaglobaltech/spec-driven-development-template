@@ -24,7 +24,7 @@ EOF
 #    | REQ-007 | SCN-007 | features/billing/discounts.feature | UC-007 | ApplyDiscountCommand | CartAggregate | DiscountApplied | DiscountService.java | DiscountServiceTest | Draft |
 
 # 3. Validate
-npx create-spec-driven-app@latest validate .
+npx specgate@latest validate .
 ```
 
 If the new `.feature` is not in `traceability.md`, the validator exits with a non-zero status and tells you the missing file.
@@ -39,7 +39,7 @@ If the new `.feature` is not in `traceability.md`, the validator exits with a no
 
 ```bash
 # 1. After sync (or any time), see what's left
-csda plan
+specgate plan
 ```
 
 You get a bucketed report:
@@ -58,16 +58,16 @@ You get a bucketed report:
       ✓ test:    src/test/.../SeasonalRateTest.java
       · code:    src/main/.../SeasonalRateService.java
 
-  ⚠️  Artifacts present — run `csda done <REQ>`
+  ⚠️  Artifacts present — run `specgate done <REQ>`
     REQ-009    SCN-009
 
-  Next: read the feature file, write the test, write the code, then run `csda done <REQ-id>`.
+  Next: read the feature file, write the test, write the code, then run `specgate done <REQ-id>`.
 ```
 
 For AI agents, swap to JSON:
 
 ```bash
-csda plan --format json
+specgate plan --format json
 ```
 
 ```json
@@ -87,10 +87,10 @@ csda plan --format json
 ### After implementing, mark the REQ done
 
 ```bash
-csda done REQ-007                          # → Status="Implemented"
-csda done REQ-007 --status Verified         # → Status="Verified"
-csda done REQ-007 --check                   # runs `validate` first; aborts on red
-csda done REQ-007 --strict                  # like --check but uses `validate --strict-tdd`
+specgate done REQ-007                          # → Status="Implemented"
+specgate done REQ-007 --status Verified         # → Status="Verified"
+specgate done REQ-007 --check                   # runs `validate` first; aborts on red
+specgate done REQ-007 --strict                  # like --check but uses `validate --strict-tdd`
 ```
 
 `done` edits exactly one cell in `docs/specs/traceability.md`. Combined with `validate --strict-tdd` in CI, the matrix is the live source of truth instead of a rear-view mirror.

@@ -25,11 +25,11 @@ LANG="en"
 MODULES=""
 EOF
 
-csda init --config ./smart-parking.config --out . --no-git
+specgate init --config ./smart-parking.config --out . --no-git
 cd smart-parking
 
 # 2. Apply the parking-management pack (pinned to v0.1.0)
-csda specops add \
+specgate specops add \
   --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \
   --pack-version v0.1.0 \
   --pack backend \
@@ -38,26 +38,26 @@ csda specops add \
   --var DOMAIN="parking operations"
 
 # 3. See what work the pack created
-csda plan
+specgate plan
 
 # 4. (Optional) Same, machine-readable for an AI agent
-csda plan --format json | tail -40
+specgate plan --format json | tail -40
 
 # 5. Implement one REQ (this is the "human + AI" loop)
 #    Read features/.../*.feature, write the test, write the production code.
 #    Then close the loop:
-csda done REQ-001 --check        # runs validate first, aborts on red
+specgate done REQ-001 --check        # runs validate first, aborts on red
 
 # 6. When pack v0.2.0 lands upstream, preview the diff before applying
-csda specops diff --pack-version v0.2.0
-csda specops diff --pack-version v0.2.0 --format json
+specgate specops diff --pack-version v0.2.0
+specgate specops diff --pack-version v0.2.0 --format json
 
 # 7. Apply the bump
-csda specops sync --pack-version v0.2.0
-csda plan                         # see what's newly NEEDS_*
+specgate specops sync --pack-version v0.2.0
+specgate plan                         # see what's newly NEEDS_*
 
 # 8. Drop the pack entirely if needed
-csda specops remove parking-management/backend
+specgate specops remove parking-management/backend
 ```
 
 Every command above also works **without** flags from inside the project tree (project root auto-detected). For CI, see §4 for the workflow YAML and §14 for the local pre-commit gate.

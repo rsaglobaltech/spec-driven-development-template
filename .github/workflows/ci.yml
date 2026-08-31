@@ -87,7 +87,7 @@ jobs:
       # The tool has to pass its own gate. spec.md's success criteria claim it
       # does; before this step, nothing checked.
       - name: Validate this repository against its own spec gate
-        run: node bin/create-spec-driven-app.js validate .
+        run: node bin/specgate.js validate .
 
       - name: Build pack registry
         run: npm run registry:build
@@ -107,7 +107,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Build csda-maven-plugin
+      - name: Build specgate-maven-plugin
         run: mvn -B -q package
         working-directory: packages/maven-plugin
 
@@ -123,7 +123,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v6
-      - name: Build csda-gradle-plugin
+      - name: Build specgate-gradle-plugin
         run: gradle build --no-daemon
         working-directory: packages/gradle-plugin
 

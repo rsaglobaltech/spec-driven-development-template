@@ -31,6 +31,7 @@ for the policy on when and how to write an ADR.
 | [0021](0021-alm-is-a-mirror.md)                | The ALM is a mirror; inbound work enters through a change | Accepted              | 2026-08-20 |
 | [0022](0022-patterns-are-optional-principles-are-not.md) | Patterns are optional; principles are not         | Accepted              | 2026-08-21 |
 | [0023](0023-checking-content-gate-or-report.md) | Checking content: a gate where it is decidable, a report where it is not | Accepted | 2026-08-26 |
+| [0024](0024-the-tool-is-renamed-the-format-is-not.md) | The tool is renamed to Specgate; the on-disk format is not | Accepted | 2026-08-26 |
 
 ## Template
 

@@ -1,5 +1,5 @@
 {
-  "name": "create-spec-driven-app",
+  "name": "specgate",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:20",
   "features": {
     "ghcr.io/devcontainers/features/java:1": { "version": "21" }

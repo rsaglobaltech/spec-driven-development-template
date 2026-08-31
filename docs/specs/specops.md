@@ -1,10 +1,10 @@
 # SpecOps Workflow
 
 **Status:** Stable (M1 — remote packs + lockfile, M2 — `sync` and `diff`, M3 — conflict detection)
-**Owner:** create-spec-driven-app
+**Owner:** specgate
 **Companion ADRs:** [ADR-0009](./adr/0009-specops-remote-packs.md), [ADR-0010](./adr/0010-specops-sync-diff.md)
 
-This page documents how `create-spec-driven-app` consumes a **versioned
+This page documents how `specgate` consumes a **versioned
 domain pack repository** ("SpecOps repo") into an implementation project.
 It is the day-to-day workflow for teams that maintain their domain
 knowledge in Git, separately from the code that implements it.
@@ -12,7 +12,7 @@ knowledge in Git, separately from the code that implements it.
 ## TL;DR
 
 ```bash
-npx create-spec-driven-app expand \
+npx specgate expand \
   --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \
   --pack-version v0.1.0 \
   --pack backend \
@@ -29,7 +29,7 @@ pipeline against the resolved local path, then writes
 ## The three repos
 
 ```text
-create-spec-driven-app          → the tool       (this repo)
+specgate          → the tool       (this repo)
 parking-management-specops      → domain pack    (versioned knowledge)
 smart-parking                   → implementation (the actual code)
 ```
@@ -59,7 +59,7 @@ commits are useful when pinning to a specific revision.
 Additional flags:
 
 - `--cache-dir <path>` — override the default cache location
-  (`~/.cache/csda/packs/`). Mainly useful for CI/tests.
+  (`~/.cache/specgate/packs/`). Mainly useful for CI/tests.
 
 ## `.specops.lock`
 
@@ -128,22 +128,22 @@ flags.
 
 ```bash
 # Re-expand everything at the locked versions
-npx create-spec-driven-app specops sync --project-dir ./smart-parking
+npx specgate specops sync --project-dir ./smart-parking
 
 # Bump only one pack to a new tag (updates the lockfile)
-npx create-spec-driven-app specops sync \
+npx specgate specops sync \
   --project-dir ./smart-parking \
   --pack parking-management/backend \
   --pack-version v0.2.0
 
 # Preview without writing anything
-npx create-spec-driven-app specops sync --project-dir ./smart-parking --dry-run
+npx specgate specops sync --project-dir ./smart-parking --dry-run
 
 # Pack always wins — discard local edits
-npx create-spec-driven-app specops sync --project-dir ./smart-parking --force
+npx specgate specops sync --project-dir ./smart-parking --force
 
 # Never write conflict markers — leave conflicting files untouched
-npx create-spec-driven-app specops sync --project-dir ./smart-parking --abort-on-conflict
+npx specgate specops sync --project-dir ./smart-parking --abort-on-conflict
 ```
 
 Behaviour:
@@ -188,7 +188,7 @@ version — without writing anything to the project.
 
 ```bash
 # What would change if I bumped to v0.2.0?
-npx create-spec-driven-app specops diff \
+npx specgate specops diff \
   --project-dir ./smart-parking \
   --pack-version v0.2.0
 ```
@@ -217,7 +217,7 @@ source code) are never reported.
 ## Caching
 
 Resolved packs are cached under
-`~/.cache/csda/packs/<sha256(repo)[:16]>/<safe-version>/`. The cache key
+`~/.cache/specgate/packs/<sha256(repo)[:16]>/<safe-version>/`. The cache key
 hashes the repo URL so different repos with the same tag never collide.
 A `.git` directory inside the slot signals "already cloned"; subsequent
 runs reuse it without network traffic.
@@ -225,7 +225,7 @@ runs reuse it without network traffic.
 To force a re-clone, delete the cache slot:
 
 ```bash
-rm -rf ~/.cache/csda/packs
+rm -rf ~/.cache/specgate/packs
 ```
 
 ## End-to-end example: `smart-parking`
@@ -249,10 +249,10 @@ LANG="en"
 MODULES=""
 CFG
 
-npx create-spec-driven-app init --config ./project.config --out . --force
+npx specgate init --config ./project.config --out . --force
 
 # 2. Expand the pack into it (writes .specops.lock)
-npx create-spec-driven-app expand \
+npx specgate expand \
   --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \
   --pack-version v0.1.0 \
   --pack backend \
@@ -262,7 +262,7 @@ npx create-spec-driven-app expand \
   --var DOMAIN="parking operations"
 
 # 3. Verify
-npx create-spec-driven-app validate ./smart-parking
+npx specgate validate ./smart-parking
 cat smart-parking/.specops.lock
 ```
 
@@ -271,7 +271,7 @@ cat smart-parking/.specops.lock
 When the pack tags a new version (`v0.2.0`), bump the project:
 
 ```bash
-npx create-spec-driven-app expand \
+npx specgate expand \
   --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \
   --pack-version v0.2.0 \
   --pack backend \

@@ -8,6 +8,52 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ## [Unreleased]
 
+### Changed
+
+- **The tool is now called Specgate.** npm package `specgate`, binary
+  `specgate`. `create-spec-driven-app` described a scaffolder in the
+  `create-react-app` mould, and the product stopped being one several minors
+  ago — it has a change lifecycle, an enforcing gate, an agent harness,
+  versioned domain packs and ALM sync. The new name states the differentiator:
+  the gate enforces the specs.
+
+  **Nothing breaks.** `csda` and `create-spec-driven-app` both remain as alias
+  binaries, and neither is removed in the 0.x line — an `npx` invocation that
+  worked before still works.
+
+  **The on-disk format is deliberately unchanged.** `csda:trace`, `csda:value`,
+  `csda:allow-placeholders` and the `.csda/` directory keep their names. Those
+  are not branding: they are a parsed format and a config directory that live
+  inside *user* repositories, and renaming them would be a silent breaking
+  change to every adopted project — surfacing as "requirement not found" rather
+  than as "your marker prefix changed". Reading both prefixes is a real
+  migration feature, not a find-and-replace, and it is not built here.
+  [ADR-0024](docs/specs/adr/0024-the-tool-is-renamed-the-format-is-not.md)
+  records the decision so the mismatch is not mistaken for an oversight.
+
+  **Distribution identity moves with it.** Sibling packages become
+  `@specgate/*` (never published under the old scope — verified 404, so nothing
+  to deprecate), the VS Code extension becomes `specgate-vscode` (unpublished,
+  so no installs to orphan), and new Docker tags land under
+  `ghcr.io/<owner>/specgate`. Images already published as `csda` are never
+  rebuilt in place and keep working.
+
+  `docs/release-process.md` gains the one-time cutover: the exact `npm
+  deprecate` invocation for `create-spec-driven-app`, why the old package is
+  deprecated and never unpublished (npm blocks reusing an unpublished name, and
+  a pinned dependency would break for no gain), and the sequencing constraint —
+  the rename and the release that publishes `specgate` are one event, because
+  the README describes the tool by its new name.
+
+  Two things caught by tests rather than by reading: the Docker workflow's smoke
+  test still pulled the old image name after pushing the new one, and the MCP
+  server resolved its own version by matching the package name literally, so it
+  would have announced `0.0.0` over the wire. Both now match either spelling.
+
+  Historical records keep the old name where it was accurate when written:
+  earlier CHANGELOG entries, ADRs 0008–0010, the published article and the case
+  study are left alone.
+
 The release that starts checking content instead of only paperwork. Every check
 until now answered "are these documents internally consistent?"; none answered
 "does the code say what the spec says?". These do — for the narrow slice where

@@ -48,10 +48,15 @@ function packageVersion(): string {
     if (fs.existsSync(candidate)) {
       try {
         const pkg = JSON.parse(fs.readFileSync(candidate, "utf8"));
-        if (pkg.name === "@spec-driven/mcp-server") return pkg.version;
+        // Both names are matched on purpose. The tool renamed to Specgate in
+        // ADR-0024, and a version lookup keyed to one spelling is how this
+        // silently announced 0.0.0 the last time a path assumption broke.
+        if (pkg.name === "@specgate/mcp-server" || pkg.name === "@spec-driven/mcp-server") {
+          return pkg.version;
+        }
         // Reached the repository root instead: the manifest is beside it, not
         // above the compiled file, because the root build flattens into dist/.
-        if (pkg.name === "create-spec-driven-app") {
+        if (pkg.name === "specgate" || pkg.name === "create-spec-driven-app") {
           const sibling = path.join(dir, "packages", "mcp-spec-driven", "package.json");
           if (fs.existsSync(sibling)) {
             return JSON.parse(fs.readFileSync(sibling, "utf8")).version;
