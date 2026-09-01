@@ -56,6 +56,12 @@ import { RequirementPlan } from "../../../../packages/core/src/domain/Requiremen
 import { budgetVerdict, hasBudget } from "../../../../packages/core/src/domain/RunBudget";
 import { withWorktreeLock } from "../../../harness/worktree-lock";
 import {
+  NO_PROBE,
+  probeFinding,
+  shouldProbe,
+  ProbeOutcome,
+} from "../../../../packages/core/src/domain/AdversarialProbe";
+import {
   checkGateRun,
   invokesCucumberDirectly,
   parseCucumberMessages,
@@ -488,6 +494,88 @@ function discardWorktreeChanges(worktreeDir: string): void {
 }
 
 /**
+ * Let an adversary try to break a green implementation (D3).
+ *
+ * Sequence, and the order is the whole design: the gate has already passed, so
+ * the work is committable; the adversary writes a test in the worktree; the
+ * project's own test command runs again; whatever the adversary wrote is
+ * discarded so the branch carries the implementer's work alone.
+ *
+ * Never throws and never changes the verdict. The gate stays the only judge —
+ * an adversary can always assert a behaviour the requirement never promised,
+ * and a failing probe that blocked the run would stop correct work.
+ */
+function runAdversarialProbe(
+  worktreeDir: string,
+  req: any,
+  settings: any,
+  timeoutMs: number,
+  promptFor: (instruction: string) => string
+): ProbeOutcome {
+  const profile = settings.adversaryProfile;
+  const command = settings.profileAgents[profile] || settings.agent;
+  if (!command) return NO_PROBE;
+
+  const instruction =
+    `The implementation below already passes its gate. Your job is to try to ` +
+    `**break** it: write one additional test, in the project's existing test ` +
+    `style, for a case ${req.requirement} should handle and might not — an ` +
+    `empty input, a boundary, a duplicate, a failure path. Write the test and ` +
+    `nothing else. Do not modify the implementation, the specification or any ` +
+    `existing test.`;
+
+  const promptFile = path.join(
+    os.tmpdir(),
+    `csda-probe-${req.requirement}-${crypto.randomBytes(4).toString("hex")}.md`
+  );
+
+  try {
+    fs.writeFileSync(promptFile, promptFor(instruction), "utf8");
+    const agent = spawnSync(substituteAgentCommand(command, promptFile), {
+      shell: true,
+      cwd: worktreeDir,
+      encoding: "utf8",
+      timeout: timeoutMs,
+      maxBuffer: SUBPROCESS_MAX_BUFFER,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const wrote = git(worktreeDir, ["status", "--porcelain"])
+      .stdout.split("\n")
+      .map((line) => line.slice(3).trim())
+      .filter((line) => line && !line.startsWith(PROMPT_ARCHIVE_DIR));
+
+    if (wrote.length === 0) {
+      // Nothing written is not a failure: an adversary that cannot think of a
+      // case is telling you something mildly reassuring.
+      return { ran: true, broke: false, detail: "The adversary wrote no test.", wrote: [] };
+    }
+
+    const after = runGate(worktreeDir, settings.testCmd, timeoutMs, req, settings);
+    return {
+      ran: true,
+      broke: !after.ok,
+      detail: [`${agent.stdout || ""}${agent.stderr || ""}`.trim(), after.output || ""]
+        .filter(Boolean)
+        .join("\n\n")
+        .slice(0, 4000),
+      wrote,
+    };
+  } catch {
+    // Insurance that fails is still only insurance; it must not take the run.
+    return NO_PROBE;
+  } finally {
+    try {
+      fs.rmSync(promptFile, { force: true });
+    } catch {
+      /* a temp file nobody will read again */
+    }
+    // The branch carries the implementer's work and nothing else.
+    discardWorktreeChanges(worktreeDir);
+  }
+}
+
+/**
  * Did the agent edit the contract it was being judged against? (A1, closes H16)
  *
  * The prompt asks it not to; nothing checked. An agent that cannot make the
@@ -640,6 +728,10 @@ function attemptRequirement(req, ctx) {
   const attemptLog: AttemptRecord[] = [];
   /** The reviewer's findings from the previous attempt, fed into this prompt. */
   let reviewFindings = "";
+  // Once per requirement, not once per attempt: probing an implementation that
+  // already failed tells you nothing, and probing every retry multiplies the
+  // cost of the one step in the loop that is pure insurance.
+  let probe: ProbeOutcome = NO_PROBE;
 
   const firstAttempt = Math.max(1, (ctx.resumeAt && ctx.resumeAt.attempt) || 1);
 
@@ -849,8 +941,42 @@ function attemptRequirement(req, ctx) {
       continue;
     }
 
+    // The adversary runs **after** the commit, and the order is not cosmetic:
+    // before it, `git status` shows the implementer's uncommitted work, so
+    // discarding "what the probe wrote" would throw the implementation away and
+    // report a pass over an empty branch. That is the H19 family — a green
+    // verdict over work that is not there — and it was reintroduced here once.
+    if (
+      shouldProbe({
+        profile: settings.adversaryProfile,
+        gatePassed: true,
+        alreadyProbed: probe.ran,
+      })
+    ) {
+      info(`${req.requirement}: probing with '${settings.adversaryProfile}'`);
+      probe = runAdversarialProbe(worktreeDir, req, settings, timeoutMs, (instruction) =>
+        buildPrompt(req, worktreeDir, {
+          promptPrefix: settings.promptPrefix,
+          hint: instruction,
+          withPrecedents: settings.promptPrecedents === true,
+        })
+      );
+      if (probe.broke) {
+        const finding = probeFinding(req.requirement, probe);
+        warn(`${req.requirement}: ${finding.message} [${finding.code}]`);
+        warn(`  fix: ${finding.fix}`);
+      }
+    }
+
     record("pass");
-    return { result: "pass", attempts: attempt, attemptLog };
+    return {
+      result: "pass",
+      attempts: attempt,
+      attemptLog,
+      // The probe never changes the verdict; it travels beside it so
+      // `harness report` and the run record can show what it found.
+      ...(probe.ran ? { adversarial: probe } : {}),
+    };
   }
 
   // Every attempt is spent. Commit what the agent produced anyway, on the

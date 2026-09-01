@@ -12,6 +12,14 @@ export interface HarnessSettings {
   /** Advisory profile run before each retry, or "" for none. */
   reviewProfile: string;
   /**
+   * Profile that tries to break a green implementation (D3), or "" for none.
+   *
+   * Runs once per requirement, after the gate has passed, and its writes are
+   * discarded. A failing probe is a recorded finding, never a verdict — the
+   * gate stays the only judge.
+   */
+  adversaryProfile: string;
+  /**
    * Show the agent an accepted requirement from the same bounded context (D2).
    *
    * Off by default: it costs prompt budget, and on a project with nothing
@@ -62,6 +70,7 @@ export class HarnessConfig {
     prCmd: "",
     attemptProfiles: [],
     reviewProfile: "",
+    adversaryProfile: "",
     promptPrecedents: false,
     profileAgents: {},
     protectedPaths: [],
@@ -97,6 +106,7 @@ export class HarnessConfig {
       prCmd: cliArgs.prCmd || file.prCmd || HarnessConfig.DEFAULT_SETTINGS.prCmd,
       attemptProfiles: file.attemptProfiles || HarnessConfig.DEFAULT_SETTINGS.attemptProfiles,
       reviewProfile: file.reviewProfile || HarnessConfig.DEFAULT_SETTINGS.reviewProfile,
+      adversaryProfile: "",
       promptPrecedents:
         file.promptPrecedents === undefined
           ? HarnessConfig.DEFAULT_SETTINGS.promptPrecedents
