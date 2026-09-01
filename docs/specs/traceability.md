@@ -1,4 +1,4 @@
-# Traceability Matrix — `create-spec-driven-app` CLI
+# Traceability Matrix — the Specgate CLI
 
 > Links every CLI requirement to its scenario, feature file, implementation and
 > test. All requirement IDs reference [`/spec.md`](../../spec.md).
