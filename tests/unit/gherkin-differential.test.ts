@@ -29,7 +29,9 @@ const { IdGenerator } = require("@cucumber/messages");
 
 const { parseGherkin } = require("../../packages/core/src/domain/Gherkin");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
 
 /** Every Gherkin file the repository ships, `.env.feature` excluded — see shipped-gherkin.test.ts. */
 function shippedGherkinFiles(): string[] {

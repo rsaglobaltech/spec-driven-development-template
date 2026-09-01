@@ -14,7 +14,9 @@ const {
 } = require("../../scripts/specops/verify");
 const { gitAvailable } = require("../../packages/core/src/infrastructure/RemotePackResolver");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
 const CLI_PATH = path.join(ROOT_DIR, "bin", "specgate.js");
 const FIXTURE_PACK = path.join(ROOT_DIR, "tests", "fixtures", "domain-packs", "parking-management");
 

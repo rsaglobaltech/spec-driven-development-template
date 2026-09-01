@@ -310,6 +310,14 @@ deliberately *not* built, is [ADR-0023](docs/specs/adr/0023-checking-content-gat
   accepts either basename so an installation carrying the old shim keeps
   dispatching.
 
+- **The test suite could not locate the repository root on Windows.** Thirty-nine
+  test files resolved it with `__dirname.split("/tests")[0]`, and `__dirname` on
+  Windows is `…\dist\tests\unit` — the separator never matched, so the split
+  returned the whole path and every spawned CLI was looked for under
+  `dist\tests\unit\bin\`. The split is separator-agnostic now. It had been
+  masked: the `adopt` regression above failed those files on every platform, so
+  nothing distinguished "broken everywhere" from "broken on Windows".
+
 
 ## [0.7.0] — 2026-08-23
 

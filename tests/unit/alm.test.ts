@@ -16,7 +16,9 @@ const {
 } = require("../../scripts/alm/core");
 const { jiraClient, azureClient } = require("../../scripts/alm/clients");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
 const CLI_PATH = path.join(ROOT_DIR, "bin", "specgate.js");
 
 const RICH_HEADER =
