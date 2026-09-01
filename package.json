@@ -88,18 +88,18 @@
     "@eslint/js": "^9.39.4",
     "@stryker-mutator/core": "^10.0.0",
     "@types/cucumber": "^7.0.3",
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.4.0",
     "@types/vscode": "^1.134.0",
-    "@typescript-eslint/eslint-plugin": "^8.59.3",
-    "@typescript-eslint/parser": "^8.59.3",
+    "@typescript-eslint/eslint-plugin": "^8.68.0",
+    "@typescript-eslint/parser": "^8.68.0",
     "ajv": "^8.20.0",
     "c8": "^12.0.0",
-    "eslint": "^10.8.1",
+    "eslint": "^10.9.1",
     "fast-check": "^4.8.0",
-    "js-yaml": "^5.2.3",
-    "marked": "^18.0.10",
+    "js-yaml": "^5.4.1",
+    "marked": "^18.0.11",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.3"
+    "typescript-eslint": "^8.68.0"
   }
 }
