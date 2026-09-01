@@ -582,12 +582,21 @@ test("a case study that is not a real customer says so, at the top", () => {
   // disclaimer anywhere, while the roadmap said nobody outside this repository
   // had used the tool. Publishing that as a customer story is not a style
   // problem.
+  //
+  // Three categories, and the middle one is the reason this list grew.
+  // `illustration` is invented — case-1's numbers were constructed to show the
+  // shape of the workflow. `agent-driven adoption` is measured for real, by
+  // nobody who chose to be there: a simulated pilot under GATE-G6 (ADR-0025).
+  // `verified customer` is the only one that closes GATE-G3. Collapsing the
+  // middle into either of the others is what the ADR exists to prevent.
   const dir = path.join(DOCS, "case-studies");
   if (!fs.existsSync(dir)) return;
   const unmarked = [];
   for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".md"))) {
     const head = fs.readFileSync(path.join(dir, file), "utf8").split("\n").slice(0, 12).join("\n");
-    if (!/illustration, not a customer|verified customer/i.test(head)) unmarked.push(file);
+    const declared =
+      /illustration, not a customer|agent-driven adoption, not a customer|verified customer/i;
+    if (!declared.test(head)) unmarked.push(file);
   }
   assert.deepEqual(
     unmarked,
