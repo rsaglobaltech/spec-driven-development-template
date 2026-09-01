@@ -125,7 +125,7 @@ function renderIndex(packs, options: any = {}) {
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="${escape(title)}">
-<meta property="og:image" content="https://rsaglobaltech.github.io/spec-driven-development-template/assets/og-card.png">
+<meta property="og:image" content="https://rsaglobaltech.github.io/specgate/assets/og-card.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../assets/docs.css">
 <script>
@@ -323,7 +323,7 @@ function renderIndex(packs, options: any = {}) {
   <nav class="top__links">
     <a href="../docs.html">Docs</a>
     <a href="../domain-packs.html">Using packs</a>
-    <a href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer">GitHub</a>
+    <a href="https://github.com/rsaglobaltech/specgate" target="_blank" rel="noreferrer">GitHub</a>
   </nav>
   <button class="top__theme" type="button" aria-label="Switch theme">◐</button>
 </header>
@@ -360,7 +360,7 @@ ${cards}
       <strong>create-spec-driven-app</strong> ·
       <a href="../docs.html">Docs</a> ·
       <a href="./manifest.json">manifest.json</a> ·
-      <a href="https://github.com/rsaglobaltech/spec-driven-development-template" target="_blank" rel="noreferrer">GitHub</a>
+    <a href="https://github.com/rsaglobaltech/specgate" target="_blank" rel="noreferrer">GitHub</a>
     </p>
     <p class="foot__note">
       Generated ${escape(generated)} from <code>packs/&lt;domain&gt;/&lt;type&gt;/pack.yaml</code>.

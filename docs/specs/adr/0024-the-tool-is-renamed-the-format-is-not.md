@@ -10,7 +10,7 @@ The product shipped under five different names at once:
 
 | Where | Name |
 |---|---|
-| GitHub repository | `spec-driven-development-template` |
+| GitHub repository | `specgate` |
 | npm package | `create-spec-driven-app` |
 | Binary | `csda` |
 | Docker image | `ghcr.io/rsaglobaltech/csda` |

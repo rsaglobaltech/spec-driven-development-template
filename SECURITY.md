@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-**Use [GitHub private vulnerability reporting](https://github.com/rsaglobaltech/spec-driven-development-template/security/advisories/new).**
+**Use [GitHub private vulnerability reporting](https://github.com/rsaglobaltech/specgate/security/advisories/new).**
 It is enabled on this repository, so the report stays private until a fix ships.
 
 Do not open a public issue for a vulnerability. Do not send it to a maintainer's

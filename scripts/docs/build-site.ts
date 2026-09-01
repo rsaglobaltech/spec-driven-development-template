@@ -32,9 +32,9 @@ import { diagrams, inlineDiagrams } from "./blocks";
 const ROOT = path.resolve(__dirname, "..", "..", "..");
 
 /** Absolute base for metadata a link scraper resolves without a page context. */
-const SITE = "https://rsaglobaltech.github.io/spec-driven-development-template";
+const SITE = "https://rsaglobaltech.github.io/specgate";
 const DOCS = path.join(ROOT, "docs");
-const REPO = "https://github.com/rsaglobaltech/spec-driven-development-template";
+const REPO = "https://github.com/rsaglobaltech/specgate";
 
 /** Assets copied through untouched. */
 // `roi.html` used to be here. A calculator that estimates a saving is a sales

@@ -194,9 +194,9 @@ function usageFull() {
       section("EXAMPLES") +
       EXAMPLES +
       section("LEARN MORE") +
-      `    ${c.dim}📖 How-to guide   ${c.reset}${c.blue}https://github.com/rsaglobaltech/spec-driven-development-template/blob/main/docs/how-to.md${c.reset}\n` +
-      `    ${c.dim}🌐 Documentation  ${c.reset}${c.blue}https://rsaglobaltech.github.io/spec-driven-development-template/${c.reset}\n` +
-      `    ${c.dim}🪲 Report a bug   ${c.reset}${c.blue}https://github.com/rsaglobaltech/spec-driven-development-template/issues${c.reset}\n` +
+      `    ${c.dim}📖 How-to guide   ${c.reset}${c.blue}https://github.com/rsaglobaltech/specgate/blob/main/docs/how-to.md${c.reset}\n` +
+      `    ${c.dim}🌐 Documentation  ${c.reset}${c.blue}https://rsaglobaltech.github.io/specgate/${c.reset}\n` +
+      `    ${c.dim}🪲 Report a bug   ${c.reset}${c.blue}https://github.com/rsaglobaltech/specgate/issues${c.reset}\n` +
       `\n`
   );
 }

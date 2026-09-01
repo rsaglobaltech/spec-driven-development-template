@@ -1,7 +1,7 @@
 # Spec-Driven Development — VS Code Extension
 
 Supercharges VS Code for projects generated with
-[`create-spec-driven-app`](https://github.com/rsaglobaltech/spec-driven-development-template).
+[`create-spec-driven-app`](https://github.com/rsaglobaltech/specgate).
 
 ---
 

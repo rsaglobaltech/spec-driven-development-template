@@ -141,7 +141,7 @@ function claudePluginFiles(version: string) {
     version,
     license: "MIT",
     keywords: ["spec-driven-development", "sdd", "gherkin", "traceability"],
-    homepage: "https://rsaglobaltech.github.io/spec-driven-development-template/",
+    homepage: "https://rsaglobaltech.github.io/specgate/",
   };
 
   const hooks = {

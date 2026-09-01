@@ -5,7 +5,7 @@
  *
  * ## Why this file exists
  *
- * `https://rsaglobaltech.github.io/spec-driven-development-template/` returned
+ * `https://rsaglobaltech.github.io/specgate/` returned
  * 404 for months: the workflow deployed to `gh-pages` on every push and nobody
  * had ever switched Pages on. Underneath that, the site published twenty
  * markdown documents as `text/markdown`, so a reader who followed a link got

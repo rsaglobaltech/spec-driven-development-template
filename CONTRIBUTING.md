@@ -21,8 +21,8 @@ Thank you for investing your time in this project.
 ## 1. Development setup
 
 ```bash
-git clone https://github.com/rsaglobaltech/spec-driven-development-template.git
-cd spec-driven-development-template
+git clone https://github.com/rsaglobaltech/specgate.git
+cd specgate
 npm install
 npm run build
 ```

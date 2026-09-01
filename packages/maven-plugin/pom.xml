@@ -16,7 +16,7 @@
     Resolves the CLI through npx when Node is available, or through the
     official Docker image otherwise.
   </description>
-  <url>https://github.com/rsaglobaltech/spec-driven-development-template</url>
+  <url>https://github.com/rsaglobaltech/specgate</url>
 
   <licenses>
     <license>

@@ -4,10 +4,10 @@
 
 **Specs as executable contracts — requirements, scenarios and traceability that CI enforces.**
 
-[![CI](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/ci.yml/badge.svg)](https://github.com/rsaglobaltech/spec-driven-development-template/actions/workflows/ci.yml)
+[![CI](https://github.com/rsaglobaltech/specgate/actions/workflows/ci.yml/badge.svg)](https://github.com/rsaglobaltech/specgate/actions/workflows/ci.yml)
 [![npm latest](https://img.shields.io/npm/v/specgate?logo=npm&label=npm)](https://www.npmjs.com/package/specgate)
 [![npm beta](https://img.shields.io/npm/v/specgate/beta?logo=npm&label=beta)](https://www.npmjs.com/package/specgate)
-[![Docs](https://img.shields.io/badge/docs-github_pages-0e8078)](https://rsaglobaltech.github.io/spec-driven-development-template/)
+[![Docs](https://img.shields.io/badge/docs-github_pages-0e8078)](https://rsaglobaltech.github.io/specgate/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](#-license)
 
 </div>
@@ -127,7 +127,7 @@ loop without versioned packs or an enforced matrix, theirs is the better fit.
 - [Supply chain](docs/supply-chain.md) — pack pinning, digests, signing, air-gapped installs, SBOM
 - [Architecture](docs/specs/architecture.md) — three repos, three lifecycles
 - [Bootstrap prompt](docs/bootstrap-prompt.md) — the one freeform-AI step
-- [Case study](docs/case-studies/case-1.md) · [ADRs](docs/specs/adr/README.md) · [Docs site](https://rsaglobaltech.github.io/spec-driven-development-template/) · [Spec coverage report](https://rsaglobaltech.github.io/spec-driven-development-template/report.html)
+- [Case study](docs/case-studies/case-1.md) · [ADRs](docs/specs/adr/README.md) · [Docs site](https://rsaglobaltech.github.io/specgate/) · [Spec coverage report](https://rsaglobaltech.github.io/specgate/report.html)
 
 ## 🧰 Companion tools
 

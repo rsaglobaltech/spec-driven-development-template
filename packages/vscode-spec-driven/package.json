@@ -22,7 +22,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rsaglobaltech/spec-driven-development-template.git",
+    "url": "git+https://github.com/rsaglobaltech/specgate.git",
     "directory": "packages/vscode-spec-driven"
   },
   "activationEvents": [
