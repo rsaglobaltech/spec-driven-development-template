@@ -77,6 +77,29 @@ export class ValidateSpecsCommand extends BaseCommand {
     }
   }
 
+  private logWarn(msg: string) {
+    const stream = this.io && this.io.json ? process.stderr : process.stdout;
+    stream.write(`⚠️ [WARN] ${msg}\n`);
+  }
+
+  /**
+   * True when the only Gherkin in the project is the placeholder `adopt` writes.
+   *
+   * `adopt` installs a skeleton and a baseline scenario so that `validate` passes
+   * on day one — deliberately, because a gate that rejects a fresh adoption is a
+   * gate nobody installs. The cost is that a project which never retro-filled a
+   * single requirement is indistinguishable from a healthy one at the only place
+   * most people look: the CI gate. Seen on `lixi-platform`, adopted months ago,
+   * still one placeholder requirement against 297 real tests (H15).
+   *
+   * So: still a pass, never an error — but it says so.
+   */
+  private isAdoptionSkeletonOnly(targetDir: string, featureFiles: string[]) {
+    if (featureFiles.length !== 1) return false;
+    const rel = path.relative(targetDir, featureFiles[0]).split(path.sep).join("/");
+    return rel === "features/adoption/baseline.feature";
+  }
+
   private fail(code: string, msg: string, exitCode = 1, fix: string | string[] | null = null) {
     const fixLines = fix ? (Array.isArray(fix) ? fix : [fix]) : [];
     if (this.io && this.io.json) {
@@ -738,6 +761,20 @@ export class ValidateSpecsCommand extends BaseCommand {
       }
     }
 
+    const skeletonOnly = this.isAdoptionSkeletonOnly(targetDir, featureFiles);
+    const advisories = skeletonOnly
+      ? lockAdvisories.concat([
+          {
+            severity: "warning",
+            code: "adoption_not_retrofilled",
+            message:
+              "The only scenario in this project is the adoption baseline. Nothing the codebase actually does is specified yet.",
+            target: "features/adoption/baseline.feature",
+            fix: 'Retro-fill one requirement you already rely on: specgate onboard, then specgate req add "<behaviour>" and specgate req link.',
+          },
+        ])
+      : lockAdvisories;
+
     if (this.io.json) {
       this.io.emit({
         validation: {
@@ -749,8 +786,9 @@ export class ValidateSpecsCommand extends BaseCommand {
           strictTdd,
           againstLock,
           packsChecked: lockChecked,
+          adoptionRetrofilled: !skeletonOnly,
         },
-        status: lockAdvisories,
+        status: advisories,
       });
       process.exit(EXIT.OK);
     }
@@ -768,6 +806,15 @@ export class ValidateSpecsCommand extends BaseCommand {
     this.logInfo("- Base SDD structure: complete");
     this.logInfo(`- Traceability mode: ${traceMode}`);
     if (strictTdd) this.logInfo("- Strict TDD gate: passed");
+    if (skeletonOnly) {
+      this.logWarn("Adoption never retro-filled — the only scenario is the adoption baseline.");
+      this.logFix([
+        "This passes, but it certifies the skeleton, not the code.",
+        "  specgate onboard                     # what this codebase already implies",
+        '  specgate req add "<behaviour>"        # one requirement you already rely on',
+        "  specgate req link REQ-NNN --code <path> --test <path>",
+      ]);
+    }
     process.exit(0);
   }
 }

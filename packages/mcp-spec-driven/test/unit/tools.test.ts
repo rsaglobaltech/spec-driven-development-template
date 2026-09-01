@@ -192,8 +192,13 @@ test("validate_project succeeds on a freshly generated project", () => {
       projectDir,
       cliPath: `"${process.execPath}" "${CLI}"`,
     });
-    assert.equal((r as any).passed, true, `expected passed=true, got: ${JSON.stringify(r)}`);
-    assert.equal((r as any).exitCode, 0);
+    // The tool returns the CLI's own JSON document verbatim — one envelope,
+    // per ADR-0017 — rather than the bespoke `{ passed, errors, warnings }`
+    // shape it used to flatten it into. Branch on the contract, not on a
+    // summary this layer invented.
+    assert.ok((r as any).validation, `expected a validation document, got: ${JSON.stringify(r)}`);
+    assert.equal((r as any).validation.passed, true);
+    assert.deepEqual((r as any).status, []);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

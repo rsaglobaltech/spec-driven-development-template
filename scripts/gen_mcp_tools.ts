@@ -2,7 +2,25 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { SURFACE, mcpTools } from "./lib/surface";
 
-const OUT_FILE = path.join(__dirname, "../packages/mcp-spec-driven/src/tools.ts");
+/**
+ * Resolve the repository root rather than walking up from `__dirname`.
+ *
+ * Compiled, this file runs from `dist/scripts/`, so `../packages/...` resolved
+ * to `dist/packages/mcp-spec-driven/src/tools.ts` — build output. The generator
+ * reported success on every run and never once wrote the file it is for, which
+ * is why the committed registry drifted from the surface it is generated from.
+ */
+function repoRoot() {
+  let dir = __dirname;
+  for (;;) {
+    if (fs.existsSync(path.join(dir, "package.json"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) throw new Error("package.json not found above " + __dirname);
+    dir = parent;
+  }
+}
+
+const OUT_FILE = path.join(repoRoot(), "packages/mcp-spec-driven/src/tools.ts");
 const toolsMap = mcpTools() as Record<string, string>;
 
 // Convert toolsMap { toolName: "command name" } back into lookup by "command name"
@@ -17,7 +35,14 @@ const cmdToTool = Object.entries(toolsMap).reduce(
 let out = `// GENERATED FILE - DO NOT EDIT BY HAND
 // Derived from scripts/lib/surface.ts
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { spawnSync } from "node:child_process";
+import {
+  ReadSpecTool,
+  ListRequirementsTool,
+  UpdateTraceabilityTool,
+} from "./native-tools";
 
 export interface ITool {
   readonly name: string;
@@ -28,19 +53,54 @@ export interface ITool {
 }
 
 class ProjectHelper {
+  /**
+   * A tool that is handed a directory which is not a spec-driven project has to
+   * say so. #138 reduced this to a type check, so every such call went on to
+   * shell out and came back \`{ exitCode: 1, raw: "" }\` — a failure with no
+   * reason in it, which is exactly the shape ADR-0017 exists to prevent.
+   */
   public static ensureProjectDir(projectDir: unknown): string {
     if (!projectDir || typeof projectDir !== "string") {
       throw new Error("projectDir is required (absolute path to a spec-driven project)");
+    }
+    if (!fs.existsSync(projectDir)) {
+      throw new Error(\`projectDir does not exist: \${projectDir}\`);
+    }
+    if (!fs.existsSync(path.join(projectDir, "spec.md"))) {
+      throw new Error(\`Not a spec-driven project (no spec.md): \${projectDir}\`);
     }
     return projectDir;
   }
 }
 
 class CliInvoker {
+  /**
+   * Split a command line, honouring quotes.
+   *
+   * \`bin.split(" ")\` was the whole parser after #138, so any interpreter path
+   * with a space in it — \`"/Users/me/My Tools/node" "…/cli.js"\` — was torn into
+   * fragments and the spawn failed with no output.
+   */
+  private static parseCliCommand(cliPath: string | undefined): string[] {
+    const raw = (cliPath || "npx specgate").trim();
+    const tokens: string[] = [];
+    const re = /"([^"]*)"|'([^']*)'|(\\S+)/g;
+    let m;
+    while ((m = re.exec(raw)) !== null) {
+      tokens.push(m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3]);
+    }
+    return tokens;
+  }
+
   public static spawnCli(cliPath: string | undefined, args: string[]) {
-    const bin = cliPath || "npx create-spec-driven-app";
-    const [cmd, ...rest] = bin.split(" ");
-    return spawnSync(cmd, [...rest, ...args], { encoding: "utf8", timeout: 60000 });
+    const cmd = CliInvoker.parseCliCommand(cliPath);
+    const useShell = process.platform === "win32";
+    const quote = (v: string) => (useShell && /\\s/.test(v) ? \`"\${v}"\` : v);
+    return spawnSync(quote(cmd[0]), [...cmd.slice(1), ...args].map(quote), {
+      encoding: "utf8",
+      shell: useShell,
+      timeout: 60000,
+    });
   }
 }
 
@@ -49,14 +109,23 @@ export class GenericCliTool implements ITool {
     public readonly name: string,
     public readonly description: string,
     public readonly csda: string,
-    public readonly inputSchema: Record<string, unknown>
+    public readonly inputSchema: Record<string, unknown>,
+    /**
+     * How this command takes the project directory. \`validate\` takes it as a
+     * positional \`<dir>\` and rejects \`--project-dir\` outright, so the flag form
+     * made \`validate_project\` — the most used tool of the seven — fail with
+     * "Unknown flag(s)" and an empty payload over MCP. The surface already
+     * records which is which in \`json.args\`; this reads it instead of assuming.
+     */
+    public readonly dirStyle: "flag" | "positional" = "flag"
   ) {}
 
   public handler(args: Record<string, unknown>) {
     const dir = ProjectHelper.ensureProjectDir(args.projectDir);
     const argv = this.csda.split(" ");
     
-    argv.push("--project-dir", dir);
+    if (this.dirStyle === "positional") argv.push(dir);
+    else argv.push("--project-dir", dir);
     
     // Pass args safely
     for (const [k, v] of Object.entries(args)) {
@@ -100,6 +169,11 @@ for (const command of SURFACE) {
     const summary =
       (subDef ? subDef.help?.summary : cmdDef.help?.summary) || `Run specgate ${cmdString}`;
 
+    // `json.args: "<dir>"` is the surface saying this command takes the project
+    // directory positionally rather than behind `--project-dir`.
+    const jsonDef = subDef ? subDef.json : cmdDef.json;
+    const dirStyle = jsonDef && jsonDef.args === "<dir>" ? "positional" : "flag";
+
     out += `TOOLS["${toolName}"] = new GenericCliTool(
   "${toolName}",
   ${JSON.stringify(summary)},
@@ -111,7 +185,8 @@ for (const command of SURFACE) {
       cliPath: { type: "string" }
     },
     required: ["projectDir"]
-  }
+  },
+  "${dirStyle}"
 );\n`;
   };
 
@@ -124,16 +199,40 @@ for (const command of SURFACE) {
   }
 }
 
-// Add the 3 legacy manual tools that aren't CLI commands
+// The three tools that are not a CLI command behind a shell, plus the published
+// names of the four that are.
+//
+// #138 generated the whole registry from the command surface and, in doing so,
+// deleted `read_spec`, `list_requirements` and `update_traceability` and renamed
+// the other four to `csda_*`. An MCP tool id lives in someone else's agent
+// config: the seven published names have to keep resolving, so they are
+// registered here as well as the generated ids. Both spellings reach the same
+// handler, and the tools that read files come from `native-tools.ts` — which is
+// not generated, so this file can be regenerated without losing them.
 out += `
-// Legacy exports for tests
-export const readSpec = (args: any) => TOOLS["csda_read_spec"] ? TOOLS["csda_read_spec"].handler(args) : {};
-export const listRequirements = (args: any) => TOOLS["csda_list_requirements"] ? TOOLS["csda_list_requirements"].handler(args) : {};
-export const updateTraceability = (args: any) => TOOLS["csda_update_traceability"] ? TOOLS["csda_update_traceability"].handler(args) : {};
-export const lintPack = (args: any) => TOOLS["csda_pack_lint"].handler(args);
-export const validateProject = (args: any) => TOOLS["csda_validate"].handler(args);
-export const plan = (args: any) => TOOLS["csda_plan"].handler(args);
-export const markRequirementDone = (args: any) => TOOLS["csda_done"].handler(args);
+// ── The published seven ──────────────────────────────────────────────────────
+
+TOOLS["read_spec"] = new ReadSpecTool();
+TOOLS["list_requirements"] = new ListRequirementsTool();
+TOOLS["update_traceability"] = new UpdateTraceabilityTool();
+
+// Aliases: the documented name and the generated id are the same tool.
+for (const [published, generated] of [
+  ["lint_pack", "csda_pack_lint"],
+  ["validate_project", "csda_validate"],
+  ["plan", "csda_plan"],
+  ["mark_requirement_done", "csda_done"],
+] as const) {
+  if (TOOLS[generated]) TOOLS[published] = TOOLS[generated];
+}
+
+export const readSpec = (args: any) => TOOLS["read_spec"].handler(args);
+export const listRequirements = (args: any) => TOOLS["list_requirements"].handler(args);
+export const updateTraceability = (args: any) => TOOLS["update_traceability"].handler(args);
+export const lintPack = (args: any) => TOOLS["lint_pack"].handler(args);
+export const validateProject = (args: any) => TOOLS["validate_project"].handler(args);
+export const plan = (args: any) => TOOLS["plan"].handler(args);
+export const markRequirementDone = (args: any) => TOOLS["mark_requirement_done"].handler(args);
 `;
 
 fs.writeFileSync(OUT_FILE, out);

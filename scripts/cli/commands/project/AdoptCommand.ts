@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { renderTemplate } from "../../../../packages/core/src/domain/PackSpec";
 import { slugify } from "./WizardCommand";
 import { BaseCommand } from "../../../lib/command";
+import type { Capability } from "./OnboardCommand";
 
 import { findCliRoot } from "../../../lib/project-root";
 
@@ -26,28 +27,43 @@ function fail(msg: string, exitCode = 1): never {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  specgate adopt [--project-dir <dir>] [--dry-run] [--var KEY=VALUE]...\n\n" +
+      "  specgate adopt [--project-dir <dir>] [--dry-run] [--monorepo]\n" +
+      "                 [--no-capabilities] [--var KEY=VALUE]...\n\n" +
       "Installs Spec-Driven Development on an existing repository:\n" +
       "- detects the stack from pom.xml / build.gradle / package.json / go.mod\n" +
       "- generates spec.md, AI_RULES.md, features/adoption/baseline.feature,\n" +
       "  docs/specs/traceability.md and docs/specs/adr/README.md\n" +
+      "- seeds one proposed requirement per capability the layout implies\n" +
       "- never overwrites existing files and never modifies source code\n\n" +
       "Options:\n" +
       "  --project-dir <dir>  Repository to adopt (default: current directory)\n" +
       "  --dry-run            Print what would be written without writing\n" +
+      "  --monorepo           Adopt every module the repository declares and write\n" +
+      "                       the specops.config.yaml that `validate` reads\n" +
+      "  --no-capabilities    Do not seed proposed requirements — skeleton only\n" +
       "  --var KEY=VALUE      Override a detected value (PROJECT_NAME, PROJECT_SLUG,\n" +
       "                       DOMAIN, STACK, API_STYLE, TESTING, TEST_CMD)\n"
   );
 }
 
 export function parseArgs(argv: string[]) {
-  const opts = { projectDir: process.cwd(), dryRun: false, vars: {} as Record<string, string> };
+  const opts = {
+    projectDir: process.cwd(),
+    dryRun: false,
+    monorepo: false,
+    noCapabilities: false,
+    vars: {} as Record<string, string>,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--project-dir" && argv[i + 1]) {
       opts.projectDir = path.resolve(argv[++i]);
     } else if (a === "--dry-run") {
       opts.dryRun = true;
+    } else if (a === "--monorepo") {
+      opts.monorepo = true;
+    } else if (a === "--no-capabilities") {
+      opts.noCapabilities = true;
     } else if (a === "--var" && argv[i + 1]) {
       const pair = argv[++i];
       const eq = pair.indexOf("=");
@@ -162,6 +178,197 @@ const ADOPT_FILES = [
   ["adr-readme.md.tpl", "docs/specs/adr/README.md"],
 ];
 
+/**
+ * Turn the capabilities `onboard` reads off the layout into seeded requirements.
+ *
+ * Without this the two commands do not speak: `onboard` proposes eight
+ * capabilities with evidence and file counts, and then `adopt` throws them away
+ * and writes a single placeholder. That seam is where adoption dies — measured
+ * on `lixi-platform`, adopted months ago and still sitting on `REQ-001` while
+ * the repository carries 297 tests.
+ *
+ * Every seeded requirement is labelled a proposal and starts `Draft` with a
+ * `TBD` test, so nothing here claims to be specified or verified. It exists to
+ * replace the blank page with eight arguable statements.
+ */
+export function buildProposedRequirements(capabilities: Capability[]) {
+  if (capabilities.length === 0) return { spec: "", rows: "" };
+
+  const spec = capabilities
+    .map((cap, i) => {
+      const id = `REQ-${String(i + 2).padStart(3, "0")}`;
+      return (
+        `\n## ${id} — ${cap.title}\n\n` +
+        `**Proposed, not specified.** Read off \`${cap.evidence}\` ` +
+        `(${cap.files} source file${cap.files === 1 ? "" : "s"}), which says this codebase has a\n` +
+        `${cap.title} area — not what it must do. Replace this paragraph with one behaviour you\n` +
+        `already rely on, add its scenario under \`features/${cap.id}/\`, then\n` +
+        `\`specgate req link ${id} --code <path> --test <path>\`.\n`
+      );
+    })
+    .join("");
+
+  const rows = capabilities
+    .map((cap, i) => {
+      const id = `REQ-${String(i + 2).padStart(3, "0")}`;
+      return `| ${id} | - | - | UC-${String(i + 2).padStart(3, "0")} ${cap.title} | - | - | - | \`${cap.evidence}\` | TBD | Draft |`;
+    })
+    .join("\n");
+
+  return { spec, rows: `${rows}\n` };
+}
+
+interface AdoptOptions {
+  projectDir: string;
+  dryRun: boolean;
+  monorepo: boolean;
+  noCapabilities: boolean;
+  vars: Record<string, string>;
+}
+
+/** Adopt one directory. */
+function adoptOne(dir: string, opts: AdoptOptions, { quiet = false } = {}) {
+  const say = quiet ? () => {} : logInfo;
+
+  const detected = detectStack(dir);
+
+  // Required lazily: OnboardCommand imports detectStack from this file, and a
+  // top-level import would close the cycle.
+  const capabilities: Capability[] = opts.noCapabilities
+    ? []
+    : (require("./OnboardCommand") as typeof import("./OnboardCommand")).proposeCapabilities(dir);
+  const proposed = buildProposedRequirements(capabilities);
+
+  const vars = {
+    PROJECT_NAME: detected.PROJECT_NAME,
+    PROJECT_SLUG: slugify(detected.PROJECT_NAME),
+    DOMAIN: "general",
+    STACK: detected.STACK,
+    API_STYLE: "REST with DTO boundaries",
+    TESTING: detected.TESTING,
+    TEST_CMD: detected.TEST_CMD,
+    PROPOSED_REQUIREMENTS: proposed.spec,
+    PROPOSED_ROWS: proposed.rows,
+    ...opts.vars,
+  };
+
+  say(
+    `🔍 Stack detection: ${detected.detected === "none" ? "no build manifest found" : detected.detected}`
+  );
+  say(`- Project: ${vars.PROJECT_NAME}`);
+  say(`- Stack: ${vars.STACK}`);
+  say(`- Test command: ${vars.TEST_CMD}`);
+  if (detected.detected === "none" && !quiet) {
+    logWarn("Could not detect the stack — review AI_RULES.md and traceability.md after adoption.");
+  }
+
+  let written = 0;
+  let skipped = 0;
+  for (const [tpl, dst] of ADOPT_FILES) {
+    const dstPath = path.join(dir, dst);
+    if (fs.existsSync(dstPath)) {
+      if (!quiet) logWarn(`skip (exists): ${dst}`);
+      skipped++;
+      continue;
+    }
+    const rendered = renderTemplate(fs.readFileSync(path.join(ADOPT_TEMPLATES, tpl), "utf8"), vars);
+    if (opts.dryRun) {
+      say(`[dry-run] write ${dst}`);
+    } else {
+      fs.mkdirSync(path.dirname(dstPath), { recursive: true });
+      fs.writeFileSync(dstPath, rendered, "utf8");
+      say(`write ${dst}`);
+    }
+    written++;
+  }
+
+  if (!fs.existsSync(path.join(dir, "README.md")) && !opts.dryRun) {
+    fs.writeFileSync(
+      path.join(dir, "README.md"),
+      `# ${vars.PROJECT_NAME}\n\nBuild and test: \`${vars.TEST_CMD}\`\n`,
+      "utf8"
+    );
+    say("write README.md (was missing)");
+    written++;
+  }
+
+  return { written, skipped, capabilities };
+}
+
+/**
+ * `--monorepo`: adopt every module the repository declares, and write the
+ * `specops.config.yaml` that puts `validate` into monorepo mode.
+ *
+ * The mode already existed (B8) but nothing generated its config, so the
+ * documented path was "hand-write a projects list and run adopt once per
+ * module". The module list is the same one `onboard` reads — a directory with
+ * its own build manifest — so this is bookkeeping, not new inference.
+ */
+function adoptMonorepo(dir: string, opts: AdoptOptions): never {
+  const { findDeclaredModules } = require("./OnboardCommand") as typeof import("./OnboardCommand");
+  const modules = findDeclaredModules(dir);
+
+  if (modules.length < 2) {
+    fail(
+      `--monorepo found ${modules.length} declared module(s) under ${dir}.\n` +
+        "A module is a directory with its own build manifest (pom.xml, build.gradle,\n" +
+        "package.json, Cargo.toml, go.mod, *.gemspec, *.csproj…).\n" +
+        "Adopt this repository as a single project instead: specgate adopt",
+      2
+    );
+  }
+
+  logInfo(`🗂️ Monorepo: ${modules.length} declared module(s)`);
+  let written = 0;
+  let skipped = 0;
+  const adopted: string[] = [];
+
+  for (const mod of modules) {
+    const rel = path.relative(dir, mod.dir).split(path.sep).join("/");
+    if (fs.existsSync(path.join(mod.dir, "spec.md"))) {
+      logWarn(`skip (already adopted): ${rel}`);
+      adopted.push(rel);
+      skipped++;
+      continue;
+    }
+    logInfo(`── ${rel}`);
+    const r = adoptOne(mod.dir, opts, { quiet: true });
+    logInfo(
+      `   ${opts.dryRun ? "[dry-run] " : ""}${r.written} file(s), ${r.capabilities.length} capability requirement(s) seeded`
+    );
+    written += r.written;
+    adopted.push(rel);
+  }
+
+  const cfgPath = path.join(dir, "specops.config.yaml");
+  if (fs.existsSync(cfgPath)) {
+    logWarn("skip (exists): specops.config.yaml — check its projects: list covers every module");
+    skipped++;
+  } else {
+    const body =
+      "# Monorepo layout for `specgate validate .` — one entry per adopted module.\n" +
+      "# Generated by `specgate adopt --monorepo`; edit freely.\n" +
+      "projects:\n" +
+      adopted.map((rel) => `  - path: ${rel}\n`).join("");
+    if (opts.dryRun) {
+      logInfo("[dry-run] write specops.config.yaml");
+    } else {
+      fs.writeFileSync(cfgPath, body, "utf8");
+      logInfo("write specops.config.yaml");
+    }
+    written++;
+  }
+
+  logInfo("📋 Summary");
+  logInfo(`- Files written: ${written}${opts.dryRun ? " (dry-run, nothing on disk)" : ""}`);
+  logInfo(`- Skipped: ${skipped}`);
+  logInfo("✅ Adoption completed. Next steps:");
+  logInfo("  1. specgate validate .          # validates every module listed");
+  logInfo("  2. Replace the seeded proposals in each module's spec.md with real behaviour");
+  logInfo("  3. Add `validate --strict-tdd` to CI to lock the gate in");
+  process.exit(0);
+}
+
 export class AdoptProjectCommand extends BaseCommand {
   public execute() {
     let rawArgs = this.args;
@@ -172,6 +379,9 @@ export class AdoptProjectCommand extends BaseCommand {
     if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
       fail(`Directory not found: ${dir}`, 2);
     }
+
+    if (opts.monorepo) adoptMonorepo(dir, opts);
+
     if (fs.existsSync(path.join(dir, "spec.md"))) {
       fail(
         `${path.join(dir, "spec.md")} already exists — this repository looks spec-driven already.\n` +
@@ -180,70 +390,25 @@ export class AdoptProjectCommand extends BaseCommand {
       );
     }
 
-    const detected = detectStack(dir);
-    const vars = {
-      PROJECT_NAME: detected.PROJECT_NAME,
-      PROJECT_SLUG: slugify(detected.PROJECT_NAME),
-      DOMAIN: "general",
-      STACK: detected.STACK,
-      API_STYLE: "REST with DTO boundaries",
-      TESTING: detected.TESTING,
-      TEST_CMD: detected.TEST_CMD,
-      ...opts.vars,
-    };
-
-    logInfo(
-      `🔍 Stack detection: ${detected.detected === "none" ? "no build manifest found" : detected.detected}`
-    );
-    logInfo(`- Project: ${vars.PROJECT_NAME}`);
-    logInfo(`- Stack: ${vars.STACK}`);
-    logInfo(`- Test command: ${vars.TEST_CMD}`);
-    if (detected.detected === "none") {
-      logWarn(
-        "Could not detect the stack — review AI_RULES.md and traceability.md after adoption."
-      );
-    }
-
-    let written = 0;
-    let skipped = 0;
-    for (const [tpl, dst] of ADOPT_FILES) {
-      const dstPath = path.join(dir, dst);
-      if (fs.existsSync(dstPath)) {
-        logWarn(`skip (exists): ${dst}`);
-        skipped++;
-        continue;
-      }
-      const rendered = renderTemplate(
-        fs.readFileSync(path.join(ADOPT_TEMPLATES, tpl), "utf8"),
-        vars
-      );
-      if (opts.dryRun) {
-        logInfo(`[dry-run] write ${dst}`);
-      } else {
-        fs.mkdirSync(path.dirname(dstPath), { recursive: true });
-        fs.writeFileSync(dstPath, rendered, "utf8");
-        logInfo(`write ${dst}`);
-      }
-      written++;
-    }
-
-    if (!fs.existsSync(path.join(dir, "README.md")) && !opts.dryRun) {
-      fs.writeFileSync(
-        path.join(dir, "README.md"),
-        `# ${vars.PROJECT_NAME}\n\nBuild and test: \`${vars.TEST_CMD}\`\n`,
-        "utf8"
-      );
-      logInfo("write README.md (was missing)");
-      written++;
-    }
+    const { written, skipped, capabilities } = adoptOne(dir, opts);
 
     logInfo("📋 Summary");
     logInfo(`- Files written: ${written}${opts.dryRun ? " (dry-run, nothing on disk)" : ""}`);
     logInfo(`- Files skipped (already present): ${skipped}`);
+    if (capabilities.length > 0) {
+      logInfo(
+        `- Requirements seeded: ${capabilities.length} proposal(s) from the layout — ${capabilities.map((c) => c.id).join(", ")}`
+      );
+    }
     logInfo("✅ Adoption completed. Next steps:");
     logInfo("  1. specgate validate .          # should pass right now");
-    logInfo("  2. Retro-fill real requirements in spec.md (one REQ per behaviour you rely on)");
-    logInfo("  3. specgate plan                # see what each REQ still needs");
+    if (capabilities.length > 0) {
+      logInfo("  2. Argue with the seeded proposals in spec.md — each one names its evidence");
+      logInfo("  3. specgate plan                # see what each REQ still needs");
+    } else {
+      logInfo("  2. Retro-fill real requirements in spec.md (one REQ per behaviour you rely on)");
+      logInfo("  3. specgate plan                # see what each REQ still needs");
+    }
     logInfo("  4. Add `validate --strict-tdd` to CI to lock the gate in");
     process.exit(0);
   }
