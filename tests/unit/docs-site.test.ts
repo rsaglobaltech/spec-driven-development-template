@@ -215,13 +215,24 @@ test("no two links on the landing page share a label and disagree on the target"
   // `Quickstart` pointed at `getting-started.html` while the sidebar's
   // `Quickstart` pointed at `quickstart.html` — a different page for a
   // different reader. Same word, two destinations, on the front door.
+  // Repeated until it stops changing: one pass of `/<[^>]*>/g` leaves a nested
+  // or malformed tag behind, which CodeQL reports as
+  // `js/incomplete-multi-character-sanitization`. `build-site.ts` strips tags
+  // the same way and for the same reason.
+  const stripTags = (value: string) => {
+    let out = value;
+    let previous;
+    do {
+      previous = out;
+      out = out.replace(/<[^>]*>/g, "");
+    } while (out !== previous);
+    return out;
+  };
+
   const html = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8");
   const byLabel = new Map<string, Set<string>>();
   for (const m of html.matchAll(/<a [^>]*href="(\.\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
-    const label = m[2]
-      .replace(/<[^>]*>/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
+    const label = stripTags(m[2]).replace(/\s+/g, " ").trim();
     if (!label || label.length > 40) continue;
     if (!byLabel.has(label)) byLabel.set(label, new Set());
     byLabel.get(label)!.add(m[1].split("#")[0]);
