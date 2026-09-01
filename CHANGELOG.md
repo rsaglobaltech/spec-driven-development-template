@@ -6,6 +6,59 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
+## [Unreleased]
+
+### Added
+
+- **`prompt_precedents` shows the agent an accepted requirement from the same
+  bounded context.** Everything else in the prompt is normative — facts,
+  Gherkin, `AI_RULES.md`, the definition of done — and none of it is an
+  example. An agent with no conversation history has never seen what an
+  accepted implementation looks like in your repository, so it invents a house
+  style and the next attempt is spent correcting it.
+
+  Three rules keep the section from doing harm: the same bounded context only
+  (a precedent from elsewhere teaches conventions that do not apply, with the
+  authority of having been accepted), `Verified` rather than `Implemented`
+  (one means the code exists, the other means somebody checked it), and an
+  earlier requirement only. It says in as many words that it is an example of
+  shape and not of behaviour. Nothing qualifying means no section rather than
+  an empty one, and a moved artifact never stops a run.
+
+  Off by default. Closes #106.
+
+- **`harness run --verbose`** streams the gate command's output as it runs,
+  on stderr. Without it the output only appeared when the gate failed, so a run
+  that takes minutes showed nothing and a hung test looked like a working one.
+  Stdout stays reserved for `--format json`. Closes #34.
+
+### Fixed
+
+- **`git worktree add` raced itself under `--concurrency`.** Each requirement
+  runs in its own process and every one creates a worktree in the same
+  repository; git writes `.git/worktrees/<name>/` incrementally, so a sibling
+  read an entry that was half there and failed with `failed to read …
+  /commondir`. Worse, the failure was *attributed*: the run reported the
+  requirement as failed with "the agent produced no files", so a race in the
+  harness read as the agent's fault.
+
+  `git worktree add` is now serialised across processes with a lock directory
+  in `.git/`. Only the creation is inside it — the agent and the gate stay
+  parallel. Closes #158.
+
+- **MCP could edit the specification it was being measured against.** The
+  prompt said not to; nothing enforced it. Tools that write a protected path
+  are refused unless a change is open, with the list declared once on the
+  command surface and the escape hatch written down in `.csda/config.json`
+  rather than passed with the call. Closes #138.
+
+### Changed
+
+- **Pull requests target `develop`, not `main`.** `main` is the branch releases
+  are cut from and the first thing an evaluator sees, so it does not get to be
+  red — not even briefly. A green `develop` is fast-forwarded into `main` and
+  the release is cut from there. CI runs on pushes to both.
+
 ## [0.8.1] — 2026-09-01
 
 ### Changed

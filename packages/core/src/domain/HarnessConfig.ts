@@ -11,6 +11,14 @@ export interface HarnessSettings {
   attemptProfiles: string[];
   /** Advisory profile run before each retry, or "" for none. */
   reviewProfile: string;
+  /**
+   * Show the agent an accepted requirement from the same bounded context (D2).
+   *
+   * Off by default: it costs prompt budget, and on a project with nothing
+   * `Verified` yet there is nothing to show — the section simply does not
+   * appear rather than appearing empty.
+   */
+  promptPrecedents: boolean;
   /** Profile name to the shell command it resolves to. */
   profileAgents: Record<string, string>;
   /**
@@ -54,6 +62,7 @@ export class HarnessConfig {
     prCmd: "",
     attemptProfiles: [],
     reviewProfile: "",
+    promptPrecedents: false,
     profileAgents: {},
     protectedPaths: [],
     allowPaths: [],
@@ -88,6 +97,10 @@ export class HarnessConfig {
       prCmd: cliArgs.prCmd || file.prCmd || HarnessConfig.DEFAULT_SETTINGS.prCmd,
       attemptProfiles: file.attemptProfiles || HarnessConfig.DEFAULT_SETTINGS.attemptProfiles,
       reviewProfile: file.reviewProfile || HarnessConfig.DEFAULT_SETTINGS.reviewProfile,
+      promptPrecedents:
+        file.promptPrecedents === undefined
+          ? HarnessConfig.DEFAULT_SETTINGS.promptPrecedents
+          : file.promptPrecedents === true,
       profileAgents: file.profileAgents || HarnessConfig.DEFAULT_SETTINGS.profileAgents,
       // Write scope is a repository decision, like the role ladder: it comes
       // from the file only. A flag that relaxes what the agent may edit is a

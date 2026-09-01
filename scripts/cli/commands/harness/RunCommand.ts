@@ -681,6 +681,10 @@ function attemptRequirement(req, ctx) {
           reviewFindings: step.advisory ? undefined : reviewFindings || undefined,
           attempt,
           maxAttempts: settings.maxAttempts,
+          // Read from the worktree, which carries the matrix at the base
+          // commit — the precedent must be work already accepted, not a
+          // sibling requirement this same run happens to be writing.
+          withPrecedents: settings.promptPrecedents === true,
         });
         const promptFile = path.join(
           os.tmpdir(),
@@ -1973,6 +1977,7 @@ export class RunCommand extends BaseCommand {
           const prompt = buildPrompt(req, projectDir, {
             promptPrefix: settings.promptPrefix,
             hint: hintByReq.get(req.requirement) as string | undefined,
+            withPrecedents: settings.promptPrecedents === true,
           });
           process.stdout.write(
             `\n${"═".repeat(72)}\n${req.requirement} (${req.category}) → branch harness/${req.requirement}\n${"═".repeat(72)}\n`

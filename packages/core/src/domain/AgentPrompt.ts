@@ -24,6 +24,21 @@ export interface PromptOptions {
   featureContent?: string | null;
   aiRulesContent?: string | null;
   stageRules?: string[];
+  /** Ask the use case to look one up. `precedent` is what it found. */
+  withPrecedents?: boolean;
+  /**
+   * An already-accepted requirement to show as an example (D2, opt-in).
+   *
+   * Everything else in this prompt is normative — it says what must be true.
+   * This is the one part that says what "done, and accepted, here" looks like.
+   */
+  precedent?: {
+    requirementId: string;
+    testArtifact?: string;
+    testExcerpt?: string;
+    technicalArtifact?: string;
+    technicalExcerpt?: string;
+  } | null;
 }
 
 export class AgentPrompt {
@@ -91,6 +106,37 @@ export class AgentPrompt {
           "Project rules (AI_RULES.md — non-negotiable)",
           opts.aiRulesContent.trimEnd()
         )
+      );
+    }
+
+    if (opts.precedent && (opts.precedent.testExcerpt || opts.precedent.technicalExcerpt)) {
+      const p = opts.precedent;
+      const body: string[] = [
+        `${p.requirementId} was accepted in this same bounded context. Match its ` +
+          `structure, naming and test style — this is what "done" looks like here.`,
+        "",
+      ];
+      if (p.testExcerpt) {
+        body.push(`**Its test — \`${p.testArtifact}\`**`, "", "```", p.testExcerpt, "```", "");
+      }
+      if (p.technicalExcerpt) {
+        body.push(
+          `**Its implementation — \`${p.technicalArtifact}\`**`,
+          "",
+          "```",
+          p.technicalExcerpt,
+          "```",
+          ""
+        );
+      }
+      // Named a precedent, not a rule: the agent must not conclude that copying
+      // it satisfies a different requirement.
+      body.push(
+        "This is an example of *shape*, not of behaviour. Your requirement is the " +
+          "one above; do not copy its assertions."
+      );
+      parts.push(
+        AgentPrompt.section("Precedent — an accepted requirement nearby", body.join("\n"))
       );
     }
 

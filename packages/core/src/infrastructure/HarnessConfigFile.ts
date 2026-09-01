@@ -55,6 +55,7 @@ const KNOWN_KEYS = new Set([
   "protected_paths",
   "allow_paths",
   "message_report",
+  "prompt_precedents",
 ]);
 
 export function readHarnessConfig(projectDir) {
@@ -68,6 +69,12 @@ export function readHarnessConfig(projectDir) {
 
   const config: Partial<HarnessSettings> = {};
   if (parsed.agent !== undefined) config.agent = String(parsed.agent);
+  // Opt-in (D2): show the agent an accepted requirement from the same bounded
+  // context. Off by default because it costs prompt budget and says nothing
+  // useful until a project has verified work to point at.
+  if (parsed.prompt_precedents !== undefined) {
+    config.promptPrecedents = /^(1|true|yes|on)$/i.test(String(parsed.prompt_precedents).trim());
+  }
   if (parsed.test_cmd !== undefined) config.testCmd = String(parsed.test_cmd);
   if (parsed.max_attempts !== undefined) {
     const n = Number(parsed.max_attempts);
@@ -245,6 +252,9 @@ export function resolveHarnessSettings(
     // in the repository, not a flag somebody types differently each run.
     attemptProfiles: file.attemptProfiles || [],
     reviewProfile: file.reviewProfile || "",
+    // From the file only. Whether an agent is shown examples is a property of
+    // the project, not of the run somebody is starting.
+    promptPrecedents: file.promptPrecedents === true,
     profileAgents: file.profileAgents || {},
     // From the file only, for the same reason as the role ladder: a flag that
     // widens what the agent may edit is a flag somebody types to go green.
