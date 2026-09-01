@@ -72,108 +72,261 @@
     });
   });
 
-  // ── Search ───────────────────────────────────────────────────────────────
-  var input = $("#search");
+  // ── Collapsible sidebar groups ───────────────────────────────────────────
+  //
+  // `<details>` already opens and closes without help. What this adds is
+  // memory: a reader who folds away four sections should not find them open
+  // again on the next page. The group holding the current page is forced open
+  // by the generator, so the remembered state never hides where you are.
+  $$(".side__group").forEach(function (group) {
+    var key = "csda-nav:" + (group.getAttribute("data-group") || "");
+    if (!group.hasAttribute("open")) {
+      try {
+        if (localStorage.getItem(key) === "open") group.open = true;
+      } catch (e) {
+        /* private browsing: groups just start as the generator left them */
+      }
+    }
+    group.addEventListener("toggle", function () {
+      try {
+        localStorage.setItem(key, group.open ? "open" : "shut");
+      } catch (e) {
+        /* nothing to remember, nothing to do */
+      }
+    });
+  });
+
+  // ── Tabs ─────────────────────────────────────────────────────────────────
+  //
+  // Follows the ARIA tabs pattern: arrows move between tabs, Home and End jump
+  // to the ends, and only the selected tab is in the tab order — so Tab leaves
+  // the strip and enters the panel rather than walking every tab first.
+  $$(".tabs").forEach(function (group) {
+    var tabs = $$(".tabs__tab", group);
+    var panels = $$(".tabs__panel", group);
+    if (tabs.length === 0) return;
+
+    var select = function (index, focus) {
+      tabs.forEach(function (tab, i) {
+        var on = i === index;
+        tab.setAttribute("aria-selected", String(on));
+        tab.tabIndex = on ? 0 : -1;
+        if (panels[i]) panels[i].hidden = !on;
+      });
+      if (focus && tabs[index]) tabs[index].focus();
+    };
+
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener("click", function () {
+        select(i, false);
+      });
+      tab.addEventListener("keydown", function (event) {
+        var next =
+          event.key === "ArrowRight"
+            ? (i + 1) % tabs.length
+            : event.key === "ArrowLeft"
+              ? (i - 1 + tabs.length) % tabs.length
+              : event.key === "Home"
+                ? 0
+                : event.key === "End"
+                  ? tabs.length - 1
+                  : -1;
+        if (next === -1) return;
+        event.preventDefault();
+        select(next, true);
+      });
+    });
+  });
+
+  // ── Search palette ───────────────────────────────────────────────────────
+  //
+  // The index is fetched on first open, not on load: most readers never search,
+  // and a documentation page should not spend their bandwidth on the chance
+  // that they will.
+  //
+  // Records are one per heading as well as one per page, so a hit can land on
+  // the section that answers the question rather than the top of a 1000-line
+  // tutorial.
+  var palette = $("#palette");
+  var trigger = $("#search");
+  var input = $("#palette-input");
   var results = $("#results");
-  if (input && results) {
-    var index = null;
+
+  if (palette && trigger && input && results) {
+    var records = null;
+    var loading = false;
+    var active = -1;
+    var hits = [];
+    var lastFocus = null;
+    var base = location.pathname.replace(/[^/]*$/, "");
     var depth = (document.documentElement.getAttribute("data-slug") || "").split("/").length - 1;
     var up = new Array(depth + 1).join("../");
 
+    var escapeHtml = function (value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    };
+
+    var mark = function (text, needle) {
+      var at = text.toLowerCase().indexOf(needle);
+      if (at === -1) return escapeHtml(text.slice(0, 110));
+      // A window around the match, so the match is visible rather than
+      // truncated away in a long paragraph.
+      var from = Math.max(0, at - 30);
+      var slice = text.slice(from, from + 120);
+      var rel = at - from;
+      return (
+        (from > 0 ? "…" : "") +
+        escapeHtml(slice.slice(0, rel)) +
+        "<mark>" +
+        escapeHtml(slice.slice(rel, rel + needle.length)) +
+        "</mark>" +
+        escapeHtml(slice.slice(rel + needle.length))
+      );
+    };
+
+    var render = function (query) {
+      var needle = query.trim().toLowerCase();
+      results.innerHTML = "";
+      hits = [];
+      active = -1;
+
+      if (!records) {
+        results.innerHTML = '<p class="palette__empty">Loading the index…</p>';
+        return;
+      }
+      if (needle.length < 2) {
+        results.innerHTML = '<p class="palette__empty">Type to search the documentation.</p>';
+        return;
+      }
+
+      var found = [];
+      for (var i = 0; i < records.length && found.length < 30; i++) {
+        var r = records[i];
+        var inTitle = (r.title || "").toLowerCase().indexOf(needle) !== -1;
+        var inSection = (r.section || "").toLowerCase().indexOf(needle) !== -1;
+        var inText = (r.text || "").toLowerCase().indexOf(needle) !== -1;
+        if (!inTitle && !inSection && !inText) continue;
+        // A title match is what the reader most often meant.
+        found.push({ r: r, rank: inTitle ? 0 : inSection ? 1 : 2 });
+      }
+      found.sort(function (a, b) {
+        return a.rank - b.rank;
+      });
+
+      if (found.length === 0) {
+        results.innerHTML =
+          '<p class="palette__empty">Nothing matches “' + escapeHtml(query.trim()) + "”.</p>";
+        return;
+      }
+
+      var currentPage = null;
+      found.forEach(function (entry) {
+        var r = entry.r;
+        if (r.title !== currentPage) {
+          currentPage = r.title;
+          var head = document.createElement("div");
+          head.className = "palette__group";
+          head.textContent = r.title;
+          results.appendChild(head);
+        }
+        var a = document.createElement("a");
+        a.className = "palette__hit";
+        a.setAttribute("role", "option");
+        a.href = up + r.slug + ".html" + (r.hash ? "#" + r.hash : "");
+        a.innerHTML =
+          "<strong>" +
+          escapeHtml(r.section || r.title) +
+          "</strong><span>" +
+          mark(r.text || "", needle) +
+          "</span>";
+        results.appendChild(a);
+        hits.push(a);
+      });
+      move(0);
+    };
+
+    var move = function (index) {
+      if (hits.length === 0) return;
+      active = (index + hits.length) % hits.length;
+      hits.forEach(function (a, i) {
+        a.classList.toggle("is-active", i === active);
+      });
+      hits[active].scrollIntoView({ block: "nearest" });
+    };
+
     var load = function () {
-      if (index) return Promise.resolve(index);
-      return fetch(up + "assets/search-index.json")
-        .then(function (r) {
-          return r.json();
+      if (records || loading) return;
+      loading = true;
+      fetch(up + "assets/search-index.json")
+        .then(function (res) {
+          return res.json();
         })
         .then(function (data) {
-          index = data;
-          return index;
+          records = data;
+          render(input.value);
         })
         .catch(function () {
-          index = [];
-          return index;
+          results.innerHTML =
+            '<p class="palette__empty">The search index could not be loaded.</p>';
         });
     };
 
-    var render = function (matches, query) {
-      if (matches.length === 0) {
-        results.innerHTML = '<div class="empty">Nothing matches “' + escapeHtml(query) + '”.</div>';
-        results.hidden = false;
-        return;
-      }
-      results.innerHTML = matches
-        .slice(0, 8)
-        .map(function (m, i) {
-          return (
-            '<a href="' + up + m.slug + '.html"' + (i === 0 ? ' class="is-active"' : "") + ">" +
-            "<strong>" + escapeHtml(m.title) + "</strong>" +
-            "<span>" + escapeHtml(m.snippet) + "</span></a>"
-          );
-        })
-        .join("");
-      results.hidden = false;
+    var open = function () {
+      lastFocus = document.activeElement;
+      palette.hidden = false;
+      document.body.style.overflow = "hidden";
+      input.value = "";
+      render("");
+      load();
+      input.focus();
     };
 
-    var escapeHtml = function (s) {
-      return String(s).replace(/[&<>"]/g, function (c) {
-        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
-      });
+    var close = function () {
+      palette.hidden = true;
+      document.body.style.overflow = "";
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
     };
 
-    var search = function (query) {
-      var q = query.trim().toLowerCase();
-      if (q.length < 2) {
-        results.hidden = true;
-        return;
-      }
-      load().then(function (data) {
-        var matches = [];
-        data.forEach(function (page) {
-          var title = page.title.toLowerCase();
-          var text = page.text.toLowerCase();
-          var at = text.indexOf(q);
-          // A title match outranks a body match; otherwise the reference page
-          // for a term loses to whichever document happens to mention it most.
-          var score = title.indexOf(q) !== -1 ? 0 : at !== -1 ? 1 : -1;
-          if (score === -1) return;
-          matches.push({
-            slug: page.slug,
-            title: page.title,
-            score: score,
-            snippet: at !== -1 ? page.text.slice(Math.max(0, at - 40), at + 90) : page.text.slice(0, 110),
-          });
-        });
-        matches.sort(function (a, b) {
-          return a.score - b.score;
-        });
-        render(matches, query);
-      });
-    };
-
+    trigger.addEventListener("click", open);
+    $$("[data-close]", palette).forEach(function (el) {
+      el.addEventListener("click", close);
+    });
     input.addEventListener("input", function () {
-      search(input.value);
+      render(input.value);
     });
-    input.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") {
-        results.hidden = true;
-        input.blur();
+
+    document.addEventListener("keydown", function (event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        if (palette.hidden) open();
+        else close();
+        return;
       }
-      if (e.key === "Enter") {
-        var first = $("a", results);
-        if (first) window.location.href = first.getAttribute("href");
-      }
-    });
-    document.addEventListener("click", function (e) {
-      if (!results.contains(e.target) && e.target !== input) results.hidden = true;
-    });
-    // `/` focuses search, the shortcut every docs site has and readers try.
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "/" && document.activeElement !== input) {
-        e.preventDefault();
+      if (palette.hidden) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        move(active + 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        move(active - 1);
+      } else if (event.key === "Enter" && hits[active]) {
+        event.preventDefault();
+        hits[active].click();
+      } else if (event.key === "Tab") {
+        // The dialog is modal: focus stays in it until it closes.
+        event.preventDefault();
         input.focus();
       }
     });
+
+    void base;
   }
 
   // ── Highlight the section being read ─────────────────────────────────────

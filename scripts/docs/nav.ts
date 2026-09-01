@@ -20,18 +20,23 @@ export interface NavEntry {
   readonly label: string;
   /** One line under the label on section index pages. */
   readonly blurb: string;
+  /** Optional key into `icons.ts`. Decoration: an unknown name renders nothing. */
+  readonly icon?: string;
 }
 
 export interface NavSection {
   readonly title: string;
   /** Shown at the top of the section on the docs home page. */
   readonly summary: string;
+  /** Optional key into `icons.ts`, drawn beside the group heading. */
+  readonly icon?: string;
   readonly entries: readonly NavEntry[];
 }
 
 export const NAV: readonly NavSection[] = [
   {
     title: "Start here",
+    icon: "rocket",
     summary: "Fifteen minutes from nothing to a project whose specs are checked by CI.",
     entries: [
       {
@@ -58,6 +63,7 @@ export const NAV: readonly NavSection[] = [
   },
   {
     title: "Working with specs",
+    icon: "file",
     summary: "What a specification is here, and what the tool does with it.",
     entries: [
       {
@@ -84,6 +90,7 @@ export const NAV: readonly NavSection[] = [
   },
   {
     title: "Agents and the harness",
+    icon: "robot",
     summary:
       "The part that spends money. Read the harness page before pointing an agent at anything.",
     entries: [
@@ -111,6 +118,7 @@ export const NAV: readonly NavSection[] = [
   },
   {
     title: "Running it for real",
+    icon: "server",
     summary: "CI, boards, and the things an enterprise asks before it says yes.",
     entries: [
       {
@@ -137,6 +145,7 @@ export const NAV: readonly NavSection[] = [
   },
   {
     title: "Reference",
+    icon: "book",
     summary: "Look things up.",
     entries: [
       {
@@ -171,6 +180,7 @@ export const NAV: readonly NavSection[] = [
     // documents that explain *why* the tool is shaped this way, which makes
     // them the wrong ones to leave unreachable.
     title: "Background",
+    icon: "compass",
     summary: "Why it works this way.",
     entries: [
       {

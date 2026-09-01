@@ -2,9 +2,11 @@
 
 Task-shaped guides, each self-contained. Copy/paste should work end to end.
 
-> Prerequisites: **Node.js ≥ 22**, `git`, a shell. Every command that operates
-> on a project accepts `--project-dir <path>` and also walks up from the current
-> directory looking for `spec.md`, `.specops.lock` or `specops.config.yaml`.
+<!-- csda:note -->
+**Node.js ≥ 22**, `git`, a shell. Every command that operates on a project
+accepts `--project-dir <path>` and also walks up from the current directory
+looking for `spec.md`, `.specops.lock` or `specops.config.yaml`.
+<!-- csda:endnote -->
 
 ## By task
 
@@ -33,7 +35,10 @@ Each level is useful on its own and never requires the ones above it.
 
 ## Longer reads
 
-- [Quickstart](quickstart.md) — one page, for joining a project that already uses this.
-- [Walkthrough](walkthrough.md) — the shortest complete pass, on a real public pack.
-- [Tutorial](tutorial.md) — the long-form version, with the reasoning at each step.
-  Deliberately one file: it is a narrative, not a set of tasks.
+<!-- csda:cards cols=3 -->
+- [Quickstart](quickstart.md) — One page, for joining a project that already uses this.
+- [Walkthrough](walkthrough.md) — The shortest complete pass, on a real public pack.
+- [Tutorial](tutorial.md) — The long-form version, with the reasoning at each step.
+<!-- csda:endcards -->
+
+The tutorial is deliberately one file: it is a narrative, not a set of tasks.

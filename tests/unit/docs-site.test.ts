@@ -155,6 +155,9 @@ test("a link that climbs out of docs/ goes to GitHub, not to a page that never e
 });
 
 test("every page carries the shell: sidebar, search and a way back", () => {
+  // Each of these was added deliberately and is invisible from the outside:
+  // nothing else notices when a redesign quietly drops the breadcrumbs or the
+  // contents rail, which is precisely why they are pinned here.
   const { dir } = site();
   try {
     for (const slug of ["harness", "commands", "tutorial"]) {
@@ -163,7 +166,144 @@ test("every page carries the shell: sidebar, search and a way back", () => {
       assert.match(html, /id="search"/, `${slug}: no search`);
       assert.match(html, /class="top__brand"/, `${slug}: no way back to the home page`);
       assert.match(html, /Edit this page/, `${slug}: no edit link`);
+      assert.match(html, /<nav class="crumbs"/, `${slug}: no breadcrumbs`);
+      assert.match(html, /<div class="rail"/, `${slug}: no contents rail`);
+      assert.match(html, /id="palette"/, `${slug}: no search palette`);
+      assert.match(html, /aria-keyshortcuts="Meta\+K Control\+K"/, `${slug}: no ⌘K hint`);
+      assert.match(html, /<details class="side__group"/, `${slug}: sidebar groups do not collapse`);
     }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the landing page still names the four commands and what they do", () => {
+  // A redesign moved this section from a numbered list to a staged journey and
+  // silently dropped `specgate plan` and `specgate harness run` along the way:
+  // the page kept its shape and lost the thing it was for. A visual review does
+  // not catch that, so the four commands are pinned here.
+  const html = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8");
+  for (const command of [
+    "specgate init",
+    "specgate plan",
+    "specgate harness run",
+    "specgate validate",
+  ]) {
+    assert.match(
+      html,
+      new RegExp(`<code>${command}</code>`),
+      `the landing page no longer names \`${command}\``
+    );
+  }
+
+  // What each one is for, not only that it exists.
+  assert.match(html, /ordered by dependency, with a fix on every blocker/);
+  assert.match(html, /stop if the gate says no/);
+  assert.match(html, /This is what CI runs/);
+});
+
+test("the landing page keeps the claims a reader decides on", () => {
+  // Three facts an evaluator checks before reading anything else. They are
+  // cheap to drop in a redesign and expensive to notice missing.
+  const html = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8");
+  for (const claim of ["Zero runtime dependencies", "Any agent CLI", "MIT"]) {
+    assert.ok(html.includes(claim), `the landing page no longer claims: ${claim}`);
+  }
+});
+
+test("no two links on the landing page share a label and disagree on the target", () => {
+  // `Quickstart` pointed at `getting-started.html` while the sidebar's
+  // `Quickstart` pointed at `quickstart.html` — a different page for a
+  // different reader. Same word, two destinations, on the front door.
+  // Repeated until it stops changing: one pass of `/<[^>]*>/g` leaves a nested
+  // or malformed tag behind, which CodeQL reports as
+  // `js/incomplete-multi-character-sanitization`. `build-site.ts` strips tags
+  // the same way and for the same reason.
+  const stripTags = (value: string) => {
+    let out = value;
+    let previous;
+    do {
+      previous = out;
+      out = out.replace(/<[^>]*>/g, "");
+    } while (out !== previous);
+    return out;
+  };
+
+  const html = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8");
+  const byLabel = new Map<string, Set<string>>();
+  for (const m of html.matchAll(/<a [^>]*href="(\.\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+    const label = stripTags(m[2]).replace(/\s+/g, " ").trim();
+    if (!label || label.length > 40) continue;
+    if (!byLabel.has(label)) byLabel.set(label, new Set());
+    byLabel.get(label)!.add(m[1].split("#")[0]);
+  }
+  const clashes = [...byLabel].filter(([, targets]) => targets.size > 1);
+  assert.deepEqual(
+    clashes.map(([label, t]) => `${label} → ${[...t].join(" / ")}`),
+    [],
+    "the same label points at two different pages"
+  );
+});
+
+test("the landing page can be searched too", () => {
+  // The front page is where most readers arrive and where the first question
+  // gets asked. It is hand-written, so it does not inherit the generated shell
+  // and has to carry the palette itself.
+  const html = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8");
+  assert.match(html, /id="search"/, "no search trigger");
+  assert.match(html, /id="palette"/, "no search palette");
+  assert.match(html, /id="palette-input"/, "the palette has no input");
+  assert.match(html, /id="results"/, "the palette has nowhere to put results");
+});
+
+test("the sidebar opens the group holding the page you are on", () => {
+  // A remembered fold is a good thing until it hides where the reader already
+  // is. The generator forces the current group open; the script only restores
+  // the others.
+  const { dir } = site();
+  try {
+    const html = fs.readFileSync(path.join(dir, "harness.html"), "utf8");
+    assert.match(
+      html,
+      /<details class="side__group" data-group="Agents and the harness" open>/,
+      "the current page's group is not open"
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("code blocks are highlighted and labelled", () => {
+  // Highlighting happens at build time, so the page needs no JavaScript to be
+  // readable — and a block that carries a label is one a reader can tell from
+  // the five below it.
+  const { dir } = site();
+  try {
+    const html = fs.readFileSync(path.join(dir, "getting-started.html"), "utf8");
+    assert.match(html, /<figcaption class="code__head">/, "no code block header");
+    assert.match(html, /<span class="code__lang">/, "no language label");
+    assert.match(html, /<span class="tok tok--/, "nothing was highlighted");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the search index carries sections, not only pages", () => {
+  // A hit that can only say "somewhere in tutorial.md" is barely a hit: that
+  // page is over a thousand lines. Every section record carries the anchor.
+  const { dir } = site();
+  try {
+    const index = JSON.parse(
+      fs.readFileSync(path.join(dir, "assets", "search-index.json"), "utf8")
+    );
+    const sections = index.filter((r: any) => r.section);
+    assert.ok(sections.length > index.length / 2, "most records should be sections");
+    for (const record of sections) {
+      assert.ok(record.hash, `${record.slug}: section record with no anchor`);
+      assert.ok(record.text, `${record.slug}#${record.hash}: section record with no text`);
+    }
+    const deep = index.filter((r: any) => r.slug === "tutorial" && r.section);
+    assert.ok(deep.length >= 5, "the longest page should be indexed section by section");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
