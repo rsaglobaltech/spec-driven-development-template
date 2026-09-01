@@ -1808,3 +1808,108 @@ test("--verbose is listed in the help", () => {
   const r = spawnSync(process.execPath, [CLI, "harness", "run", "--help"], { encoding: "utf8" });
   assert.match(r.stdout + r.stderr, /--verbose\b/);
 });
+
+// ── Precedents in the prompt (#106 / D2) ─────────────────────────────────────
+
+/** A project whose matrix already has one Verified requirement to point at. */
+function projectWithAPrecedent(context = "Billing") {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-precedent-"));
+  fs.mkdirSync(path.join(dir, "docs", "specs"), { recursive: true });
+  fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+  fs.mkdirSync(path.join(dir, "test"), { recursive: true });
+
+  fs.writeFileSync(path.join(dir, "src", "Ledger.java"), "class Ledger { /* impl */ }\n", "utf8");
+  fs.writeFileSync(
+    path.join(dir, "test", "LedgerTest.java"),
+    "class LedgerTest { /* the house style */ }\n",
+    "utf8"
+  );
+
+  const header =
+    "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | " +
+    "Aggregate | Event | Technical artifact | Test artifact | Status |";
+  fs.writeFileSync(
+    path.join(dir, "docs", "specs", "traceability.md"),
+    [
+      "# Traceability Matrix",
+      "",
+      header,
+      "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+      "| REQ-000 | SCN-000 | `features/a.feature` | - | - | - | - | `src/Ledger.java` | `test/LedgerTest.java` | Verified |",
+      "| REQ-001 | SCN-001 | `features/b.feature` | - | - | - | - | TBD | TBD | Draft |",
+      "",
+      `<!-- csda:trace REQ-000 context=${context} -->`,
+      "<!-- csda:trace REQ-001 context=Billing -->",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+  return dir;
+}
+
+test("the prompt carries no precedent unless the project asks for one", () => {
+  // Off by default: it costs prompt budget, and on a project with nothing
+  // Verified there is nothing to show.
+  const dir = projectWithAPrecedent();
+  try {
+    assert.doesNotMatch(buildPrompt(sampleReq, dir), /Precedent/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("with precedents on, the prompt shows an accepted requirement and its code", () => {
+  const dir = projectWithAPrecedent();
+  try {
+    const prompt = buildPrompt(sampleReq, dir, { withPrecedents: true });
+    assert.match(prompt, /Precedent — an accepted requirement nearby/);
+    assert.match(prompt, /REQ-000 was accepted in this same bounded context/);
+    assert.match(prompt, /the house style/, "the test excerpt is missing");
+    assert.match(prompt, /class Ledger \{/, "the implementation excerpt is missing");
+    // The agent must not read an example as a specification.
+    assert.match(prompt, /example of \*shape\*, not of behaviour/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a precedent from another bounded context is not offered", () => {
+  const dir = projectWithAPrecedent("Shipping");
+  try {
+    assert.doesNotMatch(buildPrompt(sampleReq, dir, { withPrecedents: true }), /Precedent/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a missing artifact file does not stop the prompt being built", () => {
+  // The section is optional by design; a moved file must not take a run down.
+  const dir = projectWithAPrecedent();
+  fs.rmSync(path.join(dir, "src", "Ledger.java"));
+  fs.rmSync(path.join(dir, "test", "LedgerTest.java"));
+  try {
+    const prompt = buildPrompt(sampleReq, dir, { withPrecedents: true });
+    assert.match(prompt, /# Implement REQ-001/);
+    assert.doesNotMatch(prompt, /Precedent/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("prompt_precedents is read from harness.config.yaml", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-cfg-"));
+  try {
+    fs.writeFileSync(
+      path.join(dir, "harness.config.yaml"),
+      "agent: echo\nprompt_precedents: 1\n",
+      "utf8"
+    );
+    const config = readHarnessConfig(dir);
+    assert.equal(config.promptPrecedents, true);
+
+    fs.writeFileSync(path.join(dir, "harness.config.yaml"), "agent: echo\n", "utf8");
+    assert.equal(readHarnessConfig(dir).promptPrecedents, undefined);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

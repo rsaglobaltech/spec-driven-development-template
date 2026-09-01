@@ -188,6 +188,37 @@ The last one runs the whole loop with an agent that does nothing, which is the
 quickest way to find out whether your gate can go green at all before an agent
 is paid to try.
 
+## Show the agent what "accepted" looks like here
+
+```yaml
+# harness.config.yaml
+prompt_precedents: 1
+```
+
+Everything else in the prompt is **normative** — the requirement's facts, its
+Gherkin, `AI_RULES.md`, the definition of done. None of it is an *example*, and
+an agent starts every requirement with no conversation history, so it has never
+seen what an accepted implementation looks like in your repository. It invents a
+house style, and the next attempt is spent correcting it.
+
+With this on, the prompt gains one section: the most recent **Verified**
+requirement in the same bounded context, with the first forty lines of its test
+and of its production code. Three rules decide what is shown, and each exists to
+stop the section doing harm:
+
+| Rule | Why |
+| --- | --- |
+| Same bounded context, from the `context=` key `expand` already derives | A precedent from elsewhere teaches conventions that do not apply — with the authority of having been accepted |
+| `Verified`, never `Implemented` | One means the code exists; the other means somebody checked it |
+| An earlier requirement only | Precedent means already settled |
+
+The section says in as many words that it is an example of *shape*, not of
+behaviour, so it is not read as a second specification. If nothing qualifies it
+does not appear — never empty — and a moved artifact never stops a run.
+
+Off by default: it costs prompt budget and says nothing until a project has
+accepted work to point at.
+
 ## Next
 
 - [The harness](harness.md) — what happens around the agent: worktrees, the
