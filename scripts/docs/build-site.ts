@@ -240,13 +240,13 @@ function pageShell(page: Page, version: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(page.title)} — create-spec-driven-app</title>
+<title>${escapeHtml(page.title)} — Specgate</title>
 <meta name="description" content="${escapeHtml(entry?.blurb || page.title)}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="icon" href="${up}assets/favicon.svg" type="image/svg+xml">
-<meta property="og:title" content="${escapeHtml(page.title)} — create-spec-driven-app">
+<meta property="og:title" content="${escapeHtml(page.title)} — Specgate">
 <meta property="og:description" content="${escapeHtml(entry?.blurb || page.title)}">
 <meta property="og:image" content="${SITE}/assets/og-card.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -264,7 +264,7 @@ function pageShell(page: Page, version: string): string {
 
 <header class="top">
   <button class="top__menu" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
-  <a class="top__brand" href="${up}index.html"><span aria-hidden="true">⬡</span> create-spec-driven-app</a>
+  <a class="top__brand" href="${up}index.html"><span aria-hidden="true">⬡</span> Specgate</a>
   <span class="top__version">v${escapeHtml(version)}</span>
   <div class="top__search">
     <input type="search" id="search" placeholder="Search the docs…" autocomplete="off"
@@ -274,7 +274,7 @@ function pageShell(page: Page, version: string): string {
   <nav class="top__links">
     <a href="${up}packs/">Packs</a>
     <a href="${REPO}" target="_blank" rel="noreferrer">GitHub</a>
-    <a href="https://www.npmjs.com/package/create-spec-driven-app" target="_blank" rel="noreferrer">npm</a>
+    <a href="https://www.npmjs.com/package/@rsaglobaltech/specgate" target="_blank" rel="noreferrer">npm</a>
   </nav>
   <button class="top__theme" type="button" aria-label="Switch theme">◐</button>
 </header>
@@ -382,7 +382,7 @@ function docsHome(version: string): string {
       `<a href="quickstart.html">You cloned a repo</a> if somebody handed you one.</p>` +
       `<figure class="code" data-lang="bash">` +
       `<button class="code__copy" type="button" aria-label="Copy to clipboard">Copy</button>` +
-      `<pre><code class="language-bash">npx create-spec-driven-app@latest init</code></pre>` +
+      `<pre><code class="language-bash">npx @rsaglobaltech/specgate@latest init</code></pre>` +
       `</figure>` +
       `<div class="home">${cards}</div>`,
   };

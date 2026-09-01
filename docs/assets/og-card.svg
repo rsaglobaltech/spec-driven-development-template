@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"
-     role="img" aria-label="create-spec-driven-app — specifications that are checked, not admired">
+     role="img" aria-label="Specgate — specifications that are checked, not admired">
   <!--
     The social card, rasterised to PNG by .github/workflows/pages.yml.
     It is not committed as a PNG: this repository ships no binaries, and a
@@ -29,7 +29,7 @@
 
   <text x="164" y="122" fill="#e8eaf0"
         font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace"
-        font-size="30" font-weight="600">create-spec-driven-app</text>
+        font-size="30" font-weight="600">Specgate</text>
 
   <text x="80" y="270" fill="#ffffff"
         font-family="'Space Grotesk', 'DejaVu Sans', sans-serif"

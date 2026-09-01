@@ -2,8 +2,8 @@
  * The shape of the documentation site, decided once.
  *
  * Ordered by the question a reader is asking, not alphabetically and not by
- * the order the files happened to be written. Someone who has just run `npx
- * create-spec-driven-app` needs a different page from someone deciding whether
+ * the order the files happened to be written. Someone who has just run
+ * `npx @rsaglobaltech/specgate` needs a different page from someone deciding whether
  * to adopt the tool at all, and the sidebar should make that obvious without
  * being read end to end.
  *

@@ -14,7 +14,7 @@ matrix on a codebase that already exists, without touching a line of code.
 cd your-existing-repo
 
 # Read the repository first. Writes nothing.
-npx create-spec-driven-app@latest onboard
+npx @rsaglobaltech/specgate@latest onboard
 
 # Detects the stack from pom.xml / build.gradle / package.json / go.mod
 npx @rsaglobaltech/specgate@latest adopt
@@ -65,8 +65,8 @@ workspaces, Cargo members, Go modules, gems, `.csproj` files — adopt each one
 and let `validate` aggregate:
 
 ```bash
-npx create-spec-driven-app@latest adopt --monorepo
-npx create-spec-driven-app@latest validate .   # one line per module
+npx @rsaglobaltech/specgate@latest adopt --monorepo
+npx @rsaglobaltech/specgate@latest validate .   # one line per module
 ```
 
 That writes `specops.config.yaml` listing every module it adopted. The
