@@ -16,8 +16,8 @@ steps:
       versionSpec: '22.x'
     displayName: Use Node.js 22
 
-  - script: npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd
-    displayName: Validate specs (strict TDD)
+  - script: npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd --strict-links
+    displayName: Validate specs (strict TDD + links)
 
   # Supply-chain gate: fails when rendered pack content no longer matches the
   # digest pinned in .specops.lock. Skipped when no packs are installed.

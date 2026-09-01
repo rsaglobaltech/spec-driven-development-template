@@ -28,7 +28,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
-      - run: npx --yes @rsaglobaltech/specgate@latest validate .
+      # --strict-links is what checks the matrix against the filesystem: without
+      # it a row pointing at a deleted test file still passes. Pin the version in
+      # CI so a release cannot change the gate under a green branch.
+      - run: npx --yes @rsaglobaltech/specgate@0.8.1 validate . --strict-tdd --strict-links
 ```
 
 What `validate` checks:
