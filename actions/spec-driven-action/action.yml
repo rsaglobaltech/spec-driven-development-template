@@ -30,7 +30,7 @@ runs:
 
     - name: Install specgate
       shell: bash
-      run: npm install -g @rtexido/specgate@latest
+      run: npm install -g @rsaglobaltech/specgate@latest
 
     - name: Run validate
       id: validate

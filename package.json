@@ -1,5 +1,5 @@
 {
-  "name": "@rtexido/specgate",
+  "name": "@rsaglobaltech/specgate",
   "version": "0.8.1",
   "description": "Specs as executable contracts — requirements, scenarios and traceability that CI enforces.",
   "license": "MIT",

@@ -51,7 +51,7 @@ function packageVersion(): string {
         // This package's own manifest, whatever it is called. Matching on an
         // exact name is what made this announce 0.0.0 twice: once when a path
         // assumption broke, and again when the CLI package became
-        // `@rtexido/specgate` and a hard-coded `"specgate"` stopped matching.
+        // `@rsaglobaltech/specgate` and a hard-coded `"specgate"` stopped matching.
         // The shape of the tree is the stable signal, not the spelling.
         const sibling = path.join(dir, "packages", "mcp-spec-driven", "package.json");
         if (fs.existsSync(sibling)) {

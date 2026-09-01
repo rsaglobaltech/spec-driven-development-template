@@ -16,20 +16,20 @@ steps:
       versionSpec: '22.x'
     displayName: Use Node.js 22
 
-  - script: npx @rtexido/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd
+  - script: npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd
     displayName: Validate specs (strict TDD)
 
   # Supply-chain gate: fails when rendered pack content no longer matches the
   # digest pinned in .specops.lock. Skipped when no packs are installed.
   - script: |
       if [ -f .specops.lock ]; then
-        npx @rtexido/specgate@{{SPECGATE_VERSION}} validate . --against-lock
+        npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --against-lock
       else
         echo "No .specops.lock — no packs installed, nothing to check."
       fi
     displayName: Check pack drift
 
-  - script: npx @rtexido/specgate@{{SPECGATE_VERSION}} plan --project-dir . --format json > $(Build.ArtifactStagingDirectory)/spec-plan.json
+  - script: npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} plan --project-dir . --format json > $(Build.ArtifactStagingDirectory)/spec-plan.json
     condition: always()
     displayName: Export pending-work plan
 

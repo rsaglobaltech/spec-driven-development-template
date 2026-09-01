@@ -125,19 +125,20 @@ within one punctuation mark of something that already exists. Any future name
 check has to attempt a publish — `npm publish --dry-run` does not contact the
 registry and would not have caught it either.
 
-**Decision: the npm package is `@rtexido/specgate`.** Scoped names are exempt
-from the similarity rule, and `rtexido` is the account that already publishes
-`create-spec-driven-app`, so it needed no new organisation. Nothing else moves:
-the tool is still Specgate, the binary is still `specgate`, the repository, the
-Docker image and the GitHub Packages name are unchanged, and `csda` and
+**Decision: the npm package is `@rsaglobaltech/specgate`.** Scoped names are
+exempt from the similarity rule, so the scope is what makes the name reachable
+at all. It is the same coordinate the package already has on GitHub Packages and
+the same name as the GitHub organisation, so the tool now answers to one
+spelling in both registries instead of two.
+
+Nothing else moves: the tool is still Specgate, the binary is still `specgate`,
+the repository and the Docker image are unchanged, and `csda` and
 `create-spec-driven-app` remain alias binaries.
 
-The cost is one line of friction on the way in — `npx @rtexido/specgate` rather
-than `npx specgate` — and it is paid on the front door, which is the worst place
-to pay anything. It was accepted because the alternative is a third rename, and
-because the scope can move to an `@rsaglobaltech` organisation later without
-disturbing the binary or the repository if the project outgrows a personal
-account.
+The cost is one line of friction on the way in — `npx @rsaglobaltech/specgate`
+rather than `npx specgate` — and it is paid on the front door, which is the
+worst place to pay anything. It was accepted because the alternative is a third
+rename of a product that has now been renamed twice.
 
 `create-spec-driven-app` is still the deprecation target and now points at
-`@rtexido/specgate`.
+`@rsaglobaltech/specgate`.

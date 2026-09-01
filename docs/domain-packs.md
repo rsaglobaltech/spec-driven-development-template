@@ -16,7 +16,7 @@ deliberately.
 
 ```bash
 # 1. Scaffold a pack
-npx @rtexido/specgate@latest pack init \
+npx @rsaglobaltech/specgate@latest pack init \
   --out ./domain-packs \
   --name "Billing Backend" \
   --type backend
@@ -29,7 +29,7 @@ npx @rtexido/specgate@latest pack init \
 #              scenarios, outputs.files, rules
 
 # 3. Lint
-npx @rtexido/specgate@latest pack lint \
+npx @rsaglobaltech/specgate@latest pack lint \
   --pack-root ./domain-packs \
   --pack billing/backend
 ```
@@ -199,7 +199,7 @@ packs:
 Then on a fresh clone:
 
 ```bash
-npx @rtexido/specgate@latest specops sync --project-dir .
+npx @rsaglobaltech/specgate@latest specops sync --project-dir .
 ```
 
 When `.specops.lock` is absent, `sync` reads `specops.config.yaml`, expands every listed pack, and writes the lockfile. When the lockfile exists, the lockfile wins — `specops.config.yaml` is the **intent**, the lockfile is the **resolved state** (think `package.json` vs `package-lock.json`).
@@ -214,7 +214,7 @@ When `.specops.lock` is absent, `sync` reads `specops.config.yaml`, expands ever
 
 ```bash
 # 1. Preview the change (no writes)
-npx @rtexido/specgate@latest specops diff \
+npx @rsaglobaltech/specgate@latest specops diff \
   --project-dir ./smart-parking \
   --pack parking-management/backend \
   --pack-version v0.2.0
@@ -227,13 +227,13 @@ npx @rtexido/specgate@latest specops diff \
 #   1 added · 2 modified · 9 unchanged
 
 # 2. Apply once you're satisfied
-npx @rtexido/specgate@latest specops sync \
+npx @rsaglobaltech/specgate@latest specops sync \
   --project-dir ./smart-parking \
   --pack parking-management/backend \
   --pack-version v0.2.0
 
 # 3. Re-validate
-npx @rtexido/specgate@latest validate ./smart-parking --strict-tdd
+npx @rsaglobaltech/specgate@latest validate ./smart-parking --strict-tdd
 
 # 4. Commit the updated .specops.lock and the regenerated spec files
 git add .specops.lock docs/specs features

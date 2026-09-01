@@ -5,16 +5,16 @@ spec-gate:
   image: node:22
   stage: test
   script:
-    - npx @rtexido/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd
+    - npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd
     # Supply-chain gate: fails when rendered pack content no longer matches the
     # digest pinned in .specops.lock. Skipped when no packs are installed.
     - >
       if [ -f .specops.lock ]; then
-        npx @rtexido/specgate@{{SPECGATE_VERSION}} validate . --against-lock;
+        npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --against-lock;
       else
         echo "No .specops.lock — no packs installed, nothing to check.";
       fi
-    - npx @rtexido/specgate@{{SPECGATE_VERSION}} plan --project-dir . --format json > spec-plan.json
+    - npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} plan --project-dir . --format json > spec-plan.json
   artifacts:
     when: always
     paths:

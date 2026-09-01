@@ -24,7 +24,7 @@ EOF
 #    | REQ-007 | SCN-007 | features/billing/discounts.feature | UC-007 | ApplyDiscountCommand | CartAggregate | DiscountApplied | DiscountService.java | DiscountServiceTest | Draft |
 
 # 3. Validate
-npx @rtexido/specgate@latest validate .
+npx @rsaglobaltech/specgate@latest validate .
 ```
 
 If the new `.feature` is not in `traceability.md`, the validator exits with a non-zero status and tells you the missing file.

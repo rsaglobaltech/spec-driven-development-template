@@ -107,7 +107,7 @@ Settings:
 | --- | --- | --- |
 | `spec-driven.validateOnSave` | `false` | Run `validate` on every file save. |
 | `spec-driven.codeLens` | `true` | Show "Reveal in traceability" code lenses. |
-| `spec-driven.cliPath` | `npx @rtexido/specgate` | Override if you ship the CLI vendored. |
+| `spec-driven.cliPath` | `npx @rsaglobaltech/specgate` | Override if you ship the CLI vendored. |
 | `spec-driven.schemaPath` | bundled | Point at a custom `pack.schema.json`. |
 
 ---
@@ -207,9 +207,9 @@ Plain shell (works without husky/lefthook):
 #!/usr/bin/env bash
 set -e
 echo "→ specgate validate --strict-tdd"
-npx --yes @rtexido/specgate@0.1.0 validate . --strict-tdd
+npx --yes @rsaglobaltech/specgate@0.1.0 validate . --strict-tdd
 echo "→ specgate specops diff (must be clean)"
-DIFF=$(npx --yes @rtexido/specgate@0.1.0 specops diff --format json 2>/dev/null || true)
+DIFF=$(npx --yes @rsaglobaltech/specgate@0.1.0 specops diff --format json 2>/dev/null || true)
 if echo "$DIFF" | grep -q '"added":\[\([^]].\)\]\|"modified":\[\([^]].\)\]'; then
   echo "✖ Pack content drifted. Run \`specgate specops sync\` and commit again."
   exit 1
@@ -221,7 +221,7 @@ Or with **husky** (`package.json`):
 ```bash
 npm install --save-dev husky
 npx husky init
-echo 'npx --yes @rtexido/specgate@latest validate . --strict-tdd' > .husky/pre-commit
+echo 'npx --yes @rsaglobaltech/specgate@latest validate . --strict-tdd' > .husky/pre-commit
 ```
 
 Mirror the same call in CI (see §4) so the gate survives `--no-verify`.

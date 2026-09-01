@@ -7,7 +7,7 @@
 ## 0. Prerequisites
 
 - **Node.js ≥ 22**.
-- Run everything below with `specgate` (installed via `npx @rtexido/specgate`
+- Run everything below with `specgate` (installed via `npx @rsaglobaltech/specgate`
   or a global install; the binary is `specgate` either way). All commands auto-detect the project root from your
   current directory — no `--project-dir` needed once you're inside the repo.
 

@@ -76,7 +76,7 @@
       "properties": {
         "spec-driven.cliPath": {
           "type": "string",
-          "default": "npx @rtexido/specgate",
+          "default": "npx @rsaglobaltech/specgate",
           "description": "Command used to invoke Specgate (can be a local path or npx invocation)."
         },
         "spec-driven.validateOnSave": {

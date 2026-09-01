@@ -10,7 +10,7 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
 ### Changed
 
-- **The npm package is `@rtexido/specgate`.** 0.8.0 could not be published
+- **The npm package is `@rsaglobaltech/specgate`.** 0.8.0 could not be published
   under the unscoped name:
 
   ```
@@ -27,12 +27,16 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   [2026-09-01 addendum](docs/specs/adr/0024-the-tool-is-renamed-the-format-is-not.md)
   records both the decision and the bad check that led to it.
 
+  The scope is what makes the name reachable at all, and it is the one the
+  package already carries on GitHub Packages — so the tool now answers to a
+  single spelling in both registries rather than two.
+
   **Only the install line changes.** The tool is still Specgate, the binary is
   still `specgate`, and `csda` and `create-spec-driven-app` remain alias
-  binaries. The repository, the Docker image `ghcr.io/rsaglobaltech/specgate`
-  and the GitHub Packages name `@rsaglobaltech/specgate` are untouched — 0.8.0
-  published both of those successfully, which is why this ships as 0.8.1 rather
-  than re-cutting a tag that is already live.
+  binaries. The repository and the Docker image `ghcr.io/rsaglobaltech/specgate`
+  are untouched — 0.8.0 published the image and the GitHub Packages copy
+  successfully, which is why this ships as 0.8.1 rather than re-cutting a tag
+  that is already live.
 
   Every scaffolded CI config, the pre-commit hook, the GitHub Action, the VS
   Code extension's `cliPath` default and the MCP server's fallback command all

@@ -8,8 +8,14 @@ unticked long after 0.1.4 shipped).
 
 | Artefact | Registry | Workflow | Status |
 |---|---|---|---|
-| `@rtexido/specgate` | npm, public | `publish-npm.yml` | Live |
+| `@rsaglobaltech/specgate` | npm, public | `publish-npm.yml` | Live |
 | `@rsaglobaltech/specgate` | GitHub Packages | `publish-github-packages.yml` | Live |
+
+The first two rows are the same coordinate in two registries, and that is
+deliberate: one name to document, one name to type. Public npm is the default
+resolution; a consumer who routes the scope with
+`@rsaglobaltech:registry=https://npm.pkg.github.com` gets the GitHub Packages
+copy of the same version instead.
 | CLI image | `ghcr.io` | `publish-docker.yml` | Live, `linux/amd64` and `linux/arm64` |
 | `specgate-maven-plugin` | Maven Central or an internal Nexus | none yet | C7-05 |
 | `specgate-gradle-plugin` | Gradle Plugin Portal or an internal repo | none yet | C7-06 |
@@ -29,7 +35,7 @@ first `specgate` version is live on npm:
 
 ```bash
 npm deprecate create-spec-driven-app \
-  "Renamed to Specgate. Install @rtexido/specgate instead — same tool, same CLI, and csda still works as a binary alias."
+  "Renamed to Specgate. Install @rsaglobaltech/specgate instead — same tool, same CLI, and csda still works as a binary alias."
 ```
 
 Deprecating does **not** unpublish. Every existing version stays installable, so
@@ -46,7 +52,7 @@ it.
 blocked by [`spec-gate`](https://www.npmjs.com/package/spec-gate): npm compares
 new names with punctuation removed, so the two collide and the registry answers
 `403 ... You may not perform that action with these credentials` — which reads
-like a token problem and is not one. The package is `@rtexido/specgate`; see the
+like a token problem and is not one. The package is `@rsaglobaltech/specgate`; see the
 2026-09-01 addendum to [ADR-0024](specs/adr/0024-the-tool-is-renamed-the-format-is-not.md).
 A `npm view <name>` returning 404 means *not published*, never *creatable* —
 check a name by attempting a real publish.
@@ -185,8 +191,8 @@ unpublished packages, no coverage output.
 ## Verifying a published release
 
 ```bash
-npx @rtexido/specgate@X.Y.Z --help
-npx @rtexido/specgate@X.Y.Z init --config ./project.config --out /tmp --dry-run
+npx @rsaglobaltech/specgate@X.Y.Z --help
+npx @rsaglobaltech/specgate@X.Y.Z init --config ./project.config --out /tmp --dry-run
 ```
 
 ## After the release
