@@ -235,3 +235,88 @@ test("every command the registry marks as MCP-exposed has a tool", () => {
   const missing = Object.keys(mcpTools()).filter((tool) => !(tool in TOOLS));
   assert.deepEqual(missing, [], `declared MCP tools that do not exist: ${missing.join(", ")}`);
 });
+
+// ── The write-scope declaration (C10-04) ─────────────────────────────────────
+
+test("every command that writes a protected path says so on the surface", () => {
+  // The MCP guard is computed from `editsContract`, so a command that writes
+  // the specification without declaring it is a hole that opens silently. This
+  // reads the implementations rather than trusting the list: a new command that
+  // touches `traceability.md` fails here until someone decides, on purpose,
+  // whether it edits the contract.
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const ROOT = require("node:path")
+    .resolve(__dirname)
+    .split(/[\\/]tests(?:[\\/]|$)/)[0]
+    .replace(/[\\/]dist$/, "");
+
+  // The protected filename has to appear in the *arguments* of a write call,
+  // not merely somewhere in the file: `agents init` embeds the words `spec.md`
+  // and `traceability` in the prompt text it hands an agent, and writes neither.
+  const PROTECTED = /traceability\.md|spec\.md|AI_RULES\.md|\.specops\.lock|harness\.config\.yaml/;
+  const WRITE_CALL = /(?:writeFileSync|appendFileSync|cpSync|renameSync|rmSync)\(([\s\S]{0,200})/g;
+
+  const writesProtectedPath = (source: string) => {
+    for (const call of source.matchAll(WRITE_CALL)) {
+      // Stop at the end of this call's own argument list, so the statement
+      // after it does not leak in.
+      const args = call[1].split(/\)\s*;/)[0];
+      if (PROTECTED.test(args)) return true;
+    }
+    return false;
+  };
+
+  const sourceFor = (script?: string[]) => {
+    if (!script) return "";
+    // `["harness", "run.js"]` → `scripts/harness/run.ts`
+    const rel = path.join(...script).replace(/\.js$/, ".ts");
+    const candidate = path.join(ROOT, "scripts", rel);
+    return fs.existsSync(candidate) ? fs.readFileSync(candidate, "utf8") : "";
+  };
+
+  const undeclared: string[] = [];
+  const check = (name: string, script: string[] | undefined, declared: boolean) => {
+    const source = sourceFor(script);
+    if (!source) return; // dispatched elsewhere; the MCP tests cover the tool
+    if (writesProtectedPath(source) && !declared) undeclared.push(name);
+  };
+
+  for (const command of SURFACE as any[]) {
+    if (command.subcommands) {
+      for (const sub of command.subcommands) {
+        check(
+          `${command.name} ${sub.name}`,
+          sub.script || command.script,
+          Boolean(sub.editsContract || command.editsContract)
+        );
+      }
+    } else {
+      check(command.name, command.script, Boolean(command.editsContract));
+    }
+  }
+
+  assert.deepEqual(
+    undeclared,
+    [],
+    "these write a path the contract protects and do not declare `editsContract`"
+  );
+});
+
+test("nothing claims to edit the contract without a command behind it", () => {
+  // The other direction: a stale `editsContract` on a command that no longer
+  // writes anything would refuse a tool for no reason, which reads to an agent
+  // as the server being broken.
+  const declared: string[] = [];
+  for (const command of SURFACE as any[]) {
+    if (command.editsContract) declared.push(command.name);
+    for (const sub of command.subcommands || []) {
+      if (sub.editsContract) declared.push(`${command.name} ${sub.name}`);
+    }
+  }
+  assert.ok(declared.length > 0, "nothing declares editsContract at all");
+  assert.ok(
+    declared.includes("req add") && declared.includes("harness run"),
+    "the commands that rewrite the matrix must be declared"
+  );
+});

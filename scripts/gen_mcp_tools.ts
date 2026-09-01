@@ -42,6 +42,7 @@ import {
   ReadSpecTool,
   ListRequirementsTool,
   UpdateTraceabilityTool,
+  assertContractEditable,
 } from "./native-tools";
 
 export interface ITool {
@@ -117,11 +118,26 @@ export class GenericCliTool implements ITool {
      * "Unknown flag(s)" and an empty payload over MCP. The surface already
      * records which is which in \`json.args\`; this reads it instead of assuming.
      */
-    public readonly dirStyle: "flag" | "positional" = "flag"
+    public readonly dirStyle: "flag" | "positional" = "flag",
+    /**
+     * True when this command may write a path the write-scope rules protect.
+     * Computed at generation time from scripts/lib/surface.ts and
+     * WriteScope.DEFAULT_PROTECTED_PATHS, so the rule has one definition.
+     */
+    public readonly editsContract = false
   ) {}
 
   public handler(args: Record<string, unknown>) {
     const dir = ProjectHelper.ensureProjectDir(args.projectDir);
+
+    // C10-04. The prompt has always told the agent not to rewrite the
+    // specification it is being measured against; nothing enforced it over MCP.
+    // An agent that cannot make a scenario pass can otherwise relax the
+    // scenario, and the gate approves — the exact failure this product exists
+    // to prevent. The change cycle is the way to edit a spec on purpose, and it
+    // leaves a reviewable trail.
+    if (this.editsContract) assertContractEditable(this.name, dir);
+
     const argv = this.csda.split(" ");
     
     if (this.dirStyle === "positional") argv.push(dir);
@@ -173,6 +189,11 @@ for (const command of SURFACE) {
     // directory positionally rather than behind `--project-dir`.
     const jsonDef = subDef ? subDef.json : cmdDef.json;
     const dirStyle = jsonDef && jsonDef.args === "<dir>" ? "positional" : "flag";
+    // `change *` is how a specification is edited on purpose; refusing it would
+    // leave no way to open the change the guard asks for.
+    const editsContract = Boolean(
+      (subDef ? subDef.editsContract : cmdDef.editsContract) && cmdDef.name !== "change"
+    );
 
     out += `TOOLS["${toolName}"] = new GenericCliTool(
   "${toolName}",
@@ -186,7 +207,8 @@ for (const command of SURFACE) {
     },
     required: ["projectDir"]
   },
-  "${dirStyle}"
+  "${dirStyle}",
+  ${editsContract}
 );\n`;
   };
 

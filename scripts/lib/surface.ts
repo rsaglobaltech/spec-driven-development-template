@@ -89,6 +89,18 @@ interface Subcommand {
    * runtime — the link is a declaration both sides make and a test compares.
    */
   mcp?: string | boolean;
+  /**
+   * True when this command may write a path `WriteScope.DEFAULT_PROTECTED_PATHS`
+   * protects — `spec.md`, `AI_RULES.md`, `features/**\/*.feature`,
+   * `docs/specs/**`, `.specops.lock` or `harness.config.yaml`.
+   *
+   * These are the terms of the contract an agent is working *against*, so an
+   * agent that can edit them can relax the scenario it cannot satisfy. The
+   * harness has verified this since 0.7.0; the MCP server refuses the tool
+   * outright, which is C10-04. `tests/unit/surface-registry.test.ts` fails when
+   * a command writes one of those paths without saying so here.
+   */
+  editsContract?: boolean;
 }
 
 interface Command {
@@ -104,11 +116,24 @@ interface Command {
    * runtime — the link is a declaration both sides make and a test compares.
    */
   mcp?: string | boolean;
+  /**
+   * True when this command may write a path `WriteScope.DEFAULT_PROTECTED_PATHS`
+   * protects — `spec.md`, `AI_RULES.md`, `features/**\/*.feature`,
+   * `docs/specs/**`, `.specops.lock` or `harness.config.yaml`.
+   *
+   * These are the terms of the contract an agent is working *against*, so an
+   * agent that can edit them can relax the scenario it cannot satisfy. The
+   * harness has verified this since 0.7.0; the MCP server refuses the tool
+   * outright, which is C10-04. `tests/unit/surface-registry.test.ts` fails when
+   * a command writes one of those paths without saying so here.
+   */
+  editsContract?: boolean;
 }
 
 export const SURFACE: Command[] = [
   {
     name: "init",
+    editsContract: true,
     script: ["init_project.js"],
     help: {
       group: "core",
@@ -119,6 +144,7 @@ export const SURFACE: Command[] = [
   },
   {
     name: "adopt",
+    editsContract: true,
     script: ["adopt_project.js"],
     help: {
       group: "core",
@@ -199,7 +225,7 @@ export const SURFACE: Command[] = [
       },
       { name: "link" },
       { name: "status" },
-      { name: "pull", json: { key: "pulled", gate: false } },
+      { name: "pull", editsContract: true, json: { key: "pulled", gate: false } },
     ],
   },
   {
@@ -222,6 +248,7 @@ export const SURFACE: Command[] = [
   },
   {
     name: "expand",
+    editsContract: true,
     script: ["expand_domain_pack.js"],
     help: {
       group: "core",
@@ -258,6 +285,7 @@ export const SURFACE: Command[] = [
   },
   {
     name: "done",
+    editsContract: true,
     script: ["done.js"],
     help: {
       group: "core",
@@ -271,7 +299,12 @@ export const SURFACE: Command[] = [
   {
     name: "req",
     script: ["req.js"],
-    subcommands: [{ name: "add" }, { name: "link" }, { name: "done" }, { name: "list" }],
+    subcommands: [
+      { name: "add", editsContract: true },
+      { name: "link", editsContract: true },
+      { name: "done", editsContract: true },
+      { name: "list" },
+    ],
     help: {
       group: "core",
       icon: "📝",
@@ -286,6 +319,7 @@ export const SURFACE: Command[] = [
   },
   {
     name: "fix",
+    editsContract: true,
     script: ["fix.js"],
     help: {
       group: "core",
@@ -297,14 +331,14 @@ export const SURFACE: Command[] = [
     name: "change",
     script: ["change", "cli.js"],
     subcommands: [
-      { name: "new" },
+      { name: "new", editsContract: true },
       { name: "list", json: { key: "changes", gate: false } },
       { name: "show", json: { key: "change", gate: false, args: "<id>" } },
       { name: "status", json: { key: "artifacts", gate: false } },
       { name: "validate", json: { key: "change", gate: true, args: "<id>" } },
-      { name: "archive", json: { key: "archive", gate: true, args: "<id>" } },
+      { name: "archive", editsContract: true, json: { key: "archive", gate: true, args: "<id>" } },
       { name: "instructions", json: { key: "instructions", gate: false, args: "<artifact>" } },
-      { name: "author", json: { key: "change", gate: true, args: "<id>" } },
+      { name: "author", editsContract: true, json: { key: "change", gate: true, args: "<id>" } },
     ],
     help: {
       group: "core",
@@ -371,6 +405,7 @@ export const SURFACE: Command[] = [
     subcommands: [
       {
         name: "add",
+        editsContract: true,
         script: ["specops", "add.js"],
         help: {
           group: "specops",
@@ -380,6 +415,7 @@ export const SURFACE: Command[] = [
       },
       {
         name: "remove",
+        editsContract: true,
         script: ["specops", "remove.js"],
         help: {
           group: "specops",
@@ -389,6 +425,7 @@ export const SURFACE: Command[] = [
       },
       {
         name: "sync",
+        editsContract: true,
         script: ["specops", "sync.js"],
         help: {
           group: "specops",
@@ -423,6 +460,7 @@ export const SURFACE: Command[] = [
     subcommands: [
       {
         name: "run",
+        editsContract: true,
         script: ["harness", "run.js"],
         help: {
           group: "harness",
@@ -442,6 +480,7 @@ export const SURFACE: Command[] = [
       },
       {
         name: "init",
+        editsContract: true,
         script: ["harness", "init.js"],
         help: {
           group: "harness",
@@ -492,6 +531,7 @@ export const SURFACE: Command[] = [
   },
   {
     name: "update",
+    editsContract: true,
     script: ["update.js"],
     help: {
       group: "dx",

@@ -25,6 +25,52 @@ export interface ITool {
   handler(args: Record<string, unknown>): unknown;
 }
 
+/**
+ * The change cycle is the reviewable way to edit a specification (C10-04).
+ *
+ * `docs/specs/changes/<id>/` is an open change; `archive/` is not one. Read
+ * from disk on every call rather than cached, because the agent may have opened
+ * the change through the CLI in another terminal.
+ */
+export function hasOpenChange(projectDir: string): boolean {
+  const dir = path.join(projectDir, "docs", "specs", "changes");
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .some((e) => e.isDirectory() && e.name !== "archive");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * An escape hatch that has to be written down, never passed by the caller.
+ *
+ * If the agent could send `allowContractEdits: true` with the call, the guard
+ * would protect nothing — it would be one more sentence for the agent to
+ * ignore, which is what this guard exists to replace. A person puts this in
+ * `.csda/config.json`, and it is visible in the repository afterwards.
+ */
+export function contractEditsAllowed(projectDir: string): boolean {
+  try {
+    const raw = fs.readFileSync(path.join(projectDir, ".csda", "config.json"), "utf8");
+    return JSON.parse(raw).mcpAllowContractEdits === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Refuse a contract-editing call outside the change cycle. */
+export function assertContractEditable(toolName: string, projectDir: string): void {
+  if (hasOpenChange(projectDir) || contractEditsAllowed(projectDir)) return;
+  throw new Error(
+    toolName +
+      " writes files the specification contract protects, and no change is open." +
+      " Open one first: specgate change new <id>." +
+      ' To allow it permanently, set "mcpAllowContractEdits": true in .csda/config.json.'
+  );
+}
+
 class ProjectHelper {
   public static ensureProjectDir(projectDir: unknown): string {
     if (!projectDir || typeof projectDir !== "string") {
@@ -157,6 +203,12 @@ export class UpdateTraceabilityTool implements ITool {
 
   public handler(args: Record<string, unknown>) {
     const dir = ProjectHelper.ensureProjectDir(args.projectDir);
+    // Deliberately *not* behind `assertContractEditable`, and the reason is the
+    // same one `WriteScope` gives for exempting new files: this tool appends a
+    // row and returns `{ updated: false }` when a matching one already exists.
+    // It cannot loosen a term of the contract, only add one — and a requirement
+    // in `NEEDS_FEATURE` is supposed to get its row. `req link`, which rewrites
+    // an existing row, is guarded.
     const tracePath = path.join(dir, "docs/specs/traceability.md");
     if (!fs.existsSync(tracePath)) {
       throw new Error("docs/specs/traceability.md not found in this project");
