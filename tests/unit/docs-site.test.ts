@@ -177,6 +177,63 @@ test("every page carries the shell: sidebar, search and a way back", () => {
   }
 });
 
+test("the landing page still names the four commands and what they do", () => {
+  // A redesign moved this section from a numbered list to a staged journey and
+  // silently dropped `specgate plan` and `specgate harness run` along the way:
+  // the page kept its shape and lost the thing it was for. A visual review does
+  // not catch that, so the four commands are pinned here.
+  const html = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8");
+  for (const command of [
+    "specgate init",
+    "specgate plan",
+    "specgate harness run",
+    "specgate validate",
+  ]) {
+    assert.match(
+      html,
+      new RegExp(`<code>${command}</code>`),
+      `the landing page no longer names \`${command}\``
+    );
+  }
+
+  // What each one is for, not only that it exists.
+  assert.match(html, /ordered by dependency, with a fix on every blocker/);
+  assert.match(html, /stop if the gate says no/);
+  assert.match(html, /This is what CI runs/);
+});
+
+test("the landing page keeps the claims a reader decides on", () => {
+  // Three facts an evaluator checks before reading anything else. They are
+  // cheap to drop in a redesign and expensive to notice missing.
+  const html = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8");
+  for (const claim of ["Zero runtime dependencies", "Any agent CLI", "MIT"]) {
+    assert.ok(html.includes(claim), `the landing page no longer claims: ${claim}`);
+  }
+});
+
+test("no two links on the landing page share a label and disagree on the target", () => {
+  // `Quickstart` pointed at `getting-started.html` while the sidebar's
+  // `Quickstart` pointed at `quickstart.html` — a different page for a
+  // different reader. Same word, two destinations, on the front door.
+  const html = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8");
+  const byLabel = new Map<string, Set<string>>();
+  for (const m of html.matchAll(/<a [^>]*href="(\.\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+    const label = m[2]
+      .replace(/<[^>]*>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!label || label.length > 40) continue;
+    if (!byLabel.has(label)) byLabel.set(label, new Set());
+    byLabel.get(label)!.add(m[1].split("#")[0]);
+  }
+  const clashes = [...byLabel].filter(([, targets]) => targets.size > 1);
+  assert.deepEqual(
+    clashes.map(([label, t]) => `${label} → ${[...t].join(" / ")}`),
+    [],
+    "the same label points at two different pages"
+  );
+});
+
 test("the landing page can be searched too", () => {
   // The front page is where most readers arrive and where the first question
   // gets asked. It is hand-written, so it does not inherit the generated shell

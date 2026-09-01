@@ -55,6 +55,12 @@
   <div class="wrap">
     <p class="hero__eyebrow">Specgate documentation</p>
 
+    <p class="hero__badges">
+      <span class="badge">Zero runtime dependencies</span>
+      <span class="badge">Any agent CLI</span>
+      <span class="badge">MIT</span>
+    </p>
+
     <h1>Specifications that are<br><em>checked</em>, not admired.</h1>
 
     <p class="hero__sub">
@@ -66,7 +72,7 @@
     <p class="chips">
       <a class="chip" href="./getting-started.html">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m10 8.5 6 3.5-6 3.5Z"/></svg>
-        Quickstart
+        Get started
       </a>
       <a class="chip" href="./commands.html">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 6-5 6 5 6M16 6l5 6-5 6"/></svg>
@@ -74,7 +80,11 @@
       </a>
       <a class="chip" href="./docs.html">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5Z"/><path d="M4 5.5v15"/></svg>
-        All documentation
+        Read the docs
+      </a>
+      <a class="chip" href="./tutorial.html">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+        Worked example
       </a>
     </p>
 
@@ -191,45 +201,48 @@
   <div class="wrap">
     <header class="sec">
       <p class="sec__label">Developer journey</p>
-      <h2>From a blank spec to a gated pull request</h2>
+      <h2>The loop</h2>
       <p class="sec__lede">
-        Four stages. The same four whether a person or an agent is driving.
+        Four commands. The same four whether a person or an agent is driving.
       </p>
     </header>
 
     <ol class="journey">
       <li class="journey__stage">
         <p class="journey__n" aria-hidden="true">1</p>
-        <h3 class="journey__title">Describe</h3>
+        <h3 class="journey__title"><code>specgate init</code></h3>
         <p class="journey__body">
-          Say what the system must do, once, where a machine can read it.
+          Scaffold a project: spec, scenarios, traceability matrix, and the
+          execution contract an agent reads before it writes a line. On a
+          repository that already exists, <code>specgate adopt</code> instead.
         </p>
         <ul class="journey__links">
+          <li><a href="./getting-started.html">Getting started</a></li>
           <li><a href="./writing-specs.html">Writing specs</a></li>
-          <li><a href="./domain-packs.html">Start from a domain pack</a></li>
-          <li><a href="./reviewing-changes.html">Change lifecycle</a></li>
+          <li><a href="./domain-packs.html">Domain packs</a></li>
         </ul>
       </li>
 
       <li class="journey__stage">
         <p class="journey__n" aria-hidden="true">2</p>
-        <h3 class="journey__title">Plan</h3>
+        <h3 class="journey__title"><code>specgate plan</code></h3>
         <p class="journey__body">
           What still needs a test, an implementation or a status change —
           ordered by dependency, with a fix on every blocker.
         </p>
         <ul class="journey__links">
           <li><a href="./commands.html">Command reference</a></li>
+          <li><a href="./reviewing-changes.html">Change lifecycle</a></li>
           <li><a href="./how-to.html">How-to guides</a></li>
         </ul>
       </li>
 
       <li class="journey__stage">
         <p class="journey__n" aria-hidden="true">3</p>
-        <h3 class="journey__title">Build</h3>
+        <h3 class="journey__title"><code>specgate harness run</code></h3>
         <p class="journey__body">
-          Hand one requirement to an agent in its own worktree, gate the result,
-          and stop if the gate says no. The branch is yours to merge or discard.
+          Hand one requirement to an agent in its own worktree, gate the
+          result, and stop if the gate says no.
         </p>
         <ul class="journey__links">
           <li><a href="./harness.html">The harness</a></li>
@@ -240,10 +253,10 @@
 
       <li class="journey__stage">
         <p class="journey__n" aria-hidden="true">4</p>
-        <h3 class="journey__title">Enforce</h3>
+        <h3 class="journey__title"><code>specgate validate</code></h3>
         <p class="journey__body">
-          Structure, traceability, Gherkin that Cucumber can actually run, and
-          TDD order. This is what CI runs, and what fails the pull request.
+          The gate itself: structure, traceability, Gherkin that Cucumber can
+          actually run, and TDD order. This is what CI runs.
         </p>
         <ul class="journey__links">
           <li><a href="./validating.html">Validating</a></li>
@@ -254,7 +267,8 @@
     </ol>
 
     <p class="band__lede band__lede--mid">
-      Stage three in detail. One requirement, one branch, one gate.
+      Step three in detail. One requirement, one branch, one gate — and the
+      branch is yours to merge or throw away.
     </p>
 
     <!-- csda:diagram harness-loop -->
