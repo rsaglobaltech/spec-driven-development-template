@@ -136,6 +136,10 @@ function usage() {
       "  --budget-seconds <n>   Wall-clock ceiling for the whole run. On reaching it\n" +
       "                         the run stops cleanly and still reports what it did.\n" +
       "  --max-requirements <n> Attempt at most n requirements in this run.\n" +
+      "  --verbose              Stream the gate command's output as it runs, on\n" +
+      "                         stderr. Without it the output only appears when the\n" +
+      "                         gate fails, so a run that takes minutes shows\n" +
+      "                         nothing and a hung test looks like a working one.\n" +
       "  --skip-not-ready       Skip requirements an agent could not succeed at — no\n" +
       "                         feature, an unrunnable scenario, unmet dependencies,\n" +
       "                         Deprecated or Needs Clarification. Default: warn and\n" +
@@ -170,6 +174,7 @@ export function parseArgs(argv) {
     resume: false,
     format: "text",
     dryRun: false,
+    verbose: false,
     strictArtifacts: false,
     skipNotReady: false,
     budgetSeconds: 0,
@@ -222,6 +227,8 @@ export function parseArgs(argv) {
       args.resume = true;
     } else if (token === "--format") {
       args.format = argv[++i] || "";
+    } else if (token === "--verbose") {
+      args.verbose = true;
     } else if (token === "--dry-run") {
       args.dryRun = true;
     } else if (token === "--strict-artifacts") {
@@ -370,12 +377,23 @@ function runGate(worktreeDir, testCmd, timeoutMs, req: any = {}, settings: any =
     // dependencies has no node_modules here. Verified the hard way: an agent
     // spent its first attempt installing them and timed out. The gate command
     // is the right place to say so, since only the project knows how.
+    // `--verbose` streams instead of capturing, and streams to **fd 2**.
+    //
+    // `spawnSync` cannot do both: the buffers only exist once the child has
+    // exited, which is the moment streaming stops being useful. Streaming is
+    // the point of the flag — during a run that takes minutes there is nothing
+    // to watch, and a gate that hangs looks exactly like a gate that is working.
+    //
+    // Stderr rather than inherited stdout, because `--format json` promises one
+    // parseable document on stdout. Letting the test command write there is
+    // precisely H18: prose and JSON sharing a stream.
     const test = spawnSync(resolved, {
       shell: true,
       cwd: worktreeDir,
       encoding: "utf8",
       timeout: timeoutMs,
       maxBuffer: SUBPROCESS_MAX_BUFFER,
+      stdio: settings.verbose ? ["ignore", 2, 2] : undefined,
     });
     if (test.status !== 0) {
       // Name the command. A gate that silently does the wrong thing — running
@@ -385,7 +403,11 @@ function runGate(worktreeDir, testCmd, timeoutMs, req: any = {}, settings: any =
       return {
         ok: false,
         stage: `test command: ${resolved}`,
-        output: test.stdout + test.stderr,
+        // Streamed output is not captured, so say where it went rather than
+        // recording an empty string a reader would take for "printed nothing".
+        output: settings.verbose
+          ? "(streamed above — run without --verbose to capture it in the report)"
+          : test.stdout + test.stderr,
       };
     }
 
@@ -758,7 +780,12 @@ function attemptRequirement(req, ctx) {
       continue;
     }
 
-    const gate = runGate(worktreeDir, settings.testCmd, timeoutMs, req, settings);
+    // `verbose` is a run flag, not a project setting, so it travels on the
+    // context rather than in `harness.config.yaml`.
+    const gate = runGate(worktreeDir, settings.testCmd, timeoutMs, req, {
+      ...settings,
+      verbose: ctx.verbose,
+    });
     if (!gate.ok) {
       previousFailure =
         `Gate failed at: ${gate.stage}\n\n` + (gate.hint ? `⚠ ${gate.hint}\n\n` : "") + gate.output;
@@ -1991,6 +2018,7 @@ export class RunCommand extends BaseCommand {
         budgetSeconds: args.budgetSeconds,
         maxRequirements: args.maxRequirements,
         strictArtifacts: args.strictArtifacts,
+        verbose: args.verbose,
       };
 
       const startedAt = new Date().toISOString();
