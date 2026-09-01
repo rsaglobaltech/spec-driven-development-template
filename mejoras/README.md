@@ -69,7 +69,7 @@ el resto son de referencia histórica.
 > | `E2-06` `projects:` en `plan`/`status`/`report` | [#104](https://github.com/rsaglobaltech/specgate/issues/104) |
 > | `B3` · `D2` · `D3` · `F6` | [#105](https://github.com/rsaglobaltech/specgate/issues/105) · [#106](https://github.com/rsaglobaltech/specgate/issues/106) · [#107](https://github.com/rsaglobaltech/specgate/issues/107) · [#108](https://github.com/rsaglobaltech/specgate/issues/108) |
 > | `C8-01` · `C8-02` · `C8-03` · `C8-04` | [#109](https://github.com/rsaglobaltech/specgate/issues/109) · [#110](https://github.com/rsaglobaltech/specgate/issues/110) · [#111](https://github.com/rsaglobaltech/specgate/issues/111) · [#112](https://github.com/rsaglobaltech/specgate/issues/112) |
-> | Decisiones: `C9-05` · `ARCHITECTURE` layered · `linkBack` | [#113](https://github.com/rsaglobaltech/specgate/issues/113) · [#114](https://github.com/rsaglobaltech/specgate/issues/114) · [#115](https://github.com/rsaglobaltech/specgate/issues/115) |
+> | ~~Decisiones: `C9-05` · `ARCHITECTURE` layered · `linkBack`~~ | Las tres **decididas que no** el 2026-09-01 — [#113](https://github.com/rsaglobaltech/specgate/issues/113) · [#114](https://github.com/rsaglobaltech/specgate/issues/114) · [#115](https://github.com/rsaglobaltech/specgate/issues/115) cerradas |
 > | Dos grafías de `payload` en los packs _(salió de `E1`)_ | [#116](https://github.com/rsaglobaltech/specgate/issues/116) |
 
 
@@ -133,7 +133,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | Qué | Por qué está parado |
 | --- | --- |
 | Cambiar el defecto de `ARCHITECTURE` a `layered` | Es rotura: proyectos nuevos dejarían de recibir seis documentos. Va con un major |
-| `linkBack(issueKey, specUrl)` en el puerto ALM | Nadie ha decidido de dónde sale ese `specUrl`; el núcleo ALM no conoce remoto ni rama |
+| ~~`linkBack(issueKey, specUrl)` en el puerto ALM~~ | **Descartado el 2026-09-01** ([#115](https://github.com/rsaglobaltech/specgate/issues/115)): una spec vive en una ruta de un repositorio, no en una URL, e inventar una por proveedor es una suposición que el puerto no debe hacer |
 
 ### 3.4 Propuestas nuevas — nada de esto está implementado
 
@@ -172,7 +172,7 @@ roles como perfiles, `change author`, `alm pull` y proveedores de comunidad.
 | **C8-02** | Piloto HIE (brownfield, Spring Boot + HAPI FHIR)   | `hie-pilot-runbook.md`   | Adoptado a L1–L2 y `validate` pasa. Falta **conducir la implementación** con el harness                      |
 | **C8-03** | Case studies 2 y 3                                 | §11 del plan             | Solo existe `docs/case-studies/case-1.md`                                                                    |
 | **C8-04** | Vídeo demo de 90 s + vídeo del bucle bidireccional | §11 del plan             | Pendiente desde la fase 1. Es lo que cierra RISK-004                                                         |
-| **C9-05** | Telemetría opt-in                                  | §12.2 del plan           | **Decisión tuya**, no técnica                                                                                |
+| ~~**C9-05**~~ | Telemetría opt-in                              | §12.2 del plan           | **Decidido el 2026-09-01: no se hace** ([#113](https://github.com/rsaglobaltech/specgate/issues/113))        |
 
 > **C8-01 y C8-02 son los que más rinden**, y no por su valor propio: son las
 > dos únicas fuentes que han producido defectos reales del harness. Los diez de
