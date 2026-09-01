@@ -1750,3 +1750,61 @@ test("a repository with no git identity is refused before the agent runs", () =>
     fs.rmSync(parent, { recursive: true, force: true });
   }
 });
+
+// ── --verbose (#34) ──────────────────────────────────────────────────────────
+
+test("--verbose streams the gate command while it runs", () => {
+  // Without it the gate's output only exists once the gate has failed, so a run
+  // that takes minutes shows nothing and a hung test looks like a working one.
+  //
+  // Two fresh projects, not one run twice: after the first run the requirement
+  // is done and the gate never executes again, so a second run would prove
+  // nothing either way.
+  const quiet = greenableProject();
+  const loud = greenableProject();
+  try {
+    // An explicit gate command, because the scaffold ships without one and the
+    // branch that streams is the one that runs it.
+    const gate = ["--test-cmd", "echo GATE-IS-RUNNING"];
+    const a = runHarness(quiet.projectDir, minimalAgent(quiet.parent), gate);
+    const b = runHarness(loud.projectDir, minimalAgent(loud.parent), [...gate, "--verbose"]);
+    assert.equal(a.status, 0, a.stdout + a.stderr);
+    assert.equal(b.status, 0, b.stdout + b.stderr);
+
+    // On a *green* run, which is the whole point: a passing gate used to print
+    // nothing at all.
+    assert.match(b.stderr, /GATE-IS-RUNNING/, `nothing streamed:\n${b.stderr}`);
+    assert.doesNotMatch(
+      a.stdout + a.stderr,
+      /GATE-IS-RUNNING/,
+      "a green gate must stay quiet without the flag"
+    );
+  } finally {
+    fs.rmSync(quiet.parent, { recursive: true, force: true });
+    fs.rmSync(loud.parent, { recursive: true, force: true });
+  }
+});
+
+test("--verbose keeps stdout clean for --format json", () => {
+  // H18 was prose and JSON sharing a stream. Streaming the gate to stdout would
+  // reintroduce it on the one flag whose job is to print more.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const r = runHarness(projectDir, minimalAgent(parent), [
+      "--test-cmd",
+      "echo GATE-IS-RUNNING",
+      "--verbose",
+      "--format",
+      "json",
+    ]);
+    const doc = JSON.parse(r.stdout);
+    assert.ok(doc.results, `stdout was not one JSON document:\n${r.stdout.slice(0, 400)}`);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("--verbose is listed in the help", () => {
+  const r = spawnSync(process.execPath, [CLI, "harness", "run", "--help"], { encoding: "utf8" });
+  assert.match(r.stdout + r.stderr, /--verbose\b/);
+});
