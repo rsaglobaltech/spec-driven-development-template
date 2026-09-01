@@ -124,10 +124,27 @@ const STOPWORDS = new Set([
   "if",
 ]);
 
+/**
+ * Strip `<placeholder>` tokens, repeatedly until nothing changes.
+ *
+ * One pass leaves a nested or malformed token behind — `<<a>b>` becomes `<b>` —
+ * which CodeQL reports as `js/incomplete-multi-character-sanitization`. Nothing
+ * here reaches a browser, but a half-stripped step would still produce a wrong
+ * command name, and `build-site.ts` strips tags the same way for the same
+ * reason.
+ */
+function stripPlaceholders(text: string): string {
+  let out = String(text);
+  let previous;
+  do {
+    previous = out;
+    out = out.replace(/<[^<>]*>/g, " ");
+  } while (out !== previous);
+  return out;
+}
+
 export function toPascalCase(text: string) {
-  const words = text
-    .replace(/"[^"]*"/g, "")
-    .replace(/<[^>]*>/g, "")
+  const words = stripPlaceholders(text.replace(/"[^"]*"/g, ""))
     .replace(/[^A-Za-z0-9 ]/g, " ")
     .split(/\s+/)
     .filter(Boolean)
