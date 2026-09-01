@@ -114,10 +114,7 @@ test("distinct requirement ids are left alone", () => {
       ["REQ-002", "SCN-002", "tests/b.test.ts", "Draft"],
     ])
   );
-  assert.equal(
-    report.errors.filter((e) => e.code === "duplicate_requirement_id").length,
-    0
-  );
+  assert.equal(report.errors.filter((e) => e.code === "duplicate_requirement_id").length, 0);
 });
 
 test("a repeated Scenario ID is an error, but `-` is not an id", () => {
