@@ -23,7 +23,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const REPO_ROOT = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(REPO_ROOT, "bin", "create-spec-driven-app.js");
+const CLI = path.join(REPO_ROOT, "bin", "specgate.js");
 
 function cli(...args) {
   return spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8" });

@@ -3,7 +3,7 @@
  *
  * Before this module the surface was described in five places that nothing
  * kept in step: the dispatch table and `usage()` in
- * `bin/create-spec-driven-app.ts`, the completion lists in
+ * `bin/specgate.ts`, the completion lists in
  * `scripts/completion.ts`, the JSON contract table in
  * `scripts/gen_agent_contract.ts`, the tool schemas in the MCP package, and
  * the literal command strings in `scripts/agents/commands.ts`. The drift was

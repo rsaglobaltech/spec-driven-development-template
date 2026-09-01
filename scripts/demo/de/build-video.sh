@@ -63,7 +63,7 @@ else
   ( cd "$REPO_ROOT" && npm run build >/dev/null )
   cat > "$WRAPPER_DIR/csda" <<EOF
 #!/usr/bin/env bash
-exec node "$REPO_ROOT/bin/create-spec-driven-app.js" "\$@"
+exec node "$REPO_ROOT/bin/specgate.js" "\$@"
 EOF
 fi
 chmod +x "$WRAPPER_DIR/csda"

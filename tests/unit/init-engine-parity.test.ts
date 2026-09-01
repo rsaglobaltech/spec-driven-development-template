@@ -16,7 +16,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "../../..");
-const CLI = path.join(ROOT, "bin/create-spec-driven-app.js");
+const CLI = path.join(ROOT, "bin/specgate.js");
 const CONFIG = path.join(ROOT, "examples/project.config.example");
 
 function cli(...args) {

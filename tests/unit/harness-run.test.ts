@@ -326,7 +326,7 @@ test("resolveHarnessSettings exposes promptPrefix from the file config", () => {
 
 const { spawnSync } = require("node:child_process");
 const REPO_ROOT = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(REPO_ROOT, "bin", "create-spec-driven-app.js");
+const CLI = path.join(REPO_ROOT, "bin", "specgate.js");
 
 test("buildPrompt reads the camelCase field names the contract specifies", () => {
   const dir = tmpProject();

@@ -7,7 +7,7 @@ import { BaseCommand } from "../../../lib/command";
 
 import { findCliRoot } from "../../../lib/project-root";
 
-const CLI = path.join(findCliRoot(__dirname), "bin", "create-spec-driven-app.js");
+const CLI = path.join(findCliRoot(__dirname), "bin", "specgate.js");
 
 export function parseReference(reference: string) {
   const at = reference.lastIndexOf("@");

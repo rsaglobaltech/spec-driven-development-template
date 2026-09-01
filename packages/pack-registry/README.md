@@ -51,7 +51,7 @@ also produce JSON, RSS, sitemap, etc. without changes.
 
 1. Create `packs/<your-domain>/<type>/pack.yaml` (use
    `specgate pack init` to scaffold).
-2. Run `node bin/create-spec-driven-app.js pack lint --pack-root packs --pack <your-domain>/<type>`
+2. Run `node bin/specgate.js pack lint --pack-root packs --pack <your-domain>/<type>`
    until it passes.
 3. Open a PR. CI will run the registry build to verify nothing else broke.
 

@@ -8,7 +8,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 const REPO_ROOT = path.resolve(__dirname, "../../../../..");
-const CLI = path.join(REPO_ROOT, "bin/create-spec-driven-app.js");
+const CLI = path.join(REPO_ROOT, "bin/specgate.js");
 const CONFIG = path.join(REPO_ROOT, "examples/project.config.example");
 
 import {

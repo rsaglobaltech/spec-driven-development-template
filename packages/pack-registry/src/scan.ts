@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 import { loadPack } from "../../core/src/infrastructure/DiskPackRepository";
 
 const REPO_ROOT = path.resolve(__dirname, "../../../..");
-const CLI = path.join(REPO_ROOT, "bin/create-spec-driven-app.js");
+const CLI = path.join(REPO_ROOT, "bin/specgate.js");
 
 export interface PackMetadata {
   id: string;

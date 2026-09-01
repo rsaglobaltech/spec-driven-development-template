@@ -299,6 +299,17 @@ deliberately *not* built, is [ADR-0023](docs/specs/adr/0023-checking-content-gat
 
 - **The landing page claimed 24 commands against a surface of 25.**
 
+- **CI had not run this repository's own gate since the rename.** The rename
+  commit changed the *references* to `bin/specgate.{ts,js}` in `ci.yml`,
+  `CONTRIBUTING.md` and `AI_RULES.md` without renaming the file, so the step
+  named "Validate this repository against its own spec gate" ran
+  `node bin/specgate.js validate .` against a path that did not exist and every
+  test job failed. The entry point is `bin/specgate.ts` now, as those three
+  documents already said. All three binaries — `specgate`, `csda` and
+  `create-spec-driven-app` — point at it, and the shim's entry-point check
+  accepts either basename so an installation carrying the old shim keeps
+  dispatching.
+
 
 ## [0.7.0] — 2026-08-23
 

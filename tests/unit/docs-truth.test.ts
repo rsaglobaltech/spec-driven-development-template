@@ -157,7 +157,7 @@ test("every command the CLI dispatches is documented somewhere", () => {
   // documentation quietly fell behind: `status` and `req` are in the eight-command
   // core help and appeared in no guide at all. A command nobody wrote down is a
   // command nobody finds.
-  const bin = fs.readFileSync(path.join(ROOT_DIR, "bin", "create-spec-driven-app.ts"), "utf8");
+  const bin = fs.readFileSync(path.join(ROOT_DIR, "bin", "specgate.ts"), "utf8");
   const dispatched = [...new Set([...bin.matchAll(/command === "([a-z-]+)"/g)].map((m) => m[1]))];
 
   const docs = [

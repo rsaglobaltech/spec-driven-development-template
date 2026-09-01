@@ -59,7 +59,7 @@ WRAPPER_DIR="$SCRATCH/bin"
 mkdir -p "$WRAPPER_DIR"
 cat > "$WRAPPER_DIR/csda" <<EOF
 #!/usr/bin/env bash
-exec node "$REPO_ROOT/bin/create-spec-driven-app.js" "\$@"
+exec node "$REPO_ROOT/bin/specgate.js" "\$@"
 EOF
 chmod +x "$WRAPPER_DIR/csda"
 

@@ -8,7 +8,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const CLI_PATH = path.join(ROOT_DIR, "bin", "specgate.js");
 
 const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
@@ -244,7 +244,7 @@ function installLayout(relative) {
     fs.mkdirSync(to, { recursive: true });
     fs.cpSync(from, to, { recursive: true });
   }
-  return { root, cli: path.join(pkgDir, "bin", "create-spec-driven-app.js") };
+  return { root, cli: path.join(pkgDir, "bin", "specgate.js") };
 }
 
 const LAYOUTS = [

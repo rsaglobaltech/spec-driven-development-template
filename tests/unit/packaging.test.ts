@@ -39,7 +39,7 @@ function dispatchableRows(): Array<{ name: string; script: string[] }> {
 
 /** Entry points a user can reach: the bin shim plus every command it dispatches to. */
 function entryPoints(): string[] {
-  const entries = [path.join(distDir, "bin", "create-spec-driven-app.js")];
+  const entries = [path.join(distDir, "bin", "specgate.js")];
   for (const row of dispatchableRows()) {
     entries.push(path.join(distDir, "scripts", ...row.script));
   }
@@ -156,10 +156,10 @@ test("every script the command registry dispatches to is a runnable entry point"
 
 // ── The published shim has to start the CLI on every platform ────────────────
 //
-// `bin/create-spec-driven-app.js` is two lines that `require` the built entry
+// `bin/specgate.js` is two lines that `require` the built entry
 // point, so `require.main` is the shim and not the module. The guard therefore
 // has to recognise the shim by name — and the form it used,
-// `filename.endsWith("bin/create-spec-driven-app.js")`, never matched on
+// `filename.endsWith("bin/specgate.js")`, never matched on
 // Windows, where `filename` carries backslashes.
 //
 // The CLI then loaded, dispatched nothing, and exited 0 with **no output on
@@ -168,22 +168,22 @@ test("every script the command registry dispatches to is a runnable entry point"
 // through CI and both development machines use `/`.
 
 test("the entry-point guard matches the shim on posix and on windows", () => {
-  const posix = "/home/runner/work/repo/bin/create-spec-driven-app.js";
-  const win = "D:\\a\\repo\\repo\\bin\\create-spec-driven-app.js";
+  const posix = "/home/runner/work/repo/bin/specgate.js";
+  const win = "D:\\a\\repo\\repo\\bin\\specgate.js";
 
   // What the guard does now — `path.basename` is `path.win32.basename` on
   // Windows, so one expression covers both.
-  assert.equal(path.posix.basename(posix), "create-spec-driven-app.js");
-  assert.equal(path.win32.basename(win), "create-spec-driven-app.js");
+  assert.equal(path.posix.basename(posix), "specgate.js");
+  assert.equal(path.win32.basename(win), "specgate.js");
 
   // What it used to do, which is the bug.
-  assert.equal(win.endsWith("bin/create-spec-driven-app.js"), false);
+  assert.equal(win.endsWith("bin/specgate.js"), false);
 });
 
 test("the shim starts the CLI, not just loads it", () => {
   // The end-to-end version: run the published entry point the way npm does and
   // require it to actually produce output.
-  const shim = path.join(repoRoot, "bin", "create-spec-driven-app.js");
+  const shim = path.join(repoRoot, "bin", "specgate.js");
   const r = spawnSync(process.execPath, [shim, "--version"], { encoding: "utf8" });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout.trim(), /^\d+\.\d+\.\d+/, `the shim produced no version:\n${r.stdout}`);
