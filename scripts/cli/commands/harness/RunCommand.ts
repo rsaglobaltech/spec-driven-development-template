@@ -54,6 +54,7 @@ import { selectProfile } from "../../../../packages/core/src/domain/ProfileMatch
 import { parseMatrixContexts } from "../../../../packages/core/src/domain/TraceabilityFormat";
 import { RequirementPlan } from "../../../../packages/core/src/domain/RequirementPlan";
 import { budgetVerdict, hasBudget } from "../../../../packages/core/src/domain/RunBudget";
+import { withWorktreeLock } from "../../../harness/worktree-lock";
 import {
   checkGateRun,
   invokesCucumberDirectly,
@@ -1386,7 +1387,11 @@ function processRequirement(req, ctx) {
     const args = resuming
       ? ["worktree", "add", dir, branch]
       : ["worktree", "add", "-b", branch, dir, baseRef];
-    const add = git(projectDir, args);
+    // Serialised across processes: `--concurrency` gives each requirement its
+    // own process, and two `git worktree add` calls in one repository race on
+    // the half-written `.git/worktrees/<name>/` entry. Only the creation is
+    // inside the lock — the agent and the gate stay parallel.
+    const add = withWorktreeLock(projectDir, () => git(projectDir, args));
     if (add.status !== 0) {
       return {
         requirement: req.requirement,

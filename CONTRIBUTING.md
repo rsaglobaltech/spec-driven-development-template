@@ -56,6 +56,19 @@ Gradle plugins, and `vhs` for the demo recordings.
 `npm run verify` is what CI's lint job runs. All tests must be **green on your
 branch** before opening a PR.
 
+### Which branch to target
+
+**Open every pull request against `develop`, never against `main`.**
+
+`main` is the branch releases are cut from and the one an evaluator looks at
+first, so it does not get to be red — not even briefly. `develop` is where
+changes meet each other and where a merge that breaks something neither side
+broke alone shows up.
+
+When `develop` is green, it is merged into `main` as a single fast-forward and
+the release is cut from there. CI runs on pushes to both branches, so "green on
+`develop`" is a claim something checked rather than an assumption.
+
 ---
 
 ## 3. ADR policy
@@ -121,7 +134,8 @@ Before requesting a review, confirm:
 
 ### Required checks
 
-`main` is protected. These checks must be green before a pull request can merge:
+These checks must be green before a pull request can merge into `develop`, and
+green again on `develop` before it reaches `main`:
 
 | Check | What it guards |
 | --- | --- |

@@ -159,10 +159,12 @@ the CLI supports, so getting this backwards fails CI rather than users.
    then update the version in `docs/index.html`. The recording carries the
    version it was made from and a test compares the two, so skipping this fails
    the build rather than shipping a page that claims the wrong release.
-4. Open a PR to `main`. `main` is protected: the twelve required checks in
+4. Open a PR to **`develop`** — never straight to `main`. `main` is protected: the twelve required checks in
    [CONTRIBUTING.md](../CONTRIBUTING.md#required-checks) must be green, and the
    branch must be up to date with `main` before it will merge.
-5. Merge.
+5. Merge into `develop`, wait for CI on `develop` itself, then fast-forward
+   `main` to it. A release is cut from a `main` that has been green the whole
+   way, not from one that was red for the twenty minutes it took to notice.
 6. Tag the merge commit `vX.Y.Z` and push the tag. `publish-npm.yml` fires.
 7. Write the GitHub release notes from the changelog entry.
 
