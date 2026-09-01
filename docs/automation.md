@@ -206,10 +206,10 @@ Plain shell (works without husky/lefthook):
 # .git/hooks/pre-commit  (chmod +x)
 #!/usr/bin/env bash
 set -e
-echo "→ specgate validate --strict-tdd"
-npx --yes @rsaglobaltech/specgate@0.1.0 validate . --strict-tdd
+echo "→ specgate validate --strict-tdd --strict-links"
+npx --yes @rsaglobaltech/specgate@0.8.1 validate . --strict-tdd --strict-links
 echo "→ specgate specops diff (must be clean)"
-DIFF=$(npx --yes @rsaglobaltech/specgate@0.1.0 specops diff --format json 2>/dev/null || true)
+DIFF=$(npx --yes @rsaglobaltech/specgate@0.8.1 specops diff --format json 2>/dev/null || true)
 if echo "$DIFF" | grep -q '"added":\[\([^]].\)\]\|"modified":\[\([^]].\)\]'; then
   echo "✖ Pack content drifted. Run \`specgate specops sync\` and commit again."
   exit 1
@@ -221,7 +221,7 @@ Or with **husky** (`package.json`):
 ```bash
 npm install --save-dev husky
 npx husky init
-echo 'npx --yes @rsaglobaltech/specgate@latest validate . --strict-tdd' > .husky/pre-commit
+echo 'npx --yes @rsaglobaltech/specgate@0.8.1 validate . --strict-tdd --strict-links' > .husky/pre-commit
 ```
 
 Mirror the same call in CI (see §4) so the gate survives `--no-verify`.

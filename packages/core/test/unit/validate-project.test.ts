@@ -90,6 +90,33 @@ test("an unknown status is an error that lists what is allowed", () => {
   assert.ok(finding!.fixLines?.[0].includes("Ready for Dev"));
 });
 
+test("a repeated Requirement ID is an error — it is the primary key", () => {
+  // The state three cold adoptions reached through `adopt` then `req add`:
+  // two different requirements under one id, every gate green. `req link`
+  // writes every matching row, so linking one retargets the other.
+  const { report } = useCase().checkMatrix(
+    richMatrix([
+      ["REQ-001", "SCN-001", "tests/a.test.ts", "Draft"],
+      ["REQ-002", "SCN-002", "tests/b.test.ts", "Draft"],
+      ["REQ-002", "SCN-003", "tests/c.test.ts", "Draft"],
+    ])
+  );
+  const finding = report.errors.find((e) => e.code === "duplicate_requirement_id");
+  assert.ok(finding, "expected duplicate_requirement_id");
+  assert.match(finding!.message, /REQ-002/);
+  assert.ok(finding!.fixLines?.length, "a finding without a fix is not actionable");
+});
+
+test("distinct requirement ids are left alone", () => {
+  const { report } = useCase().checkMatrix(
+    richMatrix([
+      ["REQ-001", "SCN-001", "tests/a.test.ts", "Draft"],
+      ["REQ-002", "SCN-002", "tests/b.test.ts", "Draft"],
+    ])
+  );
+  assert.equal(report.errors.filter((e) => e.code === "duplicate_requirement_id").length, 0);
+});
+
 test("a repeated Scenario ID is an error, but `-` is not an id", () => {
   const { report } = useCase().checkMatrix(
     richMatrix([

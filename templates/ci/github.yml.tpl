@@ -16,8 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Validate specs (strict TDD)
-        run: npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd
+      - name: Validate specs (strict TDD + links)
+        run: npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd --strict-links
       # Supply-chain gate: fails when the rendered pack content no longer
       # matches the digest pinned in .specops.lock — a moved tag, a rewritten
       # history, or a hand-edited generated file. Skipped when the project

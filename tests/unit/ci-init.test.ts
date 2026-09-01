@@ -89,3 +89,27 @@ test("ci without init subcommand fails clearly", () => {
   assert.equal(r.status, 2);
   assert.match(r.stderr, /Unknown ci sub-command: \(none\)\. Expected: init/);
 });
+
+// ── The gate has to run what its own comment promises ────────────────────────
+//
+// The generated workflow opens by saying "no PR merges if a requirement loses
+// its feature file, its test artifact, or its traceability row". It ran
+// `validate . --strict-tdd`, which never touches the filesystem — so a matrix
+// pointing at a deleted test file passed, exit 0. `--strict-links` is the flag
+// that checks the paths, and it was in neither the generated file nor the docs.
+// Two of three cold adoptions found this independently.
+
+for (const { provider, dest } of CASES) {
+  test(`ci init --provider ${provider} runs the link check it promises`, () => {
+    withTmp((tmp) => {
+      const r = cli("ci", "init", "--provider", provider, "--project-dir", tmp);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      const body = fs.readFileSync(path.join(tmp, dest), "utf8");
+      assert.match(
+        body,
+        /validate \. --strict-tdd --strict-links/,
+        `${provider}: the gate claims to catch a lost test artifact, so it must run --strict-links`
+      );
+    });
+  });
+}

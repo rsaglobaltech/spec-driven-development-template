@@ -79,9 +79,16 @@ el resto son de referencia histórica.
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------- |
 | **GATE-G3** (= C9-08) | **Que un equipo de fuera adopte L1–L2 y reporte.** Nadie ajeno al repo lo ha usado                                                                                           | Trabajo de campo       | Es _el_ bloqueante real. No hay test que lo cierre |
 | **GATE-G5**           | Borrar de `docs/release-process.md:38` la frase «_That is intent, not a promise, until it is written here without this sentence_» y aceptar mantener un minor más seis meses | 1 línea + una decisión | Verificado: la frase sigue ahí                     |
+| **GATE-G6**           | **Adopción simulada**: tres repos brownfield de dominios distintos llevados a L1–L2 por agentes aislados, cada uno con su assessment medido                                  | Trabajo de campo simulado | **Ronda 1 hecha el 2026-09-01** — [assessment](sim-round-1-assessment.md), 3 defectos (H22–H24) cerrados. [ADR-0025](../docs/specs/adr/0025-simulated-adoption-is-not-external-adoption.md). **No cierra G3** y no mueve la 1.0 |
 
 `GATE-G1` (dos releases sin breaking), `GATE-G2` (bucle completo de punta a
 punta) y `GATE-G4` (gate de cobertura) están **cerrados**.
+
+`GATE-G6` existe para que la evidencia simulada tenga dónde aterrizar sin
+disfrazarse de G3. Lo que compra G3 —independencia de las suposiciones del autor,
+y la señal de que alguien con algo en juego *sigue* usando la herramienta— un
+agente no puede darlo: no se cansa, no tiene política de equipo y nunca abandona
+por frustración, que es lo más ruidoso que dice un adoptante real.
 
 **Actualización 2026-08-25 (D14, plan de cierre §12.10).** `GATE-G3` y
 `GATE-G5` siguen exactamente así — abiertos, sin código pendiente— pero dejan

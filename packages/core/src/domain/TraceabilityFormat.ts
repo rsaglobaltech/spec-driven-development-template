@@ -49,7 +49,14 @@ export function parseTraceabilityRows(existingContent) {
         testArtifact: cells[8],
         status: cells[9],
       };
-      const key = `${row.featureFile}::${row.scenarioId}`;
+      // The requirement id is what makes a row a row. Keying on
+      // `featureFile::scenarioId` alone meant every proposal `adopt` seeds —
+      // which by design has neither yet — hashed to the same `-::-`, so all but
+      // the first disappeared from the parse while staying in the file. The
+      // allocator then reissued an id that was already taken, and `req link`
+      // wrote both rows at once. Three independent cold adoptions on three
+      // stacks hit it in the same five minutes of use.
+      const key = `${row.requirement}::${row.featureFile}::${row.scenarioId}`;
       if (seen.has(key)) continue;
 
       seen.add(key);
