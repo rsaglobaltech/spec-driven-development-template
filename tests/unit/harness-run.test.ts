@@ -1913,3 +1913,141 @@ test("prompt_precedents is read from harness.config.yaml", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ── Adversarial verification (#107 / D3) ─────────────────────────────────────
+
+/** Commit whatever a test just wrote: the harness refuses a dirty tree. */
+function commitAll(projectDir: string) {
+  spawnSync("git", ["add", "-A"], { cwd: projectDir, encoding: "utf8" });
+  spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "test setup"], {
+    cwd: projectDir,
+    encoding: "utf8",
+  });
+}
+
+test("adversary_profile resolves to its profile's agent", () => {
+  const dir = projectWithProfiles(
+    "agent: echo\nadversary_profile: breaker\n",
+    'profiles_version: 1\nprofiles:\n  breaker:\n    advisory: true\n    agent: "break {prompt_file}"\n'
+  );
+  try {
+    const config = readHarnessConfig(dir);
+    assert.equal(config.adversaryProfile, "breaker");
+    assert.equal(config.profileAgents.breaker, "break {prompt_file}");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an adversary that is not advisory is refused", () => {
+  // Its writes are discarded, so a profile whose work you expect to be kept is
+  // not an adversary — and finding that out from a missing commit would be a
+  // long afternoon.
+  const dir = projectWithProfiles(
+    "agent: echo\nadversary_profile: breaker\n",
+    'profiles_version: 1\nprofiles:\n  breaker:\n    agent: "break {prompt_file}"\n'
+  );
+  try {
+    assert.throws(() => readHarnessConfig(dir), /does not declare `advisory: true`/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a probe that breaks the tests warns and still passes the requirement", () => {
+  // The line the issue draws: the gate is the only judge. An adversary can
+  // always assert something the requirement never promised, so a failing probe
+  // must not be able to fail correct work.
+  const { parent, projectDir } = greenableProject();
+  try {
+    // Writes a test that fails, which is exactly what an adversary that found
+    // something would do.
+    const breaker = scriptedAgent(parent, [["probe-fails.txt", "the adversary wrote this\n"]]);
+    fs.writeFileSync(
+      path.join(projectDir, "harness.config.yaml"),
+      // The agent comes from `--agent`; keeping a quoted command out of the
+      // YAML avoids fighting the parser for no benefit. The gate passes before
+      // the probe and fails once the probe's file exists.
+      "adversary_profile: breaker\ntest_cmd: test ! -f probe-fails.txt\n",
+      "utf8"
+    );
+    fs.mkdirSync(path.join(projectDir, ".harness"), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, ".harness", "profiles.yaml"),
+      `profiles_version: 1\nprofiles:\n  breaker:\n    advisory: true\n    agent: ${breaker}\n`,
+      "utf8"
+    );
+    // The harness refuses to start on a dirty tree, and the fixture already
+    // committed — so the configuration has to be committed too.
+    commitAll(projectDir);
+
+    const r = runHarness(projectDir, minimalAgent(parent));
+    const out = r.stdout + r.stderr;
+    assert.equal(r.status, 0, out);
+    assert.match(out, /1 passed/, `the probe must not change the verdict:\n${out}`);
+    assert.match(out, /adversarial_probe_failed/, `no finding was reported:\n${out}`);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("the probe's writes never reach the branch", () => {
+  // The branch must carry the implementer's work alone, or a reviewer cannot
+  // tell who wrote what.
+  const { parent, projectDir } = greenableProject();
+  try {
+    const breaker = scriptedAgent(parent, [["adversary-artifact.txt", "should not survive\n"]]);
+    const implementer = scriptedAgent(parent, [
+      ["src/harness-fixture.ts", "export const writtenByTheImplementer = true;\n"],
+    ]);
+    fs.writeFileSync(
+      path.join(projectDir, "harness.config.yaml"),
+      "agent: " + JSON.stringify(minimalAgent(parent)) + "\nadversary_profile: breaker\n",
+      "utf8"
+    );
+    fs.mkdirSync(path.join(projectDir, ".harness"), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, ".harness", "profiles.yaml"),
+      `profiles_version: 1\nprofiles:\n  breaker:\n    advisory: true\n    agent: ${breaker}\n`,
+      "utf8"
+    );
+    // The harness refuses to start on a dirty tree, and the fixture already
+    // committed — so the configuration has to be committed too.
+    commitAll(projectDir);
+
+    const r = runHarness(projectDir, implementer);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const tree = spawnSync("git", ["ls-tree", "-r", "--name-only", "harness/REQ-000"], {
+      cwd: projectDir,
+      encoding: "utf8",
+    });
+    assert.doesNotMatch(
+      tree.stdout,
+      /adversary-artifact\.txt/,
+      "the adversary's file was committed"
+    );
+    // The half of this that actually bit: running the probe before the commit
+    // meant `git status` showed the implementer's uncommitted work, so
+    // discarding "what the probe wrote" threw the implementation away and the
+    // run still reported a pass — a green verdict over an empty branch, which
+    // is the H19 family exactly.
+    assert.match(
+      tree.stdout,
+      /harness-fixture/,
+      "the implementer's work was discarded with the probe's"
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("no adversary_profile means no probe at all", () => {
+  const { parent, projectDir } = greenableProject();
+  try {
+    const r = runHarness(projectDir, minimalAgent(parent));
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.doesNotMatch(r.stdout + r.stderr, /probing with/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});

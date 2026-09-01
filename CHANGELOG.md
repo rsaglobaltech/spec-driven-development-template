@@ -27,6 +27,19 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
   Off by default. Closes #106.
 
+- **`adversary_profile` lets a second agent try to break a green
+  implementation.** The advisory reviewer that already exists returns prose; an
+  adversary returns a test, and a test either fails or it does not. After the
+  gate passes and the work is committed, it is asked for one case the
+  requirement should handle and might not; the project's tests then run again
+  with it in place.
+
+  A failing probe is a recorded warning and **never** a verdict. An adversary
+  can always assert a behaviour nobody specified, so letting it fail the run
+  would block correct work and make it a second judge — the gate stays the only
+  one. Runs once per requirement, on a green gate only, and its writes are
+  discarded so the branch carries the implementer's work alone. Closes #107.
+
 - **`harness run --verbose`** streams the gate command's output as it runs,
   on stderr. Without it the output only appeared when the gate failed, so a run
   that takes minutes showed nothing and a hung test looked like a working one.

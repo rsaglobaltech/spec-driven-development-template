@@ -219,6 +219,49 @@ does not appear — never empty — and a moved artifact never stops a run.
 Off by default: it costs prompt budget and says nothing until a project has
 accepted work to point at.
 
+## Let something try to break it
+
+```yaml
+# harness.config.yaml
+adversary_profile: breaker
+```
+
+```yaml
+# .harness/profiles.yaml
+profiles_version: 1
+profiles:
+  breaker:
+    advisory: true
+    agent: "claude -p < {prompt_file}"
+```
+
+The reviewer above returns **prose**. An adversary returns a **test**, and a
+test either fails or it does not — one is an argument, the other is evidence.
+
+Once a requirement's gate has gone green and the work is committed, the
+adversary is asked for one additional test: a case the requirement should
+handle and might not — an empty input, a boundary, a duplicate, a failure path.
+The project's own test command then runs again with that test in place.
+
+**A failing probe never changes the verdict.** The requirement still passes, and
+a warning is recorded on the run:
+
+```
+⚠️  REQ-007: The gate passed for REQ-007, and an adversarial probe then made the
+    project's tests fail. That is either a defect the scenario does not cover,
+    or a test asserting something REQ-007 never promised.
+```
+
+That wording is the design. An adversary can always assert a behaviour nobody
+specified, so letting it fail the run would block work that is correct — and
+would make it a second judge. `validate --strict-tdd` plus your test command
+stay the only one, for the same reason the reviewer is advisory.
+
+The probe runs **once per requirement**, only on a green gate, and its writes
+are discarded so the branch carries the implementer's work alone. The profile
+must declare `advisory: true`; without it the harness refuses to start, because
+a profile whose output you expect to be kept is not an adversary.
+
 ## Next
 
 - [The harness](harness.md) — what happens around the agent: worktrees, the

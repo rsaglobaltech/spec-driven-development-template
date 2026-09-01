@@ -56,6 +56,7 @@ const KNOWN_KEYS = new Set([
   "allow_paths",
   "message_report",
   "prompt_precedents",
+  "adversary_profile",
 ]);
 
 export function readHarnessConfig(projectDir) {
@@ -72,6 +73,25 @@ export function readHarnessConfig(projectDir) {
   // Opt-in (D2): show the agent an accepted requirement from the same bounded
   // context. Off by default because it costs prompt budget and says nothing
   // useful until a project has verified work to point at.
+  // D3: the adversary. Resolved here for the same reason as the ladder — a
+  // worker process must not resolve a profile differently from its parent.
+  if (parsed.adversary_profile !== undefined) {
+    const name = String(parsed.adversary_profile).trim();
+    if (name) {
+      const agent = resolveProfileAgent(projectDir, name);
+      if (!isAdvisoryProfile(projectDir, name)) {
+        throw new Error(
+          `.harness/profiles.yaml: profile '${name}' is used as adversary_profile but does ` +
+            "not declare `advisory: true`.\n" +
+            "Fix: add `advisory: true` to it. The adversary's writes are discarded so its " +
+            "probe cannot reach the branch — a profile whose work you expect to be kept is " +
+            "not an adversary."
+        );
+      }
+      config.adversaryProfile = name;
+      config.profileAgents = { ...(config.profileAgents || {}), [name]: agent };
+    }
+  }
   if (parsed.prompt_precedents !== undefined) {
     config.promptPrecedents = /^(1|true|yes|on)$/i.test(String(parsed.prompt_precedents).trim());
   }
@@ -252,6 +272,9 @@ export function resolveHarnessSettings(
     // in the repository, not a flag somebody types differently each run.
     attemptProfiles: file.attemptProfiles || [],
     reviewProfile: file.reviewProfile || "",
+    // From the file only, like the role ladder: which agent is allowed to
+    // attack the work is a repository decision, not a flag typed per run.
+    adversaryProfile: file.adversaryProfile || "",
     // From the file only. Whether an agent is shown examples is a property of
     // the project, not of the run somebody is starting.
     promptPrecedents: file.promptPrecedents === true,
