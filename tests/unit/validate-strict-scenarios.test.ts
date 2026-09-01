@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda validate --strict-scenarios` — the pack's quality rules, applied where
+ * `specgate validate --strict-scenarios` — the pack's quality rules, applied where
  * the harness actually runs (A3).
  *
  * `docs/specs/harness.md` states the dependency plainly: the gate is only as
@@ -12,7 +12,7 @@
  *
  * Two promises are pinned here, and the second matters as much as the first:
  * the flag catches a scenario that cannot fail, and **the default still does
- * not**. A project brought in with `csda adopt` carries features written long
+ * not**. A project brought in with `specgate adopt` carries features written long
  * before this tool existed; failing its first `validate` teaches people to skip
  * the gate rather than fix the scenarios.
  */
@@ -24,8 +24,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const REPO_ROOT = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(REPO_ROOT, "bin", "create-spec-driven-app.js");
+const REPO_ROOT = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI = path.join(REPO_ROOT, "bin", "specgate.js");
 
 function cli(...args) {
   return spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8" });
@@ -82,7 +84,7 @@ test("--strict-scenarios fails on a scenario Cucumber would see as empty", () =>
 });
 
 test("without the flag, scenario quality does not fail validate", () => {
-  // The gradual-adoption promise. If this ever starts failing, `csda adopt` has
+  // The gradual-adoption promise. If this ever starts failing, `specgate adopt` has
   // become a wall instead of a door.
   const { parent, projectDir } = scaffold();
   try {
@@ -179,7 +181,7 @@ test("renaming the scenario no longer defeats the link", () => {
 });
 
 test("an untagged project is left alone — adoption must not become a wall", () => {
-  // A repository brought in with `csda adopt`, or scaffolded before this
+  // A repository brought in with `specgate adopt`, or scaffolded before this
   // existed, carries no tags. Failing it here would punish it for a link it was
   // never given the means to make.
   const { parent, projectDir } = scaffold();

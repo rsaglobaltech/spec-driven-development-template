@@ -15,8 +15,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI = path.join(ROOT_DIR, "bin", "specgate.js");
 
 const {
   BUILT_IN,

@@ -1,5 +1,5 @@
 /**
- * The decisions `csda harness run` makes before it spawns anything.
+ * The decisions `specgate harness run` makes before it spawns anything.
  *
  * Substituting a command template, reading a hint out of a gate's output, and
  * working out which requirements can run at the same time are all judgements

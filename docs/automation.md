@@ -12,7 +12,7 @@ hooks and CI.
 Install:
 
 ```bash
-npm i -g @spec-driven/mcp-server
+npm i -g @specgate/mcp-server
 ```
 
 Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
@@ -22,7 +22,7 @@ Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json
   "mcpServers": {
     "spec-driven": {
       "command": "npx",
-      "args": ["-y", "@spec-driven/mcp-server"]
+      "args": ["-y", "@specgate/mcp-server"]
     }
   }
 }
@@ -131,18 +131,20 @@ The generated CI configs call `npx`, which needs Node. Plenty of build agents
 do not have it — a Java shop's Jenkins agent, a locked-down runner — and that
 is the whole reason the Docker image and the Maven and Gradle plugins exist.
 
-> **Image name during the rename.** The pinned examples below name
-> `ghcr.io/rsaglobaltech/csda:<version>` because those exact tags exist and keep
-> working — a published tag is never rebuilt in place, so nothing is
-> republished under the new name retroactively. Tags cut **after** the rename
-> land under `ghcr.io/rsaglobaltech/specgate`. Pin whichever one you actually
-> pulled; they are the same tool.
+> **Image name across the rename.** The examples below name
+> `ghcr.io/rsaglobaltech/specgate:<version>`, which is where every tag cut from
+> 0.8.0 on lands. Tags published before the rename live at
+> `ghcr.io/rsaglobaltech/csda:<version>` and keep working — a published tag is
+> never rebuilt in place, so nothing was republished under the new name
+> retroactively. They are the same tool, but only the `specgate` images carry a
+> `specgate` binary: an image tagged `csda:0.2.1` answers to `csda` and
+> `create-spec-driven-app`, so pin the image and the command name together.
 
 **Docker.** Mount the workspace and run the gate:
 
 ```bash
 docker run --rm -v "$PWD:/workspace" \
-  ghcr.io/rsaglobaltech/csda:0.2.1 validate . --strict-tdd
+  ghcr.io/rsaglobaltech/specgate:0.8.0 validate . --strict-tdd
 ```
 
 Pin the version. `latest` is a convenience for a laptop, not for a pipeline —
@@ -153,7 +155,7 @@ In GitLab CI, that is the whole job:
 
 ```yaml
 spec-gate:
-  image: ghcr.io/rsaglobaltech/csda:0.2.1
+  image: ghcr.io/rsaglobaltech/specgate:0.8.0
   stage: test
   script:
     - specgate validate . --strict-tdd
@@ -163,7 +165,7 @@ In Jenkins:
 
 ```groovy
 stage('Spec gate') {
-    agent { docker { image 'ghcr.io/rsaglobaltech/csda:0.2.1' } }
+    agent { docker { image 'ghcr.io/rsaglobaltech/specgate:0.8.0' } }
     steps { sh 'specgate validate . --strict-tdd' }
 }
 ```

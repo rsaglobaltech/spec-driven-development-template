@@ -3,7 +3,7 @@
  *
  * Before this module the surface was described in five places that nothing
  * kept in step: the dispatch table and `usage()` in
- * `bin/create-spec-driven-app.ts`, the completion lists in
+ * `bin/specgate.ts`, the completion lists in
  * `scripts/completion.ts`, the JSON contract table in
  * `scripts/gen_agent_contract.ts`, the tool schemas in the MCP package, and
  * the literal command strings in `scripts/agents/commands.ts`. The drift was
@@ -532,8 +532,16 @@ export const SURFACE: Command[] = [
     name: "mcp",
     script: ["cli", "commands", "mcp", "index.js"],
     subcommands: [
-      { name: "install", mcp: false, help: { group: "core", icon: "🔌", summary: "Install MCP server configuration for AI clients." } }
-    ]
+      {
+        name: "install",
+        mcp: false,
+        help: {
+          group: "core",
+          icon: "🔌",
+          summary: "Install MCP server configuration for AI clients.",
+        },
+      },
+    ],
   },
 ];
 
@@ -639,12 +647,16 @@ export function mcpTools() {
     if (command.subcommands) {
       for (const sub of command.subcommands) {
         if (command.mcp === false || sub.mcp === false) continue;
-        const toolName = (typeof sub.mcp === "string" ? sub.mcp : false) || `csda_${command.name}_${sub.name}`.replace(/-/g, "_");
+        const toolName =
+          (typeof sub.mcp === "string" ? sub.mcp : false) ||
+          `csda_${command.name}_${sub.name}`.replace(/-/g, "_");
         out[toolName] = `${command.name} ${sub.name}`;
       }
     } else {
       if (command.mcp === false) continue;
-      const toolName = (typeof command.mcp === "string" ? command.mcp : false) || `csda_${command.name}`.replace(/-/g, "_");
+      const toolName =
+        (typeof command.mcp === "string" ? command.mcp : false) ||
+        `csda_${command.name}`.replace(/-/g, "_");
       out[toolName] = command.name;
     }
   }

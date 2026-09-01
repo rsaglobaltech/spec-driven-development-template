@@ -11,9 +11,9 @@ Open a change and write its proposal and delta.
 ## Run
 
 ```bash
-csda change new <change-id>
-csda change instructions proposal --json
-csda change instructions specs --json
+specgate change new <change-id>
+specgate change instructions proposal --json
+specgate change instructions specs --json
 ```
 
 ## Guidance
@@ -22,5 +22,5 @@ csda change instructions specs --json
 - A delta states only what changes. It is not a copy of the spec.
 - Every requirement body needs SHALL / MUST / SHOULD / MAY, and every scenario needs plain `- GIVEN` / `- WHEN` / `- THEN` bullets.
 
-> The authoritative rules come from `csda change instructions <artifact> --json`.
+> The authoritative rules come from `specgate change instructions <artifact> --json`.
 > If this file and the engine disagree, the engine is right — say so and continue.

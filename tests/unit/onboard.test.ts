@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda onboard` — reading a repository that has code but no specs.
+ * `specgate onboard` — reading a repository that has code but no specs.
  *
  * The heuristic is deliberately conservative: it proposes capabilities from
  * directories a team already named, and says nothing when the layout implies
@@ -16,8 +16,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI = path.join(ROOT_DIR, "bin", "specgate.js");
 
 const { proposeCapabilities, descendThroughWrappers, titleCase } = require("../../scripts/onboard");
 
@@ -131,7 +133,7 @@ test("onboard runs on a repository that is not adopted yet", () => {
     assert.equal(r.status, 0, r.stdout + r.stderr);
     const doc = JSON.parse(r.stdout);
     assert.equal(doc.onboarding.adopted, false);
-    assert.equal(doc.onboarding.nextCommand, "csda adopt");
+    assert.equal(doc.onboarding.nextCommand, "specgate adopt");
     assert.equal(doc.onboarding.capabilities.length, 2);
     assert.match(doc.onboarding.stack.name, /Node\.js/);
   } finally {
@@ -149,7 +151,7 @@ test("once adopted, the next step is describing the largest capability", () => {
   try {
     const doc = JSON.parse(cli("onboard", "--project-dir", dir, "--json").stdout);
     assert.equal(doc.onboarding.adopted, true);
-    assert.equal(doc.onboarding.nextCommand, "csda change new describe-booking");
+    assert.equal(doc.onboarding.nextCommand, "specgate change new describe-booking");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

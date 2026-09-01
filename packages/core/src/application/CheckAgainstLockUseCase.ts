@@ -125,7 +125,7 @@ export class CheckAgainstLockUseCase {
           code: "pack_requirement_missing",
           message: `${label} is declared by the pack but absent from the project.`,
           target: id,
-          fix: `Run \`csda specops sync --pack ${entry.pack_id}\` to bring it in.`,
+          fix: `Run \`specgate specops sync --pack ${entry.pack_id}\` to bring it in.`,
         });
         continue;
       }
@@ -144,7 +144,7 @@ export class CheckAgainstLockUseCase {
           code: "pack_requirement_drifted",
           message: `${label} points at scenario ${bare(row.scenarioId)}, but the pack declares ${expectedScenario}.`,
           target: id,
-          fix: `Reconcile with \`csda specops diff --pack ${entry.pack_id} --as-change\`, or accept the local decision by recording it in a change.`,
+          fix: `Reconcile with \`specgate specops diff --pack ${entry.pack_id} --as-change\`, or accept the local decision by recording it in a change.`,
         });
       }
 
@@ -158,7 +158,7 @@ export class CheckAgainstLockUseCase {
           code: "pack_requirement_drifted",
           message: `${label} points at feature ${bare(row.featureFile)}, but the pack declares ${expectedFeature}.`,
           target: id,
-          fix: `Reconcile with \`csda specops diff --pack ${entry.pack_id} --as-change\`, or accept the local decision by recording it in a change.`,
+          fix: `Reconcile with \`specgate specops diff --pack ${entry.pack_id} --as-change\`, or accept the local decision by recording it in a change.`,
         });
       }
     }

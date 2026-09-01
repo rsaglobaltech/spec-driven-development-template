@@ -14,7 +14,7 @@ const c = {
 };
 
 export const TEMPLATE = `# project.yaml — spec-driven project config
-# Fill these in, then: csda init --config project.yaml --out .
+# Fill these in, then: specgate init --config project.yaml --out .
 # Required keys:
 PROJECT_NAME: My App
 PROJECT_SLUG: my-app # lowercase, dashes only
@@ -33,7 +33,7 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}⚙️  config init${c.reset}  ${c.dim}— write a commented project.yaml starter${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda config init${c.reset} [--out <path>] [--force]\n\n` +
+      `    ${c.cyan}specgate config init${c.reset} [--out <path>] [--force]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--out <path>${c.reset}  ${c.dim}Target file (default: ./project.yaml).${c.reset}\n` +
       `    ${c.green}--force${c.reset}       ${c.dim}Overwrite if the file already exists.${c.reset}\n` +
@@ -76,7 +76,7 @@ export class ConfigInitCommand extends BaseCommand {
     fs.writeFileSync(dest, TEMPLATE, "utf8");
     process.stdout.write(
       `${c.green}✔${c.reset}  Wrote ${c.bold}${opts.out}${c.reset}\n` +
-        `   ${c.dim}▶ next: edit the values, then \`csda init --config ${opts.out} --out .\`${c.reset}\n`
+        `   ${c.dim}▶ next: edit the values, then \`specgate init --config ${opts.out} --out .\`${c.reset}\n`
     );
     process.exit(0);
   }

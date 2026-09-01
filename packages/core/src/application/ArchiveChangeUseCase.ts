@@ -17,7 +17,7 @@ export class ArchiveChangeUseCase {
       plan.diagnostics.push(
         error("archive_change_not_found", `Change "${changeId}" does not exist.`, {
           target: changeId,
-          fix: `Run \`csda change list\` to see active changes.`,
+          fix: `Run \`specgate change list\` to see active changes.`,
         })
       );
       return plan;

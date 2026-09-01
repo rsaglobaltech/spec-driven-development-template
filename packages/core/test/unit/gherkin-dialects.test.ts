@@ -78,7 +78,7 @@ test("the table records which version it was taken from", () => {
 });
 
 test("the dialects the CLI offers are the dialects it can parse", () => {
-  // `csda init` takes LANG en / es / pt. A language the scaffolder offers and
+  // `specgate init` takes LANG en / es / pt. A language the scaffolder offers and
   // the parser does not know would produce files the tool cannot read back.
   for (const tag of ["en", "es", "pt"]) {
     assert.ok(DIALECTS[tag], `${tag} is offered by init but missing from the table`);

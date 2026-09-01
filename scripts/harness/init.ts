@@ -9,7 +9,7 @@
  * scaffolder's job.
  *
  * Usage:
- *   csda harness init [--project-dir <dir>] [--test-cmd <cmd>]
+ *   specgate harness init [--project-dir <dir>] [--test-cmd <cmd>]
  *                                       [--force] [--stdout] [--json]
  */
 
@@ -80,7 +80,7 @@ function usage() {
   process.stdout.write(
     "\n  🤖 harness init — scaffold the harness configuration\n\n" +
       "  USAGE\n" +
-      "    csda harness init [options]\n\n" +
+      "    specgate harness init [options]\n\n" +
       "  WRITES\n" +
       `    ${CONFIG_FILE}        agent, gate, retries, CI mode\n` +
       `    ${PREFIX_FILE}   Role / Active Project Boundary / Execution Policy\n\n` +
@@ -163,8 +163,8 @@ export class InitCommand extends BaseCommand {
         ? `test_cmd: "${testCmd}"`
         : '# test_cmd: "npm test"   # ← set this once the project has a test command',
       GATE_COMMAND: testCmd
-        ? `${testCmd}\ncsda validate . --strict-tdd`
-        : "csda validate . --strict-tdd",
+        ? `${testCmd}\nspecgate validate . --strict-tdd`
+        : "specgate validate . --strict-tdd",
     };
 
     const outputs = [
@@ -224,7 +224,7 @@ export class InitCommand extends BaseCommand {
 
     const status = [
       info("harness_agent_unset", "No agent is configured, deliberately.", {
-        fix: 'Pass it explicitly: csda harness run --req REQ-001 --agent "<cmd> < {prompt_file}"',
+        fix: 'Pass it explicitly: specgate harness run --req REQ-001 --agent "<cmd> < {prompt_file}"',
       }),
     ];
     if (driverProblem) status.push(driverProblem);
@@ -235,7 +235,7 @@ export class InitCommand extends BaseCommand {
           "docs/specs/traceability.md now merges row by row, so parallel harness branches do not collide.",
           {
             target: ".gitattributes",
-            fix: "Commit .gitattributes. Every other clone and CI runs `csda harness init` once to register the driver in its own git config.",
+            fix: "Commit .gitattributes. Every other clone and CI runs `specgate harness init` once to register the driver in its own git config.",
           }
         )
       );
@@ -268,8 +268,8 @@ export class InitCommand extends BaseCommand {
             "ℹ️ [INFO]   agent: not set — that is your choice and your credentials.\n" +
             "ℹ️ [INFO] Next:\n" +
             "ℹ️ [INFO]   1. Read .harness/prompt-prefix.md and make it sound like your team.\n" +
-            "ℹ️ [INFO]   2. csda harness prompt REQ-001        — see it before paying for it\n" +
-            'ℹ️ [INFO]   3. csda harness run --req REQ-001 --agent "<cmd> < {prompt_file}"\n'
+            "ℹ️ [INFO]   2. specgate harness prompt REQ-001        — see it before paying for it\n" +
+            'ℹ️ [INFO]   3. specgate harness run --req REQ-001 --agent "<cmd> < {prompt_file}"\n'
         );
       }
     );
@@ -297,7 +297,7 @@ export const GITATTRIBUTES_LINE = `docs/specs/traceability.md merge=${MERGE_DRIV
  *     clone gets it.
  *   - `merge.csda-matrix.driver` is **local git config**, which nothing can
  *     commit. Each clone and each CI job registers it, and that is why
- *     `csda doctor` checks for the gap.
+ *     `specgate doctor` checks for the gap.
  *
  * Without the config git falls back to its built-in merge — the conflict a
  * project has today. That fallback is deliberate: an unregistered checkout is
@@ -316,14 +316,14 @@ export function installMergeDriver(projectDir: string) {
       attributesPath,
       `${separator}# Merge the traceability matrix row by row, so parallel harness\n` +
         `# branches do not collide on adjacent rows. Needs the driver registered:\n` +
-        `#   csda harness init --project-dir .\n` +
+        `#   specgate harness init --project-dir .\n` +
         `${GITATTRIBUTES_LINE}\n`,
       "utf8"
     );
   }
 
   // The driver runs from the installed CLI, so the path is resolved here rather
-  // than assumed: a project does not have csda in its own tree.
+  // than assumed: a project does not have specgate in its own tree.
   const driverScript = path.join(__dirname, "..", "merge-traceability.js");
   const gitConfig = (key: string, value: string) =>
     spawnSync("git", ["-C", projectDir, "config", key, value], { encoding: "utf8" });

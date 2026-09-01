@@ -2,7 +2,7 @@
 /**
  * `specops add` — thin npm-install-style wrapper around `expand`.
  *
- *   csda specops add --pack-repo https://github.com/acme/x.git \
+ *   specgate specops add --pack-repo https://github.com/acme/x.git \
  *                    --pack-version v0.1.0 --pack backend \
  *                    --var PROJECT_NAME=Foo --var PROJECT_SLUG=foo
  *
@@ -51,8 +51,8 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}➕ specops add${c.reset}  ${c.dim}— add a pack to this project${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda specops add${c.reset} --pack-repo <url> --pack-version <tag> --pack <pack-id> [--var K=V]... [--project-dir <path>] [--cache-dir <path>] [--dry-run]\n` +
-      `    ${c.cyan}csda specops add${c.reset} --pack-root <path> --pack <pack-id> [--var K=V]... [--project-dir <path>]\n\n` +
+      `    ${c.cyan}specgate specops add${c.reset} --pack-repo <url> --pack-version <tag> --pack <pack-id> [--var K=V]... [--project-dir <path>] [--cache-dir <path>] [--dry-run]\n` +
+      `    ${c.cyan}specgate specops add${c.reset} --pack-root <path> --pack <pack-id> [--var K=V]... [--project-dir <path>]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--pack-repo <url>${c.reset}      ${c.dim}Git URL of the pack repository.${c.reset}\n` +
       `    ${c.green}--pack-version <tag>${c.reset}   ${c.dim}Git tag/sha to pin (required with --pack-repo).${c.reset}\n` +
@@ -64,8 +64,8 @@ function usage() {
       `    ${c.green}--dry-run${c.reset}              ${c.dim}Print actions without writing.${c.reset}\n` +
       `    ${c.green}-h, --help${c.reset}             ${c.dim}Show this help.${c.reset}\n\n` +
       `  ${c.bold}EXAMPLES${c.reset}\n` +
-      `    ${c.yellow}$${c.reset} csda specops add --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \\\n        --pack-version v0.1.0 --pack backend \\\n        --var PROJECT_NAME="Smart Parking" --var PROJECT_SLUG=smart-parking --var DOMAIN="parking ops"\n` +
-      `    ${c.yellow}$${c.reset} csda specops add --pack-root ./domain-packs --pack billing/backend --var PROJECT_NAME="..." --var PROJECT_SLUG=...\n\n`
+      `    ${c.yellow}$${c.reset} specgate specops add --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \\\n        --pack-version v0.1.0 --pack backend \\\n        --var PROJECT_NAME="Smart Parking" --var PROJECT_SLUG=smart-parking --var DOMAIN="parking ops"\n` +
+      `    ${c.yellow}$${c.reset} specgate specops add --pack-root ./domain-packs --pack billing/backend --var PROJECT_NAME="..." --var PROJECT_SLUG=...\n\n`
   );
 }
 

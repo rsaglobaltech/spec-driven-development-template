@@ -1,7 +1,7 @@
 /**
  * `projects:` fan-out, shared (E2-06 / issue #104).
  *
- * `csda validate` has always fanned out over `specops.config.yaml`'s
+ * `specgate validate` has always fanned out over `specops.config.yaml`'s
  * `projects:` list (`ValidateSpecsCommand.ts`'s `validateMonorepo`) — a
  * monorepo declares its sibling project directories once, and `validate`
  * walks them. Measured before writing this: nothing else did. `plan`,

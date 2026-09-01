@@ -1,4 +1,4 @@
-# @spec-driven/lsp-server
+# @specgate/lsp-server
 
 A minimal, dependency-free **Language Server** for spec-driven projects. It
 publishes inline diagnostics for `docs/specs/traceability.md` using the same
@@ -19,7 +19,7 @@ the [IntelliJ plugin](../intellij-spec-driven) talks to.
 | `DUP-SCN` | error    | A Scenario ID appears on more than one row                 |
 | `STATUS`  | error    | Status is not one of the allowed values                    |
 
-Each message includes the exact `csda req …` command that fixes it.
+Each message includes the exact `specgate req …` command that fixes it.
 
 ## Run
 

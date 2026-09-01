@@ -19,8 +19,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI = path.join(ROOT_DIR, "bin", "specgate.js");
 
 const { render, harvestCodes, OUTPUT, COMMANDS } = require("../../scripts/gen_agent_contract");
 const { EXIT } = require("../../scripts/lib/agent");
@@ -172,15 +174,20 @@ test("H18: every command in the contract emits parseable JSON on stdout", async 
         cmdStr = cmdStr.replace("<REQ>", "REQ-999");
         cmdStr = cmdStr.replace("<id>", "MISSING-ID");
         cmdStr = cmdStr.replace("<artifact>", "specs");
-        
+
         const args = cmdStr.split(" ");
         const r = cli(args, dir);
-        
+
         try {
           const doc = JSON.parse(r.stdout);
-          assert.ok(doc && typeof doc === "object", `${command} should emit a JSON object, got ${r.stdout}`);
-        } catch (e) {
-          assert.fail(`Command ${command} failed to emit parseable JSON. stdout:\n${r.stdout}\nstderr:\n${r.stderr}`);
+          assert.ok(
+            doc && typeof doc === "object",
+            `${command} should emit a JSON object, got ${r.stdout}`
+          );
+        } catch {
+          assert.fail(
+            `Command ${command} failed to emit parseable JSON. stdout:\n${r.stdout}\nstderr:\n${r.stderr}`
+          );
         }
       });
     }

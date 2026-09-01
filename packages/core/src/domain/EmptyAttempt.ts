@@ -3,7 +3,7 @@
  *
  * ## The defect this closes
  *
- * The harness gate runs *before* `csda done`, so at gate time the requirement
+ * The harness gate runs *before* `specgate done`, so at gate time the requirement
  * is still `Draft` — and `--strict-tdd`'s "no `Test Artifact = TBD` past
  * Draft" rule does not apply to a Draft row. `done` then flips the status to
  * `Implemented` and nothing validates again.

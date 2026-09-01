@@ -10,7 +10,7 @@ export const CONFIG_FILE = "config.json";
 export const KEYS: Record<string, { values: string[] | null; describe: string }> = {
   profile: {
     values: ["core", "full"],
-    describe: "Which commands `csda --help` lists by default.",
+    describe: "Which commands `specgate --help` lists by default.",
   },
   language: {
     values: null,
@@ -46,9 +46,9 @@ function usage() {
     .join("\n");
   process.stdout.write(
     "Usage:\n" +
-      "  csda config set <key> <value>\n" +
-      "  csda config get <key>\n" +
-      "  csda config list\n\n" +
+      "  specgate config set <key> <value>\n" +
+      "  specgate config get <key>\n" +
+      "  specgate config list\n\n" +
       `Keys:\n${keys}\n\n` +
       `Stored in ${CONFIG_DIR}/${CONFIG_FILE}. Commit it to share the setting.\n`
   );
@@ -118,7 +118,7 @@ export class ConfigSetCommand extends BaseCommand {
     if (value === undefined) {
       io.usage(NULL_SHAPE, [
         error("config_value_required", `No value given for ${key}.`, {
-          fix: `csda config set ${key} <value>`,
+          fix: `specgate config set ${key} <value>`,
         }),
       ]);
     }

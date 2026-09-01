@@ -2,7 +2,7 @@
 # The harness
 
 ```bash
-csda harness init
+specgate harness init
 ```
 
 Writes `harness.config.yaml` and `.harness/prompt-prefix.md`, detects the gate
@@ -12,7 +12,7 @@ your choice and your credentials.
 Name the agent when you run it:
 
 ```bash
-csda harness run --req REQ-001 \
+specgate harness run --req REQ-001 \
   --agent "claude -p --allowedTools Read Write Edit Glob Grep 'Bash(npm:*)' < {prompt_file}"
 ```
 
@@ -71,11 +71,11 @@ that touched **different** requirements still collide, purely because their rows
 are neighbours. Measured on a three-requirement project: rows 1 and 2 conflict,
 rows 1 and 5 merge clean.
 
-`csda harness init` sets up a merge driver that merges the matrix by row instead
+`specgate harness init` sets up a merge driver that merges the matrix by row instead
 of by line:
 
 ```bash
-csda harness init --project-dir .   # writes .gitattributes, registers the driver
+specgate harness init --project-dir .   # writes .gitattributes, registers the driver
 git add .gitattributes && git commit -m "merge the matrix by row"
 ```
 
@@ -85,9 +85,9 @@ because quietly discarding somebody's decision is worse than asking.
 
 **Every clone registers it once.** `.gitattributes` is committed, but
 `merge.csda-matrix.driver` is local git config that nothing can commit, so a
-fresh checkout and every CI job needs `csda harness init` too. Until then git
+fresh checkout and every CI job needs `specgate harness init` too. Until then git
 falls back to its built-in merge — the conflict the project had before, never a
-silently wrong result — and `csda doctor` reports the gap rather than leaving it
+silently wrong result — and `specgate doctor` reports the gap rather than leaving it
 to be found mid-merge.
 
 ### Resolving one by hand
@@ -106,7 +106,7 @@ markers around that one row:
 Keep exactly one of the two lines and delete the three marker lines. **Never
 keep both:** a duplicated requirement is the one corruption this file must not
 have — it is also what a naive `merge=union` produces, which is why that is not
-what csda configures. Then run `csda validate .`, which checks the statuses are
+what csda configures. Then run `specgate validate .`, which checks the statuses are
 legal and that no scenario id repeats.
 
 ## Change agent between attempts
@@ -159,7 +159,7 @@ branch carries one archived prompt per role — `attempt-2-reviewer.md`,
 ## Run more than one requirement at a time
 
 ```bash
-csda harness run --concurrency 4
+specgate harness run --concurrency 4
 ```
 
 **Only requirements that do not depend on each other ever run together.** The
@@ -181,7 +181,7 @@ for work that could not have succeeded. Now the report says so:
 ```
 
 A requirement caught in a dependency cycle is reported the same way and never
-attempted; `csda validate` is what explains the cycle and how to break it.
+attempted; `specgate validate` is what explains the cycle and how to break it.
 
 **The base is derived, not passed.** A requirement is cut from the branch of
 the dependency it builds on, because that is the only place its code exists
@@ -214,7 +214,7 @@ need, and it is thrown away afterwards.
 
 **The default is 1, deliberately.** Two reasons, and neither is timidity:
 
-- Every step of a requirement — the gate, the agent, `csda done`, git — is a
+- Every step of a requirement — the gate, the agent, `specgate done`, git — is a
   blocking call, so above 1 each requirement runs in a worker process. That
   path is newer than the serial one, which has years of real agent runs behind
   it.
@@ -226,8 +226,8 @@ need, and it is thrown away afterwards.
 ## What the harness has cost
 
 ```bash
-csda harness report            # everything recorded
-csda harness report --last 5   # the five most recent runs
+specgate harness report            # everything recorded
+specgate harness report --last 5   # the five most recent runs
 ```
 
 Every run writes `.harness/runs/<timestamp>.json`, and the report reads them:
@@ -272,17 +272,17 @@ identical to a real failure otherwise.
 
 The attempt is **committed on the branch** with a `wip(REQ-NNN): FAILED the
 gate` subject, so the agent's work is there to read instead of discarded. The
-requirement stays `Draft`, because `csda done` never ran.
+requirement stays `Draft`, because `specgate done` never ran.
 
 ```bash
-csda harness run --req REQ-002 --format json      # the whole gate output
-csda harness run --req REQ-002 --keep-worktrees   # reproduce it in place
+specgate harness run --req REQ-002 --format json      # the whole gate output
+specgate harness run --req REQ-002 --keep-worktrees   # reproduce it in place
 ```
 
 **A requirement that builds on another needs its branch as the base:**
 
 ```bash
-csda harness run --req REQ-002 --base-branch harness/REQ-001
+specgate harness run --req REQ-002 --base-branch harness/REQ-001
 ```
 
 That branch also supplies the project configuration for the run, so a fix

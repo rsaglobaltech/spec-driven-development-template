@@ -1,6 +1,6 @@
 /**
  * Reader for `harness.config.yaml` — optional per-project defaults for
- * `csda harness run`, so the test command and agent invocation do not have
+ * `specgate harness run`, so the test command and agent invocation do not have
  * to be retyped on every run.
  *
  * Format:

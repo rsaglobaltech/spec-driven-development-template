@@ -20,4 +20,4 @@ evidence that consumers still hold.
 
 - The contract validates against its own schema (OpenAPI 3.1 / AsyncAPI 3.0).
 - Every new element has a traceability row and a verifying test.
-- `csda validate . --strict-tdd` passes.
+- `specgate validate . --strict-tdd` passes.

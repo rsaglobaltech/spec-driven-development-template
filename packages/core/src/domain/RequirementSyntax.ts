@@ -4,7 +4,7 @@
  * ## Why this exists
  *
  * `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §4 names the real gap against
- * Predictable Code: `csda validate` checks that the paperwork is internally
+ * Predictable Code: `specgate validate` checks that the paperwork is internally
  * consistent, not that the code does what the spec says. §8.1 draws the
  * consequence — a code verifier is useless while the spec it checks against is
  * prose. `- Max 5 failed attempts per hour per user` is not checkable by

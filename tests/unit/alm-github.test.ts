@@ -165,8 +165,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI_PATH = path.join(ROOT_DIR, "bin", "specgate.js");
 
 /** A project with one open requirement and a github ALM config. */
 function withGithubProject(config: string, fn: (dir: string) => void) {
@@ -200,7 +202,7 @@ const GH_CONFIG = [
   "",
 ].join("\n");
 
-test("csda alm sync reaches the github provider and plans without touching the network", () => {
+test("specgate alm sync reaches the github provider and plans without touching the network", () => {
   withGithubProject(GH_CONFIG, (dir) => {
     const r = spawnSync(
       process.execPath,

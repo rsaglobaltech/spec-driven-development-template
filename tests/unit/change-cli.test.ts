@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * CLI-level coverage for `csda change`.
+ * CLI-level coverage for `specgate change`.
  *
  * The engine is unit-tested elsewhere; this file exercises the wrapper — the
  * part an agent actually talks to. Every assertion here is about the contract
@@ -16,8 +16,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI_PATH = path.join(ROOT_DIR, "bin", "specgate.js");
 
 function mkProject() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "csda-change-cli-"));

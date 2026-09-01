@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 setDefaultTimeout(30_000);
 
 const ROOT = path.resolve(__dirname, "../../../..");
-const CLI = path.join(ROOT, "bin", "create-spec-driven-app.js");
+const CLI = path.join(ROOT, "bin", "specgate.js");
 
 const BASE_CONFIG = `PROJECT_NAME="BDD Test Project"
 PROJECT_SLUG="bdd-test-project"

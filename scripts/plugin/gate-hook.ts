@@ -3,7 +3,7 @@
 /**
  * The `Stop` hook: the spec gate, inside the agent's loop.
  *
- * `csda validate --strict-tdd` has always run in CI — that is, *after* the
+ * `specgate validate --strict-tdd` has always run in CI — that is, *after* the
  * agent finished and left. This runs it when the agent is about to stop, while
  * it still has the context to fix what it broke, and refuses the stop while the
  * gate is red. It is the difference between a gate that reviews an agent's work
@@ -80,7 +80,7 @@ export function renderFindings(diagnostics: GateDiagnostic[]): string {
     if (d.fix) lines.push(`    fix: ${d.fix}`);
   }
   if (diagnostics.length > 10) lines.push(`  … and ${diagnostics.length - 10} more.`);
-  lines.push("", "Run `csda validate . --strict-tdd` to see all of it.");
+  lines.push("", "Run `specgate validate . --strict-tdd` to see all of it.");
   return lines.join("\n");
 }
 
@@ -116,18 +116,22 @@ export function decide(
 function runValidate(cwd: string): { ok: boolean; diagnostics: GateDiagnostic[] } {
   if (!fs.existsSync(path.join(cwd, "spec.md"))) throw new Error("not a spec-driven project");
 
-  const r = spawnSync("npx", ["--no-install", "csda", "validate", cwd, "--strict-tdd", "--json"], {
-    encoding: "utf8",
-    timeout: 120_000,
-    maxBuffer: 16 * 1024 * 1024,
-  });
-  if (r.error || typeof r.status !== "number") throw new Error("could not run csda");
+  const r = spawnSync(
+    "npx",
+    ["--no-install", "specgate", "validate", cwd, "--strict-tdd", "--json"],
+    {
+      encoding: "utf8",
+      timeout: 120_000,
+      maxBuffer: 16 * 1024 * 1024,
+    }
+  );
+  if (r.error || typeof r.status !== "number") throw new Error("could not run specgate");
 
   let parsed: { status?: GateDiagnostic[] };
   try {
     parsed = JSON.parse(r.stdout);
   } catch {
-    throw new Error("csda validate did not emit one JSON document");
+    throw new Error("specgate validate did not emit one JSON document");
   }
   const diagnostics = (parsed.status ?? []).filter(
     (d) => (d as { severity?: string }).severity === "error"

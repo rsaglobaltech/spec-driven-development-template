@@ -6,8 +6,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI_PATH = path.join(ROOT_DIR, "bin", "specgate.js");
 const PKG = require(path.join(ROOT_DIR, "package.json"));
 
 function cli(...args) {
@@ -48,7 +50,7 @@ for (const { provider, dest, marker } of CASES) {
       assert.match(content, /validate \. --against-lock/);
       assert.match(content, /\.specops\.lock/);
       // Version is pinned, not 'latest', for reproducible CI.
-      assert.ok(content.includes(`create-spec-driven-app@${PKG.version}`));
+      assert.ok(content.includes(`specgate@${PKG.version}`));
       // No unresolved template tokens.
       assert.ok(!/\{\{[A-Z_]+\}\}/.test(content));
     });

@@ -5,7 +5,7 @@ import { Diagnostic, error, warning } from "../domain/Diagnostic";
 import { IProjectRepository } from "./ports/IProjectRepository";
 
 export interface ValidateChangeOptions {
-  /** Hold deltas to the stricter rules `csda validate --strict-tdd` applies. */
+  /** Hold deltas to the stricter rules `specgate validate --strict-tdd` applies. */
   strict?: boolean;
 }
 

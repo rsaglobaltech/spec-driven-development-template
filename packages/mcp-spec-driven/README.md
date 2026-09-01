@@ -25,7 +25,7 @@ The server exposes 5 tools over MCP:
 ## Installation
 
 ```bash
-npm install -g @spec-driven/mcp-server
+npm install -g @specgate/mcp-server
 ```
 
 This installs the `mcp-spec-driven` binary on your PATH.

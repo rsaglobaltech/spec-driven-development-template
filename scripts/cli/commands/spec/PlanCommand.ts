@@ -39,7 +39,7 @@ export function parseArgs(argv: string[]): PlanOptions {
       process.stdout.write(
         `\n  ${c.bold}${c.cyan}📋 plan${c.reset}  ${c.dim}— what still needs implementation${c.reset}\n\n` +
           `  ${c.bold}USAGE${c.reset}\n` +
-          `    ${c.cyan}csda plan${c.reset} [--project-dir <path>] [--json]\n\n`
+          `    ${c.cyan}specgate plan${c.reset} [--project-dir <path>] [--json]\n\n`
       );
       process.exit(0);
     } else if (a.startsWith("-")) {
@@ -117,7 +117,7 @@ export function hintFor(item: any): string {
     case "NEEDS_IMPLEMENTATION":
       return `Implement code at ${item.technical_artifact} (create technical artifact)`;
     case "NEEDS_STATUS_UPDATE":
-      return `Run \`csda done ${item.requirement}\` to mark implemented`;
+      return `Run \`specgate done ${item.requirement}\` to mark implemented`;
     case "NEEDS_EVERYTHING":
       return `Declare technical and test artifacts, or create ${item.feature_file}`;
     case "DONE":

@@ -11,15 +11,15 @@ Check the change before anyone reviews it.
 ## Run
 
 ```bash
-csda change validate --json
-csda validate . --json
+specgate change validate --json
+specgate validate . --json
 ```
 
 ## Guidance
 
 - Every diagnostic carries a `fix`. Apply it rather than guessing.
 - Branch on `code`, never on `message` — the message is prose and may be reworded.
-- `csda validate` validates active changes too, so this is also the PR gate.
+- `specgate validate` validates active changes too, so this is also the PR gate.
 
-> The authoritative rules come from `csda change instructions <artifact> --json`.
+> The authoritative rules come from `specgate change instructions <artifact> --json`.
 > If this file and the engine disagree, the engine is right — say so and continue.

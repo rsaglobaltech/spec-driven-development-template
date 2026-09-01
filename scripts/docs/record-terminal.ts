@@ -332,8 +332,8 @@ function prepare(scratch: string): void {
   fs.mkdirSync(path.join(scratch, "tmp"), { recursive: true });
 
   fs.writeFileSync(
-    path.join(bin, "csda"),
-    `#!/usr/bin/env bash\nexec node "${path.join(ROOT, "bin", "create-spec-driven-app.js")}" "$@"\n`,
+    path.join(bin, "specgate"),
+    `#!/usr/bin/env bash\nexec node "${path.join(ROOT, "bin", "specgate.js")}" "$@"\n`,
     { mode: 0o755 }
   );
   // Reused, not forked: one deterministic agent, one place to fix it.

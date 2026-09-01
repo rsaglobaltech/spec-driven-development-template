@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * `csda agents init` — the generated instruction files.
+ * `specgate agents init` — the generated instruction files.
  *
  * The property worth protecting is that these files stay thin. They point at
- * `csda change instructions`; they do not copy the delta grammar into markdown,
+ * `specgate change instructions`; they do not copy the delta grammar into markdown,
  * because a copy is stale the moment the grammar moves.
  */
 
@@ -15,8 +15,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI = path.join(ROOT_DIR, "bin", "specgate.js");
 
 const { TOOLS, ALL_TOOLS, DEFAULT_TOOLS, parseArgs } = require("../../scripts/agents/init");
 const { STEPS } = require("../../scripts/agents/commands");
@@ -71,7 +73,7 @@ test("a shared destination is written once, credited to both tools", () => {
       "--json"
     );
     const doc = JSON.parse(r.stdout);
-    // `csda init` already generates AGENTS.md, so here it lands in `skipped` —
+    // `specgate init` already generates AGENTS.md, so here it lands in `skipped` —
     // what matters is that it appears exactly once, whichever list it is in.
     const planned = [...doc.agents.written, ...doc.agents.skipped].filter(
       (w) => w.path === "AGENTS.md"
@@ -121,7 +123,7 @@ test("every step becomes a slash command that calls the engine", () => {
       const body = fs.readFileSync(file, "utf8");
       assert.match(body, new RegExp(`# /csda:${step.name}`));
       // Thin by design: it defers to the engine rather than restating rules.
-      assert.match(body, /csda change instructions/);
+      assert.match(body, /specgate change instructions/);
     }
   });
 });

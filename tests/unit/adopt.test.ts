@@ -6,8 +6,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI_PATH = path.join(ROOT_DIR, "bin", "specgate.js");
 
 function cli(args, options = {}) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -308,7 +310,7 @@ test("adopt --monorepo refuses a repository that declares no modules", () => {
     const r = cli(["adopt", "--project-dir", dir, "--monorepo"]);
     assert.equal(r.status, 2);
     assert.match(r.stderr, /found 0 declared module/);
-    assert.match(r.stderr, /csda adopt/);
+    assert.match(r.stderr, /specgate adopt/);
     assert.ok(!fs.existsSync(path.join(dir, "specops.config.yaml")));
   });
 });
@@ -327,7 +329,10 @@ test("adopt --monorepo leaves an already adopted module alone", () => {
     const r = cli(["adopt", "--project-dir", dir, "--monorepo"]);
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.match(r.stdout, /skip \(already adopted\): a/);
-    assert.equal(fs.readFileSync(path.join(dir, "a", "spec.md"), "utf8"), "# Mine — do not touch\n");
+    assert.equal(
+      fs.readFileSync(path.join(dir, "a", "spec.md"), "utf8"),
+      "# Mine — do not touch\n"
+    );
     // It still appears in the config: monorepo mode must validate it too.
     assert.match(fs.readFileSync(path.join(dir, "specops.config.yaml"), "utf8"), /- path: a/);
   });

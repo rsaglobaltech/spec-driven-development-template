@@ -115,12 +115,12 @@ function writeBaseline(projectDir: string, rel: string, contents: string) {
 function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}🔄 update${c.reset}  ${c.dim}— refresh generated files, keeping your edits${c.reset}\n\n` +
-      "  USAGE\n    csda update [--project-dir <path>] [--dry-run] [--json]\n\n" +
+      "  USAGE\n    specgate update [--project-dir <path>] [--dry-run] [--json]\n\n" +
       "  Three-way merges the files `agents init` generates against the baseline\n" +
       "  recorded in .csda/baseline/. Local edits win; upstream changes land;\n" +
       "  conflicts are marked in the file and reported, never resolved silently.\n\n" +
       "  Only files the project already has are touched. Adding a tool is\n" +
-      "  `csda agents init --tool <name>`.\n\n"
+      "  `specgate agents init --tool <name>`.\n\n"
   );
 }
 
@@ -194,14 +194,14 @@ export class UpdateCommand extends BaseCommand {
           update: { projectDir, dryRun, files: [] },
           status: [
             info("nothing_generated", "This project has no generated agent files yet.", {
-              fix: "csda agents init",
+              fix: "specgate agents init",
             }),
           ],
         },
         () =>
           process.stdout.write(
             `\n  ${c.dim}Nothing to update — this project has no generated agent files.${c.reset}\n` +
-              `  ${c.green}csda agents init${c.reset}${c.dim} writes them.${c.reset}\n\n`
+              `  ${c.green}specgate agents init${c.reset}${c.dim} writes them.${c.reset}\n\n`
           )
       );
       return;

@@ -5,7 +5,7 @@
 >
 > **This is the rich 10-column format the CLI generates for user projects** —
 > the tool has to be able to operate on its own repository, and
-> `csda change archive` rewrites the table below. `tests/unit/docs-truth.test.ts`
+> `specgate change archive` rewrites the table below. `tests/unit/docs-truth.test.ts`
 > fails the build if any path named here stops existing.
 >
 > Columns the CLI's own domain does not use (`Use Case`, `Command/Query`,

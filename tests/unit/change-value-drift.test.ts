@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * `csda change new --from-value-drift REQ-ID:value_id` — route 2 of the
+ * `specgate change new --from-value-drift REQ-ID:value_id` — route 2 of the
  * three-way resolution for a declared-value divergence (§8.6 → §11).
  *
  * Routes 1 ("fix the code") and 3 ("retire the requirement") need no new
- * tooling — `csda report` already names the code file:line for route 1, and
+ * tooling — `specgate report` already names the code file:line for route 1, and
  * route 3 is `change new` with a hand-written `REMOVED Requirements`
  * section, same as retiring any other requirement. This is the one route
  * that is glue: find the requirement, find its code value, propose the spec
@@ -19,8 +19,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI_PATH = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI_PATH = path.join(ROOT_DIR, "bin", "specgate.js");
 
 const RICH_HEADER =
   "| Requirement | Scenario ID | Feature file | Use Case | Command/Query | Aggregate | Event | Technical artifact | Test artifact | Status |";
@@ -104,7 +106,7 @@ test("generates a MODIFIED delta proposing the spec take the code's value", () =
   }
 });
 
-test("the generated delta passes csda change validate", () => {
+test("the generated delta passes specgate change validate", () => {
   const root = mkProject();
   try {
     writeCapabilitySpec(root, "auth", AUTH_SPEC);

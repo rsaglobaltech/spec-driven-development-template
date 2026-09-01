@@ -38,7 +38,7 @@ function error(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--var KEY=VALUE]... [--format text|json] [--json]\n\n" +
+      "  specgate specops diff [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--var KEY=VALUE]... [--format text|json] [--json]\n\n" +
       "Reports files that would be added or modified if `specops sync` ran at\n" +
       "the chosen version. Writes nothing to the project directory.\n\n" +
       "  --as-change       Derive the bump as a reviewable change: compares the\n" +
@@ -261,7 +261,7 @@ export function runAsChange(args, projectDir, lock) {
     } else {
       process.stdout.write(`\n  Change '${r.change}' created:\n`);
       for (const f of r.files) process.stdout.write(`    + ${f}\n`);
-      process.stdout.write(`\n  Review it, then: csda change validate ${r.change}\n`);
+      process.stdout.write(`\n  Review it, then: specgate change validate ${r.change}\n`);
     }
   }
   process.stdout.write("\n");
@@ -274,9 +274,12 @@ export class DiffCommand extends BaseCommand {
       args = parseArgs(this.args);
     } catch (err: any) {
       // parseArgs doesn't know about format, default to assuming json if --json is passed
-      const io = agentIo(this.args.includes("--json") || this.args.includes("--format") && this.args.includes("json"));
+      const io = agentIo(
+        this.args.includes("--json") ||
+          (this.args.includes("--format") && this.args.includes("json"))
+      );
       return io.fail({ changes: null }, [
-        { severity: "error", code: "specops_diff_usage", message: err.message || String(err) }
+        { severity: "error", code: "specops_diff_usage", message: err.message || String(err) },
       ]);
     }
 
@@ -286,12 +289,20 @@ export class DiffCommand extends BaseCommand {
       const lock = readLock(projectDir);
       if (!lock) {
         return io.fail({ changes: null }, [
-          { severity: "error", code: "no_lockfile", message: `No .specops.lock found in ${projectDir}` }
+          {
+            severity: "error",
+            code: "no_lockfile",
+            message: `No .specops.lock found in ${projectDir}`,
+          },
         ]);
       }
       if (!Array.isArray(lock.packs) || lock.packs.length === 0) {
         return io.fail({ changes: null }, [
-          { severity: "error", code: "specops_lock_empty", message: ".specops.lock has no pack entries." }
+          {
+            severity: "error",
+            code: "specops_lock_empty",
+            message: ".specops.lock has no pack entries.",
+          },
         ]);
       }
 
@@ -361,7 +372,7 @@ export class DiffCommand extends BaseCommand {
       }
     } catch (err: any) {
       return io.fail({ changes: null }, [
-        { severity: "error", code: "specops_diff_error", message: err.message || String(err) }
+        { severity: "error", code: "specops_diff_error", message: err.message || String(err) },
       ]);
     }
   }

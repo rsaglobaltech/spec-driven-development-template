@@ -500,7 +500,7 @@ export function parseArgs(argv: string[]) {
       process.stdout.write(
         `\n  📊 report — spec-coverage dashboard\n\n` +
           `  USAGE\n` +
-          `    csda report [--project-dir <path>] [--format html|json]\n` +
+          `    specgate report [--project-dir <path>] [--format html|json]\n` +
           `                                  [--out <file>] [--stdout] [--record]\n\n`
       );
       process.exit(0);

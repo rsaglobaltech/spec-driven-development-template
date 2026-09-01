@@ -41,21 +41,21 @@ Pack zeigt — `mvn test` führt das Gherkin-Szenario also **wirklich aus**.
 
 Jedes Feature, eingebettet in den Tagesablauf:
 
-1. `csda init` — Projekt aus YAML-Konfig anlegen
-2. `csda specops add` — Domain-Pack einbinden (echtes
+1. `specgate init` — Projekt aus YAML-Konfig anlegen
+2. `specgate specops add` — Domain-Pack einbinden (echtes
    `parking-management-specops`)
-3. `csda plan` — was noch zu tun ist
-4. `csda validate --strict-tdd` — Gate auf grün
+3. `specgate plan` — was noch zu tun ist
+4. `specgate validate --strict-tdd` — Gate auf grün
 5. Maven-`pom.xml` und `harness.config.yaml` ablegen
 6. `git init && git commit` — sauberer Working Tree
-7. **`csda harness run --req REQ-000`** — opencode bekommt den Prompt,
+7. **`specgate harness run --req REQ-000`** — opencode bekommt den Prompt,
    schreibt `HealthService.java` + `HealthServiceTest.java`, der Harness
    bestätigt mit validate + `mvn -o test` und commitet auf
    `harness/REQ-000`
 8. `cat` der Agent-Dateien
 9. `mvn -B -o test` — Tests laufen real grün
-10. `csda specops diff` — Pack-Sync prüfen
-11. `csda pack lint --graph` — Domain-Modell visualisieren
+10. `specgate specops diff` — Pack-Sync prüfen
+11. `specgate pack lint --graph` — Domain-Modell visualisieren
 
 ## Verwendete CLI-Version
 

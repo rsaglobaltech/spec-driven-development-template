@@ -126,7 +126,7 @@ function logError(msg: string) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda init [--config <path>] [--out <directory>] [--yes] [--force] [--dry-run]\n" +
+      "  specgate init [--config <path>] [--out <directory>] [--yes] [--force] [--dry-run]\n" +
       "                 [--no-git] [--no-sample-req]\n\n" +
       "Options:\n" +
       "  --config <path>   Configuration file. Accepts a YAML mapping (.yaml/.yml)\n" +
@@ -715,7 +715,7 @@ export class InitProjectCommand extends BaseCommand {
       cfg = validateConfig({ ...wizardAnswers });
     } else {
       logError("--config is required when not running in a terminal.");
-      logInfo("Fix: run `csda init` in a terminal for the interactive wizard,");
+      logInfo("Fix: run `specgate init` in a terminal for the interactive wizard,");
       logInfo("     pass --yes to scaffold with defaults, or provide --config <path>.");
       process.exit(2);
     }

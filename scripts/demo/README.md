@@ -27,7 +27,7 @@ A single, day-to-day loop:
 2. Pull in the public `parking-management-specops` domain pack (`specops add`).
 3. See the task queue (`plan`).
 4. Wire the harness — `agent` + `test_cmd` in a tiny `harness.config.yaml`.
-5. **`csda harness run --req REQ-000`** — the harness builds a prompt,
+5. **`specgate harness run --req REQ-000`** — the harness builds a prompt,
    shells out to the agent, the agent writes real `src/health.js` +
    `test/health.test.js`, the gate (`validate --strict-tdd` + `node --test`)
    runs, green, `done`, commit on a `harness/REQ-000` branch.

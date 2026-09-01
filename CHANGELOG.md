@@ -6,7 +6,11 @@ and [Semantic Versioning](https://semver.org/).
 
 The release process is in [`docs/release-process.md`](docs/release-process.md).
 
-## [Unreleased]
+## [0.8.0] — 2026-09-01
+
+The release that makes the new name real. Everything since 0.7.0 shipped under
+`create-spec-driven-app`; this is the first version published as `specgate`, and
+the one that finishes the rename past the layer where it had stopped.
 
 ### Changed
 
@@ -53,6 +57,23 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
   Historical records keep the old name where it was accurate when written:
   earlier CHANGELOG entries, ADRs 0008–0010, the published article and the case
   study are left alone.
+
+  **The cutover reaches the scaffolding this time.** Every template CI config
+  installed `create-spec-driven-app`, pinned or floating at `@latest` — so a
+  project generated after the deprecation would have installed a deprecated name
+  frozen at 0.7.0 forever. They install `specgate`, and the template placeholder
+  is `{{SPECGATE_VERSION}}`, renamed in lockstep with its writer.
+
+  **`csda <sub>` became `specgate <sub>` across every surface a user reads**:
+  the landing page (regenerated from its storyboard, not hand-edited), the
+  guides, CLI help and error text, agent prompts and the scaffolding templates.
+  `tests/unit/docs-truth.test.ts` enforced the opposite rule and is inverted
+  rather than deleted — it rejects either alias followed by a real sub-command,
+  and never matches the frozen `csda:`, `.csda` or `csda_` spellings.
+
+  **The pack schema `$id` keeps `spec-driven.dev`.** An `$id` is the identity of
+  v1, not a URL anything fetches; changing it is a schema-version event, not a
+  rename.
 
 The release that starts checking content instead of only paperwork. Every check
 until now answered "are these documents internally consistent?"; none answered
@@ -206,6 +227,97 @@ deliberately *not* built, is [ADR-0023](docs/specs/adr/0023-checking-content-gat
 - **`ADR-0023`** records the rule the three additions follow: a content check is
   a gate only when failing it is always a defect; otherwise opt-in, or a report;
   and no check asserts a grammar it does not parse.
+
+### Fixed
+
+- **`specgate adopt` did not run at all.** `templates/adopt/spec.md.tpl` asks
+  for `{{PROPOSED_REQUIREMENTS}}` and nothing supplied it, so the brownfield
+  entry point died on `Missing variable 'PROPOSED_REQUIREMENTS' required by
+  template` for every repository.
+
+  Two parallel branches caused it. P6 taught `adopt` to seed one requirement per
+  capability `onboard` reads off the layout, and added `--monorepo` and
+  `--no-capabilities`; the clean-architecture refactor branched before that and
+  rewrote `adopt` from the pre-P6 source. Merging both kept P6's template and
+  the refactor's code, so the placeholder outlived the function that filled it.
+
+  The same merge reverted `onboard` from 722 lines to 295, losing declared-module
+  discovery, the layered-project descent, the Python package roots and the
+  H14/H16/H17 fixes — which is why `proposeCapabilities` answered `[]` for every
+  repository in the corpus. All of it is back, in its clean-architecture home,
+  including `findAdoptedAncestor`: onboard runs on repositories that are not
+  spec-driven yet, so resolving upwards to an adopted ancestor reports a
+  different codebase than the one asked about (H16). The ancestor is named,
+  never substituted.
+
+- **`validate` stopped saying when an adoption was never retro-filled (H15).**
+  Lost to the same merge. A project whose only scenario is the adoption baseline
+  says so again — still a pass, never an error, because a gate that rejects a
+  fresh adoption is a gate nobody installs.
+
+- **Three MCP tools had been deleted and four renamed.** #138 generated the tool
+  registry from the command surface and, in doing so, removed `read_spec`,
+  `list_requirements` and `update_traceability` and renamed the rest to
+  `csda_*`. A tool id lives in someone else's agent config. The three that are
+  not a CLI command behind a shell now live outside the generated file, so
+  regeneration cannot eat them again, and all seven published names resolve.
+
+- **The MCP tool generator never wrote the file it generates.** `OUT_FILE`
+  resolved from `__dirname`, which is `dist/scripts/` once compiled, so every
+  run reported success into build output while the committed registry drifted
+  from the surface it is derived from.
+
+- **`validate_project` could not work over MCP.** The generated shell always
+  passed `--project-dir`, and `validate` takes a positional `<dir>` and rejects
+  the flag — so the most used tool of the seven failed with "Unknown flag(s)"
+  and an empty payload. The surface already records which form a command takes
+  in `json.args`; the generator reads it instead of assuming. Alongside it,
+  `ensureProjectDir` had been reduced to a type check (a directory that is not
+  spec-driven now gets a reason, not an empty failure) and the CLI command line
+  was parsed with `split(" ")` (an interpreter path with a space in it now
+  survives).
+
+  `validate_project` returns the CLI's JSON document verbatim rather than the
+  bespoke `{ passed, errors, warnings }` summary it used to flatten it into —
+  one envelope, branch on the contract, per ADR-0017.
+
+- **The IntelliJ plugin, `mcp install` and `agents init` invoked a package that
+  does not exist.** All three named `@spec-driven/lsp-server` or
+  `@spec-driven/mcp-server`; that scope was never published. They name
+  `@specgate/*` now, which is what the packages actually publish.
+
+- **The documented Docker pipeline could not have worked.** `docs/automation.md`
+  told readers to pull `ghcr.io/rsaglobaltech/csda:0.2.1` and then run
+  `specgate validate` inside it, and an image tagged before the rename has no
+  `specgate` binary. The examples move to `ghcr.io/rsaglobaltech/specgate` and
+  the note says why the image and the command name travel together. The
+  Dockerfile's entrypoint is `specgate` rather than the alias.
+
+- **The shell completions did not register `specgate`** — the primary binary was
+  the one name that did not complete. All three shells now register all three
+  names.
+
+- **The landing page claimed 24 commands against a surface of 25.**
+
+- **CI had not run this repository's own gate since the rename.** The rename
+  commit changed the *references* to `bin/specgate.{ts,js}` in `ci.yml`,
+  `CONTRIBUTING.md` and `AI_RULES.md` without renaming the file, so the step
+  named "Validate this repository against its own spec gate" ran
+  `node bin/specgate.js validate .` against a path that did not exist and every
+  test job failed. The entry point is `bin/specgate.ts` now, as those three
+  documents already said. All three binaries — `specgate`, `csda` and
+  `create-spec-driven-app` — point at it, and the shim's entry-point check
+  accepts either basename so an installation carrying the old shim keeps
+  dispatching.
+
+- **The test suite could not locate the repository root on Windows.** Thirty-nine
+  test files resolved it with `__dirname.split("/tests")[0]`, and `__dirname` on
+  Windows is `…\dist\tests\unit` — the separator never matched, so the split
+  returned the whole path and every spawned CLI was looked for under
+  `dist\tests\unit\bin\`. The split is separator-agnostic now. It had been
+  masked: the `adopt` regression above failed those files on every platform, so
+  nothing distinguished "broken everywhere" from "broken on Windows".
+
 
 ## [0.7.0] — 2026-08-23
 

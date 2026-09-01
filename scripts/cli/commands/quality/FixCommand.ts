@@ -26,7 +26,7 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}🛠  fix${c.reset}  ${c.dim}— auto-repair mechanical traceability violations${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda fix${c.reset} [--yes] [--dry-run] [--json] [--project-dir <path>]\n\n` +
+      `    ${c.cyan}specgate fix${c.reset} [--yes] [--dry-run] [--json] [--project-dir <path>]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--yes${c.reset}                ${c.dim}Apply without prompting (CI-friendly).${c.reset}\n` +
       `    ${c.green}--dry-run${c.reset}            ${c.dim}Preview the changes; never write.${c.reset}\n` +
@@ -122,7 +122,7 @@ export class FixCommand extends BaseCommand {
       io.usage(NULL_SHAPE, [
         error("no_traceability_matrix", `docs/specs/traceability.md not found in ${projectDir}`, {
           target: tracePath,
-          fix: "Run `csda adopt` to install the spec skeleton, or `csda init` for a new project.",
+          fix: "Run `specgate adopt` to install the spec skeleton, or `specgate init` for a new project.",
         }),
       ]);
       return;
@@ -189,7 +189,7 @@ export class FixCommand extends BaseCommand {
     io.emit({ ...base, applied: true }, () =>
       process.stdout.write(
         `${c.green}✔${c.reset}  Applied ${actions.length} fix(es) to docs/specs/traceability.md\n` +
-          `   ${c.dim}Next: replace the TODO cells, then \`csda validate --strict-tdd\`.${c.reset}\n`
+          `   ${c.dim}Next: replace the TODO cells, then \`specgate validate --strict-tdd\`.${c.reset}\n`
       )
     );
     process.exit(0);

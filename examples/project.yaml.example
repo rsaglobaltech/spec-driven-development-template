@@ -1,7 +1,7 @@
 # Example `init` config in YAML form.
 # `init` also still accepts the legacy KEY="value" format — see project.config.example.
 #
-#   create-spec-driven-app init --config ./project.yaml --out ./projects
+#   specgate init --config ./project.yaml --out ./projects
 
 # Required
 PROJECT_NAME: Acme Energy Hub

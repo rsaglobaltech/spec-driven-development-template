@@ -14,8 +14,8 @@ export function bashScript() {
       ([cmd, subs]) => `      ${cmd}) COMPREPLY=( $(compgen -W "${subs.join(" ")}" -- "$cur") ) ;;`
     )
     .join("\n");
-  return `# csda bash completion
-_csda() {
+  return `# specgate bash completion
+_specgate() {
   local cur prev
   cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
@@ -29,7 +29,7 @@ ${subCases}
     esac
   fi
 }
-complete -F _csda csda create-spec-driven-app
+complete -F _specgate specgate csda create-spec-driven-app
 `;
 }
 
@@ -38,9 +38,9 @@ export function zshScript() {
   const subCases = Object.entries(SUBCOMMANDS)
     .map(([cmd, subs]) => `        ${cmd}) compadd ${subs.join(" ")} ;;`)
     .join("\n");
-  return `#compdef csda create-spec-driven-app
-# csda zsh completion
-_csda() {
+  return `#compdef specgate csda create-spec-driven-app
+# specgate zsh completion
+_specgate() {
   if (( CURRENT == 2 )); then
     compadd ${cmds}
     return
@@ -51,19 +51,21 @@ ${subCases}
     esac
   fi
 }
-compdef _csda csda create-spec-driven-app
+compdef _specgate specgate csda create-spec-driven-app
 `;
 }
 
 export function fishScript() {
   const lines = [
-    "# csda fish completion",
+    "# specgate fish completion",
     "# Only complete the first word when no subcommand has been given yet.",
+    `complete -c specgate -n __fish_use_subcommand -a "${COMMANDS.join(" ")}"`,
     `complete -c csda -n __fish_use_subcommand -a "${COMMANDS.join(" ")}"`,
     `complete -c create-spec-driven-app -n __fish_use_subcommand -a "${COMMANDS.join(" ")}"`,
   ];
   for (const [cmd, subs] of Object.entries(SUBCOMMANDS)) {
     lines.push(
+      `complete -c specgate -n "__fish_seen_subcommand_from ${cmd}" -a "${subs.join(" ")}"`,
       `complete -c csda -n "__fish_seen_subcommand_from ${cmd}" -a "${subs.join(" ")}"`,
       `complete -c create-spec-driven-app -n "__fish_seen_subcommand_from ${cmd}" -a "${subs.join(" ")}"`
     );
@@ -98,10 +100,10 @@ export function installTarget(shell: string) {
 
 function usage() {
   process.stderr.write(
-    "Usage: csda completion <bash|zsh|fish> [--install]\n\n" +
-      "  csda completion fish --install     write it where fish already looks\n" +
-      "  csda completion zsh > ~/.csda-completion.zsh\n" +
-      "  csda completion bash >> ~/.bashrc\n"
+    "Usage: specgate completion <bash|zsh|fish> [--install]\n\n" +
+      "  specgate completion fish --install     write it where fish already looks\n" +
+      "  specgate completion zsh > ~/.csda-completion.zsh\n" +
+      "  specgate completion bash >> ~/.bashrc\n"
   );
 }
 

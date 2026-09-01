@@ -51,7 +51,7 @@ Type "API_STYLE: REST with DTO boundaries" Enter
 Type "TESTING: JUnit 5" Enter
 Type "EOF" Enter
 Sleep 1.2s
-Type "csda init --config ./smart-parking.yaml --out . --no-git" Enter
+Type "specgate init --config ./smart-parking.yaml --out . --no-git" Enter
 Sleep 4s
 Type "cd smart-parking" Enter
 Sleep 700ms
@@ -61,7 +61,7 @@ Sleep 700ms
 # ════════════════════════════════════════════════════════════════════════════
 Type "# Schritt 2: Domain-Pack einbinden — wie `npm install`, aber für Specs." Enter
 Sleep 2s
-Type "csda specops add --pack-repo $CSDA_PACK_REPO --pack-version $CSDA_PACK_V1 \" Enter
+Type "specgate specops add --pack-repo $CSDA_PACK_REPO --pack-version $CSDA_PACK_V1 \" Enter
 Type "  --pack $CSDA_PACK_ID --cache-dir $CSDA_CACHE_DIR \" Enter
 Type "  --var PROJECT_NAME='Smart Parking' --var PROJECT_SLUG=smart-parking --var DOMAIN='parking operations'" Enter
 Sleep 4s
@@ -73,7 +73,7 @@ Sleep 600ms
 # ════════════════════════════════════════════════════════════════════════════
 Type "# Schritt 3: plan zeigt offene Anforderungen — das ist unsere Aufgabenliste." Enter
 Sleep 2s
-Type "csda plan | head -18" Enter
+Type "specgate plan | head -18" Enter
 Sleep 7s
 Type "clear" Enter
 Sleep 600ms
@@ -83,7 +83,7 @@ Sleep 600ms
 # ════════════════════════════════════════════════════════════════════════════
 Type "# Schritt 4: validate prüft Struktur und Traceability." Enter
 Sleep 2s
-Type "csda validate . --strict-tdd" Enter
+Type "specgate validate . --strict-tdd" Enter
 Sleep 3.5s
 Type "clear" Enter
 Sleep 600ms
@@ -118,7 +118,7 @@ Sleep 600ms
 # ════════════════════════════════════════════════════════════════════════════
 Type "# Schritt 7: Erst zeigen, was opencode bekommen wird — Prefix + Fakten + Gherkin + AI_RULES." Enter
 Sleep 2.5s
-Type "csda harness prompt REQ-000 | head -28" Enter
+Type "specgate harness prompt REQ-000 | head -28" Enter
 Sleep 8s
 Type "clear" Enter
 Sleep 600ms
@@ -128,7 +128,7 @@ Sleep 600ms
 # ════════════════════════════════════════════════════════════════════════════
 Type "# Jetzt der echte Lauf — opencode schreibt Code, der Harness gated mit mvn test." Enter
 Sleep 2.2s
-Type "csda harness run --req REQ-000" Enter
+Type "specgate harness run --req REQ-000" Enter
 Sleep %%HARNESS_SLEEP%%
 Type "clear" Enter
 Sleep 600ms
@@ -174,7 +174,7 @@ Type "# Schritt 10: specops diff zeigt, ob das Projekt mit dem Pack synchron ist
 Sleep 2s
 Type "git switch main -q" Enter
 Sleep 1s
-Type "csda specops diff --cache-dir $CSDA_CACHE_DIR | tail -6" Enter
+Type "specgate specops diff --cache-dir $CSDA_CACHE_DIR | tail -6" Enter
 Sleep 5s
 Type "clear" Enter
 Sleep 600ms
@@ -184,7 +184,7 @@ Sleep 600ms
 # ════════════════════════════════════════════════════════════════════════════
 Type "# Schritt 11: pack lint --graph rendert den REQ → UC → CMD/AGG/EVT Graph." Enter
 Sleep 2s
-Type "csda pack lint --pack-root $CSDA_GRAPH_PACK_ROOT --pack $CSDA_PACK_ID --graph | head -16" Enter
+Type "specgate pack lint --pack-root $CSDA_GRAPH_PACK_ROOT --pack $CSDA_PACK_ID --graph | head -16" Enter
 Sleep 6s
 Type "clear" Enter
 Sleep 600ms

@@ -22,7 +22,7 @@
  *
  * ## Only three dialects, deliberately
  *
- * The official table carries eighty. This carries the three `csda init`
+ * The official table carries eighty. This carries the three `specgate init`
  * offers (`LANG`: en, es, pt). Adding a dialect is adding it here and
  * regenerating; carrying eighty would be carrying seventy-seven we cannot test.
  */

@@ -146,7 +146,11 @@ test("a cycle is reported as blocked, never attempted and never hung on", async 
   assert.equal(byId["REQ-001"].result, "blocked");
   assert.equal(byId["REQ-002"].result, "blocked");
   assert.match(byId["REQ-001"].error, /cycle/);
-  assert.match(byId["REQ-001"].error, /csda validate/, "points at the command that explains it");
+  assert.match(
+    byId["REQ-001"].error,
+    /specgate validate/,
+    "points at the command that explains it"
+  );
   assert.deepEqual(dispatcher.calls, [["REQ-003"]]);
 });
 

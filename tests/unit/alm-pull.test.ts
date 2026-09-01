@@ -1,5 +1,5 @@
 /**
- * `csda alm pull` — a board issue arriving as a reviewable change (E2-03).
+ * `specgate alm pull` — a board issue arriving as a reviewable change (E2-03).
  *
  * ADR-0021 governs the shape: the board never writes a matrix row, inbound work
  * enters as a change, and the scenario is left unwritten because a ticket
@@ -13,7 +13,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
 const CLI_DIR = path.join(ROOT_DIR, "dist", "scripts", "alm", "cli.js");
 
 /** A project with an alm.config.yaml pointing at github. */
@@ -186,6 +188,6 @@ test("a provider that cannot search says so instead of failing mid-run", () => {
     const result = runPull(dir, []);
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /alm_pull_unsupported|cannot search/);
-    assert.match(result.stderr, /csda change new/, "it should say how to do it by hand");
+    assert.match(result.stderr, /specgate change new/, "it should say how to do it by hand");
   });
 });

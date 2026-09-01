@@ -358,13 +358,13 @@ function dispatchHarnessPrompt(args: string[]): void {
  * Run when this module *is* the entry point, or when the published `bin/` shim
  * required it.
  *
- * The shim is two lines — `require("../dist/bin/create-spec-driven-app.js")` —
- * so `require.main` is the shim and not this module, and the check has to
+ * The shim is two lines — `require("../dist/bin/specgate.js")` — so
+ * `require.main` is the shim and not this module, and the check has to
  * recognise it by name.
  *
- * Compare on the basename. The previous form asked
- * `filename.endsWith("bin/create-spec-driven-app.js")`, and on Windows
- * `filename` is `bin\create-spec-driven-app.js`, so it never matched: the CLI
+ * Compare on the basename. An earlier form asked
+ * `filename.endsWith("bin/specgate.js")`, and on Windows
+ * `filename` is `bin\specgate.js`, so it never matched: the CLI
  * loaded, dispatched nothing, and exited 0 with no output on either stream.
  * Every test that spawns the CLI failed — 437 of them — and none of the
  * messages said why, because there was no message.
@@ -374,7 +374,9 @@ function dispatchHarnessPrompt(args: string[]): void {
  */
 const isEntryPoint =
   require.main === module ||
-  (require.main ? path.basename(require.main.filename) === "create-spec-driven-app.js" : false);
+  (require.main
+    ? ["specgate.js", "specgate.js"].includes(path.basename(require.main.filename))
+    : false);
 
 if (isEntryPoint) {
   new CreateSpecDrivenAppCommand().execute();

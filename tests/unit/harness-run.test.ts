@@ -106,7 +106,7 @@ test("buildPrompt embeds the requirement facts and the definition of done", () =
     // than the emphasis markers it happens to use.
     assert.match(prompt, /Do not edit `docs\/specs\/traceability\.md`/);
     assert.match(prompt, /Do not modify\*\* `spec\.md`, `AI_RULES\.md`/);
-    assert.match(prompt, /csda plan` is the queue/);
+    assert.match(prompt, /specgate plan` is the queue/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -325,8 +325,10 @@ test("resolveHarnessSettings exposes promptPrefix from the file config", () => {
 // and tested a shape `plan` no longer produces. These run the real seam.
 
 const { spawnSync } = require("node:child_process");
-const REPO_ROOT = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(REPO_ROOT, "bin", "create-spec-driven-app.js");
+const REPO_ROOT = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI = path.join(REPO_ROOT, "bin", "specgate.js");
 
 test("buildPrompt reads the camelCase field names the contract specifies", () => {
   const dir = tmpProject();
@@ -508,7 +510,7 @@ test("every key `harness init` generates is a key the reader accepts", () => {
 
 // ── The gate has to be able to run the scenario under test ───────────────────
 //
-// `test_cmd` was a fixed string, and the gate runs *before* `csda done`, so the
+// `test_cmd` was a fixed string, and the gate runs *before* `specgate done`, so the
 // requirement is still Draft and `validate --strict-tdd` does not demand its
 // test either. Between the two, the loop could mark a requirement Implemented
 // with its scenario never executed — the one outcome this tool exists to
@@ -1157,7 +1159,7 @@ test("implementing elsewhere warns but does not fail by default", () => {
     const out = r.stdout + r.stderr;
     assert.match(out, /declared_artifact_untouched/, out);
     assert.match(out, /src\/Health\.java/);
-    assert.match(out, /csda req link REQ-000 --code/, "the fix must name a flag that exists");
+    assert.match(out, /specgate req link REQ-000 --code/, "the fix must name a flag that exists");
     assert.match(out, /1 passed/, `a warning must not fail the run:\n${out}`);
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
@@ -1197,7 +1199,7 @@ test("implementing where the row says passes, even under --strict-artifacts", ()
 });
 
 test("a prose-only row says nothing — the scaffolded project must stay quiet", () => {
-  // `csda init` writes `` `API /health`, smoke test `` and `TBD`. If those ever
+  // `specgate init` writes `` `API /health`, smoke test `` and `TBD`. If those ever
   // start warning, every first harness run complains and the warning becomes
   // noise people learn to skip.
   const { parent, projectDir } = greenableProject();
@@ -1382,7 +1384,11 @@ test("a requirement with no feature warns, with a fix, and still runs by default
     const r = runHarness(projectDir, minimalAgent(parent));
     const out = r.stdout + r.stderr;
     assert.match(out, /requirement_has_no_feature/, out);
-    assert.match(out, /csda req link REQ-000 --feature/, "a blocker without a fix just stops you");
+    assert.match(
+      out,
+      /specgate req link REQ-000 --feature/,
+      "a blocker without a fix just stops you"
+    );
     // Not `/skipped/` — the summary line always contains the word. The count is
     // what says whether the default changed.
     assert.match(out, /0 skipped/, "the default must not change behaviour in a minor");

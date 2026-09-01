@@ -1,10 +1,10 @@
 # {{PROJECT_NAME}} — Specification
 
 > Adopted into Spec-Driven Development on an existing codebase (brownfield).
-> `csda req add "<title>"` reserves the next `REQ-NNN` and adds its row to
+> `specgate req add "<title>"` reserves the next `REQ-NNN` and adds its row to
 > `docs/specs/traceability.md` — it does not write a section here or a
 > `.feature`. Add a `## REQ-NNN — <title>` section below and a Gherkin
-> scenario under `features/`, then `csda req link REQ-NNN --feature … --test …`
+> scenario under `features/`, then `specgate req link REQ-NNN --feature … --test …`
 > to point the row at both. Existing behaviour is retro-filled requirement by
 > requirement — start with the ones your team is actively changing.
 

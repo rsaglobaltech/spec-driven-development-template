@@ -3,7 +3,7 @@
  *
  * ## Why this exists
  *
- * `csda expand --pack-repo <url>` and `csda specops contribute` pass a
+ * `specgate expand --pack-repo <url>` and `specgate specops contribute` pass a
  * repository the caller named straight to `git clone`. Two things make that
  * more than a style concern, and CodeQL flags both as
  * `js/second-order-command-line-injection`:

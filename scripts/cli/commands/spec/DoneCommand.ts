@@ -68,7 +68,7 @@ export class DoneCommand extends BaseCommand {
     if (!opts.reqId) {
       io.usage(NULL_SHAPE, [
         error("req_id_required", "REQ-id is required (e.g. REQ-007).", {
-          fix: "Pass the requirement id: csda done REQ-007",
+          fix: "Pass the requirement id: specgate done REQ-007",
         }),
       ]);
     }
@@ -102,7 +102,7 @@ export class DoneCommand extends BaseCommand {
         io.usage(NULL_SHAPE, [
           error("traceability_not_found", result.error || "traceability.md not found", {
             file: "docs/specs/traceability.md",
-            fix: "Scaffold it with `csda init`, or adopt the project with `csda adopt`.",
+            fix: "Scaffold it with `specgate init`, or adopt the project with `specgate adopt`.",
           }),
         ]);
       } else {
@@ -112,7 +112,7 @@ export class DoneCommand extends BaseCommand {
             result.error || `${opts.reqId} not found in traceability.md.`,
             {
               target: opts.reqId!,
-              fix: `Add a row for ${opts.reqId} — \`csda req add\` writes one for you.`,
+              fix: `Add a row for ${opts.reqId} — \`specgate req add\` writes one for you.`,
             }
           ),
         ]);

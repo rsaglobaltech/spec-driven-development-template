@@ -76,7 +76,7 @@ test("the recording was made by the version this repository is on", () => {
   );
 });
 
-test("every csda command in the recording is a command this CLI has", () => {
+test("every specgate command in the recording is a command this CLI has", () => {
   const labels = new Set();
   for (const command of SURFACE) {
     labels.add(command.name);
@@ -89,10 +89,10 @@ test("every csda command in the recording is a command this CLI has", () => {
     checked += 1;
     assert.ok(
       labels.has(step.surface),
-      `the recording runs \`csda ${step.surface}\`, which is not in scripts/lib/surface.ts`
+      `the recording runs \`specgate ${step.surface}\`, which is not in scripts/lib/surface.ts`
     );
     assert.ok(
-      step.command.startsWith(`csda ${step.surface}`),
+      step.command.startsWith(`specgate ${step.surface}`),
       `${step.id}: the declared surface and the recorded command disagree`
     );
   }

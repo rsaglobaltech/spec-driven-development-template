@@ -29,7 +29,7 @@ function logFix(msg: string) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda ci init --provider <provider> [options]\n\n" +
+      "  specgate ci init --provider <provider> [options]\n\n" +
       `Providers: ${Object.keys(PROVIDERS).join(" | ")}\n\n` +
       "Options:\n" +
       "  --provider <name>    CI provider (required)\n" +
@@ -86,7 +86,7 @@ export class CiInitCommand extends BaseCommand {
 
     const rendered = renderTemplate(
       fs.readFileSync(path.join(CI_TEMPLATES, provider.template), "utf8"),
-      { CSDA_VERSION: packageJson.version || "latest" }
+      { SPECGATE_VERSION: packageJson.version || "latest" }
     );
 
     if (opts.stdout) {

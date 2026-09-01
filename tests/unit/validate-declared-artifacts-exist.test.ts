@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda validate --strict-links` — a declared link still points at something
+ * `specgate validate --strict-links` — a declared link still points at something
  * that exists (`PLAN_PREDICTABLE_CODE_EVOLUTION.md` §8.5, the F6 follow-on).
  *
  * Not formal verification — just the matrix's own promises kept. A file named
@@ -25,8 +25,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const REPO_ROOT = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(REPO_ROOT, "bin", "create-spec-driven-app.js");
+const REPO_ROOT = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI = path.join(REPO_ROOT, "bin", "specgate.js");
 
 function cli(...args) {
   return spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8" });

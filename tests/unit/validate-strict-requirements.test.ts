@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda validate --strict-requirements` — EARS-checkable requirement prose,
+ * `specgate validate --strict-requirements` — EARS-checkable requirement prose,
  * at rest (F6, `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §8.1).
  *
  * The prerequisite for any code-level verifier is a spec that says something a
@@ -22,8 +22,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const REPO_ROOT = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(REPO_ROOT, "bin", "create-spec-driven-app.js");
+const REPO_ROOT = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI = path.join(REPO_ROOT, "bin", "specgate.js");
 
 function cli(...args) {
   return spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8" });

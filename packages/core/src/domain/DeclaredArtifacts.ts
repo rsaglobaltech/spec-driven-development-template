@@ -125,7 +125,7 @@ export function checkDeclaredArtifacts(
             // A fix naming a flag that does not exist is worse than no fix.
             fix:
               `Either implement it there, or correct the row: ` +
-              `\`csda req link ${target || "<REQ>"} --${kind === "test" ? "test" : "code"} <path>\`.`,
+              `\`specgate req link ${target || "<REQ>"} --${kind === "test" ? "test" : "code"} <path>\`.`,
           }
         )
       );

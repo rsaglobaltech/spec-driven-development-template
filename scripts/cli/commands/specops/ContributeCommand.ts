@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `csda specops contribute --change <id>` — the loop back to the pack.
+ * `specgate specops contribute --change <id>` — the loop back to the pack.
  *
  * SpecOps has always been one-way: knowledge flows down from the pack into
  * the project, and a local improvement dies where it was written. `sync`
@@ -58,7 +58,7 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}📤 specops contribute${c.reset}  ${c.dim}— send a local change back to the pack${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda specops contribute${c.reset} --change <change-id> [options]\n\n` +
+      `    ${c.cyan}specgate specops contribute${c.reset} --change <change-id> [options]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--change <id>${c.reset}        ${c.dim}The local change to contribute (required).${c.reset}\n` +
       `    ${c.green}--pack <pack-id>${c.reset}     ${c.dim}Target pack; defaults to the only one in the lockfile.${c.reset}\n` +
@@ -122,7 +122,7 @@ export class ContributeCommand extends BaseCommand {
     if (!opts.change) {
       return fail([
         error("change_required", "`specops contribute` expects --change <change-id>.", {
-          fix: "Run `csda change list` to see active changes.",
+          fix: "Run `specgate change list` to see active changes.",
         }),
       ]);
     }
@@ -134,7 +134,7 @@ export class ContributeCommand extends BaseCommand {
       return fail([
         error("change_not_found", `Change "${opts.change}" does not exist.`, {
           target: opts.change,
-          fix: "Run `csda change list`.",
+          fix: "Run `specgate change list`.",
         }),
       ]);
     }
@@ -143,7 +143,7 @@ export class ContributeCommand extends BaseCommand {
     if (!lock || !Array.isArray(lock.packs) || lock.packs.length === 0) {
       return fail([
         error("no_lockfile", "No .specops.lock with pack entries in this project.", {
-          fix: "`contribute` sends a change upstream to a pack; add one with `csda specops add`.",
+          fix: "`contribute` sends a change upstream to a pack; add one with `specgate specops add`.",
         }),
       ]);
     }

@@ -33,7 +33,7 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}📦 pack init${c.reset}  ${c.dim}— scaffold a domain-pack skeleton${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda pack init${c.reset} --out <dir> [--name <name>] [--type <kind>] [--dry-run]\n\n` +
+      `    ${c.cyan}specgate pack init${c.reset} --out <dir> [--name <name>] [--type <kind>] [--dry-run]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--out <dir>${c.reset}     ${c.dim}Directory to write the new pack (required).${c.reset}\n` +
       `    ${c.green}--name <name>${c.reset}   ${c.dim}Human-readable pack name (prompted if omitted).${c.reset}\n` +
@@ -41,9 +41,9 @@ function usage() {
       `    ${c.green}--dry-run${c.reset}       ${c.dim}Print the generated pack.yaml; touch nothing.${c.reset}\n` +
       `    ${c.green}-h, --help${c.reset}      ${c.dim}Show this help.${c.reset}\n\n` +
       `  ${c.bold}EXAMPLES${c.reset}\n` +
-      `    ${c.yellow}$${c.reset} csda pack init --out ./domain-packs --name "Billing Backend"\n` +
-      `    ${c.yellow}$${c.reset} csda pack init --out ./domain-packs --name "Order API" --type contracts\n` +
-      `    ${c.yellow}$${c.reset} csda pack init --out ./domain-packs --name "Checkout UI" --type frontend --dry-run\n\n`
+      `    ${c.yellow}$${c.reset} specgate pack init --out ./domain-packs --name "Billing Backend"\n` +
+      `    ${c.yellow}$${c.reset} specgate pack init --out ./domain-packs --name "Order API" --type contracts\n` +
+      `    ${c.yellow}$${c.reset} specgate pack init --out ./domain-packs --name "Checkout UI" --type frontend --dry-run\n\n`
   );
 }
 
@@ -339,9 +339,9 @@ export class InitPackCommand extends BaseCommand {
       `\n  ${c.bold}Next steps${c.reset}\n` +
         `    1. Replace every ${c.yellow}TODO${c.reset} in the file.\n` +
         `    2. Lint the pack:\n` +
-        `         ${c.yellow}$${c.reset} csda pack lint --pack-root ${path.resolve(opts.out!)} --pack ${slug}/${opts.type}\n` +
+        `         ${c.yellow}$${c.reset} specgate pack lint --pack-root ${path.resolve(opts.out!)} --pack ${slug}/${opts.type}\n` +
         `    3. Apply it to a project:\n` +
-        `         ${c.yellow}$${c.reset} csda expand --pack-root ${path.resolve(opts.out!)} --pack ${slug}/${opts.type} \\\n           --project-dir <your-project> --var PROJECT_NAME="…" --var PROJECT_SLUG=…\n\n`
+        `         ${c.yellow}$${c.reset} specgate expand --pack-root ${path.resolve(opts.out!)} --pack ${slug}/${opts.type} \\\n           --project-dir <your-project> --var PROJECT_NAME="…" --var PROJECT_SLUG=…\n\n`
     );
     process.exit(0);
   }

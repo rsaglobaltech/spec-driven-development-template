@@ -2,7 +2,7 @@
 #
 # Deterministic stub "coding agent" used by the demo video.
 #
-# `csda harness run` shells out to this script with the path to a prompt
+# `specgate harness run` shells out to this script with the path to a prompt
 # file as the single argument. A real agent (claude / opencode / aider)
 # would read that prompt and write code; this stub knows one requirement —
 # REQ-000 (the platform health endpoint scaffolded by `init`) — and writes

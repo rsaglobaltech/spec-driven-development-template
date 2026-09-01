@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda update` — refreshing generated files without discarding local edits.
+ * `specgate update` — refreshing generated files without discarding local edits.
  *
  * The behaviour that matters is the one nobody tests until it bites: a team
  * edits a generated instruction file, the CLI is upgraded, and the upgrade must
@@ -17,8 +17,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI = path.join(ROOT_DIR, "bin", "specgate.js");
 
 const { updateFile, generatedFiles, BASELINE_DIR } = require("../../scripts/update");
 

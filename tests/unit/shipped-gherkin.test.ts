@@ -19,7 +19,7 @@
  *
  * That is H1 wearing a different coat. H1 was "the gate did not run the scenario
  * it was supervising"; this was "the scenario it supervises contains nothing to
- * run". Every project seeded with `csda specops add` inherited a reward signal
+ * run". Every project seeded with `specgate specops add` inherited a reward signal
  * that approves anything, and the harness driving those requirements was not
  * verifying — it was signing.
  *
@@ -44,7 +44,9 @@ import * as path from "node:path";
 const { Parser, AstBuilder, GherkinClassicTokenMatcher } = require("@cucumber/gherkin");
 const { IdGenerator } = require("@cucumber/messages");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
 
 /** Where this repository keeps Gherkin it hands to other projects. */
 const SHIPPED_ROOTS = ["packs", "templates"];

@@ -32,7 +32,7 @@
 
 <header class="top">
   <a class="top__brand" href="./"><span aria-hidden="true">⬡</span> create-spec-driven-app</a>
-  <span class="top__version">v0.7.0</span>
+  <span class="top__version">v0.8.0</span>
   <nav class="top__links" style="margin-left:auto">
     <a href="./docs.html">Docs</a>
     <a href="./packs/">Packs</a>
@@ -74,7 +74,7 @@
 
     <dl class="stats">
       <div><dt>11</dt><dd>curated domain packs</dd></div>
-      <div><dt>24</dt><dd>commands, all JSON-capable</dd></div>
+      <div><dt>25</dt><dd>commands, all JSON-capable</dd></div>
       <div><dt>10</dt><dd>agent tools wired from one definition</dd></div>
       <div><dt>0</dt><dd>runtime dependencies</dd></div>
     </dl>
@@ -93,7 +93,7 @@
     <p>
       This tool makes the specification a thing that can be <em>wrong</em>:
       every requirement has a scenario, every scenario has a file, and
-      <code>csda validate</code> fails when the link is broken. Then — and only
+      <code>specgate validate</code> fails when the link is broken. Then — and only
       then — an agent is worth pointing at it.
     </p>
   </div>
@@ -135,25 +135,25 @@
     <ol class="loop">
       <li>
         <span class="loop__n">1</span>
-        <h3><code>csda init</code></h3>
+        <h3><code>specgate init</code></h3>
         <p>Scaffold a project: spec, scenarios, traceability matrix, and the
            execution contract an agent reads before it writes a line.</p>
       </li>
       <li>
         <span class="loop__n">2</span>
-        <h3><code>csda plan</code></h3>
+        <h3><code>specgate plan</code></h3>
         <p>What still needs a test, an implementation or a status change —
            ordered by dependency, with a fix on every blocker.</p>
       </li>
       <li>
         <span class="loop__n">3</span>
-        <h3><code>csda harness run</code></h3>
+        <h3><code>specgate harness run</code></h3>
         <p>Hand one requirement to an agent in its own worktree, gate the
            result, and stop if the gate says no.</p>
       </li>
       <li>
         <span class="loop__n">4</span>
-        <h3><code>csda validate</code></h3>
+        <h3><code>specgate validate</code></h3>
         <p>The gate itself: structure, traceability, Gherkin that Cucumber can
            actually run, and TDD order. This is what CI runs.</p>
       </li>
@@ -200,7 +200,7 @@ STACK: Node 20, Express, PostgreSQL
 API_STYLE: REST with DTO boundaries
 TESTING: node:test
 
-~ $ csda init --config ./smart-parking.yaml --out . --no-git
+~ $ specgate init --config ./smart-parking.yaml --out . --no-git
 ℹ️ [INFO] 🧩 Rendering base template
 ℹ️ [INFO] 🛠️ Applying project type template: backend
 ℹ️ [INFO] 🧩 No optional modules selected. Generating base + project-type features only.
@@ -214,13 +214,13 @@ TESTING: node:test
 ℹ️ [INFO] - Git: skipped
 ℹ️ [INFO] ✅ Generation completed
 
-~/smart-parking $ csda specops add --pack-root ~/packs --pack multi-tenant/backend --var &quot;PROJECT_NAME=Smart Parking&quot; --var PROJECT_SLUG=smart-parking --var &quot;DOMAIN=parking operations&quot;
+~/smart-parking $ specgate specops add --pack-root ~/packs --pack multi-tenant/backend --var &quot;PROJECT_NAME=Smart Parking&quot; --var PROJECT_SLUG=smart-parking --var &quot;DOMAIN=parking operations&quot;
 ℹ  Adding multi-tenant/backend to ~/smart-parking
 ℹ️ [INFO] Using pack: ~/packs/multi-tenant/backend/pack.yaml
 ℹ️ [INFO] Generated 3 scenario file(s).
 ℹ️ [INFO] Domain pack expansion completed.
 
-~/smart-parking $ csda plan
+~/smart-parking $ specgate plan
   Needs Feature + Test + Code
     REQ-002   SCN-001
       ✓ feature: `features/multi-tenant/provisioning_a_tenant_emits_tenantprovisioned.feature`
@@ -240,10 +240,10 @@ agent: 'csda-stub-agent {prompt_file}'
 test_cmd: 'node --test test/*.test.js'
 max_attempts: 1
 
-~/smart-parking $ csda harness run --req REQ-000
+~/smart-parking $ specgate harness run --req REQ-000
 ℹ️  [harness] Processing 1 requirement(s) from base HEAD.
 ⚠️  [harness] REQ-000: the row declares no test artifact, so the agent chooses where the test goes and the matrix will point somewhere else. [requirement_declares_no_test_artifact]
-⚠️  [harness]   fix: csda req link REQ-000 --test &lt;path&gt;
+⚠️  [harness]   fix: specgate req link REQ-000 --test &lt;path&gt;
 ℹ️  [harness] REQ-000: attempt 1/1
 
 ── harness report ──
@@ -251,7 +251,7 @@ max_attempts: 1
 
   1 passed · 0 failed · 0 skipped
   Review and merge the harness/* branches you trust.
-ℹ️  [harness] Run recorded in .harness/runs/2026-01-01T00-00-00-000Z.json — `csda harness report`
+ℹ️  [harness] Run recorded in .harness/runs/2026-01-01T00-00-00-000Z.json — `specgate harness report`
 
 ~/smart-parking $ git diff --stat main harness/REQ-000
  .../REQ-000-2026-01-01T00-00-00-000Z-attempt-1-agent.md | 83 +++++++++++++++++++++++++
@@ -271,7 +271,7 @@ max_attempts: 1
 ℹ todo 0
 ℹ duration_ms 1.234
 
-~/smart-parking $ csda validate .
+~/smart-parking $ specgate validate .
 ℹ️ [INFO] ✅ Validation passed
 ℹ️ [INFO] - Features detected: 4
 ℹ️ [INFO] - Base SDD structure: complete
@@ -281,7 +281,7 @@ max_attempts: 1
     </figure>
 
     <p class="term__meta">
-      Recorded from <strong>v0.7.0</strong>. <a href="./tutorial.html">The same run, explained →</a>
+      Recorded from <strong>v0.8.0</strong>. <a href="./tutorial.html">The same run, explained →</a>
     </p>
   </div>
 </section>
@@ -299,9 +299,9 @@ max_attempts: 1
 
     <figure class="code" data-lang="bash">
       <button class="code__copy" type="button" aria-label="Copy to clipboard">Copy</button>
-      <pre><code class="language-bash">csda harness run --agent "claude -p &lt; {prompt_file}"
-csda harness run --agent "aider --yes --message-file {prompt_file}"
-csda harness run --agent "./my-wrapper.sh {prompt_file}"   # anything else</code></pre>
+      <pre><code class="language-bash">specgate harness run --agent "claude -p &lt; {prompt_file}"
+specgate harness run --agent "aider --yes --message-file {prompt_file}"
+specgate harness run --agent "./my-wrapper.sh {prompt_file}"   # anything else</code></pre>
     </figure>
 
     <p>
@@ -409,7 +409,7 @@ csda harness run --agent "./my-wrapper.sh {prompt_file}"   # anything else</code
     <div class="table-wrap">
       <table class="compare">
         <thead>
-          <tr><th>&nbsp;</th><th>csda</th><th>OpenSpec</th><th>Spec Kit</th><th>A wiki page</th></tr>
+          <tr><th>&nbsp;</th><th>Specgate</th><th>OpenSpec</th><th>Spec Kit</th><th>A wiki page</th></tr>
         </thead>
         <tbody>
           <tr><th>Change lifecycle: propose → review → archive</th><td class="y">yes</td><td class="y">yes — their idea first</td><td class="n">no</td><td class="n">no</td></tr>
@@ -447,14 +447,14 @@ csda harness run --agent "./my-wrapper.sh {prompt_file}"   # anything else</code
     <div class="grid">
       <article>
         <h3>It runs in your CI, not its own</h3>
-        <p><code>csda ci init</code> writes the workflow for GitHub Actions,
+        <p><code>specgate ci init</code> writes the workflow for GitHub Actions,
            GitLab, Azure Pipelines, CircleCI or Jenkins. The gate is one command
            with a JSON mode, so it fits whatever you already have.</p>
       </article>
       <article>
         <h3>Your issue tracker stays yours</h3>
-        <p><code>csda alm sync</code> pushes requirements to Jira, Azure Boards,
-           GitHub or GitLab and <code>csda alm pull</code> brings status back. The
+        <p><code>specgate alm sync</code> pushes requirements to Jira, Azure Boards,
+           GitHub or GitLab and <code>specgate alm pull</code> brings status back. The
            board is a mirror; it never gets to define what a requirement
            <em>is</em>.</p>
       </article>
@@ -493,9 +493,9 @@ csda harness run --agent "./my-wrapper.sh {prompt_file}"   # anything else</code
 
     <details>
       <summary>Does it work on a repository that already exists?</summary>
-      <p>Yes — <code>csda adopt</code> installs the specification layer without
+      <p>Yes — <code>specgate adopt</code> installs the specification layer without
          touching your code. Checks that a legacy repository cannot pass yet are
-         flags, and <code>csda doctor</code> reports them as advisories with a
+         flags, and <code>specgate doctor</code> reports them as advisories with a
          fix, so adoption is a door rather than a wall.</p>
     </details>
 
@@ -538,7 +538,7 @@ csda harness run --agent "./my-wrapper.sh {prompt_file}"   # anything else</code
       <button class="code__copy" type="button" aria-label="Copy to clipboard">Copy</button>
       <pre><code class="language-bash">npx create-spec-driven-app@latest init
 cd my-spec-driven-app
-csda validate .</code></pre>
+specgate validate .</code></pre>
     </figure>
     <p class="hero__cta">
       <a class="button button--primary" href="./getting-started.html">Getting started</a>
@@ -560,7 +560,7 @@ csda validate .</code></pre>
       <a href="./release-process.html">Releases</a>
     </p>
     <p class="foot__note">
-      Documentation for v0.7.0. Every number on this page is generated from the
+      Documentation for v0.8.0. Every number on this page is generated from the
       repository, not typed by hand.
     </p>
   </div>

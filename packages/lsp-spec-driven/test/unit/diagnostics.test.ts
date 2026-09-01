@@ -34,7 +34,7 @@ test("flags TDD-1: TBD test with post-Draft status", () => {
   assert.equal(diags[0].code, "TDD-1");
   assert.equal(diags[0].severity, DiagnosticSeverity.Warning);
   assert.equal(diags[0].line, 4); // 0-based: header=2, sep=3, first row=4
-  assert.match(diags[0].message, /csda req link REQ-001 --test/);
+  assert.match(diags[0].message, /specgate req link REQ-001 --test/);
 });
 
 test("flags TDD-2: missing Scenario ID with non-Draft status", () => {

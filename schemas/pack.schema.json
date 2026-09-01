@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://spec-driven.dev/schemas/pack/v1.json",
   "title": "Domain Pack",
-  "description": "Schema for create-spec-driven-app domain pack files (pack.yaml).",
+  "description": "Schema for specgate domain pack files (pack.yaml).",
   "type": "object",
   "required": [
     "schema_version",

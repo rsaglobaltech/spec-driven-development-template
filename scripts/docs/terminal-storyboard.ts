@@ -41,7 +41,7 @@ export interface Beat {
   /** A command that genuinely needs a shell — a pipe, a `&&`. Run via `bash -c`. */
   readonly shell?: string;
   /**
-   * The `csda` surface this beat exercises, spelled as `scripts/lib/surface.ts`
+   * The `specgate` surface this beat exercises, spelled as `scripts/lib/surface.ts`
    * spells it, or `null` for a command that is not ours. This is what lets the
    * test check the recording against the CLI without running anything.
    */
@@ -63,7 +63,7 @@ export const BEATS: readonly Beat[] = [
     id: "init",
     caption: "Requirements, Gherkin, a traceability matrix and the rules for agents.",
     cwd: "",
-    argv: ["csda", "init", "--config", "./smart-parking.yaml", "--out", ".", "--no-git"],
+    argv: ["specgate", "init", "--config", "./smart-parking.yaml", "--out", ".", "--no-git"],
     surface: "init",
     maxLines: 14,
   },
@@ -72,7 +72,7 @@ export const BEATS: readonly Beat[] = [
     caption: "A domain pack, installed and pinned. Not copy-pasted.",
     cwd: "smart-parking",
     argv: [
-      "csda",
+      "specgate",
       "specops",
       "add",
       "--pack-root",
@@ -93,7 +93,7 @@ export const BEATS: readonly Beat[] = [
     id: "plan",
     caption: "The queue, derived from the matrix. Nobody maintains this by hand.",
     cwd: "smart-parking",
-    argv: ["csda", "plan"],
+    argv: ["specgate", "plan"],
     surface: "plan",
     maxLines: 15,
   },
@@ -109,7 +109,7 @@ export const BEATS: readonly Beat[] = [
     id: "harness-run",
     caption: "One requirement, one worktree, one agent — and a gate that can say no.",
     cwd: "smart-parking",
-    argv: ["csda", "harness", "run", "--req", "REQ-000"],
+    argv: ["specgate", "harness", "run", "--req", "REQ-000"],
     surface: "harness run",
     maxLines: 14,
   },
@@ -133,7 +133,7 @@ export const BEATS: readonly Beat[] = [
     id: "validate",
     caption: "And the chain still holds. This is the command CI runs.",
     cwd: "smart-parking",
-    argv: ["csda", "validate", "."],
+    argv: ["specgate", "validate", "."],
     surface: "validate",
     maxLines: 8,
   },

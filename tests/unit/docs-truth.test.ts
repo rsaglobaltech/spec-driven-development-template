@@ -17,7 +17,9 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
 const MATRIX = path.join(ROOT_DIR, "docs", "specs", "traceability.md");
 
 /** Has a slash and plausible path characters. */
@@ -157,7 +159,7 @@ test("every command the CLI dispatches is documented somewhere", () => {
   // documentation quietly fell behind: `status` and `req` are in the eight-command
   // core help and appeared in no guide at all. A command nobody wrote down is a
   // command nobody finds.
-  const bin = fs.readFileSync(path.join(ROOT_DIR, "bin", "create-spec-driven-app.ts"), "utf8");
+  const bin = fs.readFileSync(path.join(ROOT_DIR, "bin", "specgate.ts"), "utf8");
   const dispatched = [...new Set([...bin.matchAll(/command === "([a-z-]+)"/g)].map((m) => m[1]))];
 
   const docs = [
@@ -170,10 +172,14 @@ test("every command the CLI dispatches is documented somewhere", () => {
     .map((rel) => fs.readFileSync(path.join(ROOT_DIR, rel), "utf8"))
     .join("\n");
 
-  // Both spellings count: the README leads with `npx create-spec-driven-app`,
-  // the guides use the `csda` alias.
+  // Every spelling counts: the guides lead with `specgate`, and the aliases
+  // `csda` and `create-spec-driven-app` still appear in bootstrap lines and in
+  // records of how a command used to be invoked.
   const undocumented = dispatched.filter(
-    (cmd) => !new RegExp(`\\b(csda|create-spec-driven-app(@[\\w.-]+)?) ${cmd}\\b`).test(docs)
+    (cmd) =>
+      !new RegExp(
+        `\\b(specgate(@[\\w.-]+)?|csda|create-spec-driven-app(@[\\w.-]+)?) ${cmd}\\b`
+      ).test(docs)
   );
   assert.deepEqual(
     undocumented,
@@ -185,17 +191,19 @@ test("every command the CLI dispatches is documented somewhere", () => {
 /**
  * Guard: one name for the command in user-facing text.
  *
- * The CLI ships two binaries — `create-spec-driven-app` and the `csda` alias —
- * and for a while the docs and the help strings used them interchangeably, so
- * the same command appeared under two names depending on which page you landed
- * on. `csda` is the one to type; the long name is the *package*, and stays in
- * the `npx create-spec-driven-app@latest` bootstrap line, in npm links, and in
- * file paths.
+ * The CLI ships three binaries — `specgate` and the `csda` and
+ * `create-spec-driven-app` aliases, kept for the whole 0.x line by ADR-0024.
+ * Aliases exist so an old invocation keeps working, not so documentation can
+ * pick whichever it likes: for a while the docs and the help strings used them
+ * interchangeably and the same command appeared under two names depending on
+ * which page you landed on.
  *
- * This checks the difference: a bare invocation followed by a real
- * sub-command must use the alias.
+ * `specgate` is the one to type. `csda` remains a working alias and a frozen
+ * *format* prefix (`csda:trace`, `.csda/`, `CSDA_*`) — that is why this only
+ * matches an alias followed by a real sub-command, and never `csda:`, `.csda`
+ * or `csda_`. `create-spec-driven-app` stays in npm links and in file paths.
  */
-test("user-facing text invokes the CLI as `csda`, not by its package name", () => {
+test("user-facing text invokes the CLI as `specgate`, not by an alias", () => {
   const SUBCOMMANDS = [
     "init",
     "adopt",
@@ -223,9 +231,12 @@ test("user-facing text invokes the CLI as `csda`, not by its package name", () =
     "expand",
   ];
   // Not preceded by `npx `, by a path separator, or by `@` — those are the
-  // package, not the command.
+  // package, not the command. `csda` additionally must not be preceded by `:`
+  // or `_` and not followed by them either, so the frozen on-disk format
+  // (`csda:trace`, `.csda/`, `csda_version`) is never mistaken for an
+  // invocation.
   const bareInvocation = new RegExp(
-    `(?<!npx )(?<![\\w/@.-])create-spec-driven-app (?:${SUBCOMMANDS.join("|")})\\b`
+    `(?<!npx )(?<![\\w/@.:-])(?:create-spec-driven-app|csda) (?:${SUBCOMMANDS.join("|")})\\b`
   );
 
   const collect = (dir: string, exts: string[], skip: RegExp) => {
@@ -246,9 +257,11 @@ test("user-facing text invokes the CLI as `csda`, not by its package name", () =
     return out;
   };
 
-  // ADRs are dated records of decisions; they are not rewritten to match a
-  // later naming convention. dist/ is build output.
-  const skip = /(^|\/)(dist|node_modules)(\/|$)|docs\/specs\/adr\//;
+  // ADRs, archived changes and the published case study are dated records:
+  // they say what was true when written and are not rewritten to match a later
+  // naming convention. dist/ is build output.
+  const skip =
+    /(^|\/)(dist|node_modules)(\/|$)|docs\/specs\/adr\/|docs\/specs\/changes\/archive\/|docs\/case-studies\//;
   const files = [
     ...collect("scripts", [".ts"], skip),
     ...collect("docs", [".md", ".html"], skip),
@@ -273,6 +286,6 @@ test("user-facing text invokes the CLI as `csda`, not by its package name", () =
   assert.deepEqual(
     offenders,
     [],
-    `invoke the CLI as \`csda\` in user-facing text:\n  ${offenders.join("\n  ")}`
+    `invoke the CLI as \`specgate\` in user-facing text:\n  ${offenders.join("\n  ")}`
   );
 });

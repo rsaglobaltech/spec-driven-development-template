@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda init --from-pack <repo>@<tag>` — the multi-repo answer.
+ * `specgate init --from-pack <repo>@<tag>` — the multi-repo answer.
  *
  * OpenSpec solves sharing specs across repositories with a central Store. This
  * repository already had the same capability in a different shape — a private
@@ -18,8 +18,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT_DIR = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(ROOT_DIR, "bin", "create-spec-driven-app.js");
+const ROOT_DIR = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI = path.join(ROOT_DIR, "bin", "specgate.js");
 
 const { parseReference, newestProjectIn } = require("../../scripts/init_from_pack");
 

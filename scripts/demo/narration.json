@@ -21,7 +21,7 @@
     },
     {
       "id": "harness-run",
-      "text": "Step four — the loop. csda harness run picks up REQ-000, builds a self-contained prompt from the Gherkin scenario plus the project's stack rules, hands it to the agent in an isolated git worktree, and waits for the gate. The agent writes a test, then the production code; the harness runs validate and the test command; on green it closes the matrix and commits on a fresh harness branch."
+      "text": "Step four — the loop. specgate harness run picks up REQ-000, builds a self-contained prompt from the Gherkin scenario plus the project's stack rules, hands it to the agent in an isolated git worktree, and waits for the gate. The agent writes a test, then the production code; the harness runs validate and the test command; on green it closes the matrix and commits on a fresh harness branch."
     },
     {
       "id": "show-code",

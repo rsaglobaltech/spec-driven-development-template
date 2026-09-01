@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda report` — declared-value drift (§8.6 of PLAN_PREDICTABLE_CODE_EVOLUTION.md).
+ * `specgate report` — declared-value drift (§8.6 of PLAN_PREDICTABLE_CODE_EVOLUTION.md).
  *
  * `packages/core/test/unit/value-annotations.test.ts` pins the pure compare
  * logic. This is the I/O wiring: read a capability spec's `value_<id>=`
@@ -19,8 +19,10 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { buildReport, buildDeclaredValues, renderHtml, sparkline } = require("../../scripts/report");
 
-const REPO_ROOT = require("node:path").resolve(__dirname.split("/tests")[0].replace(/\/dist$/, ""));
-const CLI = path.join(REPO_ROOT, "bin", "create-spec-driven-app.js");
+const REPO_ROOT = require("node:path").resolve(
+  __dirname.split(/[\\/]tests(?:[\\/]|$)/)[0].replace(/[\\/]dist$/, "")
+);
+const CLI = path.join(REPO_ROOT, "bin", "specgate.js");
 
 function cli(...args: string[]) {
   return spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8" });

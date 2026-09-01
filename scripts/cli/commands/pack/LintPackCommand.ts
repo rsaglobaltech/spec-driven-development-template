@@ -37,8 +37,8 @@ export interface LintPackOptions {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda pack lint --pack-root <path> --pack <domain/type> [--strict]\n" +
-      "  csda pack lint --pack-root <path> --pack <domain/type> --graph [--graph-format mermaid|dot]\n\n" +
+      "  specgate pack lint --pack-root <path> --pack <domain/type> [--strict]\n" +
+      "  specgate pack lint --pack-root <path> --pack <domain/type> --graph [--graph-format mermaid|dot]\n\n" +
       "Options:\n" +
       "  --pack-root      Root directory containing domain packs (required)\n" +
       "  --pack           Pack identifier, e.g. parking-management/backend (required)\n" +
@@ -607,7 +607,7 @@ export class LintPackCommand extends BaseCommand {
       if (!io.json) usage();
       io.usage(NULL_SHAPE, [
         diagError("pack_args_required", "--pack-root and --pack are required.", {
-          fix: "csda pack lint --pack-root <path> --pack <domain/type>",
+          fix: "specgate pack lint --pack-root <path> --pack <domain/type>",
         }),
       ]);
       return;

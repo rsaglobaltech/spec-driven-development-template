@@ -1,6 +1,6 @@
 /**
  * `ValidateProjectUseCase` is the only place that judges a traceability matrix.
- * `csda validate` renders what it returns, so these tests are where that
+ * `specgate validate` renders what it returns, so these tests are where that
  * judgement is pinned — the command tests exercise the rendering on top.
  */
 
