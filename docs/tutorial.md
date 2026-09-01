@@ -599,11 +599,34 @@ specgate pack infer --from ./drafts/reserve_spot.feature
 ```
 
 It heuristically maps a `@REQ-NNN` tag → a requirement reference; the
-`Feature:` name → the use case name; each `When` step → a command; a quoted
-PascalCase token in a `Then` step → an event; each `Scenario:` → a
-`scenarios[]` entry. Anything it cannot infer is left as an explicit
-`TODO:` — a skeleton to review, never a silent guess. Output goes to stdout
-(`--format json` for tooling); it never mutates `pack.yaml`.
+`Feature:` name → the use case name; each `When` step → a command **or a
+query**; a quoted PascalCase token in a `Then` step → an event; each
+`Scenario:` → a `scenarios[]` entry. Anything it cannot infer is left as an
+explicit `TODO:` — a skeleton to review, never a silent guess. Output goes to
+stdout (`--format json` for tooling); it never mutates `pack.yaml`.
+
+Five things it does that are worth knowing, because each one used to be a
+correction you made by hand:
+
+- **The same operation is proposed once.** A happy path and its failure
+  exercise one command; they used to arrive as two entries with two ids.
+- **A `When` that reads becomes a query**, with a `QRY-` id — "searches",
+  "views", "lists". The pack model already separates queries from commands;
+  inference now does too.
+- **Names drop the glue.** "10 more vehicles enter the facility" gives
+  `MoreVehiclesEnterFacility`, not `MoreVehiclesEnterThe`.
+- **Field names are proposed from the Gherkin** — `<placeholders>` in a
+  Scenario Outline and `key: value` pairs — each with a `TODO` for its type.
+  The names are in the file; the types are not, and a guessed type that looked
+  confident is exactly what [ADR-0014](specs/adr/0014-pack-infer-heuristic.md)
+  refuses.
+- **`--from` repeats, and takes a directory.** A capability is rarely one file,
+  and inferring per file proposes a shared command once per file:
+
+  ```bash
+  specgate pack infer --from ./drafts/            # every .feature in it
+  specgate pack infer --from a.feature --from b.feature
+  ```
 
 ```bash
 # Review the proposal, then merge the parts you want:

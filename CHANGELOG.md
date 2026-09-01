@@ -27,6 +27,25 @@ The release process is in [`docs/release-process.md`](docs/release-process.md).
 
   Off by default. Closes #106.
 
+- **`pack infer` stops making five corrections you had to make by hand.** The
+  same operation inferred from two scenarios is proposed once rather than twice
+  with two ids; a `When` that reads becomes a query with a `QRY-` id, which the
+  pack model already distinguished and inference did not; names drop glue words,
+  so "10 more vehicles enter the facility" gives `MoreVehiclesEnterFacility`
+  rather than spending its four-word budget on "the"; field names are proposed
+  from `<placeholders>` and `key: value` pairs, each with a `TODO` for its type;
+  and `--from` repeats and accepts a directory, so a command shared by three
+  files is proposed once.
+
+  `--llm` is *not* here: ADR-0014 defers it, and reopening that needs an ADR
+  rather than a flag. Everything above stays a skeleton to review with every
+  guess carrying its `TODO` — an inference that stops looking like a guess is
+  the failure mode the ADR names. Closes #32.
+
+  Also fixes a latent bug in the renderer: an empty list rendered as a bare `[]`
+  on its own line, which the project's YAML reader rejects. Nothing had an empty
+  list to render until queries arrived.
+
 - **`adversary_profile` lets a second agent try to break a green
   implementation.** The advisory reviewer that already exists returns prose; an
   adversary returns a test, and a test either fails or it does not. After the

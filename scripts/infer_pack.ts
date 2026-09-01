@@ -6,7 +6,10 @@ import {
   toPascalCase,
   collectRequirementIds,
   extractEventNames,
+  isQueryStep,
+  extractPayloadHints,
   inferModel,
+  mergeModels,
   renderYamlFragment,
   InferPackOptions,
 } from "./cli/commands/pack/InferPackCommand";
@@ -18,7 +21,10 @@ export {
   toPascalCase,
   collectRequirementIds,
   extractEventNames,
+  isQueryStep,
+  extractPayloadHints,
   inferModel,
+  mergeModels,
   renderYamlFragment,
   InferPackOptions,
 };
