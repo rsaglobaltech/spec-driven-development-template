@@ -4,7 +4,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
-import { ReadSpecTool, ListRequirementsTool, UpdateTraceabilityTool } from "./native-tools";
+import {
+  ReadSpecTool,
+  ListRequirementsTool,
+  UpdateTraceabilityTool,
+  assertContractEditable,
+} from "./native-tools";
 
 export interface ITool {
   readonly name: string;
@@ -79,11 +84,26 @@ export class GenericCliTool implements ITool {
      * "Unknown flag(s)" and an empty payload over MCP. The surface already
      * records which is which in `json.args`; this reads it instead of assuming.
      */
-    public readonly dirStyle: "flag" | "positional" = "flag"
+    public readonly dirStyle: "flag" | "positional" = "flag",
+    /**
+     * True when this command may write a path the write-scope rules protect.
+     * Computed at generation time from scripts/lib/surface.ts and
+     * WriteScope.DEFAULT_PROTECTED_PATHS, so the rule has one definition.
+     */
+    public readonly editsContract = false
   ) {}
 
   public handler(args: Record<string, unknown>) {
     const dir = ProjectHelper.ensureProjectDir(args.projectDir);
+
+    // C10-04. The prompt has always told the agent not to rewrite the
+    // specification it is being measured against; nothing enforced it over MCP.
+    // An agent that cannot make a scenario pass can otherwise relax the
+    // scenario, and the gate approves — the exact failure this product exists
+    // to prevent. The change cycle is the way to edit a spec on purpose, and it
+    // leaves a reviewable trail.
+    if (this.editsContract) assertContractEditable(this.name, dir);
+
     const argv = this.csda.split(" ");
 
     if (this.dirStyle === "positional") argv.push(dir);
@@ -132,7 +152,8 @@ TOOLS["csda_init"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_adopt"] = new GenericCliTool(
   "csda_adopt",
@@ -146,7 +167,8 @@ TOOLS["csda_adopt"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_onboard"] = new GenericCliTool(
   "csda_onboard",
@@ -160,7 +182,8 @@ TOOLS["csda_onboard"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_doctor"] = new GenericCliTool(
   "csda_doctor",
@@ -174,7 +197,8 @@ TOOLS["csda_doctor"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_status"] = new GenericCliTool(
   "csda_status",
@@ -188,7 +212,8 @@ TOOLS["csda_status"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_ci_init"] = new GenericCliTool(
   "csda_ci_init",
@@ -202,7 +227,8 @@ TOOLS["csda_ci_init"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_alm_sync"] = new GenericCliTool(
   "csda_alm_sync",
@@ -216,7 +242,8 @@ TOOLS["csda_alm_sync"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_alm_link"] = new GenericCliTool(
   "csda_alm_link",
@@ -230,7 +257,8 @@ TOOLS["csda_alm_link"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_alm_status"] = new GenericCliTool(
   "csda_alm_status",
@@ -244,7 +272,8 @@ TOOLS["csda_alm_status"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_alm_pull"] = new GenericCliTool(
   "csda_alm_pull",
@@ -258,7 +287,8 @@ TOOLS["csda_alm_pull"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["validate_project"] = new GenericCliTool(
   "validate_project",
@@ -272,7 +302,8 @@ TOOLS["validate_project"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "positional"
+  "positional",
+  false
 );
 TOOLS["csda_expand"] = new GenericCliTool(
   "csda_expand",
@@ -286,7 +317,8 @@ TOOLS["csda_expand"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["plan"] = new GenericCliTool(
   "plan",
@@ -300,7 +332,8 @@ TOOLS["plan"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_report"] = new GenericCliTool(
   "csda_report",
@@ -314,7 +347,8 @@ TOOLS["csda_report"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["mark_requirement_done"] = new GenericCliTool(
   "mark_requirement_done",
@@ -328,7 +362,8 @@ TOOLS["mark_requirement_done"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_req_add"] = new GenericCliTool(
   "csda_req_add",
@@ -342,7 +377,8 @@ TOOLS["csda_req_add"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_req_link"] = new GenericCliTool(
   "csda_req_link",
@@ -356,7 +392,8 @@ TOOLS["csda_req_link"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_req_done"] = new GenericCliTool(
   "csda_req_done",
@@ -370,7 +407,8 @@ TOOLS["csda_req_done"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_req_list"] = new GenericCliTool(
   "csda_req_list",
@@ -384,7 +422,8 @@ TOOLS["csda_req_list"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_fix"] = new GenericCliTool(
   "csda_fix",
@@ -398,7 +437,8 @@ TOOLS["csda_fix"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_change_new"] = new GenericCliTool(
   "csda_change_new",
@@ -412,7 +452,8 @@ TOOLS["csda_change_new"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_change_list"] = new GenericCliTool(
   "csda_change_list",
@@ -426,7 +467,8 @@ TOOLS["csda_change_list"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_change_show"] = new GenericCliTool(
   "csda_change_show",
@@ -440,7 +482,8 @@ TOOLS["csda_change_show"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_change_status"] = new GenericCliTool(
   "csda_change_status",
@@ -454,7 +497,8 @@ TOOLS["csda_change_status"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_change_validate"] = new GenericCliTool(
   "csda_change_validate",
@@ -468,7 +512,8 @@ TOOLS["csda_change_validate"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_change_archive"] = new GenericCliTool(
   "csda_change_archive",
@@ -482,7 +527,8 @@ TOOLS["csda_change_archive"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_change_instructions"] = new GenericCliTool(
   "csda_change_instructions",
@@ -496,7 +542,8 @@ TOOLS["csda_change_instructions"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_change_author"] = new GenericCliTool(
   "csda_change_author",
@@ -510,7 +557,8 @@ TOOLS["csda_change_author"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_pack_init"] = new GenericCliTool(
   "csda_pack_init",
@@ -524,7 +572,8 @@ TOOLS["csda_pack_init"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["lint_pack"] = new GenericCliTool(
   "lint_pack",
@@ -538,7 +587,8 @@ TOOLS["lint_pack"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_pack_infer"] = new GenericCliTool(
   "csda_pack_infer",
@@ -552,7 +602,8 @@ TOOLS["csda_pack_infer"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_pack_bundle"] = new GenericCliTool(
   "csda_pack_bundle",
@@ -566,7 +617,8 @@ TOOLS["csda_pack_bundle"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_specops_add"] = new GenericCliTool(
   "csda_specops_add",
@@ -580,7 +632,8 @@ TOOLS["csda_specops_add"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_specops_remove"] = new GenericCliTool(
   "csda_specops_remove",
@@ -594,7 +647,8 @@ TOOLS["csda_specops_remove"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_specops_sync"] = new GenericCliTool(
   "csda_specops_sync",
@@ -608,7 +662,8 @@ TOOLS["csda_specops_sync"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_specops_diff"] = new GenericCliTool(
   "csda_specops_diff",
@@ -622,7 +677,8 @@ TOOLS["csda_specops_diff"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_specops_contribute"] = new GenericCliTool(
   "csda_specops_contribute",
@@ -636,7 +692,8 @@ TOOLS["csda_specops_contribute"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_harness_run"] = new GenericCliTool(
   "csda_harness_run",
@@ -650,7 +707,8 @@ TOOLS["csda_harness_run"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_harness_prompt"] = new GenericCliTool(
   "csda_harness_prompt",
@@ -664,7 +722,8 @@ TOOLS["csda_harness_prompt"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_harness_init"] = new GenericCliTool(
   "csda_harness_init",
@@ -678,7 +737,8 @@ TOOLS["csda_harness_init"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_harness_report"] = new GenericCliTool(
   "csda_harness_report",
@@ -692,7 +752,8 @@ TOOLS["csda_harness_report"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_config_init"] = new GenericCliTool(
   "csda_config_init",
@@ -706,7 +767,8 @@ TOOLS["csda_config_init"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_config_set"] = new GenericCliTool(
   "csda_config_set",
@@ -720,7 +782,8 @@ TOOLS["csda_config_set"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_config_get"] = new GenericCliTool(
   "csda_config_get",
@@ -734,7 +797,8 @@ TOOLS["csda_config_get"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_config_list"] = new GenericCliTool(
   "csda_config_list",
@@ -748,7 +812,8 @@ TOOLS["csda_config_list"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_agents_init"] = new GenericCliTool(
   "csda_agents_init",
@@ -762,7 +827,8 @@ TOOLS["csda_agents_init"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_update"] = new GenericCliTool(
   "csda_update",
@@ -776,7 +842,8 @@ TOOLS["csda_update"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  true
 );
 TOOLS["csda_schema_which"] = new GenericCliTool(
   "csda_schema_which",
@@ -790,7 +857,8 @@ TOOLS["csda_schema_which"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_schema_init"] = new GenericCliTool(
   "csda_schema_init",
@@ -804,7 +872,8 @@ TOOLS["csda_schema_init"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_schema_fork"] = new GenericCliTool(
   "csda_schema_fork",
@@ -818,7 +887,8 @@ TOOLS["csda_schema_fork"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_schema_validate"] = new GenericCliTool(
   "csda_schema_validate",
@@ -832,7 +902,8 @@ TOOLS["csda_schema_validate"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_completion_bash"] = new GenericCliTool(
   "csda_completion_bash",
@@ -846,7 +917,8 @@ TOOLS["csda_completion_bash"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_completion_zsh"] = new GenericCliTool(
   "csda_completion_zsh",
@@ -860,7 +932,8 @@ TOOLS["csda_completion_zsh"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_completion_fish"] = new GenericCliTool(
   "csda_completion_fish",
@@ -874,7 +947,8 @@ TOOLS["csda_completion_fish"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 TOOLS["csda_studio"] = new GenericCliTool(
   "csda_studio",
@@ -888,7 +962,8 @@ TOOLS["csda_studio"] = new GenericCliTool(
     },
     required: ["projectDir"],
   },
-  "flag"
+  "flag",
+  false
 );
 
 // ── The published seven ──────────────────────────────────────────────────────
