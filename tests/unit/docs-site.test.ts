@@ -155,6 +155,9 @@ test("a link that climbs out of docs/ goes to GitHub, not to a page that never e
 });
 
 test("every page carries the shell: sidebar, search and a way back", () => {
+  // Each of these was added deliberately and is invisible from the outside:
+  // nothing else notices when a redesign quietly drops the breadcrumbs or the
+  // contents rail, which is precisely why they are pinned here.
   const { dir } = site();
   try {
     for (const slug of ["harness", "commands", "tutorial"]) {
@@ -163,7 +166,76 @@ test("every page carries the shell: sidebar, search and a way back", () => {
       assert.match(html, /id="search"/, `${slug}: no search`);
       assert.match(html, /class="top__brand"/, `${slug}: no way back to the home page`);
       assert.match(html, /Edit this page/, `${slug}: no edit link`);
+      assert.match(html, /<nav class="crumbs"/, `${slug}: no breadcrumbs`);
+      assert.match(html, /<div class="rail"/, `${slug}: no contents rail`);
+      assert.match(html, /id="palette"/, `${slug}: no search palette`);
+      assert.match(html, /aria-keyshortcuts="Meta\+K Control\+K"/, `${slug}: no ⌘K hint`);
+      assert.match(html, /<details class="side__group"/, `${slug}: sidebar groups do not collapse`);
     }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the landing page can be searched too", () => {
+  // The front page is where most readers arrive and where the first question
+  // gets asked. It is hand-written, so it does not inherit the generated shell
+  // and has to carry the palette itself.
+  const html = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8");
+  assert.match(html, /id="search"/, "no search trigger");
+  assert.match(html, /id="palette"/, "no search palette");
+  assert.match(html, /id="palette-input"/, "the palette has no input");
+  assert.match(html, /id="results"/, "the palette has nowhere to put results");
+});
+
+test("the sidebar opens the group holding the page you are on", () => {
+  // A remembered fold is a good thing until it hides where the reader already
+  // is. The generator forces the current group open; the script only restores
+  // the others.
+  const { dir } = site();
+  try {
+    const html = fs.readFileSync(path.join(dir, "harness.html"), "utf8");
+    assert.match(
+      html,
+      /<details class="side__group" data-group="Agents and the harness" open>/,
+      "the current page's group is not open"
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("code blocks are highlighted and labelled", () => {
+  // Highlighting happens at build time, so the page needs no JavaScript to be
+  // readable — and a block that carries a label is one a reader can tell from
+  // the five below it.
+  const { dir } = site();
+  try {
+    const html = fs.readFileSync(path.join(dir, "getting-started.html"), "utf8");
+    assert.match(html, /<figcaption class="code__head">/, "no code block header");
+    assert.match(html, /<span class="code__lang">/, "no language label");
+    assert.match(html, /<span class="tok tok--/, "nothing was highlighted");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the search index carries sections, not only pages", () => {
+  // A hit that can only say "somewhere in tutorial.md" is barely a hit: that
+  // page is over a thousand lines. Every section record carries the anchor.
+  const { dir } = site();
+  try {
+    const index = JSON.parse(
+      fs.readFileSync(path.join(dir, "assets", "search-index.json"), "utf8")
+    );
+    const sections = index.filter((r: any) => r.section);
+    assert.ok(sections.length > index.length / 2, "most records should be sections");
+    for (const record of sections) {
+      assert.ok(record.hash, `${record.slug}: section record with no anchor`);
+      assert.ok(record.text, `${record.slug}#${record.hash}: section record with no text`);
+    }
+    const deep = index.filter((r: any) => r.slug === "tutorial" && r.section);
+    assert.ok(deep.length >= 5, "the longest page should be indexed section by section");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

@@ -28,6 +28,9 @@ import { marked } from "marked";
 
 import { NAV, navEntry, neighbours } from "./nav";
 import { diagrams, inlineDiagrams } from "./blocks";
+import { expandComponents } from "./components";
+import { highlight } from "./highlight";
+import { icon } from "./icons";
 
 const ROOT = path.resolve(__dirname, "..", "..", "..");
 
@@ -160,12 +163,23 @@ function renderMarkdown(
     return `<a ${attrs}>${text}</a>`;
   };
 
+  // ```bash Install   →  language `bash`, label "Install" in the block header.
+  // The label is how the reference documentation names the file or the shell a
+  // snippet belongs to, and it is the difference between six unlabelled blocks
+  // and six blocks you can tell apart.
   renderer.code = ({ text, lang }: any) => {
-    const language = String(lang || "").split(/\s+/)[0] || "text";
+    const parts = String(lang || "")
+      .trim()
+      .split(/\s+/);
+    const language = parts[0] || "text";
+    const label = parts.slice(1).join(" ");
     return (
       `<figure class="code" data-lang="${escapeHtml(language)}">` +
+      `<figcaption class="code__head">` +
+      `<span class="code__lang">${escapeHtml(label || language)}</span>` +
       `<button class="code__copy" type="button" aria-label="Copy to clipboard">Copy</button>` +
-      `<pre><code class="language-${escapeHtml(language)}">${escapeHtml(text)}</code></pre>` +
+      `</figcaption>` +
+      `<pre><code class="language-${escapeHtml(language)}">${highlight(text, language)}</code></pre>` +
       `</figure>\n`
     );
   };
@@ -199,24 +213,49 @@ function renderMarkdown(
  * which does not exist. Every link out of a nested page needs the climb.
  */
 function sidebar(currentSlug: string, up: string): string {
-  const sections = NAV.map((section) => {
+  return NAV.map((section) => {
+    const open = section.entries.some((e) => e.slug === currentSlug);
     const items = section.entries
       .map((entry) => {
         const active = entry.slug === currentSlug ? ' class="is-active" aria-current="page"' : "";
         return `<li><a href="${up}${entry.slug}.html"${active}>${escapeHtml(entry.label)}</a></li>`;
       })
       .join("");
-    return `<div class="side__group"><h2>${escapeHtml(section.title)}</h2><ul>${items}</ul></div>`;
+    // `open` on the group holding the current page, so a reader always lands
+    // with their own section unfolded. The rest remember their last state in
+    // localStorage; `details` keeps that working with JavaScript disabled.
+    return (
+      `<details class="side__group" data-group="${escapeHtml(section.title)}"${open ? " open" : ""}>` +
+      `<summary class="side__head">${icon(section.icon, "icon side__icon")}` +
+      `<span>${escapeHtml(section.title)}</span></summary>` +
+      `<ul>${items}</ul></details>`
+    );
   }).join("");
-  return sections;
+}
+
+/** `Reference › Command reference` above the title, so depth is visible. */
+function breadcrumbs(slug: string, up: string): string {
+  const section = NAV.find((s) => s.entries.some((e) => e.slug === slug));
+  const entry = navEntry(slug);
+  if (!section || !entry) return "";
+  return (
+    `<nav class="crumbs" aria-label="Breadcrumb"><ol>` +
+    `<li><a href="${up}docs.html">Docs</a></li>` +
+    `<li>${escapeHtml(section.title)}</li>` +
+    `<li aria-current="page">${escapeHtml(entry.label)}</li>` +
+    `</ol></nav>`
+  );
 }
 
 function onThisPage(headings: Page["headings"]): string {
-  if (headings.length < 2) return "";
+  if (headings.length < 2) return '<div class="rail" aria-hidden="true"></div>';
   const items = headings
     .map((h) => `<li class="toc__l${h.level}"><a href="#${h.id}">${escapeHtml(h.text)}</a></li>`)
     .join("");
-  return `<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul>${items}</ul></nav>`;
+  return (
+    `<div class="rail"><nav class="toc" aria-label="On this page">` +
+    `<h2>On this page</h2><ul>${items}</ul></nav></div>`
+  );
 }
 
 function pageShell(page: Page, version: string): string {
@@ -263,15 +302,19 @@ function pageShell(page: Page, version: string): string {
 <a class="skip" href="#content">Skip to content</a>
 
 <header class="top">
-  <button class="top__menu" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+  <button class="top__menu" type="button" aria-label="Open navigation" aria-expanded="false">
+    <span aria-hidden="true">☰</span>
+  </button>
   <a class="top__brand" href="${up}index.html"><span aria-hidden="true">⬡</span> Specgate</a>
   <span class="top__version">v${escapeHtml(version)}</span>
-  <div class="top__search">
-    <input type="search" id="search" placeholder="Search the docs…" autocomplete="off"
-           aria-label="Search documentation">
-    <div class="top__results" id="results" hidden></div>
-  </div>
+  <button class="top__search" id="search" type="button" aria-label="Search documentation"
+          aria-keyshortcuts="Meta+K Control+K">
+    ${icon("search", "icon")}
+    <span class="top__search-label">Search</span>
+    <kbd class="top__kbd"><span class="top__kbd-mod">⌘</span>K</kbd>
+  </button>
   <nav class="top__links">
+    <a href="${up}docs.html">Docs</a>
     <a href="${up}packs/">Packs</a>
     <a href="${REPO}" target="_blank" rel="noreferrer">GitHub</a>
     <a href="https://www.npmjs.com/package/@rsaglobaltech/specgate" target="_blank" rel="noreferrer">npm</a>
@@ -280,21 +323,42 @@ function pageShell(page: Page, version: string): string {
 </header>
 
 <div class="shell">
-  <aside class="side" id="side">${sidebar(page.slug, up)}</aside>
+  <aside class="side" id="side">
+    <nav aria-label="Documentation">${sidebar(page.slug, up)}</nav>
+  </aside>
 
   <main class="content" id="content">
+    ${breadcrumbs(page.slug, up)}
     <article class="prose">
 ${page.html}
     </article>
     <nav class="pager" aria-label="Neighbouring pages">${pager}</nav>
     <footer class="page-foot">
+      <p class="page-foot__ask">Was this page useful?</p>
       <a href="${REPO}/edit/main/docs/${escapeHtml(page.slug)}.md" target="_blank" rel="noreferrer">Edit this page</a>
-      <span>·</span>
+      <span aria-hidden="true">·</span>
       <a href="${REPO}/issues/new" target="_blank" rel="noreferrer">Something wrong? Open an issue</a>
     </footer>
   </main>
 
   ${onThisPage(page.headings)}
+</div>
+
+<div class="palette" id="palette" hidden>
+  <div class="palette__scrim" data-close="1"></div>
+  <div class="palette__box" role="dialog" aria-modal="true" aria-label="Search documentation">
+    <div class="palette__field">
+      ${icon("search", "icon")}
+      <input type="search" id="palette-input" placeholder="Search the documentation…"
+             autocomplete="off" spellcheck="false" aria-label="Search documentation"
+             aria-controls="results" aria-expanded="true">
+      <kbd class="palette__esc">Esc</kbd>
+    </div>
+    <div class="palette__results" id="results" role="listbox" aria-label="Results"></div>
+    <p class="palette__hint">
+      <kbd>↑</kbd><kbd>↓</kbd> to navigate · <kbd>↵</kbd> to open · <kbd>Esc</kbd> to close
+    </p>
+  </div>
 </div>
 
 <script src="${up}assets/docs.js" defer></script>
@@ -354,26 +418,31 @@ function copyVerbatim(outDir: string, available: Map<string, string>): void {
  * here without anybody remembering to add it twice.
  */
 function docsHome(version: string): string {
-  const cards = NAV.map((section) => {
-    const items = section.entries
+  const groups = NAV.map((section) => {
+    const cards = section.entries
       .map(
         (entry) =>
-          `<li><a href="${entry.slug}.html"><strong>${escapeHtml(entry.label)}</strong>` +
-          `<span>${escapeHtml(entry.blurb)}</span></a></li>`
+          `<a class="card" href="${entry.slug}.html">` +
+          `<strong class="card__title">${escapeHtml(entry.label)}</strong>` +
+          `<span class="card__body">${escapeHtml(entry.blurb)}</span></a>`
       )
       .join("");
     return (
       `<section class="home__group">` +
-      `<h2>${escapeHtml(section.title)}</h2>` +
+      `<h2>${icon(section.icon, "icon")}${escapeHtml(section.title)}</h2>` +
       `<p class="home__summary">${escapeHtml(section.summary)}</p>` +
-      `<ul class="home__list">${items}</ul></section>`
+      `<div class="cards" data-cols="2">${cards}</div></section>`
     );
   }).join("");
 
   const page: Page = {
     slug: "docs",
     title: "Documentation",
-    headings: [],
+    headings: NAV.map((section) => ({
+      id: slugifyHeading(section.title, new Set()),
+      text: section.title,
+      level: 2,
+    })),
     text: "",
     html:
       `<h1>Documentation</h1>` +
@@ -381,12 +450,59 @@ function docsHome(version: string): string {
       `<a href="getting-started.html">Getting started</a> if the folder is empty, or ` +
       `<a href="quickstart.html">You cloned a repo</a> if somebody handed you one.</p>` +
       `<figure class="code" data-lang="bash">` +
+      `<figcaption class="code__head"><span class="code__lang">Install</span>` +
       `<button class="code__copy" type="button" aria-label="Copy to clipboard">Copy</button>` +
+      `</figcaption>` +
       `<pre><code class="language-bash">npx @rsaglobaltech/specgate@latest init</code></pre>` +
       `</figure>` +
-      `<div class="home">${cards}</div>`,
+      `<div class="home">${groups}</div>`,
   };
   return pageShell(page, version);
+}
+
+/** Markdown reduced to prose: no fences, no marker punctuation. */
+function plainText(markdown: string): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/[#*`>|_-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * One search record per `##`/`###` section, carrying the anchor to jump to.
+ *
+ * Split on the heading text rather than re-parsing: `headings` already holds
+ * the ids `renderMarkdown` minted, so the two cannot drift apart.
+ */
+function sectionChunks(
+  markdown: string,
+  headings: Page["headings"]
+): Array<{ section: string; hash: string; text: string }> {
+  const out: Array<{ section: string; hash: string; text: string }> = [];
+  const lines = markdown.split("\n");
+
+  let current: { section: string; hash: string; body: string[] } | null = null;
+  const flush = () => {
+    if (!current) return;
+    const text = plainText(current.body.join("\n")).slice(0, 600);
+    if (text) out.push({ section: current.section, hash: current.hash, text });
+  };
+
+  for (const line of lines) {
+    const m = /^(#{2,3})\s+(.+?)\s*$/.exec(line);
+    if (m) {
+      flush();
+      const plain = stripTags(m[2]).replace(/`/g, "");
+      const heading = headings.find((h) => h.text === plain);
+      current = heading ? { section: plain, hash: heading.id, body: [] } : null;
+      continue;
+    }
+    if (current) current.body.push(line);
+  }
+  flush();
+  return out;
 }
 
 export function buildSite(outDir: string): { pages: number; orphans: string[] } {
@@ -396,7 +512,16 @@ export function buildSite(outDir: string): { pages: number; orphans: string[] } 
   fs.mkdirSync(outDir, { recursive: true });
 
   const slugs = markdownFiles(DOCS);
-  const index: Array<{ slug: string; title: string; text: string }> = [];
+  // One record per *section*, not per page. A search that can only answer
+  // "which page" is close to useless on `tutorial.md`, which is 1075 lines; a
+  // record per heading lands the reader on the paragraph they asked for.
+  const index: Array<{
+    slug: string;
+    title: string;
+    section?: string;
+    hash?: string;
+    text: string;
+  }> = [];
   const available = diagrams(DOCS);
 
   for (const slug of slugs) {
@@ -406,25 +531,32 @@ export function buildSite(outDir: string): { pages: number; orphans: string[] } 
       source.replace(/^<!--\s*csda:allow-placeholders[^>]*-->\s*\n?/gm, ""),
       available
     );
-    const { html, headings, title } = renderMarkdown(cleaned, slug);
+    // Components expand before `marked` sees the source, and are handed the
+    // site's own renderer so a tab can hold a code block and a callout a list.
+    const expanded = expandComponents(
+      cleaned,
+      slug,
+      (md) => renderMarkdown(md, slug).html,
+      (href) => rewriteLink(href, slug)
+    );
+    const { html, headings, title } = renderMarkdown(expanded, slug);
 
     const page: Page = {
       slug,
       title: title || navEntry(slug)?.label || slug,
       html,
       headings,
-      text: cleaned
-        .replace(/```[\s\S]*?```/g, " ")
-        .replace(/[#*`>|_-]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 1500),
+      text: plainText(cleaned).slice(0, 2000),
     };
 
     const target = path.join(outDir, `${slug}.html`);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, pageShell(page, version), "utf8");
+
     index.push({ slug, title: page.title, text: page.text });
+    for (const chunk of sectionChunks(cleaned, headings)) {
+      index.push({ slug, title: page.title, ...chunk });
+    }
   }
 
   fs.writeFileSync(path.join(outDir, "docs.html"), docsHome(version), "utf8");
