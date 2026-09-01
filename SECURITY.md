@@ -30,8 +30,8 @@ Credit goes in the advisory and the changelog unless you ask otherwise.
 
 | Version | Supported |
 | --- | :-: |
-| 0.7.x | ✅ |
-| < 0.7 | ❌ |
+| 0.8.x | ✅ |
+| < 0.8 | ❌ |
 
 Pre-1.0, only the latest minor gets fixes. Backports to an older minor are not
 promised; the upgrade path is forward.
