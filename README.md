@@ -5,8 +5,8 @@
 **Specs as executable contracts — requirements, scenarios and traceability that CI enforces.**
 
 [![CI](https://github.com/rsaglobaltech/specgate/actions/workflows/ci.yml/badge.svg)](https://github.com/rsaglobaltech/specgate/actions/workflows/ci.yml)
-[![npm latest](https://img.shields.io/npm/v/specgate?logo=npm&label=npm)](https://www.npmjs.com/package/specgate)
-[![npm beta](https://img.shields.io/npm/v/specgate/beta?logo=npm&label=beta)](https://www.npmjs.com/package/specgate)
+[![npm](https://img.shields.io/npm/v/%40rsaglobaltech%2Fspecgate?logo=npm&label=npm)](https://www.npmjs.com/package/@rsaglobaltech/specgate)
+[![Docker](https://img.shields.io/badge/ghcr.io-specgate-2496ed?logo=docker&logoColor=white)](https://github.com/rsaglobaltech/specgate/pkgs/container/specgate)
 [![Docs](https://img.shields.io/badge/docs-github_pages-0e8078)](https://rsaglobaltech.github.io/specgate/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](#-license)
 
@@ -20,8 +20,8 @@
 
 ## ⚡ Start
 
-> **Just renamed** ([ADR-0024](docs/specs/adr/0024-the-tool-is-renamed-the-format-is-not.md)): until the
-> first release under the new name the registries still hold `create-spec-driven-app` and the `csda` image — both kept as aliases.
+> **The npm package is scoped; the binary is not.** `spec-gate` already claims the
+> unscoped name ([ADR-0024](docs/specs/adr/0024-the-tool-is-renamed-the-format-is-not.md)). You type `specgate`; `csda` still works too.
 
 **Existing codebase** — the common enterprise case:
 
