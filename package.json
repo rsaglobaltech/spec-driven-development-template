@@ -94,12 +94,12 @@
     "@typescript-eslint/parser": "^8.59.3",
     "ajv": "^8.20.0",
     "c8": "^12.0.0",
-    "eslint": "^10.8.1",
+    "eslint": "^10.9.1",
     "fast-check": "^4.8.0",
     "js-yaml": "^5.2.3",
     "marked": "^18.0.10",
     "prettier": "^3.8.3",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.3"
+    "typescript": "^7.0.2",
+    "typescript-eslint": "^8.68.0"
   }
 }
