@@ -85,9 +85,37 @@ export class ValidateProjectUseCase {
 
     const strictTdd = opts.strictTdd === true;
     const seenScenarios = new Set<string>();
+    const seenRequirements = new Set<string>();
 
     for (const cells of parseMatrixRows(traceContent)) {
       const { requirementId, scenarioId, testArtifact, status } = readRowFields(cells, mode);
+
+      // A requirement id is the primary key of this table: `done`, `req link`
+      // and `plan` all address a row by it, and every writer allocates a fresh
+      // one. Two rows under one id is not a broken link, it is a broken table —
+      // `req link REQ-003` then writes *both*, so one requirement's test
+      // artifact silently becomes another's, and the matrix asserts a proof
+      // that was never run. Three cold adoptions reached that state through the
+      // tool's own commands while every gate stayed green.
+      if (requirementId && requirementId !== "-") {
+        if (seenRequirements.has(requirementId)) {
+          report.addError(
+            "duplicate_requirement_id",
+            `Duplicate Requirement ID in traceability.md: ${requirementId}`,
+            {
+              target: requirementId,
+              fixLines: [
+                "A requirement id addresses exactly one row — `req link` and `done` write every",
+                `row that matches, so two ${requirementId} rows corrupt each other.`,
+                "Renumber the later row to the next free id, or delete it if it is a leftover",
+                "proposal from `adopt` that you have since replaced.",
+              ],
+            }
+          );
+        }
+        seenRequirements.add(requirementId);
+      }
+
       if (requirementId) requirements.add(requirementId);
 
       if (scenarioId && scenarioId !== "-") {
