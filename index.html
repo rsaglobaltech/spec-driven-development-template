@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Specgate — specifications that are checked, not admired</title>
+<meta name="description" content="A CLI for spec-driven development: requirements, Gherkin scenarios and a traceability matrix that CI enforces, plus an unattended harness that drives any coding agent one requirement at a time.">
+<meta property="og:title" content="Specgate">
+<meta property="og:description" content="Specifications that are checked, not admired. Zero runtime dependencies, any agent CLI, one worktree per requirement.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://rsaglobaltech.github.io/specgate/">
+<meta property="og:image" content="https://rsaglobaltech.github.io/specgate/assets/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./assets/docs.css">
+<link rel="stylesheet" href="./assets/home.css">
+<link rel="stylesheet" href="./assets/terminal.css">
+<script>
+  (function () {
+    var t = localStorage.getItem("csda-theme");
+    if (t) document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+</head>
+<body class="landing">
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <a class="top__brand" href="./"><span aria-hidden="true">⬡</span> Specgate</a>
+  <span class="top__version">v0.8.1</span>
+  <button class="top__search" id="search" type="button" aria-label="Search documentation"
+          aria-keyshortcuts="Meta+K Control+K">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <span class="top__search-label">Search</span>
+    <kbd class="top__kbd"><span class="top__kbd-mod">⌘</span>K</kbd>
+  </button>
+  <nav class="top__links">
+    <a href="./docs.html">Docs</a>
+    <a href="./packs/">Packs</a>
+    <a href="./comparisons.html">Comparisons</a>
+    <a href="https://github.com/rsaglobaltech/specgate" target="_blank" rel="noreferrer">GitHub</a>
+  </nav>
+  <button class="top__theme" type="button" aria-label="Switch theme">◐</button>
+</header>
+
+<main id="main">
+
+<!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="wrap">
+    <p class="hero__eyebrow">Specgate documentation</p>
+
+    <p class="hero__badges">
+      <span class="badge">Zero runtime dependencies</span>
+      <span class="badge">Any agent CLI</span>
+      <span class="badge">MIT</span>
+    </p>
+
+    <h1>Specifications that are<br><em>checked</em>, not admired.</h1>
+
+    <p class="hero__sub">
+      Requirements, Gherkin scenarios and a traceability matrix that your CI
+      enforces — plus a harness that drives any coding agent through them, one
+      requirement at a time, in its own git worktree. It never merges.
+    </p>
+
+    <p class="chips">
+      <a class="chip" href="./getting-started.html">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m10 8.5 6 3.5-6 3.5Z"/></svg>
+        Get started
+      </a>
+      <a class="chip" href="./commands.html">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 6-5 6 5 6M16 6l5 6-5 6"/></svg>
+        Command reference
+      </a>
+      <a class="chip" href="./docs.html">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5Z"/><path d="M4 5.5v15"/></svg>
+        Read the docs
+      </a>
+      <a class="chip" href="./tutorial.html">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+        Worked example
+      </a>
+    </p>
+
+    <figure class="code code--hero" data-lang="bash">
+      <figcaption class="code__head">
+        <span class="code__lang">Install</span>
+        <button class="code__copy" type="button" aria-label="Copy to clipboard">Copy</button>
+      </figcaption>
+      <pre><code class="language-bash">npx @rsaglobaltech/specgate@latest init</code></pre>
+    </figure>
+
+    <dl class="stats">
+      <div><dt>11</dt><dd>curated domain packs</dd></div>
+      <div><dt>25</dt><dd>commands, all JSON-capable</dd></div>
+      <div><dt>10</dt><dd>agent tools wired from one definition</dd></div>
+      <div><dt>0</dt><dd>runtime dependencies</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ── Two ways in ──────────────────────────────────────────────────────── -->
+<section class="band">
+  <div class="wrap">
+    <header class="sec">
+      <p class="sec__label">Adopt</p>
+      <h2>Two ways in</h2>
+      <p class="sec__lede">
+        The gate is the same either way. What differs is where you start: a
+        repository that already exists, or a folder that does not.
+      </p>
+    </header>
+
+    <div class="paths">
+      <article class="path">
+        <h3 class="path__title">Existing codebase</h3>
+        <p class="path__body">
+          The common enterprise case. <code>specgate onboard</code> reads the
+          repository and proposes the capabilities its layout already implies;
+          <code>specgate adopt</code> writes the spec skeleton and touches no
+          source. Nothing is rewritten and nothing is claimed to be verified.
+        </p>
+        <ul class="path__links">
+          <li><a href="./quickstart.html">Quickstart</a></li>
+          <li><a href="./getting-started.html">Adopt an existing repo</a></li>
+          <li><a href="./validating.html">What the gate checks</a></li>
+        </ul>
+      </article>
+
+      <article class="path">
+        <h3 class="path__title">New project</h3>
+        <p class="path__body">
+          <code>specgate init</code> scaffolds a project whose specs, scenarios
+          and traceability matrix are wired to CI from the first commit — plus a
+          domain pack if one fits, so the first requirements are arguable rather
+          than blank.
+        </p>
+        <ul class="path__links">
+          <li><a href="./getting-started.html">Generate a project</a></li>
+          <li><a href="./domain-packs.html">Domain packs</a></li>
+          <li><a href="./tutorial.html">Worked example</a></li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ── The problem ──────────────────────────────────────────────────────── -->
+<section class="band">
+  <div class="wrap wrap--narrow">
+    <h2>A specification nobody checks is a wish</h2>
+    <p>
+      Most teams already write requirements. They live in a wiki, drift from the
+      code within a sprint, and nothing fails when they disagree. Point a coding
+      agent at that and you have automated the drift.
+    </p>
+    <p>
+      This tool makes the specification a thing that can be <em>wrong</em>:
+      every requirement has a scenario, every scenario has a file, and
+      <code>specgate validate</code> fails when the link is broken. Then — and only
+      then — an agent is worth pointing at it.
+    </p>
+  </div>
+</section>
+
+<!-- ── The chain ────────────────────────────────────────────────────────── -->
+<section class="band band--soft">
+  <div class="wrap">
+    <h2>What makes it checkable</h2>
+    <p class="band__lede">
+      One row of the traceability matrix, read left to right, is a sentence about
+      your system. Every link in it resolves to a real file, and the build fails
+      when one does not.
+    </p>
+
+    <figure class="dia dia--chain">
+  <ol class="chain" aria-label="The traceability chain, from requirement to status">
+    <li class="chain__n"><b>REQ-001</b><span>requirement</span></li>
+    <li class="chain__n"><b>SCN-001</b><span>scenario</span></li>
+    <li class="chain__n"><b>load_pack.feature</b><span>Gherkin</span></li>
+    <li class="chain__n"><b>UC-001</b><span>use case</span></li>
+    <li class="chain__n"><b>CMD-001</b><span>command</span></li>
+    <li class="chain__n"><b>AGG-001</b><span>aggregate</span></li>
+    <li class="chain__n"><b>EVT-001</b><span>event</span></li>
+    <li class="chain__n"><b>src/…</b><span>code</span></li>
+    <li class="chain__n"><b>…steps.ts</b><span>test</span></li>
+    <li class="chain__n chain__n--end"><b>Verified</b><span>status</span></li>
+  </ol>
+  <figcaption>
+    One row of the matrix, read as a sentence. Break any link and
+    <code>specgate validate</code> fails — which is what stops a specification from
+    quietly becoming false.
+  </figcaption>
+</figure>
+
+    <p class="band__after">
+      <em>This requirement is demonstrated by this scenario, in this feature file,
+      realised by this use case, which dispatches this command against this
+      aggregate, emitting this event, implemented here, proven by this test,
+      currently in this state.</em>
+    </p>
+    <p>
+      An event emitted by an aggregate nobody declared is a build failure, the
+      same way an undefined symbol is. That is the whole idea, and everything
+      else on this page exists to keep it true.
+      <a href="./writing-specs.html">How a matrix row is written →</a>
+    </p>
+  </div>
+</section>
+
+<!-- ── The journey ──────────────────────────────────────────────────────── -->
+<section class="band">
+  <div class="wrap">
+    <header class="sec">
+      <p class="sec__label">Developer journey</p>
+      <h2>The loop</h2>
+      <p class="sec__lede">
+        Four commands. The same four whether a person or an agent is driving.
+      </p>
+    </header>
+
+    <ol class="journey">
+      <li class="journey__stage">
+        <p class="journey__n" aria-hidden="true">1</p>
+        <h3 class="journey__title"><code>specgate init</code></h3>
+        <p class="journey__body">
+          Scaffold a project: spec, scenarios, traceability matrix, and the
+          execution contract an agent reads before it writes a line. On a
+          repository that already exists, <code>specgate adopt</code> instead.
+        </p>
+        <ul class="journey__links">
+          <li><a href="./getting-started.html">Getting started</a></li>
+          <li><a href="./writing-specs.html">Writing specs</a></li>
+          <li><a href="./domain-packs.html">Domain packs</a></li>
+        </ul>
+      </li>
+
+      <li class="journey__stage">
+        <p class="journey__n" aria-hidden="true">2</p>
+        <h3 class="journey__title"><code>specgate plan</code></h3>
+        <p class="journey__body">
+          What still needs a test, an implementation or a status change —
+          ordered by dependency, with a fix on every blocker.
+        </p>
+        <ul class="journey__links">
+          <li><a href="./commands.html">Command reference</a></li>
+          <li><a href="./reviewing-changes.html">Change lifecycle</a></li>
+          <li><a href="./how-to.html">How-to guides</a></li>
+        </ul>
+      </li>
+
+      <li class="journey__stage">
+        <p class="journey__n" aria-hidden="true">3</p>
+        <h3 class="journey__title"><code>specgate harness run</code></h3>
+        <p class="journey__body">
+          Hand one requirement to an agent in its own worktree, gate the
+          result, and stop if the gate says no.
+        </p>
+        <ul class="journey__links">
+          <li><a href="./harness.html">The harness</a></li>
+          <li><a href="./agent-setup.html">Choosing your agent</a></li>
+          <li><a href="./agents.html">Agent tools</a></li>
+        </ul>
+      </li>
+
+      <li class="journey__stage">
+        <p class="journey__n" aria-hidden="true">4</p>
+        <h3 class="journey__title"><code>specgate validate</code></h3>
+        <p class="journey__body">
+          The gate itself: structure, traceability, Gherkin that Cucumber can
+          actually run, and TDD order. This is what CI runs.
+        </p>
+        <ul class="journey__links">
+          <li><a href="./validating.html">Validating</a></li>
+          <li><a href="./automation.html">Wire it into CI</a></li>
+          <li><a href="./alm.html">Jira and Azure Boards</a></li>
+        </ul>
+      </li>
+    </ol>
+
+    <p class="band__lede band__lede--mid">
+      Step three in detail. One requirement, one branch, one gate — and the
+      branch is yours to merge or throw away.
+    </p>
+
+    <figure class="dia dia--loop">
+  <div class="dia__scroll">
+  <svg viewBox="0 0 760 420" class="dia__svg" role="img" aria-labelledby="csda-hl-t csda-hl-d">
+    <title id="csda-hl-t">One turn of the harness</title>
+    <desc id="csda-hl-d">The harness picks the next pending requirement, creates a git
+      worktree on a branch named after it, hands the agent a prompt, lets the agent write
+      code and tests in the worktree, runs the gate, and commits only if the gate is green.
+      It reports and never merges.</desc>
+
+    <defs>
+      <marker id="csda-hl-a" viewBox="0 0 10 8" refX="9" refY="4"
+              markerWidth="9" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 4 L0 8 Z" fill="var(--fg-soft)"/>
+      </marker>
+      <marker id="csda-hl-g" viewBox="0 0 10 8" refX="9" refY="4"
+              markerWidth="9" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 4 L0 8 Z" fill="var(--green)"/>
+      </marker>
+    </defs>
+
+    <g class="dia__lane">
+      <rect x="10"  y="10" width="140" height="34" rx="8"/>
+      <rect x="210" y="10" width="140" height="34" rx="8"/>
+      <rect x="400" y="10" width="140" height="34" rx="8"/>
+      <rect x="600" y="10" width="140" height="34" rx="8"/>
+    </g>
+    <g class="dia__actor">
+      <text x="80"  y="32" text-anchor="middle">harness</text>
+      <text x="280" y="32" text-anchor="middle">git worktree</text>
+      <text x="470" y="32" text-anchor="middle">your agent</text>
+      <text x="670" y="32" text-anchor="middle">the gate</text>
+    </g>
+
+    <g class="dia__life">
+      <line x1="80"  y1="48" x2="80"  y2="408"/>
+      <line x1="280" y1="48" x2="280" y2="408"/>
+      <line x1="470" y1="48" x2="470" y2="408"/>
+      <line x1="670" y1="48" x2="670" y2="408"/>
+    </g>
+
+    <g class="dia__msg">
+      <path d="M80 78 H150 V102 H86" marker-end="url(#csda-hl-a)"/>
+      <text x="158" y="84">plan → the next pending requirement</text>
+
+      <line x1="80" y1="140" x2="274" y2="140" marker-end="url(#csda-hl-a)"/>
+      <text x="86" y="132">create worktree on <tspan class="dia__mono">harness/REQ-001</tspan></text>
+
+      <line x1="80" y1="192" x2="464" y2="192" marker-end="url(#csda-hl-a)"/>
+      <text x="86" y="184">the prompt — Gherkin, rules, boundaries</text>
+
+      <line x1="470" y1="238" x2="286" y2="238" marker-end="url(#csda-hl-a)"/>
+      <text x="464" y="230" text-anchor="end">writes code and tests</text>
+
+      <line x1="80" y1="290" x2="664" y2="290" marker-end="url(#csda-hl-a)"/>
+      <text x="86" y="282"><tspan class="dia__mono">validate --strict-tdd</tspan> + the project's own tests</text>
+
+      <line x1="670" y1="326" x2="86" y2="326" class="dia__ok" stroke-dasharray="6 5" marker-end="url(#csda-hl-g)"/>
+      <text x="664" y="318" text-anchor="end" class="dia__ok-t">green — and only then</text>
+
+      <line x1="80" y1="368" x2="274" y2="368" marker-end="url(#csda-hl-a)"/>
+      <text x="86" y="360">mark done, commit</text>
+    </g>
+
+    <text x="80" y="404" class="dia__note">…and reports. It never merges — that stays yours.</text>
+  </svg>
+  </div>
+</figure>
+  </div>
+</section>
+
+<!-- ── What it prints ───────────────────────────────────────────────────── -->
+<section class="band band--soft" id="watch">
+  <div class="wrap">
+    <h2>What it actually prints</h2>
+    <p class="band__lede">
+      Not a mockup. This is stdout from a real run — scaffold, pack, plan,
+      harness, gate — captured by <code>npm run docs:terminal</code> and committed
+      to the repository. A test checks it was recorded from this version of the CLI.
+    </p>
+
+    <figure class="term" data-term-src="./assets/terminal-demo.json">
+      <figcaption class="term__bar">
+        <span class="term__dots" aria-hidden="true"></span>
+        <span class="term__title">smart-parking</span>
+        <span class="term__controls">
+          <button class="term__btn term__btn--toggle" type="button" hidden>Pause</button>
+          <button class="term__btn term__btn--skip" type="button" hidden>Show all</button>
+          <button class="term__btn term__btn--replay" type="button" hidden>Replay</button>
+        </span>
+      </figcaption>
+      <div class="term__screen" aria-hidden="true"></div>
+      <p class="term__caption" aria-hidden="true"></p>
+<!-- csda:terminal:begin — generated; edit the source, not this block -->
+<pre class="term__transcript"><code>~ $ cat smart-parking.yaml
+PROJECT_NAME: Smart Parking
+PROJECT_SLUG: smart-parking
+PROJECT_TYPE: backend
+DOMAIN: parking operations
+STACK: Node 20, Express, PostgreSQL
+API_STYLE: REST with DTO boundaries
+TESTING: node:test
+
+~ $ specgate init --config ./smart-parking.yaml --out . --no-git
+ℹ️ [INFO] 🧩 Rendering base template
+ℹ️ [INFO] 🛠️ Applying project type template: backend
+ℹ️ [INFO] 🧩 No optional modules selected. Generating base + project-type features only.
+ℹ️ [INFO] 📋 Summary
+ℹ️ [INFO] - Project: Smart Parking
+ℹ️ [INFO] - Slug: smart-parking
+ℹ️ [INFO] - Type: backend
+ℹ️ [INFO] - Domain: parking operations
+ℹ️ [INFO] - Output: ~/smart-parking
+ℹ️ [INFO] - Dry-run: false
+ℹ️ [INFO] - Git: skipped
+ℹ️ [INFO] ✅ Generation completed
+
+~/smart-parking $ specgate specops add --pack-root ~/packs --pack multi-tenant/backend --var &quot;PROJECT_NAME=Smart Parking&quot; --var PROJECT_SLUG=smart-parking --var &quot;DOMAIN=parking operations&quot;
+ℹ  Adding multi-tenant/backend to ~/smart-parking
+ℹ️ [INFO] Using pack: ~/packs/multi-tenant/backend/pack.yaml
+ℹ️ [INFO] Generated 3 scenario file(s).
+ℹ️ [INFO] Domain pack expansion completed.
+
+~/smart-parking $ specgate plan
+  Needs Feature + Test + Code
+    REQ-002   SCN-001
+      ✓ feature: `features/multi-tenant/provisioning_a_tenant_emits_tenantprovisioned.feature`
+    REQ-001   SCN-002
+      ✓ feature: `features/multi-tenant/cross_tenant_read_attempts_are_rejected.feature`
+    REQ-003   SCN-003
+      ✓ feature: `features/multi-tenant/exceeding_a_quota_emits_quotaexceeded.feature`
+
+  Needs Implementation
+    REQ-000   SCN-000
+      ✓ feature: `features/core/health.feature`
+      · code:    `API /health`, smoke test
+
+~/smart-parking $ cat harness.config.yaml
+harness_version: 1
+agent: 'csda-stub-agent {prompt_file}'
+test_cmd: 'node --test test/*.test.js'
+max_attempts: 1
+
+~/smart-parking $ specgate harness run --req REQ-000
+ℹ️  [harness] Processing 1 requirement(s) from base HEAD.
+⚠️  [harness] REQ-000: the row declares no test artifact, so the agent chooses where the test goes and the matrix will point somewhere else. [requirement_declares_no_test_artifact]
+⚠️  [harness]   fix: specgate req link REQ-000 --test &lt;path&gt;
+ℹ️  [harness] REQ-000: attempt 1/1
+
+── harness report ──
+  ✅ REQ-000  pass (1 attempt)  → harness/REQ-000
+
+  1 passed · 0 failed · 0 skipped
+  Review and merge the harness/* branches you trust.
+ℹ️  [harness] Run recorded in .harness/runs/2026-01-01T00-00-00-000Z.json — `specgate harness report`
+
+~/smart-parking $ git diff --stat main harness/REQ-000
+ .../REQ-000-2026-01-01T00-00-00-000Z-attempt-1-agent.md | 83 +++++++++++++++++++++++++
+ docs/specs/traceability.md                              |  2 +-
+ src/health.js                                           |  9 +++
+ test/health.test.js                                     | 10 +++
+ 4 files changed, 103 insertions(+), 1 deletion(-)
+
+~/smart-parking $ git switch -q harness/REQ-000 &amp;&amp; node --test test/*.test.js
+✔ GET /health reports the service as UP (12ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1.234
+
+~/smart-parking $ specgate validate .
+ℹ️ [INFO] ✅ Validation passed
+ℹ️ [INFO] - Features detected: 4
+ℹ️ [INFO] - Base SDD structure: complete
+ℹ️ [INFO] - Traceability mode: rich
+</code></pre>
+<!-- csda:terminal:end -->
+    </figure>
+
+    <p class="term__meta">
+      Recorded from <strong>v0.8.1</strong>. <a href="./tutorial.html">The same run, explained →</a>
+    </p>
+  </div>
+</section>
+
+
+<!-- ── Agents ───────────────────────────────────────────────────────────── -->
+<section class="band">
+  <div class="wrap">
+    <h2>Bring your own agent</h2>
+    <p class="band__lede">
+      No agent runtime, no SDK dependency. The agent is any shell command
+      containing <code>{prompt_file}</code> — the harness writes the prompt,
+      substitutes the path, and reads the exit code plus the gate result.
+    </p>
+
+    <figure class="code" data-lang="bash">
+      <button class="code__copy" type="button" aria-label="Copy to clipboard">Copy</button>
+      <pre><code class="language-bash">specgate harness run --agent "claude -p &lt; {prompt_file}"
+specgate harness run --agent "aider --yes --message-file {prompt_file}"
+specgate harness run --agent "./my-wrapper.sh {prompt_file}"   # anything else</code></pre>
+    </figure>
+
+    <p>
+      Commit the commands your team uses in <code>.harness/profiles.yaml</code>
+      and pick one by name — or let a profile select itself per requirement, so
+      an infrastructure task and a domain task get different tools and different
+      allowances in the same run.
+    </p>
+
+    <p class="tools">
+      <span>Wired from one definition:</span>
+      <code>claude</code><code>claude-plugin</code><code>cursor</code><code>copilot</code><code>windsurf</code><code>aider</code><code>gemini</code><code>cline</code><code>codex</code><code>antigravity</code>
+    </p>
+
+    <p><a class="button" href="./agent-setup.html">Choosing your agent →</a>
+       <a class="button button--quiet" href="./harness.html">How the harness works →</a>
+       <a class="button button--quiet" href="./agents.html">Wiring agent tools →</a></p>
+  </div>
+</section>
+
+<!-- ── What the gate checks ─────────────────────────────────────────────── -->
+<section class="band band--soft" id="evidence">
+  <div class="wrap">
+    <h2>What the gate actually checks</h2>
+    <p class="band__lede">
+      Every item here exists because the loop was caught approving work it had
+      not checked. They are not features; they are scars.
+    </p>
+
+    <ul class="scars">
+      <li>
+        <strong>27 of 28</strong> scenarios in the shipped domain packs executed
+        nothing. Gherkin keywords are case-sensitive, so <code>GIVEN</code> parsed
+        as prose — no error, no warning, and an empty scenario passes. The
+        in-house linter matched case-insensitively and called all 28 fine.
+      </li>
+      <li>
+        An agent that could not pass a scenario <strong>rewrote the scenario</strong>
+        as <code>Given nothing / Then nothing is asserted</code> and got
+        <code>1 passed &middot; 0 failed</code>. The branch was published and the
+        requirement closed.
+      </li>
+      <li>
+        <strong>10 of 11</strong> packs failed the JSON schema while all 11 passed
+        <code>pack lint --strict</code>. A schema that declares authority it does
+        not exercise is worse than none.
+      </li>
+    </ul>
+
+    <p class="scars__note">
+      All three were found by running the tool against a real project and reading
+      the output, not by reasoning about it. Each is now a test that fails when
+      the guard is removed.
+    </p>
+
+    <div class="grid">
+      <article>
+        <h3>The scenario can fail</h3>
+        <p>Gherkin keywords are case-sensitive, so <code>GIVEN</code> is prose and
+           the scenario runs zero steps — and passes. The gate refuses a scenario
+           Cucumber would see as empty.</p>
+      </article>
+      <article>
+        <h3>The scenario actually ran</h3>
+        <p>A filter that matches nothing exits 0. When the runner is Cucumber, the
+           gate reads its message protocol instead of its exit code.</p>
+      </article>
+      <article>
+        <h3>The agent did not edit the contract</h3>
+        <p>An agent that cannot pass a scenario can relax the scenario. Touching
+           <code>spec.md</code>, <code>features/**</code> or the rules fails the
+           attempt, with the diff fed back.</p>
+      </article>
+      <article>
+        <h3>The diff touched what was promised</h3>
+        <p>The matrix names a test and a production artifact. A green diff that
+           never goes near them is reported, and fails under
+           <code>--strict-artifacts</code>.</p>
+      </article>
+      <article>
+        <h3>The requirement was worth attempting</h3>
+        <p>No feature file, unmet dependencies, or a status of
+           <code>Needs Clarification</code> — checked before an agent is paid for,
+           not after.</p>
+      </article>
+      <article>
+        <h3>The run has a ceiling</h3>
+        <p><code>--budget-seconds</code> and <code>--max-requirements</code>. Running
+           out is not an error: the run stops cleanly and still reports what it
+           did.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ── Where it sits ────────────────────────────────────────────────────── -->
+<section class="band">
+  <div class="wrap">
+    <h2>How it compares</h2>
+    <p class="band__lede">
+      OpenSpec is the closest thing and the one worth reading first. The honest
+      summary: it is smaller, and smaller is a feature.
+    </p>
+
+    <div class="table-wrap">
+      <table class="compare">
+        <thead>
+          <tr><th>&nbsp;</th><th>Specgate</th><th>OpenSpec</th><th>Spec Kit</th><th>A wiki page</th></tr>
+        </thead>
+        <tbody>
+          <tr><th>Change lifecycle: propose → review → archive</th><td class="y">yes</td><td class="y">yes — their idea first</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th>Traceability matrix that CI enforces</th><td class="y">yes</td><td class="n">no</td><td class="m">basic</td><td class="n">no</td></tr>
+          <tr><th>Gherkin a real runner executes</th><td class="y">yes</td><td class="m">prose scenarios</td><td class="m">via templates</td><td class="n">no</td></tr>
+          <tr><th>Versioned, installable domain packs</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th>Unattended harness with a gate</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th>MCP server and language server</th><td class="y">both shipped</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th>Concepts you have to learn</th><td class="m">more</td><td class="y">fewer</td><td class="y">fewer</td><td class="y">none</td></tr>
+          <tr><th>Shortest path to a working loop today</th><td class="m">no</td><td class="y">yes</td><td class="m">—</td><td class="y">yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="compare__note">
+      If you want the change loop and nothing else, or your specs are prose
+      rather than a domain model, OpenSpec is the better tool and the table says
+      so. We took the delta format and the audited agent contract from their
+      design.
+      <a href="./comparisons.html">The full comparison, including where we lose →</a>
+    </p>
+  </div>
+</section>
+
+<!-- ── Running it for real ──────────────────────────────────────────────── -->
+<section class="band band--soft">
+  <div class="wrap">
+    <h2>The parts a team asks about second</h2>
+    <p class="band__lede">
+      The specification layer is the interesting half. This is the other half —
+      the answers that decide whether it survives contact with a real
+      organisation.
+    </p>
+
+    <div class="grid">
+      <article>
+        <h3>It runs in your CI, not its own</h3>
+        <p><code>specgate ci init</code> writes the workflow for GitHub Actions,
+           GitLab, Azure Pipelines, CircleCI or Jenkins. The gate is one command
+           with a JSON mode, so it fits whatever you already have.</p>
+      </article>
+      <article>
+        <h3>Your issue tracker stays yours</h3>
+        <p><code>specgate alm sync</code> pushes requirements to Jira, Azure Boards,
+           GitHub or GitLab and <code>specgate alm pull</code> brings status back. The
+           board is a mirror; it never gets to define what a requirement
+           <em>is</em>.</p>
+      </article>
+      <article>
+        <h3>An audit surface of one package</h3>
+        <p>Zero runtime dependencies. A CycloneDX SBOM is generated on every push
+           and kept 90 days, the licence policy is a build gate, and every domain
+           pack is pinned by content digest in <code>.specops.lock</code>.</p>
+      </article>
+      <article>
+        <h3>In the editor, and in the agent</h3>
+        <p>A language server and an MCP server ship in this repository, along
+           with VS Code and IntelliJ extensions — built and installable from
+           source, not yet on either marketplace.</p>
+      </article>
+    </div>
+
+    <p><a class="button" href="./automation.html">CI and automation →</a>
+       <a class="button button--quiet" href="./alm.html">Issue trackers →</a>
+       <a class="button button--quiet" href="./supply-chain.html">Supply chain →</a></p>
+  </div>
+</section>
+
+<!-- ── FAQ ──────────────────────────────────────────────────────────────── -->
+<section class="band">
+  <div class="wrap wrap--narrow">
+    <h2>Questions people actually ask</h2>
+
+    <details>
+      <summary>Do I have to use DDD, hexagonal architecture and CQRS?</summary>
+      <p>No. Patterns are optional; principles are not (ADR-0022). Pick an
+         architecture profile and you get only the vocabulary it declares — a
+         static site is not handed six documents describing aggregates it does
+         not have.</p>
+    </details>
+
+    <details>
+      <summary>Does it work on a repository that already exists?</summary>
+      <p>Yes — <code>specgate adopt</code> installs the specification layer without
+         touching your code. Checks that a legacy repository cannot pass yet are
+         flags, and <code>specgate doctor</code> reports them as advisories with a
+         fix, so adoption is a door rather than a wall.</p>
+    </details>
+
+    <details>
+      <summary>Which AI agent does it need?</summary>
+      <p>None in particular, and none at all if you do not want one. Every
+         command works by hand. The harness takes any shell command; there is no
+         SDK and no vendor lock.</p>
+    </details>
+
+    <details>
+      <summary>Will the harness merge things for me?</summary>
+      <p>Never. It produces a branch per requirement and stops. Merging is a
+         judgement, and a tool that merges its own work removes the only place a
+         person was still reviewing it.</p>
+    </details>
+
+    <details>
+      <summary>What does it cost to run?</summary>
+      <p>Whatever your agent costs — the harness measures wall-clock, because an
+         agent is any shell command and only the agent knows its token spend. A
+         profile may declare a cost hint, and the report multiplies it out and
+         says it is declared rather than measured.</p>
+    </details>
+
+    <details>
+      <summary>How is this different from OpenSpec or Spec Kit?</summary>
+      <p>Mostly in what happens after the specification is written. See the
+         <a href="./comparisons.html">comparison</a>, which is honest about where
+         the others are the better choice.</p>
+    </details>
+  </div>
+</section>
+
+<!-- ── Resources ────────────────────────────────────────────────────────── -->
+<section class="band">
+  <div class="wrap">
+    <header class="sec">
+      <p class="sec__label">Resources</p>
+      <h2>Keep reading</h2>
+    </header>
+
+    <div class="res">
+      <a class="res__card" href="./tutorial.html">
+        <strong>Tutorial</strong>
+        <span>Smart Parking, from a blank folder to a delivered requirement.</span>
+      </a>
+      <a class="res__card" href="./case-studies/case-1.html">
+        <strong>Worked example</strong>
+        <span>A brownfield repository adopted end to end.</span>
+      </a>
+      <a class="res__card" href="./articles/specs-that-cannot-lie.html">
+        <strong>The gate that approved work it never checked</strong>
+        <span>What went wrong, and what the gate does about it now.</span>
+      </a>
+      <a class="res__card" href="./packs/">
+        <strong>Domain packs</strong>
+        <span>Curated requirement sets you can install and argue with.</span>
+      </a>
+      <a class="res__card" href="./supply-chain.html">
+        <strong>Supply chain</strong>
+        <span>SBOM, provenance and the licence allow-list.</span>
+      </a>
+      <a class="res__card" href="./release-process.html">
+        <strong>Releases</strong>
+        <span>How a version is cut, and what is supported.</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Close ────────────────────────────────────────────────────────────── -->
+<section class="band band--soft close">
+  <div class="wrap wrap--narrow">
+    <h2>Start with an empty folder</h2>
+    <figure class="code" data-lang="bash">
+      <button class="code__copy" type="button" aria-label="Copy to clipboard">Copy</button>
+      <pre><code class="language-bash">npx @rsaglobaltech/specgate@latest init
+cd my-spec-driven-app
+specgate validate .</code></pre>
+    </figure>
+    <p class="hero__cta">
+      <a class="button button--primary" href="./getting-started.html">Getting started</a>
+      <a class="button" href="./quickstart.html">I was handed a repo</a>
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p>
+      <strong>Specgate</strong> · MIT ·
+      <a href="https://www.npmjs.com/package/@rsaglobaltech/specgate" target="_blank" rel="noreferrer">npm</a> ·
+      <a href="https://github.com/rsaglobaltech/specgate" target="_blank" rel="noreferrer">GitHub</a> ·
+      <a href="./docs.html">Docs</a> ·
+      <a href="./supply-chain.html">Supply chain</a> ·
+      <a href="./release-process.html">Releases</a>
+    </p>
+    <p class="foot__note">
+      Documentation for v0.8.1. Every number on this page is generated from the
+      repository, not typed by hand.
+    </p>
+  </div>
+</footer>
+
+<div class="palette" id="palette" hidden>
+  <div class="palette__scrim" data-close="1"></div>
+  <div class="palette__box" role="dialog" aria-modal="true" aria-label="Search documentation">
+    <div class="palette__field">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="search" id="palette-input" placeholder="Search the documentation…"
+             autocomplete="off" spellcheck="false" aria-label="Search documentation"
+             aria-controls="results" aria-expanded="true">
+      <kbd class="palette__esc">Esc</kbd>
+    </div>
+    <div class="palette__results" id="results" role="listbox" aria-label="Results"></div>
+    <p class="palette__hint">
+      <kbd>↑</kbd><kbd>↓</kbd> to navigate · <kbd>↵</kbd> to open · <kbd>Esc</kbd> to close
+    </p>
+  </div>
+</div>
+
+<script src="./assets/docs.js" defer></script>
+</body>
+</html>

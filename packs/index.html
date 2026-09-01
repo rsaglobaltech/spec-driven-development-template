@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec-Driven Pack Registry</title>
+<meta name="description" content="Browse 11 curated domain packs for create-spec-driven-app. Each pack ships requirements, use cases, DDD aggregates, events, and Gherkin scenarios.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Spec-Driven Pack Registry">
+<meta property="og:image" content="https://rsaglobaltech.github.io/specgate/assets/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../assets/docs.css">
+<script>
+  // Same pre-paint theme read as the rest of the site, so following a link here
+  // does not flip from light to dark.
+  (function () {
+    var t = localStorage.getItem("csda-theme");
+    if (t) document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<style>
+  /*
+   * The registry is a card grid, so it needs layout of its own — but the
+   * header, footer, colours, fonts and theme all come from assets/docs.css,
+   * the same file every documentation page uses. It used to carry a second
+   * palette and a second top bar, which is what made it read as a different
+   * site.
+   */
+
+  .registry { padding: 2.5rem 0 4rem; }
+
+  .registry h1 {
+    font-size: clamp(1.8rem, 4vw, 2.4rem);
+    letter-spacing: -0.02em;
+    margin: 0 0 0.75rem;
+  }
+
+  .registry__lede {
+    max-width: 42rem;
+    color: var(--fg-soft);
+    line-height: 1.7;
+    margin: 0 0 2rem;
+  }
+  .registry__lede code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--bg-code);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 0.1em 0.35em;
+    color: var(--fg);
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: 1.25rem;
+    margin: 0 0 3rem;
+    padding: 1.5rem 0;
+    border-block: 1px solid var(--line);
+  }
+  .stats div { text-align: center; }
+  .stats dt {
+    font-family: var(--mono);
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .stats dd { margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--fg-soft); }
+
+  .grid-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+  }
+  .grid-header h2 { font-size: 1.2rem; margin: 0; }
+  .count-badge {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--fg-soft);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+    gap: 1rem;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.15rem;
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .card:hover { border-color: var(--accent); }
+  .card.hidden { display: none; }
+
+  .card__head { display: flex; align-items: flex-start; gap: 0.7rem; }
+  .card__icon { font-size: 1.3rem; line-height: 1.2; }
+  .card__title-block { flex: 1; min-width: 0; }
+  .card__name { font-size: 1rem; margin: 0; }
+  .card__id {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--fg-faint);
+  }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 999px;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid var(--line);
+    color: var(--fg-soft);
+    white-space: nowrap;
+  }
+  .badge--pass { color: var(--green); border-color: color-mix(in srgb, var(--green) 45%, transparent); }
+  .badge--warn { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+  .badge--fail { color: var(--red); border-color: color-mix(in srgb, var(--red) 45%, transparent); }
+
+  .card__tagline { margin: 0; font-size: 0.88rem; color: var(--fg-soft); line-height: 1.55; }
+
+  .card__stats { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
+  .stat { font-size: 0.78rem; color: var(--fg-soft); }
+  .stat__val { font-family: var(--mono); font-weight: 600; color: var(--fg); }
+  .stat__label { margin-left: 0.25rem; }
+
+  .card__cmd-wrap { position: relative; margin-top: auto; }
+  .card__cmd {
+    margin: 0;
+    padding: 0.6rem 4rem 0.6rem 0.7rem;
+    background: var(--bg-code);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--fg);
+  }
+  .card__copy {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--fg-soft);
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    padding: 0.15rem 0.45rem;
+  }
+  .card__copy:hover { color: var(--fg); border-color: var(--accent); }
+  .card__copy.copied { color: var(--green); border-color: var(--green); }
+
+  .card__foot {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--line);
+  }
+  .card__ver, .card__lang, .card__type {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--fg-faint);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.05rem 0.35rem;
+  }
+
+  .lint-details { font-size: 0.8rem; color: var(--fg-soft); }
+  .lint-details summary { cursor: pointer; }
+  .lint-list { margin: 0.5rem 0 0; padding-left: 1.1rem; }
+
+  .no-results { display: none; color: var(--fg-soft); grid-column: 1 / -1; }
+  .no-results.visible { display: block; }
+
+  @media (max-width: 700px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#packs">Skip to the packs</a>
+
+<header class="top">
+  <a class="top__brand" href="../index.html"><span aria-hidden="true">⬡</span> create-spec-driven-app</a>
+  <div class="top__search">
+    <input type="search" id="search" placeholder="Search packs…" aria-label="Search packs" autocomplete="off">
+  </div>
+  <nav class="top__links">
+    <a href="../docs.html">Docs</a>
+    <a href="../domain-packs.html">Using packs</a>
+    <a href="https://github.com/rsaglobaltech/specgate" target="_blank" rel="noreferrer">GitHub</a>
+  </nav>
+  <button class="top__theme" type="button" aria-label="Switch theme">◐</button>
+</header>
+
+<main class="wrap registry" id="packs">
+  <h1>Spec-Driven Pack Registry</h1>
+  <p class="registry__lede">
+    Curated domain packs for <code>create-spec-driven-app</code>. Each ships
+    requirements, use cases, aggregates, events and Gherkin scenarios, ready to
+    expand into a project — see <a href="../domain-packs.html">Domain packs</a>
+    for what that means and how to write your own.
+  </p>
+
+  <dl class="stats">
+    <div><dt>11</dt><dd>packs</dd></div>
+    <div><dt>11</dt><dd>passing lint</dd></div>
+    <div><dt>48</dt><dd>requirements</dd></div>
+    <div><dt>27</dt><dd>scenarios</dd></div>
+  </dl>
+
+  <div class="grid-header">
+    <h2>All packs</h2>
+    <span class="count-badge" id="visible-count">11 shown</span>
+  </div>
+  <div class="grid" id="pack-grid">
+
+<article class="card" data-name="audit log" data-id="audit-log/backend">
+  <div class="card__head">
+    <span class="card__icon">📋</span>
+    <div class="card__title-block">
+      <h2 class="card__name">Audit Log</h2>
+      <span class="card__id">audit-log/backend</span>
+    </div>
+    <span class="badge badge--pass">verified</span>
+  </div>
+  <p class="card__tagline">Immutable event trail, GDPR-compliant queries</p>
+  <div class="card__stats">
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">req</span></div>
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">use cases</span></div>
+    <div class="stat"><span class="stat__val">1</span><span class="stat__label">aggregates</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">events</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">scenarios</span></div>
+  </div>
+  <div class="card__cmd-wrap">
+    <pre class="card__cmd" id="cmd-audit-log-backend">npx create-spec-driven-app expand \
+  --pack-root ./packs --pack audit-log/backend \
+  --project-dir ./my-project \
+  --var PROJECT_NAME="My App" \
+  --var PROJECT_SLUG=my-app \
+  --var DOMAIN="audit-log"</pre>
+    <button class="card__copy" data-target="cmd-audit-log-backend" aria-label="Copy expand command">Copy</button>
+  </div>
+  <div class="card__foot">
+    <span class="card__ver">v0.1.0</span>
+    <span class="card__lang">EN</span>
+    <span class="card__type">backend</span>
+  </div>
+  
+</article>
+
+<article class="card" data-name="authentication" data-id="auth/backend">
+  <div class="card__head">
+    <span class="card__icon">🔐</span>
+    <div class="card__title-block">
+      <h2 class="card__name">Authentication</h2>
+      <span class="card__id">auth/backend</span>
+    </div>
+    <span class="badge badge--pass">verified</span>
+  </div>
+  <p class="card__tagline">Authentication, JWT, OAuth2, RBAC &amp; MFA</p>
+  <div class="card__stats">
+    <div class="stat"><span class="stat__val">5</span><span class="stat__label">req</span></div>
+    <div class="stat"><span class="stat__val">5</span><span class="stat__label">use cases</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">aggregates</span></div>
+    <div class="stat"><span class="stat__val">5</span><span class="stat__label">events</span></div>
+    <div class="stat"><span class="stat__val">3</span><span class="stat__label">scenarios</span></div>
+  </div>
+  <div class="card__cmd-wrap">
+    <pre class="card__cmd" id="cmd-auth-backend">npx create-spec-driven-app expand \
+  --pack-root ./packs --pack auth/backend \
+  --project-dir ./my-project \
+  --var PROJECT_NAME="My App" \
+  --var PROJECT_SLUG=my-app \
+  --var DOMAIN="auth"</pre>
+    <button class="card__copy" data-target="cmd-auth-backend" aria-label="Copy expand command">Copy</button>
+  </div>
+  <div class="card__foot">
+    <span class="card__ver">v0.1.0</span>
+    <span class="card__lang">EN</span>
+    <span class="card__type">backend</span>
+  </div>
+  
+</article>
+
+<article class="card" data-name="billing" data-id="billing/backend">
+  <div class="card__head">
+    <span class="card__icon">💳</span>
+    <div class="card__title-block">
+      <h2 class="card__name">Billing</h2>
+      <span class="card__id">billing/backend</span>
+    </div>
+    <span class="badge badge--pass">verified</span>
+  </div>
+  <p class="card__tagline">Subscriptions, invoicing &amp; payment processing</p>
+  <div class="card__stats">
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">req</span></div>
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">use cases</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">aggregates</span></div>
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">events</span></div>
+    <div class="stat"><span class="stat__val">3</span><span class="stat__label">scenarios</span></div>
+  </div>
+  <div class="card__cmd-wrap">
+    <pre class="card__cmd" id="cmd-billing-backend">npx create-spec-driven-app expand \
+  --pack-root ./packs --pack billing/backend \
+  --project-dir ./my-project \
+  --var PROJECT_NAME="My App" \
+  --var PROJECT_SLUG=my-app \
+  --var DOMAIN="billing"</pre>
+    <button class="card__copy" data-target="cmd-billing-backend" aria-label="Copy expand command">Copy</button>
+  </div>
+  <div class="card__foot">
+    <span class="card__ver">v0.1.0</span>
+    <span class="card__lang">EN</span>
+    <span class="card__type">backend</span>
+  </div>
+  
+</article>
+
+<article class="card" data-name="feature flags" data-id="feature-flags/backend">
+  <div class="card__head">
+    <span class="card__icon">🚩</span>
+    <div class="card__title-block">
+      <h2 class="card__name">Feature Flags</h2>
+      <span class="card__id">feature-flags/backend</span>
+    </div>
+    <span class="badge badge--pass">verified</span>
+  </div>
+  <p class="card__tagline">Gradual rollouts, A/B targeting &amp; kill-switches</p>
+  <div class="card__stats">
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">req</span></div>
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">use cases</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">aggregates</span></div>
+    <div class="stat"><span class="stat__val">3</span><span class="stat__label">events</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">scenarios</span></div>
+  </div>
+  <div class="card__cmd-wrap">
+    <pre class="card__cmd" id="cmd-feature-flags-backend">npx create-spec-driven-app expand \
+  --pack-root ./packs --pack feature-flags/backend \
+  --project-dir ./my-project \
+  --var PROJECT_NAME="My App" \
+  --var PROJECT_SLUG=my-app \
+  --var DOMAIN="feature-flags"</pre>
+    <button class="card__copy" data-target="cmd-feature-flags-backend" aria-label="Copy expand command">Copy</button>
+  </div>
+  <div class="card__foot">
+    <span class="card__ver">v0.1.0</span>
+    <span class="card__lang">EN</span>
+    <span class="card__type">backend</span>
+  </div>
+  
+</article>
+
+<article class="card" data-name="file storage" data-id="file-storage/backend">
+  <div class="card__head">
+    <span class="card__icon">📁</span>
+    <div class="card__title-block">
+      <h2 class="card__name">File Storage</h2>
+      <span class="card__id">file-storage/backend</span>
+    </div>
+    <span class="badge badge--pass">verified</span>
+  </div>
+  <p class="card__tagline">Upload pipeline, CDN delivery &amp; virus scanning</p>
+  <div class="card__stats">
+    <div class="stat"><span class="stat__val">5</span><span class="stat__label">req</span></div>
+    <div class="stat"><span class="stat__val">5</span><span class="stat__label">use cases</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">aggregates</span></div>
+    <div class="stat"><span class="stat__val">5</span><span class="stat__label">events</span></div>
+    <div class="stat"><span class="stat__val">3</span><span class="stat__label">scenarios</span></div>
+  </div>
+  <div class="card__cmd-wrap">
+    <pre class="card__cmd" id="cmd-file-storage-backend">npx create-spec-driven-app expand \
+  --pack-root ./packs --pack file-storage/backend \
+  --project-dir ./my-project \
+  --var PROJECT_NAME="My App" \
+  --var PROJECT_SLUG=my-app \
+  --var DOMAIN="file-storage"</pre>
+    <button class="card__copy" data-target="cmd-file-storage-backend" aria-label="Copy expand command">Copy</button>
+  </div>
+  <div class="card__foot">
+    <span class="card__ver">v0.1.0</span>
+    <span class="card__lang">EN</span>
+    <span class="card__type">backend</span>
+  </div>
+  
+</article>
+
+<article class="card" data-name="multi-tenant" data-id="multi-tenant/backend">
+  <div class="card__head">
+    <span class="card__icon">🏢</span>
+    <div class="card__title-block">
+      <h2 class="card__name">Multi-Tenant</h2>
+      <span class="card__id">multi-tenant/backend</span>
+    </div>
+    <span class="badge badge--pass">verified</span>
+  </div>
+  <p class="card__tagline">Tenant isolation, row-level security &amp; onboarding</p>
+  <div class="card__stats">
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">req</span></div>
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">use cases</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">aggregates</span></div>
+    <div class="stat"><span class="stat__val">3</span><span class="stat__label">events</span></div>
+    <div class="stat"><span class="stat__val">3</span><span class="stat__label">scenarios</span></div>
+  </div>
+  <div class="card__cmd-wrap">
+    <pre class="card__cmd" id="cmd-multi-tenant-backend">npx create-spec-driven-app expand \
+  --pack-root ./packs --pack multi-tenant/backend \
+  --project-dir ./my-project \
+  --var PROJECT_NAME="My App" \
+  --var PROJECT_SLUG=my-app \
+  --var DOMAIN="multi-tenant"</pre>
+    <button class="card__copy" data-target="cmd-multi-tenant-backend" aria-label="Copy expand command">Copy</button>
+  </div>
+  <div class="card__foot">
+    <span class="card__ver">v0.1.0</span>
+    <span class="card__lang">EN</span>
+    <span class="card__type">backend</span>
+  </div>
+  
+</article>
+
+<article class="card" data-name="notifications" data-id="notifications/backend">
+  <div class="card__head">
+    <span class="card__icon">🔔</span>
+    <div class="card__title-block">
+      <h2 class="card__name">Notifications</h2>
+      <span class="card__id">notifications/backend</span>
+    </div>
+    <span class="badge badge--pass">verified</span>
+  </div>
+  <p class="card__tagline">Email, SMS, push &amp; in-app delivery channels</p>
+  <div class="card__stats">
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">req</span></div>
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">use cases</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">aggregates</span></div>
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">events</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">scenarios</span></div>
+  </div>
+  <div class="card__cmd-wrap">
+    <pre class="card__cmd" id="cmd-notifications-backend">npx create-spec-driven-app expand \
+  --pack-root ./packs --pack notifications/backend \
+  --project-dir ./my-project \
+  --var PROJECT_NAME="My App" \
+  --var PROJECT_SLUG=my-app \
+  --var DOMAIN="notifications"</pre>
+    <button class="card__copy" data-target="cmd-notifications-backend" aria-label="Copy expand command">Copy</button>
+  </div>
+  <div class="card__foot">
+    <span class="card__ver">v0.1.0</span>
+    <span class="card__lang">EN</span>
+    <span class="card__type">backend</span>
+  </div>
+  
+</article>
+
+<article class="card" data-name="reporting" data-id="reporting/backend">
+  <div class="card__head">
+    <span class="card__icon">📊</span>
+    <div class="card__title-block">
+      <h2 class="card__name">Reporting</h2>
+      <span class="card__id">reporting/backend</span>
+    </div>
+    <span class="badge badge--pass">verified</span>
+  </div>
+  <p class="card__tagline">Scheduled reports, export formats &amp; dashboards</p>
+  <div class="card__stats">
+    <div class="stat"><span class="stat__val">5</span><span class="stat__label">req</span></div>
+    <div class="stat"><span class="stat__val">5</span><span class="stat__label">use cases</span></div>
+    <div class="stat"><span class="stat__val">3</span><span class="stat__label">aggregates</span></div>
+    <div class="stat"><span class="stat__val">6</span><span class="stat__label">events</span></div>
+    <div class="stat"><span class="stat__val">3</span><span class="stat__label">scenarios</span></div>
+  </div>
+  <div class="card__cmd-wrap">
+    <pre class="card__cmd" id="cmd-reporting-backend">npx create-spec-driven-app expand \
+  --pack-root ./packs --pack reporting/backend \
+  --project-dir ./my-project \
+  --var PROJECT_NAME="My App" \
+  --var PROJECT_SLUG=my-app \
+  --var DOMAIN="reporting"</pre>
+    <button class="card__copy" data-target="cmd-reporting-backend" aria-label="Copy expand command">Copy</button>
+  </div>
+  <div class="card__foot">
+    <span class="card__ver">v0.1.0</span>
+    <span class="card__lang">EN</span>
+    <span class="card__type">backend</span>
+  </div>
+  
+</article>
+
+<article class="card" data-name="api contracts pack" data-id="sample-contracts/contracts">
+  <div class="card__head">
+    <span class="card__icon">📦</span>
+    <div class="card__title-block">
+      <h2 class="card__name">API Contracts Pack</h2>
+      <span class="card__id">sample-contracts/contracts</span>
+    </div>
+    <span class="badge badge--pass">verified</span>
+  </div>
+  <p class="card__tagline">A machine-readable OpenAPI 3.x specification describing the provider's HTTP surface.</p>
+  <div class="card__stats">
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">req</span></div>
+    <div class="stat"><span class="stat__val">0</span><span class="stat__label">use cases</span></div>
+    <div class="stat"><span class="stat__val">0</span><span class="stat__label">aggregates</span></div>
+    <div class="stat"><span class="stat__val">0</span><span class="stat__label">events</span></div>
+    <div class="stat"><span class="stat__val">0</span><span class="stat__label">scenarios</span></div>
+  </div>
+  <div class="card__cmd-wrap">
+    <pre class="card__cmd" id="cmd-sample-contracts-contracts">npx create-spec-driven-app expand \
+  --pack-root ./packs --pack sample-contracts/contracts \
+  --project-dir ./my-project \
+  --var PROJECT_NAME="My App" \
+  --var PROJECT_SLUG=my-app \
+  --var DOMAIN="sample-contracts"</pre>
+    <button class="card__copy" data-target="cmd-sample-contracts-contracts" aria-label="Copy expand command">Copy</button>
+  </div>
+  <div class="card__foot">
+    <span class="card__ver">v0.1.0</span>
+    <span class="card__lang">EN</span>
+    <span class="card__type">contracts</span>
+  </div>
+  
+</article>
+
+<article class="card" data-name="search" data-id="search/backend">
+  <div class="card__head">
+    <span class="card__icon">🔍</span>
+    <div class="card__title-block">
+      <h2 class="card__name">Search</h2>
+      <span class="card__id">search/backend</span>
+    </div>
+    <span class="badge badge--pass">verified</span>
+  </div>
+  <p class="card__tagline">Full-text, facets, elasticsearch/pgvector adapters</p>
+  <div class="card__stats">
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">req</span></div>
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">use cases</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">aggregates</span></div>
+    <div class="stat"><span class="stat__val">3</span><span class="stat__label">events</span></div>
+    <div class="stat"><span class="stat__val">3</span><span class="stat__label">scenarios</span></div>
+  </div>
+  <div class="card__cmd-wrap">
+    <pre class="card__cmd" id="cmd-search-backend">npx create-spec-driven-app expand \
+  --pack-root ./packs --pack search/backend \
+  --project-dir ./my-project \
+  --var PROJECT_NAME="My App" \
+  --var PROJECT_SLUG=my-app \
+  --var DOMAIN="search"</pre>
+    <button class="card__copy" data-target="cmd-search-backend" aria-label="Copy expand command">Copy</button>
+  </div>
+  <div class="card__foot">
+    <span class="card__ver">v0.1.0</span>
+    <span class="card__lang">EN</span>
+    <span class="card__type">backend</span>
+  </div>
+  
+</article>
+
+<article class="card" data-name="webhooks" data-id="webhooks/backend">
+  <div class="card__head">
+    <span class="card__icon">🪝</span>
+    <div class="card__title-block">
+      <h2 class="card__name">Webhooks</h2>
+      <span class="card__id">webhooks/backend</span>
+    </div>
+    <span class="badge badge--pass">verified</span>
+  </div>
+  <p class="card__tagline">Event delivery, retry logic &amp; HMAC signing</p>
+  <div class="card__stats">
+    <div class="stat"><span class="stat__val">5</span><span class="stat__label">req</span></div>
+    <div class="stat"><span class="stat__val">5</span><span class="stat__label">use cases</span></div>
+    <div class="stat"><span class="stat__val">2</span><span class="stat__label">aggregates</span></div>
+    <div class="stat"><span class="stat__val">4</span><span class="stat__label">events</span></div>
+    <div class="stat"><span class="stat__val">3</span><span class="stat__label">scenarios</span></div>
+  </div>
+  <div class="card__cmd-wrap">
+    <pre class="card__cmd" id="cmd-webhooks-backend">npx create-spec-driven-app expand \
+  --pack-root ./packs --pack webhooks/backend \
+  --project-dir ./my-project \
+  --var PROJECT_NAME="My App" \
+  --var PROJECT_SLUG=my-app \
+  --var DOMAIN="webhooks"</pre>
+    <button class="card__copy" data-target="cmd-webhooks-backend" aria-label="Copy expand command">Copy</button>
+  </div>
+  <div class="card__foot">
+    <span class="card__ver">v0.1.0</span>
+    <span class="card__lang">EN</span>
+    <span class="card__type">backend</span>
+  </div>
+  
+</article>
+    <p class="no-results" id="no-results">No packs match your search.</p>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p>
+      <strong>create-spec-driven-app</strong> ·
+      <a href="../docs.html">Docs</a> ·
+      <a href="./manifest.json">manifest.json</a> ·
+    <a href="https://github.com/rsaglobaltech/specgate" target="_blank" rel="noreferrer">GitHub</a>
+    </p>
+    <p class="foot__note">
+      Generated 2026-09-01T16:32:07.342Z from <code>packs/&lt;domain&gt;/&lt;type&gt;/pack.yaml</code>.
+      Submit a pack by opening a pull request that adds one.
+    </p>
+  </div>
+</footer>
+
+<!-- The theme toggle and the pre-paint read come from the site's own script;
+     what follows is the pack filter, which only this page has. -->
+<script src="../assets/docs.js" defer></script>
+<script>
+(function () {
+  const input = document.getElementById('search');
+  const grid  = document.getElementById('pack-grid');
+  const cards = Array.from(grid.querySelectorAll('.card'));
+  const noRes = document.getElementById('no-results');
+  const countEl = document.getElementById('visible-count');
+
+  function filterCards(q) {
+    const term = q.trim().toLowerCase();
+    let visible = 0;
+    cards.forEach(function (card) {
+      const match = !term
+        || card.dataset.name.includes(term)
+        || card.dataset.id.includes(term);
+      card.classList.toggle('hidden', !match);
+      if (match) visible++;
+    });
+    countEl.textContent = visible + ' shown';
+    noRes.classList.toggle('visible', visible === 0);
+  }
+
+  input.addEventListener('input', function () { filterCards(input.value); });
+
+  // Copy-to-clipboard
+  grid.addEventListener('click', function (e) {
+    const btn = e.target.closest('.card__copy');
+    if (!btn) return;
+    const pre = document.getElementById(btn.dataset.target);
+    if (!pre) return;
+    navigator.clipboard.writeText(pre.textContent).then(function () {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(function () {
+        btn.textContent = 'Copy';
+        btn.classList.remove('copied');
+      }, 1500);
+    }).catch(function () {
+      btn.textContent = 'Copy manually';
+    });
+  });
+})();
+</script>
+</body>
+</html>
