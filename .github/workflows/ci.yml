@@ -2,7 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `develop` as well as `main`. Every pull request is merged into `develop`
+    # first and only a green `develop` reaches `main`, so the checks have to run
+    # on the branch that gate depends on — a merge that lands cleanly can still
+    # break a suite that neither side broke alone.
+    branches: [main, develop]
   pull_request:
 
 jobs:
