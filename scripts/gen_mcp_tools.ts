@@ -82,7 +82,7 @@ class CliInvoker {
    * fragments and the spawn failed with no output.
    */
   private static parseCliCommand(cliPath: string | undefined): string[] {
-    const raw = (cliPath || "npx specgate").trim();
+    const raw = (cliPath || "npx @rtexido/specgate").trim();
     const tokens: string[] = [];
     const re = /"([^"]*)"|'([^']*)'|(\\S+)/g;
     let m;

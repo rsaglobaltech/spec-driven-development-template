@@ -8,7 +8,7 @@ pipeline {
     stages {
         stage('Spec gate') {
             steps {
-                sh 'npx specgate@{{SPECGATE_VERSION}} validate . --strict-tdd'
+                sh 'npx @rtexido/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd'
             }
         }
         // Supply-chain gate: fails when rendered pack content no longer
@@ -18,7 +18,7 @@ pipeline {
             steps {
                 sh '''
                     if [ -f .specops.lock ]; then
-                        npx specgate@{{SPECGATE_VERSION}} validate . --against-lock
+                        npx @rtexido/specgate@{{SPECGATE_VERSION}} validate . --against-lock
                     else
                         echo "No .specops.lock — no packs installed, nothing to check."
                     fi
@@ -28,7 +28,7 @@ pipeline {
     }
     post {
         always {
-            sh 'npx specgate@{{SPECGATE_VERSION}} plan --project-dir . --format json > spec-plan.json || true'
+            sh 'npx @rtexido/specgate@{{SPECGATE_VERSION}} plan --project-dir . --format json > spec-plan.json || true'
             archiveArtifacts artifacts: 'spec-plan.json', allowEmptyArchive: true
         }
     }

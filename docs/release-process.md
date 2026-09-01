@@ -8,7 +8,7 @@ unticked long after 0.1.4 shipped).
 
 | Artefact | Registry | Workflow | Status |
 |---|---|---|---|
-| `specgate` | npm, public | `publish-npm.yml` | Live |
+| `@rtexido/specgate` | npm, public | `publish-npm.yml` | Live |
 | `@rsaglobaltech/specgate` | GitHub Packages | `publish-github-packages.yml` | Live |
 | CLI image | `ghcr.io` | `publish-docker.yml` | Live, `linux/amd64` and `linux/arm64` |
 | `specgate-maven-plugin` | Maven Central or an internal Nexus | none yet | C7-05 |
@@ -29,7 +29,7 @@ first `specgate` version is live on npm:
 
 ```bash
 npm deprecate create-spec-driven-app \
-  "Renamed to `specgate`. Install `specgate` instead — same tool, same CLI, and `csda` still works as a binary alias."
+  "Renamed to Specgate. Install @rtexido/specgate instead — same tool, same CLI, and csda still works as a binary alias."
 ```
 
 Deprecating does **not** unpublish. Every existing version stays installable, so
@@ -41,6 +41,15 @@ break for no gain.
 `ghcr.io/<owner>/specgate`. Tags already published as `csda` are never rebuilt
 in place and keep working — that rule predates the rename and does not bend for
 it.
+
+**2b. The unscoped name is not available.** `specgate` on the public registry is
+blocked by [`spec-gate`](https://www.npmjs.com/package/spec-gate): npm compares
+new names with punctuation removed, so the two collide and the registry answers
+`403 ... You may not perform that action with these credentials` — which reads
+like a token problem and is not one. The package is `@rtexido/specgate`; see the
+2026-09-01 addendum to [ADR-0024](specs/adr/0024-the-tool-is-renamed-the-format-is-not.md).
+A `npm view <name>` returning 404 means *not published*, never *creatable* —
+check a name by attempting a real publish.
 
 **3. The sibling packages move to `@specgate/*`.** They were never published
 under `@spec-driven/*` (verified: `npm view @spec-driven/core` → 404), so there
@@ -176,8 +185,8 @@ unpublished packages, no coverage output.
 ## Verifying a published release
 
 ```bash
-npx specgate@X.Y.Z --help
-npx specgate@X.Y.Z init --config ./project.config --out /tmp --dry-run
+npx @rtexido/specgate@X.Y.Z --help
+npx @rtexido/specgate@X.Y.Z init --config ./project.config --out /tmp --dry-run
 ```
 
 ## After the release

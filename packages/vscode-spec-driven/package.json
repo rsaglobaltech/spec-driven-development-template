@@ -76,8 +76,8 @@
       "properties": {
         "spec-driven.cliPath": {
           "type": "string",
-          "default": "npx create-spec-driven-app",
-          "description": "Command used to invoke create-spec-driven-app (can be a local path or npx invocation)."
+          "default": "npx @rtexido/specgate",
+          "description": "Command used to invoke Specgate (can be a local path or npx invocation)."
         },
         "spec-driven.validateOnSave": {
           "type": "boolean",

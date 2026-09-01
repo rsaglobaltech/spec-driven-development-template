@@ -48,19 +48,19 @@ function packageVersion(): string {
     if (fs.existsSync(candidate)) {
       try {
         const pkg = JSON.parse(fs.readFileSync(candidate, "utf8"));
-        // Both names are matched on purpose. The tool renamed to Specgate in
-        // ADR-0024, and a version lookup keyed to one spelling is how this
-        // silently announced 0.0.0 the last time a path assumption broke.
-        if (pkg.name === "@specgate/mcp-server" || pkg.name === "@spec-driven/mcp-server") {
-          return pkg.version;
+        // This package's own manifest, whatever it is called. Matching on an
+        // exact name is what made this announce 0.0.0 twice: once when a path
+        // assumption broke, and again when the CLI package became
+        // `@rtexido/specgate` and a hard-coded `"specgate"` stopped matching.
+        // The shape of the tree is the stable signal, not the spelling.
+        const sibling = path.join(dir, "packages", "mcp-spec-driven", "package.json");
+        if (fs.existsSync(sibling)) {
+          // Reached the repository root: the manifest is beside it, not above
+          // the compiled file, because the root build flattens into dist/.
+          return JSON.parse(fs.readFileSync(sibling, "utf8")).version;
         }
-        // Reached the repository root instead: the manifest is beside it, not
-        // above the compiled file, because the root build flattens into dist/.
-        if (pkg.name === "specgate" || pkg.name === "create-spec-driven-app") {
-          const sibling = path.join(dir, "packages", "mcp-spec-driven", "package.json");
-          if (fs.existsSync(sibling)) {
-            return JSON.parse(fs.readFileSync(sibling, "utf8")).version;
-          }
+        if (typeof pkg.name === "string" && pkg.name.endsWith("/mcp-server")) {
+          return pkg.version;
         }
       } catch {
         // Keep walking — a malformed manifest above us is not ours.

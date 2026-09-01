@@ -17,10 +17,10 @@ cd your-existing-repo
 npx create-spec-driven-app@latest onboard
 
 # Detects the stack from pom.xml / build.gradle / package.json / go.mod
-npx specgate@latest adopt
+npx @rtexido/specgate@latest adopt
 
 # Passes immediately — the generated baseline REQ-001 anchors the matrix
-npx specgate@latest validate .
+npx @rtexido/specgate@latest validate .
 ```
 
 Start with `onboard`. It proposes the capabilities your layout already implies
@@ -53,7 +53,7 @@ Override anything the detection got wrong with `--var`, and skip the proposals
 entirely with `--no-capabilities`:
 
 ```bash
-npx specgate@latest adopt \
+npx @rtexido/specgate@latest adopt \
   --var DOMAIN="health information exchange" \
   --var TEST_CMD="./mvnw -B verify"
 ```
@@ -93,7 +93,7 @@ cp examples/project.config.example /tmp/acme-energy-hub.config
 #   PROJECT_NAME, PROJECT_SLUG, PROJECT_TYPE, DOMAIN, STACK, API_STYLE, TESTING
 
 # 3. Scaffold
-npx specgate@latest init \
+npx @rtexido/specgate@latest init \
   --config /tmp/acme-energy-hub.config \
   --out /tmp
 

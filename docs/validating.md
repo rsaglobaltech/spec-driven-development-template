@@ -12,7 +12,7 @@ document — run it locally, then make it a required check.
 Local:
 
 ```bash
-npx specgate@latest validate .
+npx @rtexido/specgate@latest validate .
 ```
 
 GitHub Actions:
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
-      - run: npx --yes specgate@latest validate .
+      - run: npx --yes @rtexido/specgate@latest validate .
 ```
 
 What `validate` checks:
@@ -71,7 +71,7 @@ looking exactly like a healthy one at the only place most teams check. In
 **Goal:** fail PRs when a `REQ` exists in `spec.md` but has no scenario, no implementing test, or no row in `traceability.md`.
 
 ```bash
-npx specgate@latest validate . --strict-tdd
+npx @rtexido/specgate@latest validate . --strict-tdd
 ```
 
 `--strict-tdd` is in addition to the normal checks. It is intended for "no contract without a test" gates — particularly useful in `contracts` packs (see §8). Wire it into CI exactly like `validate`, just append the flag.
