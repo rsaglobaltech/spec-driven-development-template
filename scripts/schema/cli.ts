@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `csda schema init | fork | validate | which` — inspect and override the
+ * `specgate schema init | fork | validate | which` — inspect and override the
  * artefact graph a change follows.
  *
  * Most teams never touch this. It exists because "which artefacts does a
@@ -27,10 +27,10 @@ import {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda schema which [<name>]        where a schema comes from, and its graph\n" +
-      "  csda schema init <name>           write a new schema from the default\n" +
-      "  csda schema fork <from> <to>      copy a built-in into the project to edit\n" +
-      "  csda schema validate [<name>]     check a schema's graph is sound\n\n" +
+      "  specgate schema which [<name>]        where a schema comes from, and its graph\n" +
+      "  specgate schema init <name>           write a new schema from the default\n" +
+      "  specgate schema fork <from> <to>      copy a built-in into the project to edit\n" +
+      "  specgate schema validate [<name>]     check a schema's graph is sound\n\n" +
       `Built-in: ${Object.keys(BUILT_IN).join(", ")}\n` +
       `Project schemas live in ${SCHEMA_DIR}/<name>/${SCHEMA_FILE}.\n`
   );
@@ -115,7 +115,9 @@ export function main(argv) {
       io.usage(NULL_SHAPE, [
         error("schema_name_required", "Name the schema to create.", {
           fix:
-            action === "fork" ? "csda schema fork spec-driven my-flow" : "csda schema init my-flow",
+            action === "fork"
+              ? "specgate schema fork spec-driven my-flow"
+              : "specgate schema init my-flow",
         }),
       ]);
     }
@@ -144,7 +146,7 @@ export function main(argv) {
     return io.emit({ schema: { name: to, path: written, from } }, () =>
       process.stdout.write(
         `\n  ✔  ${to} written to ${written}\n     copied from ${from} (${source.source})\n\n` +
-          `  Use it: csda change new <id> --schema ${to}\n\n`
+          `  Use it: specgate change new <id> --schema ${to}\n\n`
       )
     );
   }
@@ -172,7 +174,7 @@ export function main(argv) {
     if (found.source === "built-in") {
       diagnostics.push(
         warning("schema_is_built_in", `"${name}" is built in — there is nothing to edit yet.`, {
-          fix: `csda schema fork ${name} my-${name}`,
+          fix: `specgate schema fork ${name} my-${name}`,
         })
       );
     }

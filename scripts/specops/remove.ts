@@ -3,10 +3,10 @@
  * `specops remove <pack-id>` — drop a pack entry from `.specops.lock`.
  *
  * By design this DOES NOT delete generated files (would be too easy to
- * destroy hand-edited tests). Run `csda specops sync` afterwards if you
+ * destroy hand-edited tests). Run `specgate specops sync` afterwards if you
  * want to regenerate the rest of the lockfile without the removed pack.
  *
- *   csda specops remove parking-management/backend
+ *   specgate specops remove parking-management/backend
  */
 
 import { resolveProjectDir } from "../lib/project-root";
@@ -38,7 +38,7 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}➖ specops remove${c.reset}  ${c.dim}— drop a pack from .specops.lock${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda specops remove${c.reset} <pack-id> [--project-dir <path>] [--dry-run]\n\n` +
+      `    ${c.cyan}specgate specops remove${c.reset} <pack-id> [--project-dir <path>] [--dry-run]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--project-dir <path>${c.reset}  ${c.dim}Project root (auto-detected from cwd if omitted).${c.reset}\n` +
       `    ${c.green}--dry-run${c.reset}             ${c.dim}Show what would be removed; touch nothing.${c.reset}\n` +

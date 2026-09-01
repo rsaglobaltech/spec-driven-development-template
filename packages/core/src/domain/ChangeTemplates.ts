@@ -1,5 +1,5 @@
 /**
- * The files `csda change new` scaffolds.
+ * The files `specgate change new` scaffolds.
  *
  * Prose follows the project's language; the grammar never does. `SHALL`,
  * `GIVEN`/`WHEN`/`THEN`, `## ADDED Requirements` and `REQ-NNN` are what the
@@ -42,7 +42,7 @@ export function templateTasks() {
 ## 1. Specification
 
 - [ ] 1.1 Write the delta spec for each affected capability
-- [ ] 1.2 Run \`csda change validate\`
+- [ ] 1.2 Run \`specgate change validate\`
 
 ## 2. Implementation
 
@@ -94,7 +94,7 @@ ${t.systemShall(t.observableBehaviour)}
  * the requirement") need no new tooling — they are pointed at from the
  * report and use `change new`/manual editing exactly as they already do.
  * This is the one route that is glue between pieces that already exist:
- * `csda report` finds the divergence, `renderRequirement` already knows how
+ * `specgate report` finds the divergence, `renderRequirement` already knows how
  * to serialise a requirement node, and `ArchiveChangeUseCase` already knows
  * how to apply a `MODIFIED Requirements` delta.
  *

@@ -10,7 +10,7 @@
 
 A **domain pack** is a single YAML file (`pack.yaml`) that encodes a
 reusable domain model for a specific business subdomain. When consumed by
-`csda expand`, it generates Gherkin feature files, domain
+`specgate expand`, it generates Gherkin feature files, domain
 documentation (traceability matrix, aggregates, commands, events, use cases)
 and AI guardrails.
 
@@ -457,10 +457,10 @@ typo and the linker breaks.
 
 ```bash
 # Mermaid (default) — renders natively in GitHub and VS Code
-csda pack lint --pack-root ./packs --pack billing/backend --graph
+specgate pack lint --pack-root ./packs --pack billing/backend --graph
 
 # Graphviz DOT
-csda pack lint --pack-root ./packs --pack billing/backend --graph --graph-format dot
+specgate pack lint --pack-root ./packs --pack billing/backend --graph --graph-format dot
 ```
 
 - Nodes: requirements, use cases, commands/queries, aggregates, events —
@@ -487,7 +487,7 @@ waterfall smell — the executable artifact comes last.
 `pack infer` inverts it. Write the Gherkin `.feature` first, then:
 
 ```bash
-csda pack infer --from ./drafts/capacity.feature
+specgate pack infer --from ./drafts/capacity.feature
 ```
 
 prints a proposed `pack.yaml` fragment — `requirements`, `use_cases`,

@@ -1,8 +1,6 @@
 // GENERATED FILE - DO NOT EDIT BY HAND
 // Derived from scripts/lib/surface.ts
 
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 
 export interface ITool {
@@ -41,9 +39,9 @@ export class GenericCliTool implements ITool {
   public handler(args: Record<string, unknown>) {
     const dir = ProjectHelper.ensureProjectDir(args.projectDir);
     const argv = this.csda.split(" ");
-    
+
     argv.push("--project-dir", dir);
-    
+
     // Pass args safely
     for (const [k, v] of Object.entries(args)) {
       if (k === "projectDir" || k === "cliPath") continue;
@@ -51,19 +49,21 @@ export class GenericCliTool implements ITool {
         argv.push(v); // Quick hack, we need proper arg mapping
       }
     }
-    
+
     if (!argv.includes("--json")) {
-       argv.push("--json");
+      argv.push("--json");
     }
 
     const result = CliInvoker.spawnCli(args.cliPath as string, argv);
     const combined = (result.stdout || "") + "\n" + (result.stderr || "");
     try {
       if (result.stdout && result.stdout.trim().startsWith("{")) {
-         return JSON.parse(result.stdout.trim());
+        return JSON.parse(result.stdout.trim());
       }
-    } catch(e) {}
-    
+    } catch {
+      // Not JSON: fall through to the raw envelope below.
+    }
+
     return {
       exitCode: typeof result.status === "number" ? result.status : 1,
       raw: combined.trim(),
@@ -81,9 +81,9 @@ TOOLS["csda_init"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_adopt"] = new GenericCliTool(
@@ -94,9 +94,9 @@ TOOLS["csda_adopt"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_onboard"] = new GenericCliTool(
@@ -107,9 +107,9 @@ TOOLS["csda_onboard"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_doctor"] = new GenericCliTool(
@@ -120,9 +120,9 @@ TOOLS["csda_doctor"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_status"] = new GenericCliTool(
@@ -133,9 +133,9 @@ TOOLS["csda_status"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_ci_init"] = new GenericCliTool(
@@ -146,9 +146,9 @@ TOOLS["csda_ci_init"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_alm_sync"] = new GenericCliTool(
@@ -159,50 +159,40 @@ TOOLS["csda_alm_sync"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
-TOOLS["csda_alm_link"] = new GenericCliTool(
-  "csda_alm_link",
-  "Run csda alm link",
-  "alm link",
-  {
-    type: "object",
-    properties: {
-      projectDir: { type: "string" },
-      cliPath: { type: "string" }
-    },
-    required: ["projectDir"]
-  }
-);
+TOOLS["csda_alm_link"] = new GenericCliTool("csda_alm_link", "Run specgate alm link", "alm link", {
+  type: "object",
+  properties: {
+    projectDir: { type: "string" },
+    cliPath: { type: "string" },
+  },
+  required: ["projectDir"],
+});
 TOOLS["csda_alm_status"] = new GenericCliTool(
   "csda_alm_status",
-  "Run csda alm status",
+  "Run specgate alm status",
   "alm status",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
-TOOLS["csda_alm_pull"] = new GenericCliTool(
-  "csda_alm_pull",
-  "Run csda alm pull",
-  "alm pull",
-  {
-    type: "object",
-    properties: {
-      projectDir: { type: "string" },
-      cliPath: { type: "string" }
-    },
-    required: ["projectDir"]
-  }
-);
+TOOLS["csda_alm_pull"] = new GenericCliTool("csda_alm_pull", "Run specgate alm pull", "alm pull", {
+  type: "object",
+  properties: {
+    projectDir: { type: "string" },
+    cliPath: { type: "string" },
+  },
+  required: ["projectDir"],
+});
 TOOLS["validate_project"] = new GenericCliTool(
   "validate_project",
   "Check structure, traceability, Gherkin (+ --strict-tdd / --strict-scenarios / --strict-requirements / --strict-links / --against-lock gates).",
@@ -211,9 +201,9 @@ TOOLS["validate_project"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_expand"] = new GenericCliTool(
@@ -224,9 +214,9 @@ TOOLS["csda_expand"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["plan"] = new GenericCliTool(
@@ -237,9 +227,9 @@ TOOLS["plan"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_report"] = new GenericCliTool(
@@ -250,9 +240,9 @@ TOOLS["csda_report"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["mark_requirement_done"] = new GenericCliTool(
@@ -263,63 +253,43 @@ TOOLS["mark_requirement_done"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
-TOOLS["csda_req_add"] = new GenericCliTool(
-  "csda_req_add",
-  "Run csda req add",
-  "req add",
-  {
-    type: "object",
-    properties: {
-      projectDir: { type: "string" },
-      cliPath: { type: "string" }
-    },
-    required: ["projectDir"]
-  }
-);
-TOOLS["csda_req_link"] = new GenericCliTool(
-  "csda_req_link",
-  "Run csda req link",
-  "req link",
-  {
-    type: "object",
-    properties: {
-      projectDir: { type: "string" },
-      cliPath: { type: "string" }
-    },
-    required: ["projectDir"]
-  }
-);
-TOOLS["csda_req_done"] = new GenericCliTool(
-  "csda_req_done",
-  "Run csda req done",
-  "req done",
-  {
-    type: "object",
-    properties: {
-      projectDir: { type: "string" },
-      cliPath: { type: "string" }
-    },
-    required: ["projectDir"]
-  }
-);
-TOOLS["csda_req_list"] = new GenericCliTool(
-  "csda_req_list",
-  "Run csda req list",
-  "req list",
-  {
-    type: "object",
-    properties: {
-      projectDir: { type: "string" },
-      cliPath: { type: "string" }
-    },
-    required: ["projectDir"]
-  }
-);
+TOOLS["csda_req_add"] = new GenericCliTool("csda_req_add", "Run specgate req add", "req add", {
+  type: "object",
+  properties: {
+    projectDir: { type: "string" },
+    cliPath: { type: "string" },
+  },
+  required: ["projectDir"],
+});
+TOOLS["csda_req_link"] = new GenericCliTool("csda_req_link", "Run specgate req link", "req link", {
+  type: "object",
+  properties: {
+    projectDir: { type: "string" },
+    cliPath: { type: "string" },
+  },
+  required: ["projectDir"],
+});
+TOOLS["csda_req_done"] = new GenericCliTool("csda_req_done", "Run specgate req done", "req done", {
+  type: "object",
+  properties: {
+    projectDir: { type: "string" },
+    cliPath: { type: "string" },
+  },
+  required: ["projectDir"],
+});
+TOOLS["csda_req_list"] = new GenericCliTool("csda_req_list", "Run specgate req list", "req list", {
+  type: "object",
+  properties: {
+    projectDir: { type: "string" },
+    cliPath: { type: "string" },
+  },
+  required: ["projectDir"],
+});
 TOOLS["csda_fix"] = new GenericCliTool(
   "csda_fix",
   "Apply the fixes validate suggests (--dry-run to preview).",
@@ -328,113 +298,113 @@ TOOLS["csda_fix"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_change_new"] = new GenericCliTool(
   "csda_change_new",
-  "Run csda change new",
+  "Run specgate change new",
   "change new",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_change_list"] = new GenericCliTool(
   "csda_change_list",
-  "Run csda change list",
+  "Run specgate change list",
   "change list",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_change_show"] = new GenericCliTool(
   "csda_change_show",
-  "Run csda change show",
+  "Run specgate change show",
   "change show",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_change_status"] = new GenericCliTool(
   "csda_change_status",
-  "Run csda change status",
+  "Run specgate change status",
   "change status",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_change_validate"] = new GenericCliTool(
   "csda_change_validate",
-  "Run csda change validate",
+  "Run specgate change validate",
   "change validate",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_change_archive"] = new GenericCliTool(
   "csda_change_archive",
-  "Run csda change archive",
+  "Run specgate change archive",
   "change archive",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_change_instructions"] = new GenericCliTool(
   "csda_change_instructions",
-  "Run csda change instructions",
+  "Run specgate change instructions",
   "change instructions",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_change_author"] = new GenericCliTool(
   "csda_change_author",
-  "Run csda change author",
+  "Run specgate change author",
   "change author",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_pack_init"] = new GenericCliTool(
@@ -445,9 +415,9 @@ TOOLS["csda_pack_init"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["lint_pack"] = new GenericCliTool(
@@ -458,9 +428,9 @@ TOOLS["lint_pack"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_pack_infer"] = new GenericCliTool(
@@ -471,9 +441,9 @@ TOOLS["csda_pack_infer"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_pack_bundle"] = new GenericCliTool(
@@ -484,9 +454,9 @@ TOOLS["csda_pack_bundle"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_specops_add"] = new GenericCliTool(
@@ -497,9 +467,9 @@ TOOLS["csda_specops_add"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_specops_remove"] = new GenericCliTool(
@@ -510,9 +480,9 @@ TOOLS["csda_specops_remove"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_specops_sync"] = new GenericCliTool(
@@ -523,9 +493,9 @@ TOOLS["csda_specops_sync"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_specops_diff"] = new GenericCliTool(
@@ -536,9 +506,9 @@ TOOLS["csda_specops_diff"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_specops_contribute"] = new GenericCliTool(
@@ -549,9 +519,9 @@ TOOLS["csda_specops_contribute"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_harness_run"] = new GenericCliTool(
@@ -562,9 +532,9 @@ TOOLS["csda_harness_run"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_harness_prompt"] = new GenericCliTool(
@@ -575,9 +545,9 @@ TOOLS["csda_harness_prompt"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_harness_init"] = new GenericCliTool(
@@ -588,9 +558,9 @@ TOOLS["csda_harness_init"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_harness_report"] = new GenericCliTool(
@@ -601,61 +571,61 @@ TOOLS["csda_harness_report"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_config_init"] = new GenericCliTool(
   "csda_config_init",
-  "Run csda config init",
+  "Run specgate config init",
   "config init",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_config_set"] = new GenericCliTool(
   "csda_config_set",
-  "Run csda config set",
+  "Run specgate config set",
   "config set",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_config_get"] = new GenericCliTool(
   "csda_config_get",
-  "Run csda config get",
+  "Run specgate config get",
   "config get",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_config_list"] = new GenericCliTool(
   "csda_config_list",
-  "Run csda config list",
+  "Run specgate config list",
   "config list",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_agents_init"] = new GenericCliTool(
@@ -666,9 +636,9 @@ TOOLS["csda_agents_init"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_update"] = new GenericCliTool(
@@ -679,100 +649,100 @@ TOOLS["csda_update"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_schema_which"] = new GenericCliTool(
   "csda_schema_which",
-  "Run csda schema which",
+  "Run specgate schema which",
   "schema which",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_schema_init"] = new GenericCliTool(
   "csda_schema_init",
-  "Run csda schema init",
+  "Run specgate schema init",
   "schema init",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_schema_fork"] = new GenericCliTool(
   "csda_schema_fork",
-  "Run csda schema fork",
+  "Run specgate schema fork",
   "schema fork",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_schema_validate"] = new GenericCliTool(
   "csda_schema_validate",
-  "Run csda schema validate",
+  "Run specgate schema validate",
   "schema validate",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_completion_bash"] = new GenericCliTool(
   "csda_completion_bash",
-  "Run csda completion bash",
+  "Run specgate completion bash",
   "completion bash",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_completion_zsh"] = new GenericCliTool(
   "csda_completion_zsh",
-  "Run csda completion zsh",
+  "Run specgate completion zsh",
   "completion zsh",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_completion_fish"] = new GenericCliTool(
   "csda_completion_fish",
-  "Run csda completion fish",
+  "Run specgate completion fish",
   "completion fish",
   {
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 TOOLS["csda_studio"] = new GenericCliTool(
@@ -783,16 +753,19 @@ TOOLS["csda_studio"] = new GenericCliTool(
     type: "object",
     properties: {
       projectDir: { type: "string" },
-      cliPath: { type: "string" }
+      cliPath: { type: "string" },
     },
-    required: ["projectDir"]
+    required: ["projectDir"],
   }
 );
 
 // Legacy exports for tests
-export const readSpec = (args: any) => TOOLS["csda_read_spec"] ? TOOLS["csda_read_spec"].handler(args) : {};
-export const listRequirements = (args: any) => TOOLS["csda_list_requirements"] ? TOOLS["csda_list_requirements"].handler(args) : {};
-export const updateTraceability = (args: any) => TOOLS["csda_update_traceability"] ? TOOLS["csda_update_traceability"].handler(args) : {};
+export const readSpec = (args: any) =>
+  TOOLS["csda_read_spec"] ? TOOLS["csda_read_spec"].handler(args) : {};
+export const listRequirements = (args: any) =>
+  TOOLS["csda_list_requirements"] ? TOOLS["csda_list_requirements"].handler(args) : {};
+export const updateTraceability = (args: any) =>
+  TOOLS["csda_update_traceability"] ? TOOLS["csda_update_traceability"].handler(args) : {};
 export const lintPack = (args: any) => TOOLS["csda_pack_lint"].handler(args);
 export const validateProject = (args: any) => TOOLS["csda_validate"].handler(args);
 export const plan = (args: any) => TOOLS["csda_plan"].handler(args);

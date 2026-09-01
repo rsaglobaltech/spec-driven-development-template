@@ -124,7 +124,7 @@ export function computeTraceabilityDiagnostics(text: string): SpecDiagnostic[] {
       at(
         "TDD-1",
         DiagnosticSeverity.Warning,
-        `Test artifact is TBD but status is '${status}'. Link a test: csda req link ${requirementId} --test <path>.`
+        `Test artifact is TBD but status is '${status}'. Link a test: specgate req link ${requirementId} --test <path>.`
       );
     }
 
@@ -132,7 +132,7 @@ export function computeTraceabilityDiagnostics(text: string): SpecDiagnostic[] {
       at(
         "TDD-2",
         DiagnosticSeverity.Warning,
-        `Missing Scenario ID with status '${status}'. Add one: csda req link ${requirementId} --scenario SCN-NNN.`
+        `Missing Scenario ID with status '${status}'. Add one: specgate req link ${requirementId} --scenario SCN-NNN.`
       );
     }
   }

@@ -1,5 +1,5 @@
 /**
- * `csda alm pull` — a board issue arrives as a change, never as a matrix row.
+ * `specgate alm pull` — a board issue arrives as a change, never as a matrix row.
  *
  * ## Why this lives here and not in `scripts/alm/`
  *
@@ -132,7 +132,7 @@ export async function main(argv: string[]): Promise<void> {
     return io.fail(NULL_SHAPE, [
       error("alm_pull_unsupported", `Provider '${cfg.provider}' cannot search the board.`, {
         target: cfg.provider,
-        fix: "Open the change by hand: csda change new <id>, then paste the issue into its proposal.",
+        fix: "Open the change by hand: specgate change new <id>, then paste the issue into its proposal.",
       }),
     ]);
   }
@@ -194,7 +194,7 @@ export async function main(argv: string[]): Promise<void> {
           "",
           "## 2. Validate",
           "",
-          `- [ ] \`csda change validate ${changeId}\``,
+          `- [ ] \`specgate change validate ${changeId}\``,
           "",
         ].join("\n"),
         "utf8"
@@ -206,7 +206,7 @@ export async function main(argv: string[]): Promise<void> {
 
   const status = [
     info("alm_pull_scenarios_empty", "Every pulled change has an unwritten scenario.", {
-      fix: "That is deliberate: a board issue has no executable acceptance criterion. Write it, then `csda change validate`.",
+      fix: "That is deliberate: a board issue has no executable acceptance criterion. Write it, then `specgate change validate`.",
     }),
   ];
   if (skipped.length > 0) {
@@ -229,7 +229,7 @@ export async function main(argv: string[]): Promise<void> {
     process.stdout.write(
       `\n  Each proposal quotes its issue. Each delta has a TODO scenario —\n` +
         `  a ticket carries no acceptance criterion, so that is yours to write.\n\n` +
-        `  Next: csda change status\n\n`
+        `  Next: specgate change status\n\n`
     );
   });
 }

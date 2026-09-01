@@ -2,7 +2,7 @@
  * What this tool is willing to hand to `git` (CodeQL: second-order command
  * line injection).
  *
- * `csda expand --pack-repo <url>` and `csda specops contribute` pass a
+ * `specgate expand --pack-repo <url>` and `specgate specops contribute` pass a
  * repository the caller named straight to `git clone`. Two shapes turn that
  * into command execution, and both are git behaving as documented:
  *

@@ -49,7 +49,7 @@ jobs:
       - name: Publish this repository's own spec-coverage report
         # P2: the one artefact a product owner would actually read — done,
         # pending, orphan features, specops drift — was the one thing the site
-        # never carried. `csda report` already writes this; it just never ran
+        # never carried. `specgate report` already writes this; it just never ran
         # here. Self-referential on purpose: this repo dogfoods itself, so its
         # own docs/specs/traceability.md is what gets reported.
         run: node dist/scripts/report.js --project-dir . --out _site/report.html

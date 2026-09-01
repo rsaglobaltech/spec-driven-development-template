@@ -301,7 +301,7 @@ trabajo de \`specops sync\`.
 ## Approach
 
 1. Revisar el delta de \`specs/${entry.pack_id}/spec.md\`.
-2. Ejecutar \`csda specops sync --pack ${entry.pack_id} --pack-version ${targetVersion}\`.
+2. Ejecutar \`specgate specops sync --pack ${entry.pack_id} --pack-version ${targetVersion}\`.
 3. Resolver los conflictos que el merge de tres vías marque.
 4. Archivar este cambio para consolidar los requisitos en las specs y la matriz.
 
@@ -320,8 +320,8 @@ export function renderTasks(entry, targetVersion) {
 
 ## 2. Apply
 
-- [ ] 2.1 \`csda specops sync --pack ${entry.pack_id} --pack-version ${targetVersion}\`
+- [ ] 2.1 \`specgate specops sync --pack ${entry.pack_id} --pack-version ${targetVersion}\`
 - [ ] 2.2 Resolver conflictos del merge de tres vías
-- [ ] 2.3 \`csda change validate\`
+- [ ] 2.3 \`specgate change validate\`
 `;
 }

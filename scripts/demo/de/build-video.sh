@@ -134,9 +134,9 @@ step "Warming npx and pack caches (one-time clones)"
 WARM=$(mktemp -d)
 ( cd "$WARM" && \
   printf 'PROJECT_NAME="W"\nPROJECT_SLUG="w"\nPROJECT_TYPE="backend"\nDOMAIN="d"\nSTACK="s"\nAPI_STYLE="a"\nTESTING="t"\n' > w.config && \
-  csda init --config ./w.config --out . --no-git >/dev/null 2>&1 && \
+  specgate init --config ./w.config --out . --no-git >/dev/null 2>&1 && \
   cd w && \
-  csda specops add --pack-repo "$CSDA_PACK_REPO" --pack-version "$CSDA_PACK_V1" --pack "$CSDA_PACK_ID" \
+  specgate specops add --pack-repo "$CSDA_PACK_REPO" --pack-version "$CSDA_PACK_V1" --pack "$CSDA_PACK_ID" \
     --cache-dir "$CSDA_CACHE_DIR" --var PROJECT_NAME=W --var PROJECT_SLUG=w --var DOMAIN=d >/dev/null )
 
 # Find the cached pack dir so the tape can run `pack lint --graph` against it.

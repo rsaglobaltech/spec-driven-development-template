@@ -52,10 +52,10 @@ the SBOM — are documented in [docs/supply-chain.md](docs/supply-chain.md).
 This is a CLI and a set of build-tool plugins. They read your repository, write
 spec files, and shell out to `git`. The interesting attack surface is therefore:
 
-- **Domain packs.** `csda specops add` fetches a pack from a git repository and
+- **Domain packs.** `specgate specops add` fetches a pack from a git repository and
   renders its templates into your project. A malicious pack is the most direct
   route to writing unwanted files. Packs are pinned in `.specops.lock` with an
-  integrity digest, and `csda validate --against-lock` fails on drift. A way to
+  integrity digest, and `specgate validate --against-lock` fails on drift. A way to
   bypass either is in scope.
 - **Path traversal on render.** Any input that makes the CLI write outside the
   project directory.
@@ -70,7 +70,7 @@ spec files, and shell out to `git`. The interesting attack surface is therefore:
 
 ## What is not in scope
 
-- Vulnerabilities in *your* project that `csda validate` failed to notice. It is
+- Vulnerabilities in *your* project that `specgate validate` failed to notice. It is
   a specification gate, not a security scanner, and it never claims otherwise.
 - Running the CLI against a repository you do not trust. Rendering a pack from
   an untrusted source is equivalent to running its code — pin what you install.

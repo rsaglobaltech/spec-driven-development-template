@@ -49,14 +49,14 @@ Type "API_STYLE: REST with DTO boundaries" Enter
 Type "TESTING: node:test" Enter
 Type "EOF" Enter
 Sleep 1.2s
-Type "csda init --config ./smart-parking.yaml --out . --no-git" Enter
+Type "specgate init --config ./smart-parking.yaml --out . --no-git" Enter
 Sleep 3s
 Type "cd smart-parking" Enter
 Sleep 800ms
 
 Type "# 2. Pull in a versioned domain pack — the npm-install of spec-driven dev." Enter
 Sleep 2s
-Type "csda specops add --pack-repo $CSDA_PACK_REPO --pack-version $CSDA_PACK_V1 \" Enter
+Type "specgate specops add --pack-repo $CSDA_PACK_REPO --pack-version $CSDA_PACK_V1 \" Enter
 Type "  --pack $CSDA_PACK_ID --cache-dir $CSDA_CACHE_DIR \" Enter
 Type "  --var PROJECT_NAME='Smart Parking' --var PROJECT_SLUG=smart-parking --var DOMAIN='parking operations'" Enter
 Sleep 4s
@@ -68,7 +68,7 @@ Sleep 600ms
 # ════════════════════════════════════════════════════════════════════════════
 Type "# 3. plan: every requirement, what is still missing (this is the task queue)." Enter
 Sleep 2s
-Type "csda plan | head -18" Enter
+Type "specgate plan | head -18" Enter
 Sleep 6s
 Type "clear" Enter
 Sleep 600ms
@@ -93,9 +93,9 @@ Sleep 2s
 Type "git init -q && git add -A && git commit -qm 'initial: specs + pack'" Enter
 Sleep 1.5s
 
-Type "# csda harness run --req REQ-000   ── plan → context → agent → verify → done" Enter
+Type "# specgate harness run --req REQ-000   ── plan → context → agent → verify → done" Enter
 Sleep 2s
-Type "csda harness run --req REQ-000" Enter
+Type "specgate harness run --req REQ-000" Enter
 Sleep 9s
 Type "clear" Enter
 Sleep 600ms

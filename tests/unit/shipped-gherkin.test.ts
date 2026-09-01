@@ -19,7 +19,7 @@
  *
  * That is H1 wearing a different coat. H1 was "the gate did not run the scenario
  * it was supervising"; this was "the scenario it supervises contains nothing to
- * run". Every project seeded with `csda specops add` inherited a reward signal
+ * run". Every project seeded with `specgate specops add` inherited a reward signal
  * that approves anything, and the harness driving those requirements was not
  * verifying — it was signing.
  *

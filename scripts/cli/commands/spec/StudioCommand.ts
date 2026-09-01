@@ -23,7 +23,7 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}🎨 studio${c.reset}  ${c.dim}— local read-only visualizer (status + REQ graph)${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda studio${c.reset} [--port <n>] [--project-dir <path>] [--out <dir>] [--json]\n\n` +
+      `    ${c.cyan}specgate studio${c.reset} [--port <n>] [--project-dir <path>] [--out <dir>] [--json]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    ${c.green}--port <n>${c.reset}           ${c.dim}Port to serve on (default 4173).${c.reset}\n` +
       `    ${c.green}--project-dir <path>${c.reset} ${c.dim}Project root (auto-detected from cwd if omitted).${c.reset}\n` +
@@ -109,7 +109,7 @@ export function renderHtml(projectDir: string, model: any) {
     .join("\n");
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/>
-<title>csda studio — ${esc(path.basename(projectDir))}</title>
+<title>specgate studio — ${esc(path.basename(projectDir))}</title>
 <style>
   body{font:14px/1.5 system-ui,sans-serif;margin:2rem;color:#111;background:#fafafa}
   h1{font-size:1.2rem} .muted{color:#666}
@@ -120,7 +120,7 @@ export function renderHtml(projectDir: string, model: any) {
   .mermaid{margin-top:1rem;background:#fff;padding:1rem;border:1px solid #eee}
 </style></head>
 <body>
-  <h1>🎨 csda studio <span class="muted">${esc(projectDir)}</span></h1>
+  <h1>🎨 specgate studio <span class="muted">${esc(projectDir)}</span></h1>
   <p>${model.total} requirements ·
      <span class="pill done">${model.done} done</span>
      <span class="pill pending">${model.pending} pending</span></p>
@@ -133,7 +133,7 @@ ${esc(mermaid(model))}
 ${rowsHtml}
     </tbody>
   </table>
-  <p class="muted">Read-only. Edit with <code>csda req</code> / <code>csda done</code>; refresh to update.</p>
+  <p class="muted">Read-only. Edit with <code>specgate req</code> / <code>specgate done</code>; refresh to update.</p>
   <script src="./mermaid.min.js"></script>
   <script>
     mermaid.initialize({ startOnLoad: true });
@@ -180,16 +180,19 @@ export class StudioCommand extends BaseCommand {
     if (opts.out) {
       fs.mkdirSync(opts.out, { recursive: true });
       const model = loadModel(projectDir);
-      fs.writeFileSync(path.join(opts.out, "status.json"), JSON.stringify({ schemaVersion: 1, projectDir, ...model }, null, 2) + "\n");
+      fs.writeFileSync(
+        path.join(opts.out, "status.json"),
+        JSON.stringify({ schemaVersion: 1, projectDir, ...model }, null, 2) + "\n"
+      );
       fs.writeFileSync(path.join(opts.out, "index.html"), renderHtml(projectDir, model));
-      
+
       const mermaidPath = getMermaidPath();
       if (fs.existsSync(mermaidPath)) {
         fs.copyFileSync(mermaidPath, path.join(opts.out, "mermaid.min.js"));
       } else {
         process.stderr.write(`${c.red}✖${c.reset}  Bundled mermaid.min.js not found\n`);
       }
-      
+
       process.stdout.write(`\n  ${c.green}✔${c.reset}  Studio exported to ${opts.out}\n\n`);
       process.exit(0);
     }
@@ -219,7 +222,7 @@ export class StudioCommand extends BaseCommand {
 
     server.listen(opts.port, () => {
       process.stdout.write(
-        `\n  ${c.bold}🎨 csda studio${c.reset} serving ${c.dim}${projectDir}${c.reset}\n` +
+        `\n  ${c.bold}🎨 specgate studio${c.reset} serving ${c.dim}${projectDir}${c.reset}\n` +
           `  ${c.green}▶ http://localhost:${opts.port}${c.reset}  ${c.dim}(Ctrl-C to stop · /status.json for the model)${c.reset}\n\n`
       );
     });

@@ -172,15 +172,20 @@ test("H18: every command in the contract emits parseable JSON on stdout", async 
         cmdStr = cmdStr.replace("<REQ>", "REQ-999");
         cmdStr = cmdStr.replace("<id>", "MISSING-ID");
         cmdStr = cmdStr.replace("<artifact>", "specs");
-        
+
         const args = cmdStr.split(" ");
         const r = cli(args, dir);
-        
+
         try {
           const doc = JSON.parse(r.stdout);
-          assert.ok(doc && typeof doc === "object", `${command} should emit a JSON object, got ${r.stdout}`);
-        } catch (e) {
-          assert.fail(`Command ${command} failed to emit parseable JSON. stdout:\n${r.stdout}\nstderr:\n${r.stderr}`);
+          assert.ok(
+            doc && typeof doc === "object",
+            `${command} should emit a JSON object, got ${r.stdout}`
+          );
+        } catch {
+          assert.fail(
+            `Command ${command} failed to emit parseable JSON. stdout:\n${r.stdout}\nstderr:\n${r.stderr}`
+          );
         }
       });
     }

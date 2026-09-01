@@ -120,7 +120,7 @@ export const STAGE_LABELS: Readonly<Record<string, string>> = Object.freeze({
   "write-scope": "agent edited protected files",
   gate: "gate rejected the work",
   artifacts: "diff missed the declared artifacts",
-  done: "`csda done` failed",
+  done: "`specgate done` failed",
   commit: "commit failed",
 });
 

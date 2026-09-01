@@ -138,7 +138,7 @@ export class DoctorCommand extends BaseCommand {
         this.recordError(
           "SDD structure",
           `missing required file: ${f}`,
-          "Run `csda adopt` (brownfield) to generate missing skeleton files without overwriting anything."
+          "Run `specgate adopt` (brownfield) to generate missing skeleton files without overwriting anything."
         );
       }
     }
@@ -232,7 +232,7 @@ export class DoctorCommand extends BaseCommand {
           this.warn(
             "requirement coverage",
             `${req} is in spec.md but has no traceability row`,
-            "Add a row for it — `csda plan` lists what each REQ still needs."
+            "Add a row for it — `specgate plan` lists what each REQ still needs."
           );
         }
       }
@@ -267,7 +267,8 @@ export class DoctorCommand extends BaseCommand {
           this.warn(
             "capability drift",
             `${req} is in the ${entry.name} capability spec but has no traceability row`,
-            `csda req add` + " — or re-run `csda change archive`, which writes the row for you."
+            `specgate req add` +
+              " — or re-run `specgate change archive`, which writes the row for you."
           );
         }
       }
@@ -295,7 +296,7 @@ export class DoctorCommand extends BaseCommand {
         this.warn(
           "stale change",
           `${id} has all ${progress.total} tasks checked but is still active`,
-          `Archive it: csda change archive ${id} --dry-run`
+          `Archive it: specgate change archive ${id} --dry-run`
         );
       }
 
@@ -379,7 +380,7 @@ export class DoctorCommand extends BaseCommand {
       this.recordError(
         "merge driver",
         `merge.${MERGE_DRIVER_NAME}.name is set but its driver command is missing — git will refuse to merge traceability.md`,
-        `Either finish the registration with \`csda harness init --project-dir .\`, or remove the half: git config --unset merge.${MERGE_DRIVER_NAME}.name`
+        `Either finish the registration with \`specgate harness init --project-dir .\`, or remove the half: git config --unset merge.${MERGE_DRIVER_NAME}.name`
       );
       return;
     }
@@ -387,7 +388,7 @@ export class DoctorCommand extends BaseCommand {
     this.warn(
       "merge driver",
       ".gitattributes routes traceability.md to the csda merge driver, but this clone has not registered it",
-      "Run `csda harness init --project-dir .` here. Until then git merges the matrix by lines, so two parallel harness branches collide on adjacent rows."
+      "Run `specgate harness init --project-dir .` here. Until then git merges the matrix by lines, so two parallel harness branches collide on adjacent rows."
     );
   }
 
@@ -466,8 +467,8 @@ export class DoctorCommand extends BaseCommand {
   /**
    * Scenarios that cannot fail, reported as findings rather than as a gate (A3).
    *
-   * `csda validate --strict-scenarios` is the gate; this is the advisory. The
-   * split is deliberate: a repository brought in with `csda adopt` can carry
+   * `specgate validate --strict-scenarios` is the gate; this is the advisory. The
+   * split is deliberate: a repository brought in with `specgate adopt` can carry
    * dozens of features written before this tool existed, and failing its first
    * `validate` teaches people to skip the gate rather than fix the scenarios.
    * `doctor` is where this project already reports "here is what is weak, here
@@ -513,7 +514,7 @@ export class DoctorCommand extends BaseCommand {
       this.warn(
         "scenarios",
         `${warnings} scenario(s) could be sharper`,
-        "Run `csda validate <dir> --strict-scenarios` to gate on this."
+        "Run `specgate validate <dir> --strict-scenarios` to gate on this."
       );
     }
   }
@@ -538,7 +539,7 @@ export class DoctorCommand extends BaseCommand {
         "the pack's own requirements now cover this",
       "Remove the REQ-000 row from docs/specs/traceability.md and delete " +
         "features/core/health.feature, unless you meant to keep it. " +
-        "New projects can skip it with `csda init --no-sample-req` (implied by --from-pack)."
+        "New projects can skip it with `specgate init --no-sample-req` (implied by --from-pack)."
     );
   }
 
@@ -581,7 +582,7 @@ export class DoctorCommand extends BaseCommand {
       else if (argv[i] === "--json") continue;
       else if (argv[i] === "--help" || argv[i] === "-h") {
         process.stdout.write(
-          "Usage:\n  csda doctor [--project-dir <dir>] [--json]\n\n" +
+          "Usage:\n  specgate doctor [--project-dir <dir>] [--json]\n\n" +
             "Runs every diagnostic (environment, structure, traceability in both\n" +
             "directions, placeholders, specops lockfile) and prints a fix per finding.\n"
         );
@@ -605,7 +606,7 @@ export class DoctorCommand extends BaseCommand {
       this.recordError(
         "project",
         "spec.md not found — this directory is not spec-driven yet",
-        "Run `csda adopt` here (existing code) or `init` (new project)."
+        "Run `specgate adopt` here (existing code) or `init` (new project)."
       );
     } else {
       this.checkStructure(dir);

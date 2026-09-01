@@ -1,5 +1,5 @@
 /**
- * `csda change` — re-export of the command, its templates and its validation.
+ * `specgate change` — re-export of the command, its templates and its validation.
  *
  * The command lives in `scripts/cli/commands/change/ChangeCommand`; the files
  * `change new` scaffolds are domain (`core/domain/ChangeTemplates`) and

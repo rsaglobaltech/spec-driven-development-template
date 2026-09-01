@@ -19,8 +19,8 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Install create-spec-driven-app
-        run: npm install -g create-spec-driven-app@latest
+      - name: Install specgate
+        run: npm install -g specgate@latest
 
       - name: Validate spec tree
-        run: csda validate .
+        run: specgate validate .

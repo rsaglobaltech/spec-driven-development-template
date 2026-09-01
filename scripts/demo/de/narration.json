@@ -33,11 +33,11 @@
     },
     {
       "id": "preview-prompt",
-      "text": "Schritt sieben-a: Bevor wir Token ausgeben, zeigen wir mit csda harness prompt genau, was opencode bekommt — der Prefix mit der Rolle, die Anforderungs-Fakten, das Gherkin-Szenario, AI_RULES und die Definition of Done. Nichts versteckt."
+      "text": "Schritt sieben-a: Bevor wir Token ausgeben, zeigen wir mit specgate harness prompt genau, was opencode bekommt — der Prefix mit der Rolle, die Anforderungs-Fakten, das Gherkin-Szenario, AI_RULES und die Definition of Done. Nichts versteckt."
     },
     {
       "id": "harness",
-      "text": "Schritt sieben-b — der eigentliche Loop. csda harness run übergibt diesen Prompt opencode in einem isolierten Git-Worktree und wartet auf das Gate. opencode schreibt einen Spring-Controller und Cucumber-Step-Definitionen, die genau das gleiche Feature-File aus dem Pack ausführen. Der Harness ruft validate und mvn test auf — Cucumber führt das Szenario also wirklich aus — und bei Grün schließt er die Matrix und commitet auf einem frischen Harness-Branch. Jeder gesendete Prompt wird zusätzlich unter punkt-specops slash harness-prompts archiviert."
+      "text": "Schritt sieben-b — der eigentliche Loop. specgate harness run übergibt diesen Prompt opencode in einem isolierten Git-Worktree und wartet auf das Gate. opencode schreibt einen Spring-Controller und Cucumber-Step-Definitionen, die genau das gleiche Feature-File aus dem Pack ausführen. Der Harness ruft validate und mvn test auf — Cucumber führt das Szenario also wirklich aus — und bei Grün schließt er die Matrix und commitet auf einem frischen Harness-Branch. Jeder gesendete Prompt wird zusätzlich unter punkt-specops slash harness-prompts archiviert."
     },
     {
       "id": "show-code",

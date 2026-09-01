@@ -11,7 +11,7 @@ function logError(msg: string) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda pack bundle --repo <url> --out <file.bundle>\n\n" +
+      "  specgate pack bundle --repo <url> --out <file.bundle>\n\n" +
       "Creates a git bundle with every branch and tag of the pack repository.\n" +
       "Copy the file into the air-gapped environment and consume it with:\n" +
       "  specops add --pack-repo /path/to/file.bundle --pack-version <tag> …\n"
@@ -46,7 +46,7 @@ export class BundlePackCommand extends BaseCommand {
       logInfo(`write ${result.out}`);
       logInfo(`refs included: ${result.refs.join(", ") || "(none)"}`);
       logInfo("✅ Bundle created. Air-gapped usage:");
-      logInfo(`  csda specops add --pack-repo ${result.out} --pack-version <tag> …`);
+      logInfo(`  specgate specops add --pack-repo ${result.out} --pack-version <tag> …`);
       process.exit(0);
     } catch (err: any) {
       logError(err && err.message ? err.message : String(err));

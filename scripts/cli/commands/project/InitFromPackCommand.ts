@@ -26,11 +26,11 @@ function run(args: string[], cwd?: string) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda init --from-pack <repo>@<tag> --pack <pack-id> [--config <path>] [--out <dir>]\n\n" +
+      "  specgate init --from-pack <repo>@<tag> --pack <pack-id> [--config <path>] [--out <dir>]\n\n" +
       "Scaffolds the project and installs the pack in one step, pinned to the tag.\n" +
       "Every other `init` flag is passed through.\n\n" +
       "Example:\n" +
-      "  csda init --from-pack https://github.com/acme/parking-specops.git@v0.2.0 \\\n" +
+      "  specgate init --from-pack https://github.com/acme/parking-specops.git@v0.2.0 \\\n" +
       "    --pack backend --config ./project.yaml --out ./services\n"
   );
 }
@@ -91,7 +91,7 @@ export class InitFromPackCommand extends BaseCommand {
     if (!reference) {
       io.usage(NULL_SHAPE, [
         error("from_pack_required", "--from-pack needs a <repo>@<tag> reference.", {
-          fix: "csda init --from-pack https://github.com/acme/specops.git@v0.1.0 --pack backend",
+          fix: "specgate init --from-pack https://github.com/acme/specops.git@v0.1.0 --pack backend",
         }),
       ]);
     }
@@ -115,7 +115,7 @@ export class InitFromPackCommand extends BaseCommand {
     if (init.status !== 0) {
       io.fail(NULL_SHAPE, [
         error("init_failed", "Scaffolding failed; the pack was not installed.", {
-          fix: "Fix what `csda init` reported, then re-run.",
+          fix: "Fix what `specgate init` reported, then re-run.",
         }),
       ]);
     }
@@ -124,7 +124,7 @@ export class InitFromPackCommand extends BaseCommand {
     if (!projectDir) {
       io.fail(NULL_SHAPE, [
         error("project_dir_not_found", `Could not find the project init created under ${outDir}.`, {
-          fix: "Install the pack yourself: csda specops add --pack-repo … --pack-version … --pack …",
+          fix: "Install the pack yourself: specgate specops add --pack-repo … --pack-version … --pack …",
         }),
       ]);
     }
@@ -147,7 +147,7 @@ export class InitFromPackCommand extends BaseCommand {
       io.fail({ project: { dir: projectDir, pack: null } }, [
         error("pack_install_failed", "The project was created but the pack was not installed.", {
           target: `${repo}@${version}`,
-          fix: `Re-run just the install: csda specops add --pack-repo ${repo} --pack-version ${version} --pack ${packId} --project-dir ${projectDir}`,
+          fix: `Re-run just the install: specgate specops add --pack-repo ${repo} --pack-version ${version} --pack ${packId} --project-dir ${projectDir}`,
         }),
       ]);
     }
@@ -155,7 +155,7 @@ export class InitFromPackCommand extends BaseCommand {
     io.emit({ project: { dir: projectDir, pack: { repo, version, id: packId } } }, () =>
       process.stdout.write(
         `\n  ✔  ${path.basename(projectDir!)} scaffolded with ${packId} @ ${version}\n` +
-          `     Next: csda validate ${projectDir}\n\n`
+          `     Next: specgate validate ${projectDir}\n\n`
       )
     );
     process.exit(EXIT.OK);

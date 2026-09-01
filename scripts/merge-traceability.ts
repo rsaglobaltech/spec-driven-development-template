@@ -30,10 +30,10 @@
  *          git config merge.csda-matrix.name "csda traceability matrix merge"
  *          git config merge.csda-matrix.driver "node <path>/merge-traceability.js %O %A %B"
  *
- * `csda harness init` writes both. A fresh clone has only the first, and git
+ * `specgate harness init` writes both. A fresh clone has only the first, and git
  * then falls back to its built-in line merge — the conflict you would have had
  * anyway. That fallback is why this can be rolled out gradually: an unconfigured
- * checkout is no worse off, never silently wrong. `csda doctor` reports the
+ * checkout is no worse off, never silently wrong. `specgate doctor` reports the
  * gap rather than leaving it to be discovered mid-merge.
  *
  * The decision itself is not here. `mergeTraceability` is domain, pure, and
@@ -50,7 +50,7 @@ export function main(argv: string[]): number {
     process.stderr.write(
       "merge-traceability: expected the three paths git passes as %O %A %B.\n" +
         "Fix: this is a git merge driver, not a command to run by hand. See\n" +
-        "     `csda harness init`, which registers it.\n"
+        "     `specgate harness init`, which registers it.\n"
     );
     return 2;
   }
@@ -70,7 +70,7 @@ export function main(argv: string[]): number {
       "Fix: open the file, and for each conflict keep exactly one of the two rows,\n" +
       "     deleting the <<<<<<< ======= >>>>>>> lines. Never keep both — a\n" +
       "     duplicated requirement is the corruption this file must not have.\n" +
-      "     Then `csda validate <project>` confirms the result is well formed.\n"
+      "     Then `specgate validate <project>` confirms the result is well formed.\n"
   );
   return 1;
 }

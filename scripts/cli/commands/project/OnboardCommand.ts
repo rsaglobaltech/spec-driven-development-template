@@ -171,7 +171,7 @@ function isAdopted(projectDir: string) {
 function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}🧭 onboard${c.reset}  ${c.dim}— the guided tour for an existing repository${c.reset}\n\n` +
-      "  USAGE\n    csda onboard [--project-dir <path>] [--json]\n\n" +
+      "  USAGE\n    specgate onboard [--project-dir <path>] [--json]\n\n" +
       "  Reads the repository, proposes the capabilities its code already implies,\n" +
       "  and tells you the one command to run next. Writes nothing.\n\n"
   );
@@ -193,7 +193,7 @@ function renderHuman({ projectDir, adopted, stack, capabilities, nextCommand }: 
   out.push(
     adopted
       ? `     ${c.green}✔${c.reset} already adopted — spec.md is here`
-      : `     ${c.dim}· not adopted yet — \`csda adopt\` writes the skeleton without touching code${c.reset}`
+      : `     ${c.dim}· not adopted yet — \`specgate adopt\` writes the skeleton without touching code${c.reset}`
   );
   out.push("");
 
@@ -251,23 +251,23 @@ export class OnboardCommand extends BaseCommand {
     const capabilities = proposeCapabilities(projectDir);
 
     const nextCommand = !adopted
-      ? "csda adopt"
+      ? "specgate adopt"
       : capabilities.length > 0
-        ? `csda change new describe-${capabilities[0].id}`
-        : 'csda req add "<the first behaviour you rely on>"';
+        ? `specgate change new describe-${capabilities[0].id}`
+        : 'specgate req add "<the first behaviour you rely on>"';
 
     const diagnostics = [];
     if (!stack.detected) {
       diagnostics.push(
         info("stack_undetected", "Could not detect the stack from a manifest file.", {
-          fix: 'Pass it explicitly: csda adopt --var STACK="…" --var TEST_CMD="…"',
+          fix: 'Pass it explicitly: specgate adopt --var STACK="…" --var TEST_CMD="…"',
         })
       );
     }
     if (capabilities.length === 0) {
       diagnostics.push(
         info("capabilities_undetected", "No capability structure was obvious from the layout.", {
-          fix: "Name them yourself — one per area of behaviour a user would recognise. `csda change new <id>` opens the first.",
+          fix: "Name them yourself — one per area of behaviour a user would recognise. `specgate change new <id>` opens the first.",
         })
       );
     }

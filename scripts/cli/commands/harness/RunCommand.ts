@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `csda harness run` — the spec-driven delivery loop for AI coding agents.
+ * `specgate harness run` — the spec-driven delivery loop for AI coding agents.
  *
  * A spec-driven repo is already an environment for an agent: `plan` is the
  * task queue, the feature file + AI_RULES.md are the per-task context,
@@ -111,7 +111,7 @@ export function error(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda harness run [options]\n\n" +
+      "  specgate harness run [options]\n\n" +
       "Runs the plan → agent → verify → done loop for every pending requirement.\n\n" +
       "  --agent <cmd>          Agent command; must contain the {prompt_file} placeholder.\n" +
       '                         e.g. --agent "claude -p < {prompt_file}"\n' +
@@ -500,7 +500,7 @@ function worktreeChanges(worktreeDir) {
 /**
  * Did the agent write anything at all? (H19)
  *
- * The gate runs *before* `csda done`, so at gate time the requirement is still
+ * The gate runs *before* `specgate done`, so at gate time the requirement is still
  * `Draft` — and `--strict-tdd`'s "no Test Artifact = TBD past Draft" rule does
  * not apply to a Draft row. `done` then flips the status to `Implemented` and
  * nothing validates again. The consequence, reproduced on 2026-08-26 with
@@ -554,7 +554,7 @@ function checkWriteScopeInWorktree(worktreeDir, settings) {
       `makes a passing gate meaningless. Revert them and satisfy the scenario as written.\n` +
       (evidence ? `\nWhat was changed:\n\n\`\`\`diff\n${evidence}\n\`\`\`\n` : "") +
       `\nIf the change is genuinely required, it belongs in a spec change ` +
-      `(\`csda change new\`), reviewed by a person — not in this attempt.`,
+      `(\`specgate change new\`), reviewed by a person — not in this attempt.`,
   };
 }
 
@@ -612,7 +612,7 @@ function attemptRequirement(req, ctx) {
    *
    * Wall-clock, because it is the one cost the harness can measure without the
    * agent's cooperation: an agent is any shell command, and only the agent
-   * knows what it spent in tokens. `csda harness report` is built on this.
+   * knows what it spent in tokens. `specgate harness report` is built on this.
    */
   const attemptLog: AttemptRecord[] = [];
   /** The reviewer's findings from the previous attempt, fed into this prompt. */
@@ -808,7 +808,7 @@ function attemptRequirement(req, ctx) {
     const commit = git(worktreeDir, [
       "commit",
       "-m",
-      `feat(${req.requirement}): implement via csda harness\n\nAttempt ${attempt}/${settings.maxAttempts}.`,
+      `feat(${req.requirement}): implement via specgate harness\n\nAttempt ${attempt}/${settings.maxAttempts}.`,
     ]);
     if (commit.status !== 0) {
       previousFailure = `git commit failed:\n${commit.stderr || commit.stdout}`;
@@ -830,7 +830,7 @@ function attemptRequirement(req, ctx) {
   // cost a second full agent run with --keep-worktrees purely to see what had
   // been written — fifteen minutes to recover information the first run had.
   //
-  // The commit subject says it failed, and `csda done` never ran, so the
+  // The commit subject says it failed, and `specgate done` never ran, so the
   // requirement is still Draft in the matrix. A human decides whether the work
   // is worth keeping; git decides nothing.
   const preserved = preserveFailedAttempt(worktreeDir, req, previousFailure);
@@ -849,7 +849,7 @@ function attemptRequirement(req, ctx) {
 /** Where a run's record lands. Local to the machine — see `writeRunRecord`. */
 export const RUNS_DIR = path.join(".harness", "runs");
 
-/** One run, as it will be read back by `csda harness report`. */
+/** One run, as it will be read back by `specgate harness report`. */
 export interface RunRecord {
   schemaVersion: number;
   startedAt: string;
@@ -951,7 +951,7 @@ function warnIfBaseIsStale(projectDir: string, reqId: string, base: string): voi
  * therefore mean nothing.
  *
  * Two sibling requirement branches *always* conflict here: each run ends with
- * `csda done REQ-NNN`, which edits the same traceability matrix. The
+ * `specgate done REQ-NNN`, which edits the same traceability matrix. The
  * integration base exists only so an agent can see the code its dependencies
  * produced; the matrix state on a throwaway branch is consulted by nobody, and
  * each real `harness/REQ-NNN` branch keeps its own row untouched.
@@ -1130,8 +1130,8 @@ function preserveFailedAttempt(worktreeDir, req, failure) {
     "-m",
     `wip(${req.requirement}): FAILED the gate — do not merge as is\n\n` +
       `${firstLine}\n\n` +
-      "Committed by `csda harness run` so the attempt is reviewable rather than\n" +
-      "discarded. The requirement is still Draft: `csda done` never ran.",
+      "Committed by `specgate harness run` so the attempt is reviewable rather than\n" +
+      "discarded. The requirement is still Draft: `specgate done` never ran.",
   ]);
   return commit.status === 0;
 }
@@ -1151,8 +1151,8 @@ function preserveFailedAttempt(worktreeDir, req, failure) {
  *
  * Only errors block. Warnings — a thin scenario, a vague step — are printed and
  * allowed through: they weaken the signal without faking it, and a project
- * brought in with `csda adopt` would otherwise be unable to run the harness at
- * all. `csda validate --strict-scenarios` is where a project opts into the
+ * brought in with `specgate adopt` would otherwise be unable to run the harness at
+ * all. `specgate validate --strict-scenarios` is where a project opts into the
  * stricter reading.
  */
 /**
@@ -1307,7 +1307,7 @@ function processRequirement(req, ctx) {
       branch,
       error: unrunnable
         ? `Its scenario would pass without testing anything, so the gate could not ` +
-          `tell success from failure. Run \`csda validate <dir> --strict-scenarios\` ` +
+          `tell success from failure. Run \`specgate validate <dir> --strict-scenarios\` ` +
           `to see every one.`
         : `Not ready for an agent: ${readiness.blockers
             .filter((b) => b.severity === "error")
@@ -1872,7 +1872,7 @@ export async function runLevels(pending, ctx, opts) {
         result: "blocked",
         attempts: 0,
         branch: `harness/${id}`,
-        error: `Not attempted: caught in a dependency cycle (${cycle.join(" → ")}). Run \`csda validate\` for the fix.`,
+        error: `Not attempted: caught in a dependency cycle (${cycle.join(" → ")}). Run \`specgate validate\` for the fix.`,
       });
     }
   }
@@ -2024,7 +2024,9 @@ export class RunCommand extends BaseCommand {
 
       printReport(results, args.format);
       if (recordPath && args.format !== "json") {
-        info(`Run recorded in ${path.relative(projectDir, recordPath)} — \`csda harness report\``);
+        info(
+          `Run recorded in ${path.relative(projectDir, recordPath)} — \`specgate harness report\``
+        );
       }
 
       // A blocked requirement was never attempted, so it is not a pass — but it
@@ -2034,10 +2036,14 @@ export class RunCommand extends BaseCommand {
       process.exit(failed > 0 ? 1 : 0);
     } catch (err: any) {
       let isJson = false;
-      try { isJson = parseArgs(this.args).format === "json"; } catch { /* ignore */ }
+      try {
+        isJson = parseArgs(this.args).format === "json";
+      } catch {
+        /* ignore */
+      }
       const io = agentIo(isJson);
       return io.fail({ results: null }, [
-        { severity: "error", code: "harness_run_error", message: err.message || String(err) }
+        { severity: "error", code: "harness_run_error", message: err.message || String(err) },
       ]);
     }
   }

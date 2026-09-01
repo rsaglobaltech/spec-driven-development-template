@@ -2,7 +2,7 @@
 
 A **thin** JetBrains plugin that surfaces `traceability.md` diagnostics inside
 IntelliJ IDEA (and the rest of the JetBrains family). It contains no spec logic
-of its own: it launches the shared [`@spec-driven/lsp-server`](../lsp-spec-driven)
+of its own: it launches the shared [`@specgate/lsp-server`](../lsp-spec-driven)
 and lets [LSP4IJ](https://github.com/redhat-developer/lsp4ij) render the results.
 Build the checks once in the LSP; every editor — VS Code, IntelliJ, Neovim —
 gets them.
@@ -25,7 +25,7 @@ cd packages/intellij-spec-driven
 The plugin starts the LSP via:
 
 1. `$SPEC_DRIVEN_LSP` (absolute path to `server.js`) if set, otherwise
-2. `npx --yes @spec-driven/lsp-server` on `PATH`.
+2. `npx --yes @specgate/lsp-server` on `PATH`.
 
 ## Layout
 

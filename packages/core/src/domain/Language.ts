@@ -10,7 +10,7 @@
  * So the split is explicit. Only the sentences a human reads are translated;
  * the keywords never are, and there is a test asserting that.
  *
- * Set with `csda config set language es`. Defaults to English.
+ * Set with `specgate config set language es`. Defaults to English.
  *
  * The tables and the tag-matching live here. Finding out which language a
  * given project asked for reads its config, so that half is infrastructure —

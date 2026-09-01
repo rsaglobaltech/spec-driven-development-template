@@ -59,23 +59,23 @@ not run reports an `error` about itself.
 
 | Command | Document key | Gate |
 |---|---|---|
-| `csda doctor --json` | `doctor` | yes |
-| `csda status --json` | `status` | no |
-| `csda alm pull --json` | `pulled` | no |
-| `csda validate <dir> --json` | `validation` | yes |
-| `csda plan --json` | `plan` | no |
-| `csda report --json` | `report` | no |
-| `csda done <REQ> --json` | `requirement` | no |
-| `csda change list --json` | `changes` | no |
-| `csda change show <id> --json` | `change` | no |
-| `csda change status --json` | `artifacts` | no |
-| `csda change validate <id> --json` | `change` | yes |
-| `csda change archive <id> --json` | `archive` | yes |
-| `csda change instructions <artifact> --json` | `instructions` | no |
-| `csda change author <id> --json` | `change` | yes |
-| `csda specops diff --json` | `changes` | no |
-| `csda harness run --format json` | `results` | no |
-| `csda harness report --json` | `report` | no |
+| `specgate doctor --json` | `doctor` | yes |
+| `specgate status --json` | `status` | no |
+| `specgate alm pull --json` | `pulled` | no |
+| `specgate validate <dir> --json` | `validation` | yes |
+| `specgate plan --json` | `plan` | no |
+| `specgate report --json` | `report` | no |
+| `specgate done <REQ> --json` | `requirement` | no |
+| `specgate change list --json` | `changes` | no |
+| `specgate change show <id> --json` | `change` | no |
+| `specgate change status --json` | `artifacts` | no |
+| `specgate change validate <id> --json` | `change` | yes |
+| `specgate change archive <id> --json` | `archive` | yes |
+| `specgate change instructions <artifact> --json` | `instructions` | no |
+| `specgate change author <id> --json` | `change` | yes |
+| `specgate specops diff --json` | `changes` | no |
+| `specgate harness run --format json` | `results` | no |
+| `specgate harness report --json` | `report` | no |
 
 The document key is what the payload carries on success and what is set to
 `null` on failure. Every document also carries `status`: an array of
@@ -159,7 +159,7 @@ computed — `strict_tdd_*` covers `strict_tdd_1` through `strict_tdd_3`.
 ## Worked example
 
 ```bash
-csda change instructions specs --json 2>/dev/null | jq -r '.instructions.rules[]'
+specgate change instructions specs --json 2>/dev/null | jq -r '.instructions.rules[]'
 ```
 
 An agent that reads `fix` self-corrects; one that reads only `message` retries

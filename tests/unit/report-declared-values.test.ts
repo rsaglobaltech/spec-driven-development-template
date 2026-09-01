@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda report` — declared-value drift (§8.6 of PLAN_PREDICTABLE_CODE_EVOLUTION.md).
+ * `specgate report` — declared-value drift (§8.6 of PLAN_PREDICTABLE_CODE_EVOLUTION.md).
  *
  * `packages/core/test/unit/value-annotations.test.ts` pins the pure compare
  * logic. This is the I/O wiring: read a capability spec's `value_<id>=`

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * `csda harness report` — what the harness has actually cost.
+ * `specgate harness report` — what the harness has actually cost.
  *
  * Two numbers decide whether agent roles, retries and parallelism are worth
  * paying for, and neither was measurable before the run ledger existed:
@@ -68,7 +68,7 @@ function usage(): void {
   process.stdout.write(
     `\n  ${c.bold}📈 harness report${c.reset}  ${c.dim}— what the harness has cost${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    csda harness report [--project-dir <path>] [--last <n>] [--json]\n\n` +
+      `    specgate harness report [--project-dir <path>] [--last <n>] [--json]\n\n` +
       `  ${c.bold}OPTIONS${c.reset}\n` +
       `    --last <n>            Only the n most recent runs.\n` +
       `    --json                Machine-readable summary.\n` +
@@ -243,7 +243,7 @@ function render(summary: HarnessReportSummary): void {
         `${pct(summary.realFailureRate)}` +
         (summary.realFailureRate === null
           ? `  ${c.dim}nothing recorded can tell a real failure from a gate that was\n` +
-            `${" ".repeat(30)}wrong — mark one: csda harness report\n` +
+            `${" ".repeat(30)}wrong — mark one: specgate harness report\n` +
             `${" ".repeat(30)}--mark-false-failure REQ-NNN --reason "..."${c.reset}\n`
           : `  ${c.dim}${summary.falseFailures} marked as the gate's fault${c.reset}\n`)
     );
@@ -270,7 +270,7 @@ export function main(argv: string[]): void {
   } catch (err) {
     io.usage({ report: null }, [
       error("usage", err instanceof Error ? err.message : String(err), {
-        fix: "See `csda harness report --help`.",
+        fix: "See `specgate harness report --help`.",
       }),
     ]);
     return;
@@ -304,7 +304,7 @@ export function main(argv: string[]): void {
   if (runs.length === 0) {
     io.emit({ report: summarise([], []), status: [] }, () => {
       process.stdout.write(
-        `\n  ${c.dim}No runs recorded yet. \`csda harness run\` writes one per run.${c.reset}\n\n`
+        `\n  ${c.dim}No runs recorded yet. \`specgate harness run\` writes one per run.${c.reset}\n\n`
       );
     });
     process.exit(EXIT.OK);

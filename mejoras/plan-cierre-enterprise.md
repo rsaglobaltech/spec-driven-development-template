@@ -560,7 +560,7 @@ corren en CI; Dependabot cubre npm, actions, Maven y Gradle.
 | C7-05 | `[-]` | Maven: publicar `packages/maven-plugin`. Requiere groupId, firma GPG y cuenta OSSRH — o Nexus/Artifactory interno |
 | C7-06 | `[-]` | Gradle: publicar `packages/gradle-plugin` en el Gradle Plugin Portal o repo interno |
 | C7-07 | `[-]` | VS Code Marketplace: cuenta de publisher + `vsce publish`. El `.vsix` 0.1.0 ya está construido en `releases/` |
-| C7-08 | `[-]` | npm: `@spec-driven/mcp-server` |
+| C7-08 | `[-]` | npm: `@specgate/mcp-server` |
 | C7-09 | `[-]` | Desplegar el registry en `packs.spec-driven.dev`: dominio + Pages/Cloudflare |
 
 ### 10.5 Release 0.4.0 (2026-08-17) — el suelo a Node 22

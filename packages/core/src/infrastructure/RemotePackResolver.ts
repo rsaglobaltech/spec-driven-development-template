@@ -88,7 +88,7 @@ export function resolveRemotePack(options) {
   if (isOffline(opts)) {
     throw new Error(
       `Offline mode: pack ${opts.repo}@${opts.version} is not in the local cache (${targetDir}).\n` +
-        "Fix: on a connected machine run `csda pack bundle --repo <url> --out pack.bundle`,\n" +
+        "Fix: on a connected machine run `specgate pack bundle --repo <url> --out pack.bundle`,\n" +
         "copy the bundle across, and use it as --pack-repo /path/to/pack.bundle."
     );
   }

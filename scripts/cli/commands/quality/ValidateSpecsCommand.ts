@@ -162,9 +162,9 @@ export class ValidateSpecsCommand extends BaseCommand {
    * that never touch `pack lint` — `change archive`, `req add`, and a person
    * with an editor. This closes that gap by reading the same domain rules.
    *
-   * **Why a flag and not the default.** A project brought in with `csda adopt`
+   * **Why a flag and not the default.** A project brought in with `specgate adopt`
    * can have dozens of weak features written long before this tool existed;
-   * failing its first `validate` would teach people to skip the gate. `csda
+   * failing its first `validate` would teach people to skip the gate. `specgate
    * doctor` reports the same findings as advisories, which is the gradual path
    * this tool uses everywhere else. Under the flag, warnings fail too — asking
    * for strict and getting lenient is the H14 mistake in a different costume.
@@ -204,10 +204,10 @@ export class ValidateSpecsCommand extends BaseCommand {
    *
    * The check runs off tags, because a tag survives the rename and a title does
    * not — and the matrix carries an id, not a title, so there is nothing else to
-   * compare. `csda expand` writes them; nobody types them.
+   * compare. `specgate expand` writes them; nobody types them.
    *
    * **Only files that carry our tags are checked.** A project brought in with
-   * `csda adopt`, or one scaffolded before this existed, has none — and failing
+   * `specgate adopt`, or one scaffolded before this existed, has none — and failing
    * it here would punish it for a link it was never given the means to make.
    * Once a file is tagged, a row pointing into it has to be right.
    */
@@ -346,7 +346,7 @@ export class ValidateSpecsCommand extends BaseCommand {
    *
    * **A project with no `docs/specs/capabilities/` is not a failure.** Most
    * scaffolded projects never grow one — it is the change-lifecycle structure,
-   * not something `csda init` writes. Nothing to check is not a violation.
+   * not something `specgate init` writes. Nothing to check is not a violation.
    */
   private checkRequirementSyntax(targetDir: string) {
     const capabilitiesDir = path.join(targetDir, CAPABILITIES_DIR);
@@ -407,7 +407,7 @@ export class ValidateSpecsCommand extends BaseCommand {
     if (!fs.existsSync(targetDir) || !fs.statSync(targetDir).isDirectory()) {
       this.fail("project_dir_not_found", `Directory not found: ${targetDir}`, EXIT.USAGE, [
         "Check the path for typos, or scaffold a new project first:",
-        "  csda init",
+        "  specgate init",
       ]);
     }
 
@@ -465,7 +465,7 @@ export class ValidateSpecsCommand extends BaseCommand {
       if (!fs.existsSync(path.join(targetDir, d))) {
         this.fail("missing_required_dir", `Missing required directory: ${d}`, 1, [
           `Create it: mkdir -p ${d}`,
-          "Or scaffold the full SDD structure with `csda init` / `specops add`.",
+          "Or scaffold the full SDD structure with `specgate init` / `specops add`.",
         ]);
       }
     }
@@ -484,7 +484,7 @@ export class ValidateSpecsCommand extends BaseCommand {
       if (!fs.existsSync(path.join(targetDir, f))) {
         this.fail("missing_required_file", `Missing required file: ${f}`, 1, [
           FILE_FIXES[f] || `Create ${f}.`,
-          "Generated projects include every required file — compare with `csda init --yes --out <tmp>`.",
+          "Generated projects include every required file — compare with `specgate init --yes --out <tmp>`.",
         ]);
       }
     }
@@ -494,7 +494,7 @@ export class ValidateSpecsCommand extends BaseCommand {
     if (featureFiles.length < 1) {
       this.fail("no_feature_files", "No .feature files were found in features/", 1, [
         "Write at least one Gherkin scenario, e.g. features/<area>/<name>.feature,",
-        "or pull scenarios from a domain pack: csda specops add --pack-repo <url> …",
+        "or pull scenarios from a domain pack: specgate specops add --pack-repo <url> …",
       ]);
     }
     const featureCount = featureFiles.length;
@@ -523,7 +523,7 @@ export class ValidateSpecsCommand extends BaseCommand {
       const varList = [...tokens].map((t: any) => String(t).replace(/[{}]/g, "")).join(", ");
       this.logFix([
         `Replace the tokens with real values, or re-expand the pack passing each variable:`,
-        `  csda specops sync --project-dir . (after adding the missing vars to .specops.lock)`,
+        `  specgate specops sync --project-dir . (after adding the missing vars to .specops.lock)`,
         `Missing variables: ${varList}`,
       ]);
       process.exit(1);
@@ -562,7 +562,7 @@ export class ValidateSpecsCommand extends BaseCommand {
       "TDD-2":
         "Give the row a Scenario ID that matches a scenario in its feature file (e.g. SCN-001).",
       "TDD-3":
-        "Add a traceability row for the requirement — run `csda plan` to list what each REQ still needs.",
+        "Add a traceability row for the requirement — run `specgate plan` to list what each REQ still needs.",
     };
 
     if (strictTddViolations.length > 0) {

@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda validate --strict-links` — a declared link still points at something
+ * `specgate validate --strict-links` — a declared link still points at something
  * that exists (`PLAN_PREDICTABLE_CODE_EVOLUTION.md` §8.5, the F6 follow-on).
  *
  * Not formal verification — just the matrix's own promises kept. A file named

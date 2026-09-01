@@ -5,7 +5,7 @@
  * the CLI's own reading of it, kept here because validating a pack is a
  * judgement about its contents rather than about a disk. The one thing that
  * genuinely needs a filesystem — does this template file exist — arrives as
- * the `templateExists` predicate, so `csda pack lint` and `csda expand` share
+ * the `templateExists` predicate, so `specgate pack lint` and `specgate expand` share
  * one set of rules without the rules importing `fs`.
  */
 

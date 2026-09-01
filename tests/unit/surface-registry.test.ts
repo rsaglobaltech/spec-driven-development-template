@@ -178,8 +178,12 @@ test("every command the agent steps tell an agent to run exists", () => {
   const unknown: string[] = [];
   for (const step of STEPS) {
     for (const line of step.run) {
-      const [csda, command, maybeSub] = line.split(/\s+/);
-      assert.equal(csda, "csda", `step '${step.name}' runs something other than csda: ${line}`);
+      const [bin, command, maybeSub] = line.split(/\s+/);
+      assert.equal(
+        bin,
+        "specgate",
+        `step '${step.name}' runs something other than specgate: ${line}`
+      );
       if (!commandNames().includes(command)) {
         unknown.push(line);
         continue;
@@ -210,7 +214,7 @@ test("every MCP tool that fronts a command fronts one that exists", () => {
     if (!spec.csda) continue;
     const [command, sub] = spec.csda.split(" ");
     if (!commandNames().includes(command) || (sub && !(subs[command] || []).includes(sub))) {
-      unknown.push(`${tool} → csda ${spec.csda}`);
+      unknown.push(`${tool} → specgate ${spec.csda}`);
     }
     assert.equal(
       declared[tool],

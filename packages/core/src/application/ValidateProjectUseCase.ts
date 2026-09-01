@@ -50,7 +50,7 @@ export class ValidateProjectUseCase {
         `docs/specs/traceability.md not found in ${projectDir}`,
         {
           file: "docs/specs/traceability.md",
-          fixLines: ["Run `csda init` to scaffold the project structure."],
+          fixLines: ["Run `specgate init` to scaffold the project structure."],
         }
       );
       return { report, mode: null, requirements: new Set() };
@@ -112,7 +112,7 @@ export class ValidateProjectUseCase {
           target: status,
           fixLines: [
             `Allowed statuses: ${[...ALLOWED_STATUS].join(" · ")}`,
-            "Use `csda done <REQ-id>` to flip a row to Implemented safely.",
+            "Use `specgate done <REQ-id>` to flip a row to Implemented safely.",
           ],
         });
       }

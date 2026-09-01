@@ -72,12 +72,12 @@ export const STAGES = {
   apply: {
     summary: "Implement the change: write the tests first, then the code.",
     rules: [
-      "Work one requirement at a time. `csda plan` is the queue.",
+      "Work one requirement at a time. `specgate plan` is the queue.",
       "The scenario in the delta is the acceptance criterion — implement to it, not around it.",
       "Set the row's Test artifact and move its status to `In Dev` only once the test exists; `validate --strict-tdd` fails with `[TDD-1]` otherwise.",
-      "Do not edit `docs/specs/traceability.md` by hand — `csda req link` and `csda done` write it.",
+      "Do not edit `docs/specs/traceability.md` by hand — `specgate req link` and `specgate done` write it.",
     ],
-    nextCommand: "csda validate . --strict-tdd",
+    nextCommand: "specgate validate . --strict-tdd",
   },
   archive: {
     summary: "Merge the change into the spec tree and file it away.",
@@ -85,9 +85,9 @@ export const STAGES = {
       "Every task must be checked first, or archive refuses.",
       "Preview with `--dry-run`: it lists the specs and matrix rows that will move.",
       "Archiving inserts the traceability rows and materialises the proposed feature files. It is not a file move.",
-      "After archiving, the requirement is real work: `csda plan` lists it as pending.",
+      "After archiving, the requirement is real work: `specgate plan` lists it as pending.",
     ],
-    nextCommand: "csda change archive <id> --dry-run",
+    nextCommand: "specgate change archive <id> --dry-run",
   },
 };
 
@@ -178,7 +178,7 @@ export function buildInstructions(projectDir, artifact, changeId, templates) {
     template: templates[artifact] ? templates[artifact](changeId, projectDir) : null,
     rules: ARTIFACT_RULES[artifact] || [],
     context,
-    nextCommand: `csda change validate ${changeId}`,
+    nextCommand: `specgate change validate ${changeId}`,
   };
 }
 
@@ -199,7 +199,7 @@ export function knownFor(projectDir, config) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      `  csda change instructions <${KNOWN.join("|")}> [<change-id>] [--json]\n\n` +
+      `  specgate change instructions <${KNOWN.join("|")}> [<change-id>] [--json]\n\n` +
       "Everything needed to write one artefact of a change: the template, the\n" +
       "rules the validator enforces, the project's declared stack, and what\n" +
       "writing it unblocks. The single context engine behind the slash commands,\n" +
@@ -276,8 +276,8 @@ export function main(argv, templates) {
         {
           fix:
             ids.length === 0
-              ? "Open one first: csda change new <id>"
-              : `csda change instructions ${artifact} <change-id>`,
+              ? "Open one first: specgate change new <id>"
+              : `specgate change instructions ${artifact} <change-id>`,
         }
       ),
     ]);
@@ -286,7 +286,9 @@ export function main(argv, templates) {
     io.fail(NULL_SHAPE, [
       error("change_not_found", `Change "${changeId}" does not exist.`, {
         target: changeId,
-        fix: ids.length ? `Active changes: ${ids.join(", ")}.` : "Open one: csda change new <id>",
+        fix: ids.length
+          ? `Active changes: ${ids.join(", ")}.`
+          : "Open one: specgate change new <id>",
       }),
     ]);
   }

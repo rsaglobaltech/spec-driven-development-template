@@ -1,6 +1,6 @@
 // IntelliJ plugin build. Requires a JDK 17+ and Gradle; not built by the Node
 // CI in this repo (see README). It is a thin LSP4IJ client over
-// @spec-driven/lsp-server — no spec logic lives here.
+// @specgate/lsp-server — no spec logic lives here.
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "1.9.24"

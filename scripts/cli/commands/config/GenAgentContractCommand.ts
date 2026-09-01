@@ -136,7 +136,11 @@ not run reports an \`error\` about itself.
 ## Commands
 
 ${table(
-  COMMANDS.map((c) => [`\`csda ${c.command}\``, `\`${c.nullShapeKey}\``, c.gate ? "yes" : "no"]),
+  COMMANDS.map((c) => [
+    `\`specgate ${c.command}\``,
+    `\`${c.nullShapeKey}\``,
+    c.gate ? "yes" : "no",
+  ]),
   ["Command", "Document key", "Gate"]
 )}
 
@@ -154,7 +158,7 @@ ${table(codeRows, ["Code", "Emitted by"])}
 ## Worked example
 
 \`\`\`bash
-csda change instructions specs --json 2>/dev/null | jq -r '.instructions.rules[]'
+specgate change instructions specs --json 2>/dev/null | jq -r '.instructions.rules[]'
 \`\`\`
 
 An agent that reads \`fix\` self-corrects; one that reads only \`message\` retries

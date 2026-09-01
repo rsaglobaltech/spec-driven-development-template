@@ -160,7 +160,7 @@ export function mergeTraceability(base: string, ours: string, theirs: string): M
 
   // Rows only they have. Appended after the last row rather than interleaved:
   // the matrix has no total order the driver could honour, and inventing one
-  // would reshuffle a file nobody asked to reshuffle. `csda req` owns ordering.
+  // would reshuffle a file nobody asked to reshuffle. `specgate req` owns ordering.
   const added = [...theirRows].filter(([key]) => !emitted.has(key)).map(([, line]) => line);
   if (added.length > 0) {
     const lastRow = lastRowIndex(out, mode);
@@ -184,7 +184,7 @@ function lastRowIndex(lines: readonly string[], mode: "rich" | "legacy"): number
  *
  * **How to resolve one of these by hand:** the two lines are the same row as the
  * two branches left it. Delete the three marker lines and the version you do not
- * want, keeping exactly one row. Then run `csda validate <project>` — it checks
+ * want, keeping exactly one row. Then run `specgate validate <project>` — it checks
  * the statuses are legal and that no scenario id is duplicated, which is what
  * catches a half-finished resolution. Do not keep both lines: a duplicated
  * requirement is the one shape of corruption this file must never have.

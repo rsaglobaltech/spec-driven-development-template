@@ -1,5 +1,5 @@
 /**
- * `csda harness run` — re-export of the command and of the decisions it makes.
+ * `specgate harness run` — re-export of the command and of the decisions it makes.
  *
  * The command lives in `scripts/cli/commands/harness/RunCommand`; command
  * substitution, the gate-output hint and the dependency scheduling are domain

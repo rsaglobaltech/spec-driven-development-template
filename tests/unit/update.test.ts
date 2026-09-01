@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda update` — refreshing generated files without discarding local edits.
+ * `specgate update` — refreshing generated files without discarding local edits.
  *
  * The behaviour that matters is the one nobody tests until it bites: a team
  * edits a generated instruction file, the CLI is upgraded, and the upgrade must

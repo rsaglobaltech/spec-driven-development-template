@@ -1,13 +1,13 @@
 /**
  * The one reader of `docs/specs/capabilities/**\/spec.md`.
  *
- * Two callers need this: `csda report` (§8.6, declared-value drift) and
- * `csda change new --from-value-drift` (three-routes resolution). Each wrote
+ * Two callers need this: `specgate report` (§8.6, declared-value drift) and
+ * `specgate change new --from-value-drift` (three-routes resolution). Each wrote
  * its own copy first; the F1/A3 lesson is that two hand-written readers of
  * the same thing drift, so this is the single one both import.
  *
- * Absent entirely on most projects — `csda init` never writes this
- * directory, it belongs to the change-lifecycle structure (`csda change`).
+ * Absent entirely on most projects — `specgate init` never writes this
+ * directory, it belongs to the change-lifecycle structure (`specgate change`).
  * No directory is not an error here; it is "nothing to read yet".
  */
 

@@ -6,7 +6,7 @@
     "platform": "darwin",
     "packSource": "local"
   },
-  "recordedAt": "2026-08-23",
+  "recordedAt": "2026-09-01",
   "title": "smart-parking",
   "cols": 88,
   "streamsMerged": false,
@@ -64,7 +64,7 @@
       "id": "init",
       "caption": "Requirements, Gherkin, a traceability matrix and the rules for agents.",
       "cwd": "~",
-      "command": "csda init --config ./smart-parking.yaml --out . --no-git",
+      "command": "specgate init --config ./smart-parking.yaml --out . --no-git",
       "surface": "init",
       "exit": 0,
       "typeMs": 26,
@@ -138,7 +138,7 @@
       "id": "specops-add",
       "caption": "A domain pack, installed and pinned. Not copy-pasted.",
       "cwd": "~/smart-parking",
-      "command": "csda specops add --pack-root ~/packs --pack multi-tenant/backend --var \"PROJECT_NAME=Smart Parking\" --var PROJECT_SLUG=smart-parking --var \"DOMAIN=parking operations\"",
+      "command": "specgate specops add --pack-root ~/packs --pack multi-tenant/backend --var \"PROJECT_NAME=Smart Parking\" --var PROJECT_SLUG=smart-parking --var \"DOMAIN=parking operations\"",
       "surface": "specops add",
       "exit": 0,
       "typeMs": 26,
@@ -172,7 +172,7 @@
       "id": "plan",
       "caption": "The queue, derived from the matrix. Nobody maintains this by hand.",
       "cwd": "~/smart-parking",
-      "command": "csda plan",
+      "command": "specgate plan",
       "surface": "plan",
       "exit": 0,
       "typeMs": 26,
@@ -280,7 +280,7 @@
       "id": "harness-run",
       "caption": "One requirement, one worktree, one agent — and a gate that can say no.",
       "cwd": "~/smart-parking",
-      "command": "csda harness run --req REQ-000",
+      "command": "specgate harness run --req REQ-000",
       "surface": "harness run",
       "exit": 0,
       "typeMs": 26,
@@ -299,7 +299,7 @@
           "s": "out"
         },
         {
-          "t": "⚠️  [harness]   fix: csda req link REQ-000 --test <path>",
+          "t": "⚠️  [harness]   fix: specgate req link REQ-000 --test <path>",
           "c": "warn",
           "s": "out"
         },
@@ -339,7 +339,7 @@
           "s": "out"
         },
         {
-          "t": "ℹ️  [harness] Run recorded in .harness/runs/2026-01-01T00-00-00-000Z.json — `csda harness report`",
+          "t": "ℹ️  [harness] Run recorded in .harness/runs/2026-01-01T00-00-00-000Z.json — `specgate harness report`",
           "c": "info",
           "s": "out"
         }
@@ -447,7 +447,7 @@
       "id": "validate",
       "caption": "And the chain still holds. This is the command CI runs.",
       "cwd": "~/smart-parking",
-      "command": "csda validate .",
+      "command": "specgate validate .",
       "surface": "validate",
       "exit": 0,
       "typeMs": 26,

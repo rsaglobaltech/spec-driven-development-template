@@ -52,7 +52,7 @@ test("a declared path the diff never touched is reported, with a fix that names 
   assert.equal(found[0].code, ARTIFACT_CODES.UNTOUCHED);
   assert.equal(found[0].severity, "warning", "a warning by default — see the module note");
   assert.match(found[0].message, /src\/Health\.java/);
-  assert.match(found[0].fix, /csda req link REQ-007 --code/);
+  assert.match(found[0].fix, /specgate req link REQ-007 --code/);
 });
 
 test("the test artifact gets its own flag in the fix", () => {
@@ -95,7 +95,7 @@ test("a row may name a directory and the work land on files inside it", () => {
 });
 
 test("a prose-only row produces no findings at all", () => {
-  // The scaffolded project. If this ever starts warning, every `csda init`
+  // The scaffolded project. If this ever starts warning, every `specgate init`
   // hands the user a harness that complains on its first run.
   assert.deepEqual(
     checkDeclaredArtifacts({

@@ -35,7 +35,7 @@ export function parseArgs(argv: string[]): StatusOptions {
       process.stdout.write(
         `\n  ${c.bold}${c.cyan}📊 status${c.reset}  ${c.dim}— project state at a glance + what to do next${c.reset}\n\n` +
           `  ${c.bold}USAGE${c.reset}\n` +
-          `    ${c.cyan}csda status${c.reset} [--project-dir <path>] [--json]\n\n` +
+          `    ${c.cyan}specgate status${c.reset} [--project-dir <path>] [--json]\n\n` +
           `  ${c.bold}OPTIONS${c.reset}\n` +
           `    ${c.green}--project-dir <path>${c.reset} ${c.dim}Project root (auto-detected from cwd if omitted).${c.reset}\n` +
           `    ${c.green}--json${c.reset}               ${c.dim}One JSON document on stdout; prose on stderr.${c.reset}\n` +
@@ -74,25 +74,26 @@ export function summarise(projectDir: string, traceContent: string) {
 
 function nextCommand({ counts, orphans }: any): string {
   if (orphans.length > 0)
-    return `csda fix  ${c.dim}— ${orphans.length} orphan feature file(s) not in the matrix${c.reset}`;
+    return `specgate fix  ${c.dim}— ${orphans.length} orphan feature file(s) not in the matrix${c.reset}`;
   if (counts.NEEDS_FEATURE > 0)
-    return `csda plan  ${c.dim}— ${counts.NEEDS_FEATURE} requirement(s) missing a .feature${c.reset}`;
+    return `specgate plan  ${c.dim}— ${counts.NEEDS_FEATURE} requirement(s) missing a .feature${c.reset}`;
   if (counts.NEEDS_EVERYTHING > 0 || counts.NEEDS_TEST > 0 || counts.NEEDS_IMPLEMENTATION > 0)
-    return `csda plan  ${c.dim}— requirements still need a test or code${c.reset}`;
+    return `specgate plan  ${c.dim}— requirements still need a test or code${c.reset}`;
   if (counts.NEEDS_STATUS_UPDATE > 0)
-    return `csda done <REQ>  ${c.dim}— ${counts.NEEDS_STATUS_UPDATE} requirement(s) ready to close${c.reset}`;
-  if (counts.total === 0) return `csda req add "<title>"  ${c.dim}— no requirements yet${c.reset}`;
-  return `csda validate --strict-tdd  ${c.dim}— everything implemented; gate it${c.reset}`;
+    return `specgate done <REQ>  ${c.dim}— ${counts.NEEDS_STATUS_UPDATE} requirement(s) ready to close${c.reset}`;
+  if (counts.total === 0)
+    return `specgate req add "<title>"  ${c.dim}— no requirements yet${c.reset}`;
+  return `specgate validate --strict-tdd  ${c.dim}— everything implemented; gate it${c.reset}`;
 }
 
 export function nextCommandPlain({ counts, orphans }: any): string {
-  if (orphans.length > 0) return "csda fix";
-  if (counts.NEEDS_FEATURE > 0) return "csda plan";
+  if (orphans.length > 0) return "specgate fix";
+  if (counts.NEEDS_FEATURE > 0) return "specgate plan";
   if (counts.NEEDS_EVERYTHING > 0 || counts.NEEDS_TEST > 0 || counts.NEEDS_IMPLEMENTATION > 0)
-    return "csda plan";
-  if (counts.NEEDS_STATUS_UPDATE > 0) return "csda done <REQ>";
-  if (counts.total === 0) return 'csda req add "<title>"';
-  return "csda validate --strict-tdd";
+    return "specgate plan";
+  if (counts.NEEDS_STATUS_UPDATE > 0) return "specgate done <REQ>";
+  if (counts.total === 0) return 'specgate req add "<title>"';
+  return "specgate validate --strict-tdd";
 }
 
 function emitText(projectDir: string, summary: any, lock: any): void {
@@ -172,7 +173,7 @@ export class StatusCommand extends BaseCommand {
     if (!fs.existsSync(tracePath)) {
       process.stderr.write(
         `${c.red}✖${c.reset}  docs/specs/traceability.md not found in ${projectDir}\n` +
-          `   ${c.dim}Not a spec-driven project? Scaffold one with \`csda init\`.${c.reset}\n`
+          `   ${c.dim}Not a spec-driven project? Scaffold one with \`specgate init\`.${c.reset}\n`
       );
       process.exit(2);
     }

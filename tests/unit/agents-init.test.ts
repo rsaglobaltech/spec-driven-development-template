@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * `csda agents init` — the generated instruction files.
+ * `specgate agents init` — the generated instruction files.
  *
  * The property worth protecting is that these files stay thin. They point at
- * `csda change instructions`; they do not copy the delta grammar into markdown,
+ * `specgate change instructions`; they do not copy the delta grammar into markdown,
  * because a copy is stale the moment the grammar moves.
  */
 
@@ -71,7 +71,7 @@ test("a shared destination is written once, credited to both tools", () => {
       "--json"
     );
     const doc = JSON.parse(r.stdout);
-    // `csda init` already generates AGENTS.md, so here it lands in `skipped` —
+    // `specgate init` already generates AGENTS.md, so here it lands in `skipped` —
     // what matters is that it appears exactly once, whichever list it is in.
     const planned = [...doc.agents.written, ...doc.agents.skipped].filter(
       (w) => w.path === "AGENTS.md"
@@ -121,7 +121,7 @@ test("every step becomes a slash command that calls the engine", () => {
       const body = fs.readFileSync(file, "utf8");
       assert.match(body, new RegExp(`# /csda:${step.name}`));
       // Thin by design: it defers to the engine rather than restating rules.
-      assert.match(body, /csda change instructions/);
+      assert.match(body, /specgate change instructions/);
     }
   });
 });

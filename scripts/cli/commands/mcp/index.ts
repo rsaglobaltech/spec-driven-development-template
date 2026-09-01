@@ -9,11 +9,14 @@ export class McpCommand extends BaseCommand {
       new McpInstallCommand(this.args.slice(1)).execute();
       return;
     }
-    agentIo(this.args.includes("--json")).fail({ mcp: null }, [{
-      code: "unknown_mcp_command",
-      message: "Unknown subcommand for mcp.",
-      severity: "error", fix: "Use 'csda mcp install --client <client>'"
-    }]);
+    agentIo(this.args.includes("--json")).fail({ mcp: null }, [
+      {
+        code: "unknown_mcp_command",
+        message: "Unknown subcommand for mcp.",
+        severity: "error",
+        fix: "Use 'specgate mcp install --client <client>'",
+      },
+    ]);
     process.exitCode = 2;
   }
 }

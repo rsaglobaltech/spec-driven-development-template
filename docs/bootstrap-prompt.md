@@ -2,9 +2,9 @@
 
 Hand this prompt to your coding agent (opencode, Claude, Aider, Cursor)
 the first time you sit down in a fresh project, **after** you have run
-`csda init` and `csda specops add` but **before** you start the harness
+`specgate init` and `specgate specops add` but **before** you start the harness
 loop. It is the only freeform-AI step in the whole flow — every later
-requirement goes through `csda harness run`, which builds its own
+requirement goes through `specgate harness run`, which builds its own
 prompt deterministically.
 
 > Why a separate prompt? The harness implements **one REQ at a time**.
@@ -17,21 +17,21 @@ prompt deterministically.
 
 ## How to use it
 
-1. Run `csda init` and `csda specops add` so the project has `spec.md`,
+1. Run `specgate init` and `specgate specops add` so the project has `spec.md`,
    `AI_RULES.md` and `features/**/*.feature`.
 2. Open your coding agent inside the project directory.
 3. Paste the prompt below verbatim, then say "go".
 4. When the agent says it is done, run:
    ```bash
-   csda validate . --strict-tdd
+   specgate validate . --strict-tdd
    <your test command>      # e.g. mvn -B test
-   csda plan
+   specgate plan
    ```
    `validate --strict-tdd` and the project test command must pass. `plan`
    should show the remaining REQs as pending. **This is Phase 1's
    acceptance test — do not move on until both are green.**
 5. Commit: `git commit -am "phase 1: bootstrap"`.
-6. From now on, every REQ is `csda harness run`'s job.
+6. From now on, every REQ is `specgate harness run`'s job.
 
 After Phase 1 is in, the universal directives from this prompt belong in
 **`harness.config.yaml: prompt_prefix`** (or `prompt_prefix_file`) so they
@@ -53,7 +53,7 @@ You are my **Lead Technical Architect** and **Senior Engineer**.
 - `@./AI_RULES.md` — stack, architectural constraints, workflow rules.
 - `@./spec.md` — the domain map.
 - `@./features/**/*.feature` — the executable acceptance criteria.
-- `@./docs/specs/traceability.md` — the requirement ↔ code matrix; `csda done` owns it.
+- `@./docs/specs/traceability.md` — the requirement ↔ code matrix; `specgate done` owns it.
 
 You **must not** rewrite, refine, or "improve" any of those files.
 
@@ -62,9 +62,9 @@ You **must not** rewrite, refine, or "improve" any of those files.
 - Prioritise executable implementation and passing tests over narrative summaries.
 - Respect the architectural constraints in `AI_RULES.md` (Hexagonal / Clean / DDD as declared).
 - Use `csda` to introspect — never to rewrite specs:
-  - `csda plan`                — which REQs are pending and what is missing.
-  - `csda validate . --strict-tdd` — the gate you must satisfy.
-  - `csda pack lint --pack-root <cached pack dir> --pack <id> --graph` — visualise the domain.
+  - `specgate plan`                — which REQs are pending and what is missing.
+  - `specgate validate . --strict-tdd` — the gate you must satisfy.
+  - `specgate pack lint --pack-root <cached pack dir> --pack <id> --graph` — visualise the domain.
 
 ## Phase 1 — Goal
 Make the project executable end-to-end:
@@ -82,14 +82,14 @@ Make the project executable end-to-end:
 4. **First bounded context, end-to-end** — pick the highest-priority
    bounded context in `spec.md` and implement enough domain model + one
    adapter so the first scenario passes through.
-5. **Stop.** Subsequent requirements go through `csda harness run`, not
+5. **Stop.** Subsequent requirements go through `specgate harness run`, not
    you.
 
 ## Acceptance (Phase 1 is "done" when…)
-- `csda validate . --strict-tdd` passes.
+- `specgate validate . --strict-tdd` passes.
 - `<your test command>` passes — with at least one scenario executed for
   real (not skipped, not Pending).
-- `csda plan` lists the still-pending REQs cleanly.
+- `specgate plan` lists the still-pending REQs cleanly.
 - `docs/specs/traceability.md` remains valid (you did not edit it).
 - Working tree is committable: build manifests in place, hex skeleton
   present, no orphan files.
@@ -156,5 +156,5 @@ You are the Lead Technical Architect and Senior Backend Engineer.
 Verify what the agent will receive at any time with:
 
 ```bash
-csda harness prompt REQ-NNN
+specgate harness prompt REQ-NNN
 ```

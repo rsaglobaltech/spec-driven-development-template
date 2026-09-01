@@ -83,7 +83,7 @@ function readMatrix(tracePath: string): string {
   if (!fs.existsSync(tracePath)) {
     process.stderr.write(
       `${c.red}✖${c.reset}  docs/specs/traceability.md not found.\n` +
-        `   ${c.dim}Run \`csda init\` first, or pass --project-dir to an existing project.${c.reset}\n`
+        `   ${c.dim}Run \`specgate init\` first, or pass --project-dir to an existing project.${c.reset}\n`
     );
     process.exit(2);
   }
@@ -129,19 +129,19 @@ function collectFieldFlags(argv: string[]) {
 function usage(): void {
   process.stdout.write(
     `
-  📝 ${c.bold}csda req${c.reset} — add, link and close requirements without hand-editing the matrix
+  📝 ${c.bold}specgate req${c.reset} — add, link and close requirements without hand-editing the matrix
 
 ` +
-      `  ${c.dim}csda req${c.reset}                          list requirements and their status
+      `  ${c.dim}specgate req${c.reset}                          list requirements and their status
 ` +
-      `  ${c.dim}csda req add${c.reset} "<title>"             add one, Draft
+      `  ${c.dim}specgate req add${c.reset} "<title>"             add one, Draft
 ` +
-      `  ${c.dim}csda req link${c.reset} REQ-007 --test <path>  set a field (--feature/--test/--code/--uc/--cmd/--status)
+      `  ${c.dim}specgate req link${c.reset} REQ-007 --test <path>  set a field (--feature/--test/--code/--uc/--cmd/--status)
 ` +
-      `  ${c.dim}csda req done${c.reset} REQ-007               mark Implemented (same as csda done REQ-007)
+      `  ${c.dim}specgate req done${c.reset} REQ-007               mark Implemented (same as specgate done REQ-007)
 
 ` +
-      `  Run ${c.cyan}csda req <subcommand> --help${c.reset} for a subcommand's own flags.
+      `  Run ${c.cyan}specgate req <subcommand> --help${c.reset} for a subcommand's own flags.
 
 `
   );
@@ -168,7 +168,7 @@ function cmdList(tracePath: string, io?: any) {
 
   if (reqs.length === 0) {
     process.stdout.write(
-      `\n  ${c.dim}No requirements yet. Add one: csda req add "…"${c.reset}\n\n`
+      `\n  ${c.dim}No requirements yet. Add one: specgate req add "…"${c.reset}\n\n`
     );
     return 0;
   }
@@ -188,7 +188,7 @@ function cmdList(tracePath: string, io?: any) {
       process.stdout.write(`      ${c.dim}code:    ${r.technicalArtifact}${c.reset}\n`);
   }
   process.stdout.write(
-    `\n  ${c.dim}Next: csda req link <REQ> --test … · csda req done <REQ>${c.reset}\n\n`
+    `\n  ${c.dim}Next: specgate req link <REQ> --test … · specgate req done <REQ>${c.reset}\n\n`
   );
   return 0;
 }
@@ -235,7 +235,7 @@ export class ReqCommand extends BaseCommand {
         .trim();
       if (!title && !fields.useCase) {
         process.stderr.write(
-          `${c.red}✖${c.reset}  A title is required: csda req add "<what the requirement does>"\n`
+          `${c.red}✖${c.reset}  A title is required: specgate req add "<what the requirement does>"\n`
         );
         process.exit(2);
       }
@@ -247,7 +247,7 @@ export class ReqCommand extends BaseCommand {
 
       process.stdout.write(
         `${c.green}✔${c.reset}  Added ${c.bold}${result.reqId}${c.reset} ${c.dim}(${result.scenarioId}, status ${status || "Draft"})${c.reset}\n` +
-          `   ${c.dim}Next: csda req link ${result.reqId} --feature <path> --test <path>${c.reset}\n`
+          `   ${c.dim}Next: specgate req link ${result.reqId} --feature <path> --test <path>${c.reset}\n`
       );
       process.exit(0);
     }
@@ -257,7 +257,7 @@ export class ReqCommand extends BaseCommand {
       const reqId = rest.find((a) => /^REQ-\d+$/.test(a));
       if (!reqId) {
         process.stderr.write(
-          `${c.red}✖${c.reset}  Expected a REQ-id: csda req link REQ-007 --test …\n`
+          `${c.red}✖${c.reset}  Expected a REQ-id: specgate req link REQ-007 --test …\n`
         );
         process.exit(2);
       }
@@ -275,7 +275,7 @@ export class ReqCommand extends BaseCommand {
       if (!result.ok) {
         process.stderr.write(
           `${c.red}✖${c.reset}  ${reqId} not found in traceability.md.\n` +
-            `   ${c.dim}List existing: csda req list${c.reset}\n`
+            `   ${c.dim}List existing: specgate req list${c.reset}\n`
         );
         process.exit(1);
       }
@@ -290,8 +290,8 @@ export class ReqCommand extends BaseCommand {
     }
 
     if (sub === "done") {
-      // Delegates rather than reimplements — `csda req done` is the same
-      // operation as the top-level `csda done`, and DoneCommand.execute()
+      // Delegates rather than reimplements — `specgate req done` is the same
+      // operation as the top-level `specgate done`, and DoneCommand.execute()
       // already calls process.exit itself, so this never falls through.
       new DoneCommand(["--project-dir", resolvedDir, ...stripped.slice(1)]).execute();
       return;

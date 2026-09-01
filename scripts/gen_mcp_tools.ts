@@ -6,16 +6,17 @@ const OUT_FILE = path.join(__dirname, "../packages/mcp-spec-driven/src/tools.ts"
 const toolsMap = mcpTools() as Record<string, string>;
 
 // Convert toolsMap { toolName: "command name" } back into lookup by "command name"
-const cmdToTool = Object.entries(toolsMap).reduce((acc, [tool, cmd]) => {
-  acc[cmd] = tool;
-  return acc;
-}, {} as Record<string, string>);
+const cmdToTool = Object.entries(toolsMap).reduce(
+  (acc, [tool, cmd]) => {
+    acc[cmd] = tool;
+    return acc;
+  },
+  {} as Record<string, string>
+);
 
 let out = `// GENERATED FILE - DO NOT EDIT BY HAND
 // Derived from scripts/lib/surface.ts
 
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 
 export interface ITool {
@@ -75,7 +76,9 @@ export class GenericCliTool implements ITool {
       if (result.stdout && result.stdout.trim().startsWith("{")) {
          return JSON.parse(result.stdout.trim());
       }
-    } catch(e) {}
+    } catch {
+      // Not JSON: fall through to the raw envelope below.
+    }
     
     return {
       exitCode: typeof result.status === "number" ? result.status : 1,
@@ -93,9 +96,10 @@ for (const command of SURFACE) {
     const cmdString = subDef ? `${cmdDef.name} ${subDef.name}` : cmdDef.name;
     const toolName = cmdToTool[cmdString];
     if (!toolName) return; // skipped via mcp: false
-    
-    const summary = (subDef ? subDef.help?.summary : cmdDef.help?.summary) || `Run csda ${cmdString}`;
-    
+
+    const summary =
+      (subDef ? subDef.help?.summary : cmdDef.help?.summary) || `Run specgate ${cmdString}`;
+
     out += `TOOLS["${toolName}"] = new GenericCliTool(
   "${toolName}",
   ${JSON.stringify(summary)},
@@ -110,7 +114,7 @@ for (const command of SURFACE) {
   }
 );\n`;
   };
-  
+
   if (command.subcommands) {
     for (const sub of command.subcommands) {
       processCmd(command, sub);

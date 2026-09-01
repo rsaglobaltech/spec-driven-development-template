@@ -111,7 +111,7 @@ export function requirementReadiness(input: ReadinessInput): Readiness {
           : "the row declares no feature file, so there is no acceptance criterion to satisfy.",
         {
           target,
-          fix: `Write the scenario first: \`csda req link ${target} --feature <path>\`.`,
+          fix: `Write the scenario first: \`specgate req link ${target} --feature <path>\`.`,
         }
       )
     );
@@ -128,7 +128,7 @@ export function requirementReadiness(input: ReadinessInput): Readiness {
           `so the gate could not tell success from failure.`,
         {
           target,
-          fix: "Run `csda validate <dir> --strict-scenarios` to see them, and fix them first.",
+          fix: "Run `specgate validate <dir> --strict-scenarios` to see them, and fix them first.",
         }
       )
     );
@@ -142,7 +142,7 @@ export function requirementReadiness(input: ReadinessInput): Readiness {
         `it depends on ${blocked.join(", ")}, which ${blocked.length === 1 ? "is" : "are"} not done.`,
         {
           target,
-          fix: `Run ${blocked.join(", ")} first — \`csda harness run\` orders them for you.`,
+          fix: `Run ${blocked.join(", ")} first — \`specgate harness run\` orders them for you.`,
         }
       )
     );
@@ -161,7 +161,7 @@ export function requirementReadiness(input: ReadinessInput): Readiness {
         READINESS_CODES.NO_TEST_ARTIFACT,
         "the row declares no test artifact, so the agent chooses where the test " +
           "goes and the matrix will point somewhere else.",
-        { target, fix: `csda req link ${target} --test <path>` }
+        { target, fix: `specgate req link ${target} --test <path>` }
       )
     );
   }
@@ -171,7 +171,7 @@ export function requirementReadiness(input: ReadinessInput): Readiness {
         READINESS_CODES.NO_TECHNICAL_ARTIFACT,
         "the row declares no production artifact, so the agent chooses where the " +
           "implementation goes and the matrix will point somewhere else.",
-        { target, fix: `csda req link ${target} --code <path>` }
+        { target, fix: `specgate req link ${target} --code <path>` }
       )
     );
   }

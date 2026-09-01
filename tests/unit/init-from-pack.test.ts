@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda init --from-pack <repo>@<tag>` — the multi-repo answer.
+ * `specgate init --from-pack <repo>@<tag>` — the multi-repo answer.
  *
  * OpenSpec solves sharing specs across repositories with a central Store. This
  * repository already had the same capability in a different shape — a private

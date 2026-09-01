@@ -139,7 +139,7 @@ test("every script the command registry dispatches to is a runnable entry point"
   // The registry spawns these files by path. A module that only re-exports its
   // command loads fine, resolves fine, and does nothing — which is how moving a
   // command into `scripts/cli/commands/` and leaving a shim behind silently
-  // turned `csda specops sync` into a no-op.
+  // turned `specgate specops sync` into a no-op.
   const missing: string[] = [];
   for (const row of dispatchableRows()) {
     const file = path.join(distDir, "scripts", ...row.script);

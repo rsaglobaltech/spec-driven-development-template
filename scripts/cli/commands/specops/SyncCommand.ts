@@ -60,7 +60,7 @@ function error(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda specops sync [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--var KEY=VALUE]... [--dry-run] [--force] [--abort-on-conflict]\n\n" +
+      "  specgate specops sync [--project-dir <path>] [--pack <pack-id>] [--pack-version <tag>] [--cache-dir <path>] [--var KEY=VALUE]... [--dry-run] [--force] [--abort-on-conflict]\n\n" +
       "Re-expands packs recorded in .specops.lock (or specops.config.yaml if no\n" +
       "lockfile exists) and three-way merges the result into the project,\n" +
       "preserving local edits. With --pack-version, bumps the matching pack(s)\n" +

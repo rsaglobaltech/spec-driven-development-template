@@ -200,7 +200,7 @@ const GH_CONFIG = [
   "",
 ].join("\n");
 
-test("csda alm sync reaches the github provider and plans without touching the network", () => {
+test("specgate alm sync reaches the github provider and plans without touching the network", () => {
   withGithubProject(GH_CONFIG, (dir) => {
     const r = spawnSync(
       process.execPath,

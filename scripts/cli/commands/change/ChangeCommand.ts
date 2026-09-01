@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `csda change <sub>` — the change lifecycle.
+ * `specgate change <sub>` — the change lifecycle.
  *
  *   new · list · show · status · validate · archive
  *
@@ -92,7 +92,7 @@ function usage() {
   process.stdout.write(
     `\n  ${c.bold}${c.cyan}🔄 change${c.reset}  ${c.dim}— propose, review and archive a change${c.reset}\n\n` +
       `  ${c.bold}USAGE${c.reset}\n` +
-      `    ${c.cyan}csda change${c.reset} <new|list|show|status|instructions|author|validate|archive> [options]\n\n` +
+      `    ${c.cyan}specgate change${c.reset} <new|list|show|status|instructions|author|validate|archive> [options]\n\n` +
       `  ${c.bold}SUBCOMMANDS${c.reset}\n` +
       `    ${c.green}new <id>${c.reset}       ${c.dim}Scaffold a change folder (proposal, tasks, delta skeleton).${c.reset}\n` +
       `    ${c.green}list${c.reset}           ${c.dim}Active changes with task progress.${c.reset}\n` +
@@ -187,7 +187,7 @@ const emit = (opts, payload, renderHuman) => agentIo(opts.json).emit(payload, re
  * Route 2 of the three-way resolution for a declared-value divergence
  * (§8.6): `REQ-ID:value_id` becomes a `MODIFIED Requirements` delta
  * proposing the spec take the code's value. Routes 1 ("fix the code") and 3
- * ("retire the requirement") need no tooling of their own — `csda report`
+ * ("retire the requirement") need no tooling of their own — `specgate report`
  * already points at the code file:line for route 1, and route 3 is
  * `change new` with a hand-written `REMOVED Requirements` section, same as
  * retiring any other requirement.
@@ -269,7 +269,7 @@ function resolveValueDriftDelta(
           `No \`csda:value ${valueId}=\` marker found in ${reqId}'s declared Technical/Test artifact.`,
           {
             target: reqId,
-            fix: "Either the marker is missing, or the declared file doesn't exist yet — see `csda report` / --strict-links.",
+            fix: "Either the marker is missing, or the declared file doesn't exist yet — see `specgate report` / --strict-links.",
           }
         ),
       ],
@@ -305,7 +305,7 @@ function cmdNew(opts) {
   if (!changeId) {
     return fail(opts, nullShape, [
       error("change_id_required", "`change new` expects a change id.", {
-        fix: "e.g. `csda change new add-dynamic-pricing`",
+        fix: "e.g. `specgate change new add-dynamic-pricing`",
       }),
     ]);
   }
@@ -392,7 +392,7 @@ function cmdNew(opts) {
           `${c.dim}(${config.rigor} · REQ ids ${reqRange[0]}…${reqRange[1]} reserved)${c.reset}\n\n` +
           created.map((f) => `    ${c.dim}+${c.reset} ${f}\n`).join("") +
           `\n  ${c.dim}Next:${c.reset} write the proposal, then the delta, then ` +
-          `${c.cyan}csda change validate ${changeId}${c.reset}\n\n`
+          `${c.cyan}specgate change validate ${changeId}${c.reset}\n\n`
       );
     }
   );
@@ -451,7 +451,7 @@ function cmdShow(opts) {
     return fail(opts, nullShape, [
       error("change_not_found", `Change "${changeId || "(none)"}" does not exist.`, {
         target: changeId,
-        fix: "Run `csda change list`.",
+        fix: "Run `specgate change list`.",
       }),
     ]);
   }
@@ -527,7 +527,7 @@ function cmdStatus(opts) {
     return fail(opts, { changeName: null, artifacts: [] }, [
       error("change_not_found", `Change "${changeId}" does not exist.`, {
         target: changeId,
-        fix: "Run `csda change list`.",
+        fix: "Run `specgate change list`.",
       }),
     ]);
   }
@@ -543,7 +543,7 @@ function cmdStatus(opts) {
     nextSteps.push(`Work through tasks.md (${progress.remaining} remaining)`);
   }
   if (isPlanningComplete && progress.remaining === 0) {
-    nextSteps.push(`Archive with \`csda change archive ${changeId}\``);
+    nextSteps.push(`Archive with \`specgate change archive ${changeId}\``);
   }
 
   emit(
@@ -582,7 +582,7 @@ function cmdStatus(opts) {
 // ── validate ──────────────────────────────────────────────────────────────────
 
 /**
- * `csda change author` — hand one change artefact to an agent, then hold it to
+ * `specgate change author` — hand one change artefact to an agent, then hold it to
  * the same gate a human would face.
  *
  * This is the `spec-author` role of the multi-agent harness (E2-02), and it is
@@ -590,7 +590,7 @@ function cmdStatus(opts) {
  * requirement: a worktree per REQ, a branch named for it, and a gate of
  * `validate --strict-tdd` plus the project's tests. A change has no requirement
  * yet — writing one is the whole job — so it needs its own loop, its own scope
- * and its own gate: `csda change validate`.
+ * and its own gate: `specgate change validate`.
  *
  * The prompt is not invented here either. `change instructions` already knows
  * what each artefact is for, what rules it must satisfy, what it may unlock and
@@ -612,7 +612,7 @@ function cmdAuthor(opts) {
   if (!changeId) {
     return fail(opts, NULL_SHAPE, [
       error("change_required", "change author needs a change id.", {
-        fix: "csda change author <id> [--artifact proposal|specs|design|tasks]",
+        fix: "specgate change author <id> [--artifact proposal|specs|design|tasks]",
       }),
     ]);
   }
@@ -622,7 +622,7 @@ function cmdAuthor(opts) {
     return fail(opts, NULL_SHAPE, [
       error("change_not_found", `Change "${changeId}" does not exist.`, {
         target: changeId,
-        fix: `Create it first: csda change new ${changeId}`,
+        fix: `Create it first: specgate change new ${changeId}`,
       }),
     ]);
   }
@@ -754,7 +754,7 @@ function cmdAuthor(opts) {
         );
       if (diagnostics.length > 0) printDiagnostics(diagnostics);
       process.stdout.write(
-        `\n  Next: read it, then ${c.cyan}csda change validate ${changeId}${c.reset}\n\n`
+        `\n  Next: read it, then ${c.cyan}specgate change validate ${changeId}${c.reset}\n\n`
       );
     }
   );
@@ -780,7 +780,7 @@ function authorPrompt(changeId: string, artifact: string, instructions: any): st
     "",
     `You are a specification author. Write **only** inside \`${changeScope(changeId)}\`.`,
     "Anything you write elsewhere will be reverted before it is read — the capability",
-    "specs and the traceability matrix are moved by `csda change archive`, after a",
+    "specs and the traceability matrix are moved by `specgate change archive`, after a",
     "human has reviewed this proposal. Describe the change; do not make it.",
     "",
   ];
@@ -807,7 +807,7 @@ function authorPrompt(changeId: string, artifact: string, instructions: any): st
   if (instructions.template) {
     parts.push("## Template\n", "```markdown", String(instructions.template).trim(), "```", "");
   }
-  parts.push(`When finished, the change must pass \`csda change validate ${changeId}\`.`);
+  parts.push(`When finished, the change must pass \`specgate change validate ${changeId}\`.`);
   return parts.join("\n");
 }
 
@@ -821,7 +821,7 @@ function cmdValidate(opts) {
     return fail(opts, { items: [] }, [
       error("change_not_found", `Change "${requested}" does not exist.`, {
         target: requested,
-        fix: "Run `csda change list`.",
+        fix: "Run `specgate change list`.",
       }),
     ]);
   }
@@ -879,7 +879,7 @@ function cmdArchive(opts) {
   if (!changeId) {
     return fail(opts, nullShape, [
       error("archive_change_name_required", "`change archive` expects a change id.", {
-        fix: "e.g. `csda change archive add-dynamic-pricing`",
+        fix: "e.g. `specgate change archive add-dynamic-pricing`",
       }),
     ]);
   }
@@ -946,7 +946,7 @@ function cmdArchive(opts) {
         `    ${c.dim}specs:${c.reset}        ${t.added} added · ${t.modified} modified · ${t.removed} removed\n` +
         `    ${c.dim}traceability:${c.reset} ${t.traceability.added} row(s) added · ${t.traceability.updated} updated · ${t.traceability.removed} removed\n` +
         `    ${c.dim}features:${c.reset}     ${plan.writes.filter((w) => w.kind === "feature").length} materialised\n\n` +
-        `  ${c.dim}Now run${c.reset} ${c.cyan}csda validate . --strict-tdd${c.reset} ${c.dim}— it will fail until the tests exist.${c.reset}\n\n`
+        `  ${c.dim}Now run${c.reset} ${c.cyan}specgate validate . --strict-tdd${c.reset} ${c.dim}— it will fail until the tests exist.${c.reset}\n\n`
     );
     if (plan.warnings.length > 0) printDiagnostics(plan.warnings, process.stdout);
   });

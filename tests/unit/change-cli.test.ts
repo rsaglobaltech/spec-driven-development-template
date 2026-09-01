@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * CLI-level coverage for `csda change`.
+ * CLI-level coverage for `specgate change`.
  *
  * The engine is unit-tested elsewhere; this file exercises the wrapper — the
  * part an agent actually talks to. Every assertion here is about the contract

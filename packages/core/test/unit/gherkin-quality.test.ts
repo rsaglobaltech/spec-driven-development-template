@@ -61,7 +61,7 @@ test("a Scenario Outline without Examples is an error — it runs zero times", (
 
 test("thin, actionless, assertionless and vague scenarios are warnings", () => {
   // They weaken the signal; they do not fake it. Blocking on them would make
-  // the tool unusable on a repository brought in with `csda adopt`.
+  // the tool unusable on a repository brought in with `specgate adopt`.
   const thin = analyseScenario(
     { ...GOOD, steps: [{ keyword: "given", text: "a thing" }] },
     "SCN-001"

@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * `csda validate --strict-requirements` — EARS-checkable requirement prose,
+ * `specgate validate --strict-requirements` — EARS-checkable requirement prose,
  * at rest (F6, `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §8.1).
  *
  * The prerequisite for any code-level verifier is a spec that says something a

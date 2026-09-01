@@ -26,7 +26,7 @@ function fail(msg: string, exitCode = 1): never {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda adopt [--project-dir <dir>] [--dry-run] [--var KEY=VALUE]...\n\n" +
+      "  specgate adopt [--project-dir <dir>] [--dry-run] [--var KEY=VALUE]...\n\n" +
       "Installs Spec-Driven Development on an existing repository:\n" +
       "- detects the stack from pom.xml / build.gradle / package.json / go.mod\n" +
       "- generates spec.md, AI_RULES.md, features/adoption/baseline.feature,\n" +
@@ -175,7 +175,7 @@ export class AdoptProjectCommand extends BaseCommand {
     if (fs.existsSync(path.join(dir, "spec.md"))) {
       fail(
         `${path.join(dir, "spec.md")} already exists — this repository looks spec-driven already.\n` +
-          "Run `csda validate .` to check it, or remove spec.md to re-adopt.",
+          "Run `specgate validate .` to check it, or remove spec.md to re-adopt.",
         2
       );
     }
@@ -241,9 +241,9 @@ export class AdoptProjectCommand extends BaseCommand {
     logInfo(`- Files written: ${written}${opts.dryRun ? " (dry-run, nothing on disk)" : ""}`);
     logInfo(`- Files skipped (already present): ${skipped}`);
     logInfo("✅ Adoption completed. Next steps:");
-    logInfo("  1. csda validate .          # should pass right now");
+    logInfo("  1. specgate validate .          # should pass right now");
     logInfo("  2. Retro-fill real requirements in spec.md (one REQ per behaviour you rely on)");
-    logInfo("  3. csda plan                # see what each REQ still needs");
+    logInfo("  3. specgate plan                # see what each REQ still needs");
     logInfo("  4. Add `validate --strict-tdd` to CI to lock the gate in");
     process.exit(0);
   }

@@ -4,10 +4,10 @@
  * (Jira / Azure Boards) in sync.
  *
  * Usage:
- *   csda alm sync   [--project-dir <dir>] [--dry-run]
- *   csda alm pull   [--label <name>] [--project-dir <dir>] [--dry-run]
- *   csda alm link   <REQ-id> <issue-key> [--project-dir <dir>]
- *   csda alm status [--project-dir <dir>]
+ *   specgate alm sync   [--project-dir <dir>] [--dry-run]
+ *   specgate alm pull   [--label <name>] [--project-dir <dir>] [--dry-run]
+ *   specgate alm link   <REQ-id> <issue-key> [--project-dir <dir>]
+ *   specgate alm status [--project-dir <dir>]
  */
 
 import { resolveProjectDir } from "../lib/project-root";
@@ -36,10 +36,10 @@ function logError(msg) {
 function usage() {
   process.stdout.write(
     "Usage:\n" +
-      "  csda alm sync   [--project-dir <dir>] [--dry-run]\n" +
-      "  csda alm link   <REQ-id> <issue-key> [--project-dir <dir>]\n" +
-      "  csda alm status [--project-dir <dir>]\n" +
-      "  csda alm pull   [--label <name>] [--project-dir <dir>] [--dry-run]\n\n" +
+      "  specgate alm sync   [--project-dir <dir>] [--dry-run]\n" +
+      "  specgate alm link   <REQ-id> <issue-key> [--project-dir <dir>]\n" +
+      "  specgate alm status [--project-dir <dir>]\n" +
+      "  specgate alm pull   [--label <name>] [--project-dir <dir>] [--dry-run]\n\n" +
       "sync   Creates an ALM issue for every unlinked REQ, closes issues whose REQ\n" +
       "       is Implemented, and reports drift (issue done, REQ still open).\n" +
       "link   Manually map an existing issue to a requirement.\n" +

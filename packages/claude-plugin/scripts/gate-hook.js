@@ -3,7 +3,7 @@
 /**
  * The `Stop` hook: the spec gate, inside the agent's loop.
  *
- * `csda validate --strict-tdd` has always run in CI — that is, *after* the
+ * `specgate validate --strict-tdd` has always run in CI — that is, *after* the
  * agent finished and left. This runs it when the agent is about to stop, while
  * it still has the context to fix what it broke, and refuses the stop while the
  * gate is red. It is the difference between a gate that reviews an agent's work
@@ -100,7 +100,7 @@ function renderFindings(diagnostics) {
     }
     if (diagnostics.length > 10)
         lines.push(`  … and ${diagnostics.length - 10} more.`);
-    lines.push("", "Run `csda validate . --strict-tdd` to see all of it.");
+    lines.push("", "Run `specgate validate . --strict-tdd` to see all of it.");
     return lines.join("\n");
 }
 /**
@@ -142,7 +142,7 @@ function runValidate(cwd) {
         parsed = JSON.parse(r.stdout);
     }
     catch {
-        throw new Error("csda validate did not emit one JSON document");
+        throw new Error("specgate validate did not emit one JSON document");
     }
     const diagnostics = (parsed.status ?? []).filter((d) => d.severity === "error");
     return { ok: r.status === 0, diagnostics };

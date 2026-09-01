@@ -532,8 +532,16 @@ export const SURFACE: Command[] = [
     name: "mcp",
     script: ["cli", "commands", "mcp", "index.js"],
     subcommands: [
-      { name: "install", mcp: false, help: { group: "core", icon: "🔌", summary: "Install MCP server configuration for AI clients." } }
-    ]
+      {
+        name: "install",
+        mcp: false,
+        help: {
+          group: "core",
+          icon: "🔌",
+          summary: "Install MCP server configuration for AI clients.",
+        },
+      },
+    ],
   },
 ];
 
@@ -639,12 +647,16 @@ export function mcpTools() {
     if (command.subcommands) {
       for (const sub of command.subcommands) {
         if (command.mcp === false || sub.mcp === false) continue;
-        const toolName = (typeof sub.mcp === "string" ? sub.mcp : false) || `csda_${command.name}_${sub.name}`.replace(/-/g, "_");
+        const toolName =
+          (typeof sub.mcp === "string" ? sub.mcp : false) ||
+          `csda_${command.name}_${sub.name}`.replace(/-/g, "_");
         out[toolName] = `${command.name} ${sub.name}`;
       }
     } else {
       if (command.mcp === false) continue;
-      const toolName = (typeof command.mcp === "string" ? command.mcp : false) || `csda_${command.name}`.replace(/-/g, "_");
+      const toolName =
+        (typeof command.mcp === "string" ? command.mcp : false) ||
+        `csda_${command.name}`.replace(/-/g, "_");
       out[toolName] = command.name;
     }
   }

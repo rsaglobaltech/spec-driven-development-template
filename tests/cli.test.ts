@@ -110,8 +110,8 @@ test("expands domain pack in dry-run mode", () => {
  *
  * `templates/base/spec.md.tpl` §8 shipped a pre-filled `REQ-001` example, and
  * `traceability.md.tpl` has only `REQ-000`. So every project born from
- * `csda init` failed `validate --strict-tdd` with `[TDD-3]` before anyone
- * wrote a line — and `csda harness run` on a new project burned all three
+ * `specgate init` failed `validate --strict-tdd` with `[TDD-3]` before anyone
+ * wrote a line — and `specgate harness run` on a new project burned all three
  * agent attempts on a failure the agent neither caused nor could fix.
  *
  * Found on 2026-08-26 while building the fixture to reproduce H19.
@@ -143,7 +143,7 @@ test("a generated project passes every gate it ships with", () => {
 });
 
 /**
- * `csda req` had two silent failures, both found timing a newcomer's first
+ * `specgate req` had two silent failures, both found timing a newcomer's first
  * path through the tool on 2026-08-26.
  *
  * `execute()` matched "list" / "add" / "link" and fell off the end of the
@@ -161,12 +161,12 @@ test("req --help prints usage instead of nothing", () => {
 
     const help = runCli(["req", "--help"], { cwd: projectDir });
     assert.equal(help.status, 0, help.stdout + help.stderr);
-    assert.match(help.stdout, /csda req add/);
-    assert.match(help.stdout, /csda req done/);
+    assert.match(help.stdout, /specgate req add/);
+    assert.match(help.stdout, /specgate req done/);
 
     const unknown = runCli(["req", "bogus-subcommand"], { cwd: projectDir });
     assert.equal(unknown.status, 2, "an unrecognised req subcommand must not exit 0 silently");
-    assert.match(unknown.stdout, /csda req add/, "should fall back to the same usage text");
+    assert.match(unknown.stdout, /specgate req add/, "should fall back to the same usage text");
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
