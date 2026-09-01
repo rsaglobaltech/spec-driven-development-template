@@ -99,3 +99,46 @@ requirements when it already governs scenarios, packs, artefacts and agent runs.
 **`tracewright`** was available and distinctive. Rejected because it names
 traceability — a capability — rather than enforcement, which is the thing the
 comparable tools do not have.
+
+## Addendum — 2026-09-01: the unscoped name was not available after all
+
+`specgate` cannot be published to the public npm registry. The 0.8.0 release
+attempted it and got:
+
+```
+npm error 403 Forbidden - PUT https://registry.npmjs.org/specgate
+           - You may not perform that action with these credentials.
+```
+
+Not a permissions problem — the token is a classic automation token with no
+package restriction, and it publishes `create-spec-driven-app` fine. npm
+compares a new package name against existing ones **with punctuation removed**,
+and [`spec-gate`](https://www.npmjs.com/package/spec-gate) — published
+2026-03-03, "AI spec validation for Claude Code" — normalises to exactly
+`specgate`. The registry refuses the name to everyone while that package exists,
+and reports it as a credentials error.
+
+**This ADR's availability check was wrong, and the way it was wrong is worth
+recording.** It read `npm view specgate` → 404 as "the name is free". A 404 says
+*not published*; it does not say *creatable*. The two differ for every name
+within one punctuation mark of something that already exists. Any future name
+check has to attempt a publish — `npm publish --dry-run` does not contact the
+registry and would not have caught it either.
+
+**Decision: the npm package is `@rsaglobaltech/specgate`.** Scoped names are
+exempt from the similarity rule, so the scope is what makes the name reachable
+at all. It is the same coordinate the package already has on GitHub Packages and
+the same name as the GitHub organisation, so the tool now answers to one
+spelling in both registries instead of two.
+
+Nothing else moves: the tool is still Specgate, the binary is still `specgate`,
+the repository and the Docker image are unchanged, and `csda` and
+`create-spec-driven-app` remain alias binaries.
+
+The cost is one line of friction on the way in — `npx @rsaglobaltech/specgate`
+rather than `npx specgate` — and it is paid on the front door, which is the
+worst place to pay anything. It was accepted because the alternative is a third
+rename of a product that has now been renamed twice.
+
+`create-spec-driven-app` is still the deprecation target and now points at
+`@rsaglobaltech/specgate`.

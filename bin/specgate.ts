@@ -76,49 +76,49 @@ function example(line: string, comment?: string): string {
  * for what they teach, so they are declared here rather than derived.
  */
 const EXAMPLES =
-  example(`npx specgate@latest init`, "Generate a new project (wizard)") +
+  example(`npx @rsaglobaltech/specgate@latest init`, "Generate a new project (wizard)") +
   example(
-    `npx specgate@latest adopt --project-dir ./my-existing-repo`,
+    `npx @rsaglobaltech/specgate@latest adopt --project-dir ./my-existing-repo`,
     "Adopt SDD on an existing codebase"
   ) +
   example(
-    `npx specgate@latest init --config ./project.config --out ./projects`,
+    `npx @rsaglobaltech/specgate@latest init --config ./project.config --out ./projects`,
     "Generate a new project from a config file"
   ) +
   example(
-    `npx specgate@latest validate ./projects/my-app --strict-tdd`,
+    `npx @rsaglobaltech/specgate@latest validate ./projects/my-app --strict-tdd`,
     "Validate with the TDD gate"
   ) +
   example(
-    `npx specgate@latest expand --pack-root ./domain-packs \\\n        --pack parking-management/backend --project-dir ./projects/my-app \\\n        --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking ops"`,
+    `npx @rsaglobaltech/specgate@latest expand --pack-root ./domain-packs \\\n        --pack parking-management/backend --project-dir ./projects/my-app \\\n        --var PROJECT_NAME="My App" --var PROJECT_SLUG=my-app --var DOMAIN="parking ops"`,
     "Apply a local pack"
   ) +
   example(
-    `npx specgate@latest expand --pack-repo https://github.com/acme/parking-specops.git \\\n        --pack-version v0.1.0 --pack backend --project-dir ./projects/smart-parking \\\n        --var PROJECT_NAME="Smart Parking"`,
+    `npx @rsaglobaltech/specgate@latest expand --pack-repo https://github.com/acme/parking-specops.git \\\n        --pack-version v0.1.0 --pack backend --project-dir ./projects/smart-parking \\\n        --var PROJECT_NAME="Smart Parking"`,
     "Apply a remote pack pinned to a git tag"
   ) +
   example(
-    `npx specgate@latest specops sync --project-dir ./projects/smart-parking`,
+    `npx @rsaglobaltech/specgate@latest specops sync --project-dir ./projects/smart-parking`,
     "Re-expand everything in .specops.lock / specops.config.yaml"
   ) +
   example(
-    `npx specgate@latest specops diff --project-dir ./projects/smart-parking --pack-version v0.2.0`,
+    `npx @rsaglobaltech/specgate@latest specops diff --project-dir ./projects/smart-parking --pack-version v0.2.0`,
     "Preview a version bump"
   ) +
   example(
-    `npx specgate@latest plan --project-dir ./projects/smart-parking`,
+    `npx @rsaglobaltech/specgate@latest plan --project-dir ./projects/smart-parking`,
     "Show what requirements still need work"
   ) +
   example(
-    `npx specgate@latest plan --project-dir ./projects/smart-parking --format json`,
+    `npx @rsaglobaltech/specgate@latest plan --project-dir ./projects/smart-parking --format json`,
     "Same, machine-readable for AI agents"
   ) +
   example(
-    `npx specgate@latest done REQ-007 --check`,
+    `npx @rsaglobaltech/specgate@latest done REQ-007 --check`,
     "Mark REQ-007 Implemented (after validate passes)"
   ) +
   example(
-    `npx specgate@latest pack init --out ./domain-packs --name "Billing Backend" --type contracts`,
+    `npx @rsaglobaltech/specgate@latest pack init --out ./domain-packs --name "Billing Backend" --type contracts`,
     "Scaffold a contracts-flavoured pack"
   );
 
@@ -152,8 +152,8 @@ function usageCore() {
       `    ${c.green}specgate --help --all${c.reset}${c.dim}                    show every command${c.reset}\n` +
       `    ${c.green}specgate config set profile full${c.reset}${c.dim}         make that the default${c.reset}\n` +
       section("EXAMPLES") +
-      example(`npx specgate@latest adopt`, "Existing codebase") +
-      example(`npx specgate@latest init`, "New project (wizard)") +
+      example(`npx @rsaglobaltech/specgate@latest adopt`, "Existing codebase") +
+      example(`npx @rsaglobaltech/specgate@latest init`, "New project (wizard)") +
       example(`specgate status`, "Start of day") +
       "\n"
   );

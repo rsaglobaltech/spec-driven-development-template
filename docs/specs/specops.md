@@ -12,7 +12,7 @@ knowledge in Git, separately from the code that implements it.
 ## TL;DR
 
 ```bash
-npx specgate expand \
+npx @rsaglobaltech/specgate expand \
   --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \
   --pack-version v0.1.0 \
   --pack backend \
@@ -128,22 +128,22 @@ flags.
 
 ```bash
 # Re-expand everything at the locked versions
-npx specgate specops sync --project-dir ./smart-parking
+npx @rsaglobaltech/specgate specops sync --project-dir ./smart-parking
 
 # Bump only one pack to a new tag (updates the lockfile)
-npx specgate specops sync \
+npx @rsaglobaltech/specgate specops sync \
   --project-dir ./smart-parking \
   --pack parking-management/backend \
   --pack-version v0.2.0
 
 # Preview without writing anything
-npx specgate specops sync --project-dir ./smart-parking --dry-run
+npx @rsaglobaltech/specgate specops sync --project-dir ./smart-parking --dry-run
 
 # Pack always wins — discard local edits
-npx specgate specops sync --project-dir ./smart-parking --force
+npx @rsaglobaltech/specgate specops sync --project-dir ./smart-parking --force
 
 # Never write conflict markers — leave conflicting files untouched
-npx specgate specops sync --project-dir ./smart-parking --abort-on-conflict
+npx @rsaglobaltech/specgate specops sync --project-dir ./smart-parking --abort-on-conflict
 ```
 
 Behaviour:
@@ -188,7 +188,7 @@ version — without writing anything to the project.
 
 ```bash
 # What would change if I bumped to v0.2.0?
-npx specgate specops diff \
+npx @rsaglobaltech/specgate specops diff \
   --project-dir ./smart-parking \
   --pack-version v0.2.0
 ```
@@ -249,10 +249,10 @@ LANG="en"
 MODULES=""
 CFG
 
-npx specgate init --config ./project.config --out . --force
+npx @rsaglobaltech/specgate init --config ./project.config --out . --force
 
 # 2. Expand the pack into it (writes .specops.lock)
-npx specgate expand \
+npx @rsaglobaltech/specgate expand \
   --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \
   --pack-version v0.1.0 \
   --pack backend \
@@ -262,7 +262,7 @@ npx specgate expand \
   --var DOMAIN="parking operations"
 
 # 3. Verify
-npx specgate validate ./smart-parking
+npx @rsaglobaltech/specgate validate ./smart-parking
 cat smart-parking/.specops.lock
 ```
 
@@ -271,7 +271,7 @@ cat smart-parking/.specops.lock
 When the pack tags a new version (`v0.2.0`), bump the project:
 
 ```bash
-npx specgate expand \
+npx @rsaglobaltech/specgate expand \
   --pack-repo https://github.com/rsaglobaltech/parking-management-specops.git \
   --pack-version v0.2.0 \
   --pack backend \

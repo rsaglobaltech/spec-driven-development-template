@@ -11,7 +11,7 @@ explains the _concept_ first, then the command, then what you should see.
 
 > **`specgate`** is the short name for `specgate`. If you have not
 > installed it globally, replace every `specgate` in this guide with
-> `npx specgate@latest`.
+> `npx @rsaglobaltech/specgate@latest`.
 
 ---
 
@@ -90,7 +90,7 @@ folder. After that, you `cd` into it and stay there.
 Optionally install the CLI globally so `specgate` works everywhere:
 
 ```bash
-npm install -g specgate@latest
+npm install -g @rsaglobaltech/specgate@latest
 specgate --version          # 0.2.0
 specgate --help             # the eight commands of the daily loop
 specgate --help --all       # the whole surface

@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: '22'
       - name: Validate specs (strict TDD)
-        run: npx specgate@{{SPECGATE_VERSION}} validate . --strict-tdd
+        run: npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd
       # Supply-chain gate: fails when the rendered pack content no longer
       # matches the digest pinned in .specops.lock — a moved tag, a rewritten
       # history, or a hand-edited generated file. Skipped when the project
@@ -25,13 +25,13 @@ jobs:
       - name: Check pack drift
         run: |
           if [ -f .specops.lock ]; then
-            npx specgate@{{SPECGATE_VERSION}} validate . --against-lock
+            npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --against-lock
           else
             echo "No .specops.lock — no packs installed, nothing to check."
           fi
       - name: Export pending-work plan
         if: always()
-        run: npx specgate@{{SPECGATE_VERSION}} plan --project-dir . --format json > spec-plan.json
+        run: npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} plan --project-dir . --format json > spec-plan.json
       - name: Upload plan artifact
         if: always()
         uses: actions/upload-artifact@v4

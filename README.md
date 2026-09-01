@@ -27,15 +27,15 @@
 
 ```bash
 cd your-repo
-npx specgate@latest onboard   # reads the repo, proposes its capabilities
-npx specgate@latest adopt     # writes the spec skeleton, touches no code
-npx specgate@latest validate .
+npx @rsaglobaltech/specgate@latest onboard   # reads the repo, proposes its capabilities
+npx @rsaglobaltech/specgate@latest adopt     # writes the spec skeleton, touches no code
+npx @rsaglobaltech/specgate@latest validate .
 ```
 
 **New project:**
 
 ```bash
-npx specgate@latest init      # interactive wizard
+npx @rsaglobaltech/specgate@latest init      # interactive wizard
 ```
 
 Requires **Node.js ≥ 22** — or none at all with the Docker image:

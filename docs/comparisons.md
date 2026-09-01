@@ -168,7 +168,7 @@ not want this tool.
 
 ### From `spec-kit` → `specgate`
 
-1. Run `npx specgate init --config your.config --out ./next`.
+1. Run `npx @rsaglobaltech/specgate init --config your.config --out ./next`.
 2. Copy your existing `spec-kit` artefacts into the generated `docs/specs/`.
 3. Run `validate` — it will tell you what's missing in the traceability matrix.
 4. Keep `spec-kit` running for 1 release cycle as a parallel checker.

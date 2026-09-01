@@ -50,7 +50,7 @@ for (const { provider, dest, marker } of CASES) {
       assert.match(content, /validate \. --against-lock/);
       assert.match(content, /\.specops\.lock/);
       // Version is pinned, not 'latest', for reproducible CI.
-      assert.ok(content.includes(`specgate@${PKG.version}`));
+      assert.ok(content.includes(`${PKG.name}@${PKG.version}`));
       // No unresolved template tokens.
       assert.ok(!/\{\{[A-Z_]+\}\}/.test(content));
     });

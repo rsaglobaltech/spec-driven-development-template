@@ -20,7 +20,7 @@ jobs:
           node-version: "22"
 
       - name: Install specgate
-        run: npm install -g specgate@latest
+        run: npm install -g @rsaglobaltech/specgate@latest
 
       - name: Validate spec tree
         run: specgate validate .
