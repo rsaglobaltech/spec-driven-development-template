@@ -124,3 +124,81 @@ test("--strict-coverage is a declared flag, not one that slips through", () => {
   assert.notEqual(r.status, 0);
   assert.match(r.stdout + r.stderr, /Unknown flag/);
 });
+
+// ── Fase 1.2: a link that exists but lies ────────────────────────────────────
+
+test("a row whose test artifact names nothing about it fails", () => {
+  // The measured case from a real adoption: a "Vet" requirement declaring
+  // PetValidatorTests.java as its proof, with every gate green. The row has no
+  // scenario, so the per-scenario check has nothing to match — which is why
+  // seeded rows lie most easily.
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-lie-"));
+  try {
+    const r = cli("init", "--yes", "--out", parent, "--no-git", "--no-sample-req");
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const dir = path.join(parent, "my-spec-driven-app");
+
+    fs.mkdirSync(path.join(dir, "features/core"), { recursive: true });
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    fs.mkdirSync(path.join(dir, "tests"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "features/core/health.feature"),
+      "Feature: Health\n\n  Scenario: SCN-001 healthy\n    Given a service\n" +
+        "    When asked\n    Then healthy\n"
+    );
+    fs.writeFileSync(path.join(dir, "src/PetValidator.java"), "class PetValidator {}\n");
+    fs.writeFileSync(
+      path.join(dir, "tests/PetValidatorTests.java"),
+      "class PetTypeFormatterTests { void formatsAName() {} }\n"
+    );
+    // The feature file needs a row of its own, or the base check fires on an
+    // orphan and this test would pass for the wrong reason.
+    fs.writeFileSync(path.join(dir, "tests/health.test.js"), "// SCN-001 healthy\n");
+    fs.appendFileSync(
+      path.join(dir, "docs/specs/traceability.md"),
+      "\n| REQ-001 | SCN-001 | `features/core/health.feature` | UC-001 Health | - | - | - |" +
+        " src/PetValidator.java | tests/health.test.js | Draft |\n" +
+        "| REQ-014 | - | - | UC-014 Vet | - | - | - | src/PetValidator.java |" +
+        " tests/PetValidatorTests.java | Draft |\n"
+    );
+
+    // Every path exists, so the flag that is supposed to catch drift is happy.
+    assert.equal(cli("validate", dir, "--strict-links").status, 0);
+
+    const cov = cli("validate", dir, "--strict-coverage");
+    assert.equal(cov.status, 1, cov.stdout + cov.stderr);
+    assert.match(cov.stdout + cov.stderr, /link_without_evidence/);
+    assert.match(cov.stdout + cov.stderr, /REQ-014/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("naming the requirement in the test is evidence enough", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-lie-ok-"));
+  try {
+    cli("init", "--yes", "--out", parent, "--no-git", "--no-sample-req");
+    const dir = path.join(parent, "my-spec-driven-app");
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    fs.mkdirSync(path.join(dir, "tests"), { recursive: true });
+    fs.mkdirSync(path.join(dir, "features/core"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "features/core/health.feature"),
+      "Feature: Health\n\n  Scenario: SCN-001 healthy\n    Given a service\n" +
+        "    When asked\n    Then healthy\n"
+    );
+    fs.writeFileSync(path.join(dir, "src/vet.js"), "export const v = () => 1;\n");
+    fs.writeFileSync(path.join(dir, "tests/vet.test.js"), "// REQ-014 vets are listed\n");
+    fs.writeFileSync(path.join(dir, "tests/health.test.js"), "// SCN-001 healthy\n");
+    fs.appendFileSync(
+      path.join(dir, "docs/specs/traceability.md"),
+      "\n| REQ-001 | SCN-001 | `features/core/health.feature` | UC-001 Health | - | - | - |" +
+        " src/vet.js | tests/health.test.js | Draft |\n" +
+        "| REQ-014 | - | - | UC-014 Vet | - | - | - | src/vet.js | tests/vet.test.js | Draft |\n"
+    );
+    const r = cli("validate", dir, "--strict-coverage");
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});

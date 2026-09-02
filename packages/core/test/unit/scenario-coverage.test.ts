@@ -5,7 +5,12 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
 
-import { scenariosIn, uncoveredScenarios, normalise } from "../../src/domain/ScenarioCoverage";
+import {
+  scenariosIn,
+  uncoveredScenarios,
+  normalise,
+  linkIsUnevidenced,
+} from "../../src/domain/ScenarioCoverage";
 
 const FEATURE = `Feature: Invoice totals
 
@@ -107,4 +112,32 @@ test("no test sources at all leaves every scenario uncovered", () => {
 
 test("normalise strips what should not decide a match", () => {
   assert.equal(normalise("SCN-010: Subtotal!"), normalise("scn010 subtotal"));
+});
+
+// ── Fase 1.2: a link that exists but lies ────────────────────────────────────
+
+test("a test artifact naming the requirement is evidence enough", () => {
+  assert.equal(linkIsUnevidenced("REQ-014", "", ['test("REQ-014 vets are listed")']), false);
+});
+
+test("a test artifact naming one of the requirement's scenarios is evidence", () => {
+  assert.equal(linkIsUnevidenced("REQ-010", FEATURE, ["SCN-011 tax"]), false);
+});
+
+test("the measured lie: a seeded row pointed at somebody else's test", () => {
+  // A "Vet" requirement declaring PetValidatorTests.java as its proof. The row
+  // has no scenario, so there is nothing for the scenario check to match on —
+  // which is exactly why those rows lie most easily.
+  assert.equal(
+    linkIsUnevidenced("REQ-014", "", ["class PetTypeFormatterTests { void formatsAName() {} }"]),
+    true
+  );
+});
+
+test("no test sources at all is not evidence", () => {
+  assert.equal(linkIsUnevidenced("REQ-014", FEATURE, []), true);
+});
+
+test("a row with no requirement id is not this check's business", () => {
+  assert.equal(linkIsUnevidenced("", FEATURE, ["anything"]), false);
 });

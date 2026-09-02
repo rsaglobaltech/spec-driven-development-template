@@ -66,7 +66,7 @@ documentación decían «validates first». Cerrado con 7 tests de CLI y 6 de
 dominio; `--strict` ahora es `--strict-tdd --strict-links --strict-coverage`,
 y `--test-cmd` / `test_cmd:` ejecutan la suite y exigen que pase.
 
-### 1.2 · Un enlace que existe pero miente — `L3`
+### 1.2 · Un enlace que existe pero miente — `L3` — [x] **hecho 2026-09-02**
 
 `--strict-links` es `fs.existsSync` y nada más. Un requisito de vets «probado»
 por `PetTypeFormatterTests` pasa limpio. `--strict-coverage` (#168) ya cierra la
@@ -79,7 +79,7 @@ la otra mitad, y hay que decidir con honestidad hasta dónde llega:
   línea, «este test prueba este requisito» no es decidible. Se documenta el
   límite en vez de sugerir que lo resolvemos.
 
-### 1.3 · Decidir el nivel de puerta por defecto
+### 1.3 · Decidir el nivel de puerta por defecto — [x] **decidido 2026-09-02**
 
 > «La puerta que habría cazado la mitad de lo que rompí, `--strict-links`, está
 > apagada por defecto y no aparece en ninguno de los tres sitios que recomiendan
@@ -88,9 +88,13 @@ la otra mitad, y hay que decidir con honestidad hasta dónde llega:
 Un usuario que sigue la documentación acaba con **una puerta más débil de la que
 la herramienta sabe dar**. Eso es un defecto de diseño, no de documentación.
 
-Decisión a tomar, con ADR: `validate` pasa a ser estricto por defecto y aparece
-`--lenient` para lo antiguo. Rompe compatibilidad, así que va en la 1.0 y no
-antes — pero se decide **ahora**, porque condiciona todo lo demás.
+Decidido en [ADR-0026](../docs/specs/adr/0026-the-default-gate-is-the-strong-gate.md):
+`validate` pasa a ser estricto por defecto **en la 1.0**, con `--lenient` para
+lo antiguo. Tres condiciones: la 0.9 **avisa sin fallar** (nadie debe conocer
+este cambio por un build en rojo); cada check promovido lleva línea de arreglo
+con fichero y edición; y la medida de la 1.0 incluye **cuánta gente acaba
+tecleando `--lenient`** — si es todo el mundo, volvimos al principio con una
+bandera de más.
 
 ---
 

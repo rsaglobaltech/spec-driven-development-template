@@ -9,7 +9,10 @@ import { formatDiagnostic, error } from "../../../lib/diagnostics";
 import { checkAgainstLock } from "../../../specops/against_lock";
 import { requirementGraphFromProject } from "../../../lib/requirement-graph";
 import { SHARED_PATHS } from "../../../../packages/core/src/domain/MultiStack";
-import { uncoveredScenarios } from "../../../../packages/core/src/domain/ScenarioCoverage";
+import {
+  uncoveredScenarios,
+  linkIsUnevidenced,
+} from "../../../../packages/core/src/domain/ScenarioCoverage";
 import * as crypto from "node:crypto";
 import { agentIo, wantsJson, EXIT } from "../../../lib/agent";
 import { findUnresolvedPlaceholders } from "../../../lib/placeholders";
@@ -70,7 +73,10 @@ export class ValidateSpecsCommand extends BaseCommand {
         "- A requirement that opens with IF resolves with THEN in the same sentence\n\n" +
         "--strict-coverage additionally enforces:\n" +
         "- Every scenario in a declared feature file is named by the test artifact that\n" +
-        "  claims to prove it. A name match, so it is opt-in: this does not run your suite\n\n" +
+        "  claims to prove it\n" +
+        "- Every declared test artifact names its requirement or one of its scenarios —\n" +
+        "  a path that exists is not evidence that it proves anything\n" +
+        "  Both are name matches, so this is opt-in: it does not run your suite\n\n" +
         "--strict-links additionally enforces:\n" +
         "- Every Feature file / Technical artifact / Test artifact the matrix declares as a\n" +
         "  path still exists on disk\n"
@@ -474,11 +480,6 @@ export class ValidateSpecsCommand extends BaseCommand {
     const seen = new Set<string>();
 
     for (const row of rows) {
-      const featureRel = declaredPaths(row.featureFile)[0];
-      if (!featureRel) continue;
-      const featurePath = path.join(targetDir, featureRel.split("#")[0]);
-      if (!fs.existsSync(featurePath)) continue; // --strict-links reports this.
-
       // A `TBD` or `-` test artifact is --strict-tdd's finding, not this one:
       // reporting it twice under two flags helps nobody.
       const declaredTests = declaredPaths(row.testArtifact).filter(
@@ -487,7 +488,42 @@ export class ValidateSpecsCommand extends BaseCommand {
       if (declaredTests.length === 0) continue;
 
       const sources = declaredTests.flatMap(readAll);
-      const feature = fs.readFileSync(featurePath, "utf8");
+      const featureRel = declaredPaths(row.featureFile)[0];
+      const featurePath = featureRel ? path.join(targetDir, featureRel.split("#")[0]) : null;
+      const feature =
+        featurePath && fs.existsSync(featurePath) ? fs.readFileSync(featurePath, "utf8") : "";
+
+      // A row with no scenario has nothing for the per-scenario check to match
+      // on — and those are the rows that lie most easily, because `adopt` seeds
+      // them with a use case and no scenario. Measured on a real adoption: a
+      // "Vet" requirement declared `PetValidatorTests.java` as its proof and
+      // every gate stayed green. The requirement id is the only evidence left.
+      const requirementId = row.requirement || "";
+      if (linkIsUnevidenced(requirementId, feature, sources)) {
+        const key = `${requirementId}::unevidenced`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          findings.push(
+            error(
+              "link_without_evidence",
+              `${requirementId}'s test artifact names neither ${requirementId} nor any of ` +
+                `its scenarios.`,
+              {
+                target: requirementId,
+                file: "docs/specs/traceability.md",
+                fix:
+                  `Name ${requirementId} or one of its scenarios in ` +
+                  `${declaredTests.join(" or ")}, or point the row at the test that ` +
+                  `really proves it. A path that exists is not evidence that it proves ` +
+                  `anything.`,
+              }
+            )
+          );
+        }
+        continue;
+      }
+
+      if (!featurePath || !fs.existsSync(featurePath)) continue; // --strict-links reports this.
 
       for (const scenario of uncoveredScenarios(feature, sources)) {
         const key = `${featureRel}::${scenario.title}`;
