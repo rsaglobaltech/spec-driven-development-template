@@ -9,6 +9,7 @@ import { formatDiagnostic, error } from "../../../lib/diagnostics";
 import { checkAgainstLock } from "../../../specops/against_lock";
 import { requirementGraphFromProject } from "../../../lib/requirement-graph";
 import { SHARED_PATHS } from "../../../../packages/core/src/domain/MultiStack";
+import { uncoveredScenarios } from "../../../../packages/core/src/domain/ScenarioCoverage";
 import * as crypto from "node:crypto";
 import { agentIo, wantsJson, EXIT } from "../../../lib/agent";
 import { findUnresolvedPlaceholders } from "../../../lib/placeholders";
@@ -43,7 +44,7 @@ export class ValidateSpecsCommand extends BaseCommand {
   private usage() {
     process.stdout.write(
       "🔎 Usage:\n" +
-        "  validate_specs.js <project_dir> [--strict-tdd] [--strict-scenarios] " +
+        "  validate_specs.js <project_dir> [--strict-tdd] [--strict-scenarios] [--strict-coverage] " +
         "[--strict-requirements] [--strict-links] [--against-lock]\n\n" +
         "Checks:\n" +
         "- minimum SDD structure\n" +
@@ -67,6 +68,9 @@ export class ValidateSpecsCommand extends BaseCommand {
         "--strict-requirements additionally enforces, over docs/specs/capabilities/**/spec.md:\n" +
         "- Every requirement states an obligation (SHALL / MUST / SHOULD / MAY / DEBE / DEBERÁ)\n" +
         "- A requirement that opens with IF resolves with THEN in the same sentence\n\n" +
+        "--strict-coverage additionally enforces:\n" +
+        "- Every scenario in a declared feature file is named by the test artifact that\n" +
+        "  claims to prove it. A name match, so it is opt-in: this does not run your suite\n\n" +
         "--strict-links additionally enforces:\n" +
         "- Every Feature file / Technical artifact / Test artifact the matrix declares as a\n" +
         "  path still exists on disk\n"
@@ -173,7 +177,8 @@ export class ValidateSpecsCommand extends BaseCommand {
     strictTdd: boolean,
     strictScenarios: boolean,
     strictRequirements: boolean,
-    strictLinks: boolean
+    strictLinks: boolean,
+    strictCoverage: boolean
   ) {
     const cfgPath = path.join(targetDir, "specops.config.yaml");
     if (!fs.existsSync(cfgPath)) return null;
@@ -211,6 +216,7 @@ export class ValidateSpecsCommand extends BaseCommand {
       if (strictScenarios) args.push("--strict-scenarios");
       if (strictRequirements) args.push("--strict-requirements");
       if (strictLinks) args.push("--strict-links");
+      if (strictCoverage) args.push("--strict-coverage");
       const r = spawnSync(process.execPath, args, { encoding: "utf8" });
       process.stdout.write(r.stdout || "");
       process.stderr.write(r.stderr || "");
@@ -424,6 +430,98 @@ export class ValidateSpecsCommand extends BaseCommand {
   }
 
   /**
+   * `--strict-coverage`: every declared scenario is named by something that
+   * claims to prove it (#168).
+   *
+   * A row names one `Scenario ID` and one feature file; the file may hold five
+   * scenarios, and nothing related the other four to anything. Measured: a
+   * feature declaring three scenarios with tests covering two passed
+   * `--strict-tdd --strict-scenarios --strict-links` all at once, with the row
+   * on `Implemented`.
+   *
+   * It is behind its own flag on purpose. The check is a name match — this tool
+   * does not run the suite and cannot know which assertion belongs to which
+   * scenario — and a project that names its tests some other way would fail
+   * through no fault of its own. Opting in is the honest interface for a
+   * heuristic.
+   */
+  private checkScenarioCoverage(targetDir: string, traceContent: string) {
+    let rows: any[] = [];
+    try {
+      rows = parseTraceabilityRows(traceContent).rows || [];
+    } catch {
+      return;
+    }
+
+    const readAll = (rel: string): string[] => {
+      const full = path.join(targetDir, rel.split("#")[0]);
+      if (!fs.existsSync(full)) return [];
+      const stat = fs.statSync(full);
+      if (stat.isFile()) return [fs.readFileSync(full, "utf8")];
+      const out: string[] = [];
+      const walkTests = (dir: string) => {
+        for (const name of fs.readdirSync(dir)) {
+          const child = path.join(dir, name);
+          if (fs.statSync(child).isDirectory()) walkTests(child);
+          else out.push(fs.readFileSync(child, "utf8"));
+        }
+      };
+      walkTests(full);
+      return out;
+    };
+
+    const findings: any[] = [];
+    const seen = new Set<string>();
+
+    for (const row of rows) {
+      const featureRel = declaredPaths(row.featureFile)[0];
+      if (!featureRel) continue;
+      const featurePath = path.join(targetDir, featureRel.split("#")[0]);
+      if (!fs.existsSync(featurePath)) continue; // --strict-links reports this.
+
+      // A `TBD` or `-` test artifact is --strict-tdd's finding, not this one:
+      // reporting it twice under two flags helps nobody.
+      const declaredTests = declaredPaths(row.testArtifact).filter(
+        (t) => t && t !== "-" && t.toUpperCase() !== "TBD"
+      );
+      if (declaredTests.length === 0) continue;
+
+      const sources = declaredTests.flatMap(readAll);
+      const feature = fs.readFileSync(featurePath, "utf8");
+
+      for (const scenario of uncoveredScenarios(feature, sources)) {
+        const key = `${featureRel}::${scenario.title}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        findings.push(
+          error("scenario_not_covered", `Nothing proves "${scenario.title}" (${featureRel}).`, {
+            target: row.requirement || row.feature,
+            file: featureRel,
+            fix:
+              `Add a test naming ${scenario.needles[0]} to ` +
+              `${declaredTests.join(" or ")}, or delete the scenario if it no ` +
+              `longer describes behaviour this project promises.`,
+          })
+        );
+      }
+    }
+    if (findings.length === 0) return;
+
+    if (this.io.json) {
+      this.io.fail({ validation: null }, findings);
+      return;
+    }
+    this.logError(`Declared scenarios nothing proves: ${findings.length}`);
+    for (const f of findings) process.stderr.write(`  ${formatDiagnostic(f)}\n`);
+    this.logFix([
+      "A scenario in a feature file that no test names is a promise with nothing",
+      "behind it — and it is the scenario an agent skips when it cannot satisfy it.",
+      "Name it in the test, or remove it from the feature file.",
+    ]);
+    process.exit(1);
+  }
+
+  /**
    * `--strict-requirements`: EARS-checkable requirement prose, at rest (F6).
    *
    * `PLAN_PREDICTABLE_CODE_EVOLUTION.md` §8.1 names the prerequisite for any
@@ -491,6 +589,7 @@ export class ValidateSpecsCommand extends BaseCommand {
     const strictScenarios = argv.includes("--strict-scenarios");
     const strictRequirements = argv.includes("--strict-requirements");
     const strictLinks = argv.includes("--strict-links");
+    const strictCoverage = argv.includes("--strict-coverage");
     const againstLock = argv.includes("--against-lock");
     const positional = argv.filter((a) => !a.startsWith("-"));
 
@@ -511,7 +610,8 @@ export class ValidateSpecsCommand extends BaseCommand {
       strictTdd,
       strictScenarios,
       strictRequirements,
-      strictLinks
+      strictLinks,
+      strictCoverage
     );
     if (monorepo !== null) {
       process.exit(monorepo.failures === 0 ? 0 : 1);
@@ -685,6 +785,9 @@ export class ValidateSpecsCommand extends BaseCommand {
     this.checkScenarioTags(targetDir, traceContent);
     if (strictLinks) {
       this.checkDeclaredArtifactsExist(targetDir, traceContent);
+    }
+    if (strictCoverage) {
+      this.checkScenarioCoverage(targetDir, traceContent);
     }
 
     for (const ff of featureFiles.sort()) {

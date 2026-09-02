@@ -1071,6 +1071,75 @@ test("allow_paths in harness.config.yaml is an escape hatch that has to be writt
   }
 });
 
+// ── #167: the guard protected the contract but not the gate's own command ────
+
+test("an agent that rewrites the test script fails the attempt", () => {
+  // Measured before the fix: a stub agent that wrote no implementation at all
+  // and only replaced `"test"` with `echo 'all good'`, over a red suite,
+  // produced `✅ REQ-001 pass (1 attempt)`. An agent that cannot pass the test
+  // could weaken the test.
+  const { parent, projectDir } = greenableProject();
+  try {
+    fs.writeFileSync(
+      path.join(projectDir, "package.json"),
+      JSON.stringify({ name: "x", scripts: { test: "exit 1" } }, null, 1)
+    );
+    spawnSync("git", ["add", "-A"], { cwd: projectDir });
+    spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "pkg"], {
+      cwd: projectDir,
+    });
+
+    const agent = scriptedAgent(parent, [
+      [
+        "package.json",
+        JSON.stringify({ name: "x", scripts: { test: "echo 'all good'" } }, null, 1),
+      ],
+    ]);
+    const r = runHarness(projectDir, agent, ["--test-cmd", "npm test"]);
+    const out = r.stdout + r.stderr;
+
+    assert.match(out, /0 passed/, `the rewritten gate passed:\n${out}`);
+    assert.match(out, /agent_rewrote_gate_command/, out);
+    assert.match(out, /scripts\.test/, out);
+    // The before/after goes back to the agent, same as the write-scope diff.
+    assert.match(out, /all good/, out);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("adding a dependency is not a violation — that is legitimate work", () => {
+  // A guard that blocks this gets switched off, and then it protects nothing.
+  const { parent, projectDir } = greenableProject();
+  try {
+    fs.writeFileSync(
+      path.join(projectDir, "package.json"),
+      JSON.stringify({ name: "x", scripts: { test: "exit 0" } }, null, 1)
+    );
+    spawnSync("git", ["add", "-A"], { cwd: projectDir });
+    spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "pkg"], {
+      cwd: projectDir,
+    });
+
+    const agent = scriptedAgent(parent, [
+      [
+        "package.json",
+        JSON.stringify(
+          { name: "x", scripts: { test: "exit 0" }, dependencies: { zod: "^3" } },
+          null,
+          1
+        ),
+      ],
+    ]);
+    const r = runHarness(projectDir, agent, ["--test-cmd", "npm test"]);
+    const out = r.stdout + r.stderr;
+    assert.doesNotMatch(out, /agent_rewrote_gate_command/, out);
+    assert.match(out, /1 passed/, out);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
 test("protected_paths and allow_paths are read from harness.config.yaml", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-scope-cfg-"));
   try {

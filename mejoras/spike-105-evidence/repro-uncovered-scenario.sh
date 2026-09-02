@@ -56,12 +56,17 @@ echo "Scenarios declared: 3 (SCN-010, SCN-011, SCN-012)"
 echo "Scenarios tested:   2 (SCN-012 has no test)"
 echo "Row status:         Implemented"
 echo
+# --strict-coverage was added in response to this (#168). The flags above it
+# stay green on purpose: the check is a name match, so it is opt-in, and a
+# project that names its tests some other way must not start failing.
 for flags in "" "--strict-tdd" "--strict-scenarios" "--strict-links" \
-             "--strict-tdd --strict-scenarios --strict-links"; do
+             "--strict-tdd --strict-scenarios --strict-links" \
+             "--strict-coverage"; do
   # shellcheck disable=SC2086
   node "$BIN" validate . $flags > /dev/null 2>&1 && rc=0 || rc=$?
   printf 'validate . %-45s → exit=%s\n' "$flags" "$rc"
 done
 echo
-echo "Every gate is green over a scenario nothing proves."
+echo "Before #168, every one of these was green over a scenario nothing proves."
+echo "--strict-coverage is the one that now exits 1."
 echo "Sandbox: $P"

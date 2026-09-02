@@ -324,6 +324,7 @@ function dispatchValidate(validateArgs: string[]): void {
     "--strict-scenarios",
     "--strict-requirements",
     "--strict-links",
+    "--strict-coverage",
     "--against-lock",
     "--json",
   ]);

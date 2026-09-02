@@ -28,6 +28,7 @@ Each command takes `--json`. See [the agent contract](specs/agent-contract.md).
 | `specgate done <REQ>` | Mark a requirement Implemented. `--check` validates first. |
 | `specgate fix` | Apply the repairs `validate` suggests. `--dry-run` previews. |
 | `specgate validate [--strict-tdd] [--strict-scenarios] [--strict-requirements] [--strict-links] [--against-lock]` | The gate. Structure, traceability and Gherkin always; four opt-in gates on top. |
+| `specgate validate . --strict-coverage` | Fails when a scenario in a declared feature file is named by no test artifact. A name match, so it is opt-in — it does not run your suite. |
 
 ## Changing a spec that already shipped
 

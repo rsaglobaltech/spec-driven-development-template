@@ -40,6 +40,7 @@ import {
 
 import { agentIo } from "../../../lib/agent";
 import { checkWriteScope, parseGitStatus } from "../../../../packages/core/src/domain/WriteScope";
+import { gateCommandIntegrity } from "../../../../packages/core/src/domain/GateCommandIntegrity";
 import {
   isEmptyAttempt,
   PROMPT_ARCHIVE_DIR,
@@ -670,6 +671,55 @@ function checkWriteScopeInWorktree(worktreeDir, settings) {
 }
 
 /**
+ * Did the agent rewrite the definition the gate command depends on? (#167)
+ *
+ * The write-scope guard covers the contract — spec.md, AI_RULES.md, features/**
+ * — and not the file that defines the command the gate runs. Measured with a
+ * stub agent that wrote no implementation at all and only replaced
+ * `"test": "node --test tests/*.test.js"` with `"echo 'all good'"` over a red
+ * suite: `✅ REQ-001 pass (1 attempt)`.
+ *
+ * This does not protect the manifest — adding a dependency mid-implementation
+ * is legitimate, and a guard that blocks it gets switched off. It compares one
+ * value: the script the gate actually invokes, at the base commit and now.
+ *
+ * Returns null when there is nothing to report, including when the gate command
+ * is one whose meaning does not live in a file we can read.
+ */
+function checkGateCommandInWorktree(worktreeDir, baseRef, testCmd) {
+  if (!testCmd) return null;
+
+  const probe = gateCommandIntegrity(testCmd, "{}", "{}");
+  if (!probe.script) return null;
+  const manifest = probe.script.manifest;
+
+  const show = git(worktreeDir, ["show", `${baseRef}:${manifest}`]);
+  const before = show.status === 0 ? show.stdout : null;
+  const currentPath = path.join(worktreeDir, manifest);
+  const after = fs.existsSync(currentPath) ? fs.readFileSync(currentPath, "utf8") : null;
+
+  const result = gateCommandIntegrity(testCmd, before, after);
+  if (!result.checked || !result.changed) return null;
+
+  return {
+    manifest,
+    script: result.script.script,
+    message:
+      `agent_rewrote_gate_command — the gate runs \`${testCmd}\`, and this attempt ` +
+      `changed what that means.\n\n` +
+      `  ${manifest} → scripts.${result.script.script}\n` +
+      `  before: ${result.before === null ? "(absent)" : result.before}\n` +
+      `  after:  ${result.after === null ? "(absent)" : result.after}\n\n` +
+      `The command the gate runs is part of the contract this requirement is ` +
+      `judged against, exactly like the scenario is. Weakening it makes a green ` +
+      `gate meaningless.\n\n` +
+      `Revert that script and make the suite pass as it stands. If the command is ` +
+      `genuinely wrong, that is a change for a person to make — not something to ` +
+      `fix inside the attempt being measured by it.`,
+  };
+}
+
+/**
  * Every path the agent wrote in this worktree — added and modified alike.
  *
  * Shared with the write-scope guard, which is why A2 costs almost nothing: the
@@ -873,6 +923,17 @@ function attemptRequirement(req, ctx) {
       previousFailure = scope.message;
       warn(`${req.requirement}: ${scope.violations.length} protected path(s) modified`);
       for (const v of scope.violations) warn(`  ${v.path} (${v.pattern})`);
+      record("write-scope");
+      continue;
+    }
+
+    // Same reason as the write-scope guard, one level up: a gate command the
+    // agent has just loosened cannot fail either.
+    const gateCmd = checkGateCommandInWorktree(worktreeDir, "HEAD", settings.testCmd);
+    if (gateCmd) {
+      previousFailure = gateCmd.message;
+      warn(`${req.requirement}: the agent rewrote the gate command`);
+      warn(`  ${gateCmd.manifest} → scripts.${gateCmd.script}`);
       record("write-scope");
       continue;
     }
