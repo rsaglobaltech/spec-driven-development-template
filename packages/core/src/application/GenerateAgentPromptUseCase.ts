@@ -2,6 +2,7 @@ import { IHarnessConfigRepository } from "./ports/IHarnessConfigRepository";
 import { AgentPrompt, PromptRequirement, PromptOptions } from "../domain/AgentPrompt";
 import { featureFilePath } from "../domain/HarnessRun";
 import { choosePrecedent, excerpt, PrecedentRow } from "../domain/Precedents";
+import { extractRequirementSection } from "../domain/SpecSections";
 import {
   detectTraceabilityMode,
   parseMatrixContexts,
@@ -21,10 +22,18 @@ export class GenerateAgentPromptUseCase {
       : null;
     const aiRulesContent = this.configRepo.readProjectFile(projectDir, "AI_RULES.md");
 
+    // The requirement's own prose. Not reading it is how the prompt came to say
+    // "Implement REQ-002" with every fact `-` and nothing to implement.
+    const specSource = this.configRepo.readProjectFile(projectDir, "spec.md");
+    const requirementText = specSource
+      ? extractRequirementSection(specSource, String(req.requirement || ""))
+      : null;
+
     return AgentPrompt.build(req, {
       ...opts,
       featureContent,
       aiRulesContent,
+      requirementText: requirementText || undefined,
       // Opt-in: the caller decides, because a precedent costs prompt budget and
       // is only worth it once a project has accepted work to point at.
       precedent: opts.withPrecedents ? this.findPrecedent(req, projectDir) : null,

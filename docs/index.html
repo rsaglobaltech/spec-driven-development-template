@@ -553,6 +553,15 @@ specgate harness run --agent "./my-wrapper.sh {prompt_file}"   # anything else</
 
     <div class="grid">
       <article>
+        <h3>It tells you when its own green means nothing</h3>
+        <p>Right after <code>adopt</code>, <code>validate</code> passes — and says
+           so plainly: <em>&ldquo;this certifies the skeleton, not the code.&rdquo;</em>
+           A gate that banks a meaningless green is worse than no gate, so this one
+           reports what it did <strong>not</strong> check: how many rows are still
+           <code>Draft</code> and therefore exempt, and whether anything ran your
+           tests at all.</p>
+      </article>
+      <article>
         <h3>It runs in your CI, not its own</h3>
         <p><code>specgate ci init</code> writes the workflow for GitHub Actions,
            GitLab, Azure Pipelines or Jenkins. The gate is one command

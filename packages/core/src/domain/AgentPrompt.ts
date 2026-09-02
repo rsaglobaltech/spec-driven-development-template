@@ -39,6 +39,15 @@ export interface PromptOptions {
     technicalArtifact?: string;
     technicalExcerpt?: string;
   } | null;
+  /**
+   * The `## REQ-NNN` section from `spec.md`.
+   *
+   * Without it the prompt said `# Implement REQ-002`, listed every fact as
+   * `-`, and asked the agent to "create it from the requirement" — with the
+   * requirement nowhere in the prompt. A cold evaluator: *"the loop doesn't
+   * close on a brownfield adopt"*. It could not: there was nothing to read.
+   */
+  requirementText?: string;
 }
 
 export class AgentPrompt {
@@ -71,6 +80,25 @@ export class AgentPrompt {
       `- Production artifact: ${field("technicalArtifact", "technical_artifact") || "(none declared)"}`,
       `- Current status: ${req.status || "(none)"}`,
     ].join("\n");
+    // Before the facts, because it is the thing being implemented and the facts
+    // are only pointers to where it goes.
+    if (opts.requirementText && String(opts.requirementText).trim()) {
+      parts.push(
+        AgentPrompt.section("The requirement (spec.md)", String(opts.requirementText).trimEnd())
+      );
+    } else {
+      parts.push(
+        AgentPrompt.section(
+          "The requirement (spec.md)",
+          `\`spec.md\` has no \`## ${req.requirement}\` section, so this prompt cannot ` +
+            `tell you what ${req.requirement} requires.\n\n` +
+            `Do not guess. Stop and report that the requirement has no text — an ` +
+            `implementation invented from a table row is worse than no implementation, ` +
+            `because the matrix will then claim it is covered.`
+        )
+      );
+    }
+
     parts.push(AgentPrompt.section("Requirement facts", facts));
 
     if (opts.hint) {

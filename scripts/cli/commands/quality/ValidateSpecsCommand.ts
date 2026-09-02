@@ -578,6 +578,28 @@ export class ValidateSpecsCommand extends BaseCommand {
    * scaffolded projects never grow one — it is the change-lifecycle structure,
    * not something `specgate init` writes. Nothing to check is not a violation.
    */
+  /**
+   * The root `spec.md` plus every capability spec, concatenated.
+   *
+   * Concatenation is enough because the only question asked of it is "does this
+   * requirement have text somewhere". Nothing downstream cares which file the
+   * text came from.
+   */
+  private collectSpecProse(targetDir: string, specPath: string): string | null {
+    const parts: string[] = [];
+    if (fs.existsSync(specPath)) parts.push(fs.readFileSync(specPath, "utf8"));
+
+    const capabilitiesDir = path.join(targetDir, CAPABILITIES_DIR);
+    if (fs.existsSync(capabilitiesDir)) {
+      for (const entry of fs.readdirSync(capabilitiesDir, { withFileTypes: true }).sort()) {
+        if (!entry.isDirectory()) continue;
+        const capSpec = path.join(capabilitiesDir, entry.name, "spec.md");
+        if (fs.existsSync(capSpec)) parts.push(fs.readFileSync(capSpec, "utf8"));
+      }
+    }
+    return parts.length > 0 ? parts.join("\n\n") : null;
+  }
+
   private checkRequirementSyntax(targetDir: string) {
     const capabilitiesDir = path.join(targetDir, CAPABILITIES_DIR);
     if (!fs.existsSync(capabilitiesDir)) return;
@@ -779,7 +801,14 @@ export class ValidateSpecsCommand extends BaseCommand {
       requirements: reqsInMatrix,
     } = new ValidateProjectUseCase(new DiskTraceabilityRepository()).checkMatrix(traceContent, {
       strictTdd,
-      specContent: fs.existsSync(specPath) ? fs.readFileSync(specPath, "utf8") : null,
+      // Every place a requirement's prose is allowed to live. Three shapes are
+      // in the wild and all three are legitimate: `## REQ-NNN` sections (what
+      // `adopt` writes), the `| ID | Requirement |` table in §8 (what the
+      // original `init` template wrote, and what this repository still uses),
+      // and a capability spec under docs/specs/capabilities/ (ADR-0022).
+      // Reading only the root spec.md flagged 14 requirements in our own repo
+      // that are documented perfectly well one directory down.
+      specContent: this.collectSpecProse(targetDir, specPath),
     });
 
     const strictTddViolations = report.findings
@@ -788,6 +817,14 @@ export class ValidateSpecsCommand extends BaseCommand {
 
     for (const finding of report.findings) {
       if (finding.code === "strict_tdd_violation") continue; // reported together, below
+      // Severity decides. This loop used to fail on anything the report
+      // carried, which turned the first warning added to `checkMatrix` into a
+      // red build — the exact green-to-red flip ADR-0026 exists to avoid.
+      if (finding.severity === "warning") {
+        this.logWarn(finding.message);
+        if (finding.fixLines?.length) this.logFix([...finding.fixLines]);
+        continue;
+      }
       this.fail(finding.code, finding.message, 1, [...(finding.fixLines || [])]);
       return;
     }

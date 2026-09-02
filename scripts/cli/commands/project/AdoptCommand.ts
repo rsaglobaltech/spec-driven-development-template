@@ -383,6 +383,10 @@ function adoptMonorepo(dir: string, opts: AdoptOptions): never {
   logInfo("📋 Summary");
   logInfo(`- Files written: ${written}${opts.dryRun ? " (dry-run, nothing on disk)" : ""}`);
   logInfo(`- Skipped: ${skipped}`);
+  logWarn("This does not certify your code yet — it certifies the skeleton.");
+  logInfo("  A green `validate` right now means the structure is in place, not that any");
+  logInfo("  behaviour is covered. It starts meaning something when the requirements below");
+  logInfo("  are real and their scenarios are linked to tests.");
   logInfo("✅ Adoption completed. Next steps:");
   logInfo("  1. specgate validate .          # validates every module listed");
   logInfo("  2. Replace the seeded proposals in each module's spec.md with real behaviour");
@@ -421,6 +425,10 @@ export class AdoptProjectCommand extends BaseCommand {
         `- Requirements seeded: ${capabilities.length} proposal(s) from the layout — ${capabilities.map((c) => c.id).join(", ")}`
       );
     }
+    logWarn("This does not certify your code yet — it certifies the skeleton.");
+    logInfo("  A green `validate` right now means the structure is in place, not that any");
+    logInfo("  behaviour is covered. It starts meaning something when the requirements below");
+    logInfo("  are real and their scenarios are linked to tests.");
     logInfo("✅ Adoption completed. Next steps:");
     logInfo("  1. specgate validate .          # should pass right now");
     if (capabilities.length > 0) {

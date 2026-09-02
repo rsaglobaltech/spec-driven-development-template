@@ -663,6 +663,31 @@ function removeSampleRequirement(projectDir: string, dryRun: boolean) {
     if (kept !== content && !dryRun) fs.writeFileSync(traceFile, kept, "utf8");
   }
 
+  // The sample requirement is three things wired together — a row, a scenario
+  // and its prose. Removing two of them left `## REQ-000` in spec.md with no
+  // matrix row, which is [TDD-3]: a project generated with --no-sample-req
+  // failed its own gate from the first second.
+  const specFile = path.join(projectDir, "spec.md");
+  if (fs.existsSync(specFile)) {
+    const content = fs.readFileSync(specFile, "utf8");
+    const lines = content.split("\n");
+    const kept: string[] = [];
+    let skipping = false;
+    for (const line of lines) {
+      if (/^#{2,4}\s+.*\bREQ-000\b/.test(line.trim())) {
+        skipping = true;
+        continue;
+      }
+      // The section ends at the next heading of any level.
+      if (skipping && /^#{1,4}\s+\S/.test(line)) skipping = false;
+      if (skipping) continue;
+      if (/^\|\s*REQ-000\s*\|/.test(line.trim())) continue;
+      kept.push(line);
+    }
+    const cleaned = kept.join("\n").replace(/\n{3,}/g, "\n\n");
+    if (cleaned !== content && !dryRun) fs.writeFileSync(specFile, cleaned, "utf8");
+  }
+
   const healthFeature = path.join(projectDir, "features", "core", "health.feature");
   if (fs.existsSync(healthFeature) && !dryRun) {
     fs.rmSync(healthFeature);
