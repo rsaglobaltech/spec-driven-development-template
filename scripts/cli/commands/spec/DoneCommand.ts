@@ -76,6 +76,30 @@ export class DoneCommand extends BaseCommand {
     const io = agentIo(opts.json);
     const NULL_SHAPE = { requirement: null };
 
+    // Before the required-argument check: `done --help` used to answer
+    // "REQ-id is required", which is a usage error in response to a question.
+    if (this.args.includes("--help") || this.args.includes("-h")) {
+      process.stdout.write(
+        "Usage:\n" +
+          "  specgate done <REQ-id> [--status <Status>] [--check] [--strict]\n" +
+          '                       [--test-cmd "<command>"] [--project-dir <path>] [--json]\n\n' +
+          "Marks a requirement's row in docs/specs/traceability.md.\n\n" +
+          "Options:\n" +
+          `  --status <Status>   Target status (default: Implemented).\n` +
+          `                      One of: ${ALLOWED_STATUSES.join(", ")}\n` +
+          "  --check             Run `validate` first and refuse to write if it fails.\n" +
+          "  --strict            --check with the strong gate: --strict-tdd,\n" +
+          "                      --strict-links and --strict-coverage.\n" +
+          '  --test-cmd "<cmd>"  Also run the project\'s tests and require them to pass.\n' +
+          "                      Read from `test_cmd:` in harness.config.yaml when omitted.\n" +
+          "                      Without one, `done` says it checked the specification\n" +
+          "                      and not the code, rather than reporting a pass.\n" +
+          "  --project-dir <p>   Project root (auto-detected from cwd if omitted).\n" +
+          "  --json              Emit one JSON document on stdout.\n"
+      );
+      process.exit(EXIT.OK);
+    }
+
     if (!opts.reqId) {
       io.usage(NULL_SHAPE, [
         error("req_id_required", "REQ-id is required (e.g. REQ-007).", {

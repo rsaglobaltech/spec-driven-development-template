@@ -7,6 +7,27 @@ import type { Capability } from "./OnboardCommand";
 
 import { findCliRoot } from "../../../lib/project-root";
 
+import { detectTestCommand } from "../../../../packages/core/src/domain/TestCommand";
+
+/**
+ * `adopt` and `harness init` used to answer this differently on the same
+ * `pom.xml`. One detector now, so a project gets one answer.
+ */
+function sharedTestCommand(dir: string): string {
+  return (
+    detectTestCommand({
+      exists: (rel) => fs.existsSync(path.join(dir, rel)),
+      read: (rel) => {
+        try {
+          return fs.readFileSync(path.join(dir, rel), "utf8");
+        } catch {
+          return null;
+        }
+      },
+    }) || ""
+  );
+}
+
 const ROOT_DIR = findCliRoot(__dirname);
 const ADOPT_TEMPLATES = path.join(ROOT_DIR, "templates", "adopt");
 
@@ -115,7 +136,7 @@ export function detectStack(dir: string) {
     else if (artifactId) facts.PROJECT_NAME = artifactId[1].trim();
     facts.STACK = parts.join(", ");
     facts.TESTING = pom.includes("testcontainers") ? "JUnit 5, Testcontainers" : "JUnit 5";
-    facts.TEST_CMD = fs.existsSync(path.join(dir, "mvnw")) ? "./mvnw -B test" : "mvn -B test";
+    facts.TEST_CMD = sharedTestCommand(dir);
     facts.detected = "pom.xml";
     return facts;
   }
@@ -131,7 +152,7 @@ export function detectStack(dir: string) {
     parts.push("Gradle");
     facts.STACK = parts.join(", ");
     facts.TESTING = "JUnit 5";
-    facts.TEST_CMD = fs.existsSync(path.join(dir, "gradlew")) ? "./gradlew test" : "gradle test";
+    facts.TEST_CMD = sharedTestCommand(dir);
     facts.detected = "build.gradle";
     return facts;
   }

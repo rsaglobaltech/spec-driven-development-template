@@ -21,6 +21,7 @@ import { resolveProjectDir } from "../lib/project-root";
 import { agentIo, wantsJson } from "../lib/agent";
 import { error, info, warning, errorMessage } from "../lib/diagnostics";
 import { BaseCommand } from "../lib/command";
+import { detectTestCommand as detectSharedTestCommand } from "../../packages/core/src/domain/TestCommand";
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..", "..");
 const TEMPLATES = path.join(ROOT_DIR, "templates", "harness");
@@ -43,28 +44,23 @@ const NULL_SHAPE = { projectDir: null, files: [] };
  * exists, so this is the common case, not the edge one.
  */
 export function detectTestCommand(projectDir) {
-  const has = (file) => fs.existsSync(path.join(projectDir, file));
-  if (has("package.json")) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(path.join(projectDir, "package.json"), "utf8"));
-      const scripts = pkg.scripts || {};
-      // `verify` is this project's own convention for "the fast gate";
-      // prefer it, because `test` in a spec-driven repo often includes the
-      // end-to-end suite that stays red until the last requirement lands.
-      if (scripts.verify) return "npm run verify";
-      if (scripts.test) return "npm test";
-    } catch {
-      // A malformed package.json is the user's problem, not a reason to fail
-      // scaffolding. Fall through to the generic guess.
-    }
-    return "npm test";
-  }
-  if (has("pom.xml")) return "mvn -B test";
-  if (has("build.gradle") || has("build.gradle.kts")) return "./gradlew test";
-  if (has("Cargo.toml")) return "cargo test";
-  if (has("go.mod")) return "go test ./...";
-  if (has("pyproject.toml") || has("setup.py")) return "pytest";
-  return null;
+  // One detector, shared with `adopt`/`onboard`. They used to disagree on the
+  // same pom.xml — `./mvnw -B test` there, `mvn -B test` here — which a cold
+  // evaluator found by running both. `preferVerify` is the one intentional
+  // difference, and it is an argument so that it stays intentional.
+  return detectSharedTestCommand(
+    {
+      exists: (rel) => fs.existsSync(path.join(projectDir, rel)),
+      read: (rel) => {
+        try {
+          return fs.readFileSync(path.join(projectDir, rel), "utf8");
+        } catch {
+          return null;
+        }
+      },
+    },
+    { preferVerify: true }
+  );
 }
 
 export function projectName(projectDir) {

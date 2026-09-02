@@ -272,8 +272,14 @@ function emitText(items: PlanItem[], orphans: string[]): void {
     if (buckets[it.category]) buckets[it.category].push(it);
   }
 
+  // `NEEDS_EVERYTHING` means the row declares neither code nor test — the
+  // feature file is there, and `classifyRow` sends anything missing one to
+  // `NEEDS_FEATURE` before it can reach here. The old label said "Needs Feature
+  // + Test + Code" and the very next line printed `✓ feature:`, so the report
+  // contradicted itself two lines apart. A report that does that is not read
+  // twice.
   const groups: Array<[string, string, string]> = [
-    ["NEEDS_EVERYTHING", "Needs Feature + Test + Code", c.red],
+    ["NEEDS_EVERYTHING", "Needs Test + Code", c.red],
     ["NEEDS_FEATURE", "Needs Feature File", c.red],
     ["NEEDS_TEST", "Needs Test Artifact (TDD)", c.yellow],
     ["NEEDS_IMPLEMENTATION", "Needs Implementation", c.cyan],
