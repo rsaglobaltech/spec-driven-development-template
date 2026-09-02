@@ -31,24 +31,26 @@ test("the site names no CI provider the CLI would reject", () => {
   const supported = Object.keys(PROVIDERS).map((p) => p.toLowerCase());
   const page = fs.readFileSync(path.join(ROOT_DIR, "docs/index.html"), "utf8");
 
-  // The ones a reader would recognise as a claim. Adding a provider to the CLI
-  // is what makes it legal to name here.
+  // The ones a reader would recognise as a claim, in the spellings a page would
+  // actually use. Adding a provider to the CLI is what makes it legal here.
   const knownProviders = [
-    "circleci",
-    "travis",
-    "bitbucket",
-    "teamcity",
-    "buildkite",
-    "drone",
-    "appveyor",
+    ["circleci", "circle ci"],
+    ["travis"],
+    ["bitbucket"],
+    ["teamcity", "team city"],
+    ["buildkite"],
+    ["drone"],
+    ["appveyor"],
   ];
-  for (const name of knownProviders) {
-    if (supported.includes(name)) continue;
-    assert.doesNotMatch(
-      page,
-      new RegExp(name.replace(/(ci)$/, "\\s?$1"), "i"),
-      `docs/index.html advertises ${name}, which \`ci init\` does not support`
-    );
+  const lower = page.toLowerCase();
+  for (const spellings of knownProviders) {
+    if (supported.includes(spellings[0])) continue;
+    for (const spelling of spellings) {
+      assert.ok(
+        !lower.includes(spelling),
+        `docs/index.html advertises ${spelling}, which \`ci init\` does not support`
+      );
+    }
   }
 });
 
@@ -87,7 +89,10 @@ test("validate --help names every strict flag it accepts", () => {
     "--strict-links",
     "--strict-coverage",
   ]) {
-    assert.match(help, new RegExp(flag.replace(/-/g, "\\-")), `--help should name ${flag}`);
+    // A literal substring, not a regex built from the flag: hand-escaping a
+    // string into a pattern is how the last two CodeQL findings in this repo
+    // happened, and a plain `includes` is what this actually needs.
+    assert.ok(help.includes(flag), `--help should name ${flag}`);
   }
 });
 
