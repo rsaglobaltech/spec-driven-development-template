@@ -1912,7 +1912,16 @@ Resultado: el inventario era honesto salvo una cosa, y quedan **20**.
   etiqueta — solo un título con formato de nota suelta. Verificados contra el
   CLI: `harness --verbose`, `init --multi-stack` y las seis mejoras de
   `pack infer` **siguen sin existir**, así que eran válidos, solo ilegibles.
-  Reescritos con el estado medido y etiquetados.
+  Reescritos con el estado medido y etiquetados. **Los tres cerrados**: `#32`
+  (`pack infer`) y `#34` (`harness --verbose`) el 2026-09-01, `#33`
+  (`init --multi-stack`) el 2026-09-02. En `#33`, la mitad del trabajo ya
+  existía y nadie lo sabía —`projects:`, que `validate`, `plan`, `status` y
+  `report` ya recorren (#103/#104)—; faltaba solo la mitad que genera. Se
+  comparten `spec.md`, `features/` y los ADR; la **matriz no**, porque mapea un
+  requisito al fichero que lo implementa y al que lo prueba, y esos son ficheros
+  distintos en cada stack. Compartir es enlazar simbólicamente; en Windows, que
+  no crea enlaces sin Developer Mode, se copia y **la garantía se muda a la
+  puerta**: `validate` falla si una copia deja de coincidir con la raíz.
 - **#109 y #110** llevan `help wanted` sobre trabajo que ocurre en **otros
   repositorios**, que es exactamente lo que atrajo dos PRs de farmeo de bounties
   (#118, #119, cerrados). Se les añadió qué hace falta de verdad y qué forma tiene
