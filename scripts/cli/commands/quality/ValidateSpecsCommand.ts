@@ -8,6 +8,8 @@ import { DiskProjectRepository } from "../../../../packages/core/src/infrastruct
 import { formatDiagnostic, error } from "../../../lib/diagnostics";
 import { checkAgainstLock } from "../../../specops/against_lock";
 import { requirementGraphFromProject } from "../../../lib/requirement-graph";
+import { SHARED_PATHS } from "../../../../packages/core/src/domain/MultiStack";
+import * as crypto from "node:crypto";
 import { agentIo, wantsJson, EXIT } from "../../../lib/agent";
 import { findUnresolvedPlaceholders } from "../../../lib/placeholders";
 import { BaseCommand } from "../../../lib/command";
@@ -113,6 +115,59 @@ export class ValidateSpecsCommand extends BaseCommand {
     process.exit(exitCode);
   }
 
+  /**
+   * A shared spec that is only shared by convention is not shared.
+   *
+   * `init --multi-stack` symlinks spec.md, features/ and the ADR index into
+   * every stack, so there is one file with several names. Windows refuses to
+   * create symlinks without Developer Mode, and scaffolding copies instead —
+   * at which point "shared" is a claim rather than a fact, and the three stacks
+   * can quietly start describing different products.
+   *
+   * So the guarantee moves into the gate: a copy that no longer matches the
+   * root is an error. Symlinked trees skip this, because they cannot drift.
+   */
+  private sharedSpecDrift(rootDir: string, projectRel: string): string[] {
+    const digest = (target: string): string => {
+      const h = crypto.createHash("sha256");
+      const stat = fs.statSync(target);
+      if (stat.isFile()) {
+        h.update(fs.readFileSync(target));
+        return h.digest("hex");
+      }
+      const entries: string[] = [];
+      const walkInto = (dir: string) => {
+        for (const name of fs.readdirSync(dir).sort()) {
+          const full = path.join(dir, name);
+          if (fs.statSync(full).isDirectory()) walkInto(full);
+          else entries.push(path.relative(target, full).split(path.sep).join("/"));
+        }
+      };
+      walkInto(target);
+      for (const rel of entries) {
+        h.update(rel);
+        h.update(fs.readFileSync(path.join(target, rel)));
+      }
+      return h.digest("hex");
+    };
+
+    const drifted: string[] = [];
+    for (const shared of SHARED_PATHS) {
+      const atRoot = path.join(rootDir, shared);
+      const inProject = path.join(projectRel, shared);
+      if (!fs.existsSync(atRoot) || !fs.existsSync(inProject)) continue;
+      // A link cannot drift from what it points at.
+      const link = fs.lstatSync(inProject, { throwIfNoEntry: false });
+      if (link && link.isSymbolicLink()) continue;
+      try {
+        if (digest(atRoot) !== digest(inProject)) drifted.push(shared);
+      } catch {
+        // Unreadable is a different problem, and the normal checks report it.
+      }
+    }
+    return drifted;
+  }
+
   private validateMonorepo(
     targetDir: string,
     strictTdd: boolean,
@@ -159,6 +214,23 @@ export class ValidateSpecsCommand extends BaseCommand {
       const r = spawnSync(process.execPath, args, { encoding: "utf8" });
       process.stdout.write(r.stdout || "");
       process.stderr.write(r.stderr || "");
+
+      const drifted = this.sharedSpecDrift(targetDir, subDir);
+      if (drifted.length > 0) {
+        this.logError(
+          `Shared spec has drifted in ${rel}: ${drifted.join(", ")} no longer matches the root`
+        );
+        this.logFix([
+          "These paths are meant to be one artifact for the whole tree. They were copied",
+          "rather than symlinked (this platform would not create links), so an edit in one",
+          "stack does not reach the others.",
+          `Fix: copy the root's version over ${rel}'s, or move the edit to the root and`,
+          "copy outward — then commit both.",
+        ]);
+        results.push({ project: rel, ok: false, detail: "shared spec drift" });
+        continue;
+      }
+
       results.push({ project: rel, ok: r.status === 0 });
     }
 

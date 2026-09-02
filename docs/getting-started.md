@@ -108,6 +108,54 @@ Useful flags:
 | `--dry-run` | Print every file that would be written; don't touch disk. |
 | `--force` | Overwrite a pre-existing target directory. |
 | `--no-git` | Skip `git init` (defaults to initialising). |
+| `--multi-stack <a,b,c>` | Scaffold one sibling project per stack under a single root, sharing one spec. See below. |
+
+### One specification, several stacks
+
+When the same product is being built in more than one stack — a migration, a
+bake-off, the same API in two languages — the requirements are the same
+sentences and the scenarios describe the same behaviour. Only the code differs.
+
+```bash
+npx @rsaglobaltech/specgate@latest init --yes \
+  --multi-stack spring,quarkus,micronaut \
+  --out /tmp
+```
+
+That writes one root holding the shared spec, and one project per stack:
+
+```
+my-spec-driven-app/
+├── spec.md                  the requirements — one copy
+├── features/                the scenarios — behaviour is the same everywhere
+├── docs/specs/adr/          decisions about the product, not one toolchain
+├── specops.config.yaml      projects: ./spring, ./quarkus, ./micronaut
+├── spring/
+│   ├── spec.md → ../spec.md         shared, not copied
+│   ├── AI_RULES.md                  its own — one rulebook per toolchain
+│   └── docs/specs/traceability.md   its own — see below
+├── quarkus/
+└── micronaut/
+```
+
+`validate`, `plan`, `status` and `report` already fan out over `projects:`, so
+one command covers every stack:
+
+```bash
+npx @rsaglobaltech/specgate@latest validate .   # 3/3 project(s) passed
+```
+
+**Why the matrix is not shared.** A requirement is the same sentence whether
+Spring or Quarkus implements it. But the traceability matrix maps a requirement
+to *the file that implements it* and *the file that proves it*, and those are
+different files in every stack. Sharing the matrix would mean claiming a Quarkus
+test proves the Spring implementation.
+
+**On Windows.** Symlinks need Developer Mode or an elevated shell. Without them
+the shared paths are copied instead, and `init` says so. The guarantee moves
+into the gate rather than disappearing: `validate` fails when a copy no longer
+matches the root, so three stacks cannot quietly drift into describing three
+different products.
 
 ---
 

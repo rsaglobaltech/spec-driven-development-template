@@ -4,6 +4,13 @@ import { spawnSync } from "node:child_process";
 import { parseYamlLite } from "../../../../packages/core/src/domain/YamlLite";
 import { runInitWizard, defaultAnswers, renderConfigYaml } from "./WizardCommand";
 import { BaseCommand } from "../../../lib/command";
+import {
+  planStacks,
+  renderSpecopsConfig,
+  relativeToRoot,
+  SHARED_PATHS,
+  InvalidStackList,
+} from "../../../../packages/core/src/domain/MultiStack";
 
 import { findCliRoot } from "../../../lib/project-root";
 
@@ -127,8 +134,15 @@ function usage() {
   process.stdout.write(
     "Usage:\n" +
       "  specgate init [--config <path>] [--out <directory>] [--yes] [--force] [--dry-run]\n" +
-      "                 [--no-git] [--no-sample-req]\n\n" +
+      "                 [--no-git] [--no-sample-req] [--multi-stack <a,b,c>]\n\n" +
       "Options:\n" +
+      "  --multi-stack <a,b,c>\n" +
+      "                    Scaffold one sibling project per stack under a single root,\n" +
+      "                    sharing one spec.md and one features/ tree. Each stack keeps\n" +
+      "                    its own AI_RULES.md and traceability matrix, because the\n" +
+      "                    files that implement and prove a requirement differ per\n" +
+      "                    stack. Registers them in specops.config.yaml, which\n" +
+      "                    validate/plan/status/report already fan out over.\n" +
       "  --config <path>   Configuration file. Accepts a YAML mapping (.yaml/.yml)\n" +
       '                    or the legacy KEY="value" format (.config). When omitted,\n' +
       "                    an interactive wizard asks for each value.\n" +
@@ -147,6 +161,7 @@ export function parseArgs(argv: string[]) {
   const opts = {
     config: null as string | null,
     out: null as string | null,
+    multiStack: null as string | null,
     yes: false,
     force: false,
     dryRun: false,
@@ -159,6 +174,10 @@ export function parseArgs(argv: string[]) {
       opts.config = argv[++i];
     } else if (a === "--out" && argv[i + 1]) {
       opts.out = argv[++i];
+    } else if (a === "--multi-stack" && argv[i + 1]) {
+      opts.multiStack = argv[++i];
+    } else if (a.startsWith("--multi-stack=")) {
+      opts.multiStack = a.slice("--multi-stack=".length);
     } else if (a === "--yes" || a === "-y") {
       opts.yes = true;
     } else if (a === "--force") {
@@ -695,12 +714,245 @@ function ensureTraceabilityCoverage(projectDir: string) {
   }
 }
 
+/**
+ * Render one complete project into `projectDir`.
+ *
+ * Lifted out of `execute` unchanged so `--multi-stack` can call it once per
+ * stack. Everything that used to read `opts` directly now takes it as an
+ * argument; nothing else about the single-project path changed.
+ */
+export function generateProject(
+  projectDir: string,
+  cfg: any,
+  opts: { dryRun: boolean; noSampleReq: boolean; noGit: boolean },
+  wizardAnswers: any
+) {
+  logInfo("🧩 Rendering base template");
+  renderTree(path.join(TEMPLATES_DIR, "base"), projectDir, cfg, opts.dryRun);
+  applyRuntimeSupportFlags(projectDir, cfg, opts.dryRun);
+  applyArchitectureProfile(projectDir, cfg, opts.dryRun);
+
+  logInfo(`🛠️ Applying project type template: ${cfg.PROJECT_TYPE}`);
+  renderFile(
+    path.join(TEMPLATES_DIR, cfg.PROJECT_TYPE, "AI_RULES.md.tpl"),
+    path.join(projectDir, "AI_RULES.md"),
+    cfg,
+    opts.dryRun
+  );
+  if (opts.noSampleReq) {
+    logInfo("🧩 Skipping the sample requirement (--no-sample-req)");
+    if (!opts.dryRun) fs.mkdirSync(path.join(projectDir, "features"), { recursive: true });
+    removeSampleRequirement(projectDir, opts.dryRun);
+  } else {
+    renderTree(
+      path.join(TEMPLATES_DIR, cfg.PROJECT_TYPE, "features"),
+      path.join(projectDir, "features"),
+      cfg,
+      opts.dryRun
+    );
+  }
+
+  if (cfg.MODULES) {
+    for (let mod of cfg.MODULES.split(",")) {
+      mod = mod.trim();
+      if (!mod) continue;
+      const modTpl = path.join(TEMPLATES_DIR, "modules", mod, cfg.PROJECT_TYPE);
+      if (fs.existsSync(modTpl)) {
+        logInfo(`➕ Adding module: ${mod}`);
+        renderTree(modTpl, path.join(projectDir, "features", mod), cfg, opts.dryRun);
+      } else {
+        logWarn(`Template missing for module '${mod}' and type '${cfg.PROJECT_TYPE}'`);
+      }
+    }
+  } else {
+    logInfo("🧩 No optional modules selected. Generating base + project-type features only.");
+  }
+
+  if (!opts.dryRun) {
+    ensureTraceabilityCoverage(projectDir);
+    if (wizardAnswers) {
+      fs.writeFileSync(
+        path.join(projectDir, "project.yaml"),
+        renderConfigYaml(wizardAnswers),
+        "utf8"
+      );
+    }
+  }
+
+  if (!opts.noGit) {
+    if (opts.dryRun) {
+      logInfo(`[dry-run] git init at ${projectDir}`);
+    } else {
+      const git = spawnSync("git", ["init"], { cwd: projectDir, stdio: "ignore" });
+      if (git.error || git.status !== 0) {
+        logWarn("git init failed — skipping git initialization.");
+      }
+    }
+  }
+}
+
+/**
+ * Point `linkPath` at `targetRel`, or copy if this platform will not link.
+ *
+ * Symlinks are what makes the spec genuinely shared rather than duplicated:
+ * one file, N names for it. Windows refuses to create them without Developer
+ * Mode or elevation, and refusing to scaffold on Windows over that would be a
+ * worse trade than copying — so it copies, and reports which it did. The
+ * difference is not cosmetic and does not stay hidden: `validate` fails a
+ * copied tree that has drifted, so the guarantee survives the fallback even
+ * though the mechanism does not.
+ */
+export function linkOrCopy(
+  linkPath: string,
+  targetRel: string,
+  targetAbs: string,
+  isDir: boolean
+): "linked" | "copied" {
+  try {
+    fs.symlinkSync(targetRel, linkPath, isDir ? "junction" : "file");
+    return "linked";
+  } catch {
+    fs.cpSync(targetAbs, linkPath, { recursive: isDir });
+    return "copied";
+  }
+}
+
+/**
+ * Scaffold N sibling projects under one root, sharing one spec tree.
+ *
+ * The first stack is generated in full and its shared parts are hoisted to the
+ * root; every stack then points at those. Generating the root separately would
+ * mean a second code path that renders spec.md, and two renderers for one
+ * artifact drift — this repository has been bitten by exactly that more than
+ * once.
+ */
+function scaffoldMultiStack(
+  root: string,
+  cfg: any,
+  opts: any,
+  plan: { stacks: { name: string; entry: string }[] }
+) {
+  const modes = new Set<string>();
+
+  for (const stack of plan.stacks) {
+    logInfo(`\n🧱 ${stack.name}`);
+    // git runs once, at the root: the whole tree is one repository. And the
+    // wizard's answers are saved at the root too, not once per stack.
+    generateProject(
+      path.join(root, stack.name),
+      { ...cfg, STACK: stack.name },
+      { dryRun: opts.dryRun, noSampleReq: opts.noSampleReq, noGit: true },
+      null
+    );
+  }
+
+  if (opts.dryRun) {
+    logInfo(`[dry-run] shared spec tree would be hoisted to ${root}`);
+    return { modes: ["dry-run"] };
+  }
+
+  // Hoist the shared artifacts out of the first stack, then point every stack
+  // at them — the first included, so no stack is special afterwards.
+  const first = path.join(root, plan.stacks[0].name);
+  for (const shared of SHARED_PATHS) {
+    const from = path.join(first, shared);
+    const to = path.join(root, shared);
+    if (!fs.existsSync(from)) continue;
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.renameSync(from, to);
+  }
+
+  for (const stack of plan.stacks) {
+    const stackDir = path.join(root, stack.name);
+    for (const shared of SHARED_PATHS) {
+      const linkPath = path.join(stackDir, shared);
+      const targetAbs = path.join(root, shared);
+      if (!fs.existsSync(targetAbs)) continue;
+      if (fs.existsSync(linkPath) || fs.lstatSync(linkPath, { throwIfNoEntry: false })) {
+        fs.rmSync(linkPath, { recursive: true, force: true });
+      }
+      fs.mkdirSync(path.dirname(linkPath), { recursive: true });
+      const isDir = fs.statSync(targetAbs).isDirectory();
+      modes.add(linkOrCopy(linkPath, relativeToRoot(shared), targetAbs, isDir));
+    }
+  }
+
+  fs.writeFileSync(
+    path.join(root, "specops.config.yaml"),
+    renderSpecopsConfig(plan, cfg.PROJECT_NAME),
+    "utf8"
+  );
+
+  fs.writeFileSync(
+    path.join(root, "README.md"),
+    renderMultiStackReadme(cfg, plan, [...modes]),
+    "utf8"
+  );
+
+  return { modes: [...modes] };
+}
+
+function renderMultiStackReadme(
+  cfg: any,
+  plan: { stacks: { name: string }[] },
+  modes: string[]
+): string {
+  const shared = modes.includes("copied")
+    ? "copied into each stack, because this platform would not create symlinks"
+    : "symlinked into each stack — one file, one name per stack";
+  return (
+    `# ${cfg.PROJECT_NAME}\n\n` +
+    `${plan.stacks.length} stacks implementing one specification: ` +
+    `${plan.stacks.map((s) => `\`${s.name}\``).join(", ")}.\n\n` +
+    `## The shape\n\n` +
+    `\`\`\`\n` +
+    `spec.md          the requirements — one copy, shared\n` +
+    `features/        the scenarios — behaviour is the same in every stack\n` +
+    `docs/specs/adr/  decisions about the product, not about one toolchain\n` +
+    plan.stacks
+      .map(
+        (s) =>
+          `${s.name}/${" ".repeat(Math.max(1, 16 - s.name.length - 1))}its own AI_RULES.md and traceability matrix\n`
+      )
+      .join("") +
+    `\`\`\`\n\n` +
+    `The shared paths are ${shared}.\n\n` +
+    `**Why the matrix is not shared.** A requirement is the same sentence whether\n` +
+    `${plan.stacks[0].name} or ${plan.stacks[1].name} implements it, and a Gherkin scenario describes\n` +
+    `behaviour — that is the point of writing it in Gherkin. But the traceability\n` +
+    `matrix maps a requirement to the file that implements it and the file that\n` +
+    `proves it, and those are different files in every stack.\n\n` +
+    `## Checking it\n\n` +
+    `\`\`\`bash\n` +
+    `specgate validate .            # every stack, from this root\n` +
+    `specgate plan --project-dir .  # what each stack still owes\n` +
+    `\`\`\`\n\n` +
+    `\`validate\`, \`plan\`, \`status\` and \`report\` read \`projects:\` in\n` +
+    `\`specops.config.yaml\` and fan out over every stack.\n`
+  );
+}
+
 export class InitProjectCommand extends BaseCommand {
   public async execute(): Promise<void> {
     let rawArgs = this.args;
     if (rawArgs[0] === "init") rawArgs = rawArgs.slice(1);
 
     const opts = parseArgs(rawArgs);
+
+    // Checked before the wizard and before any directory exists: an unusable
+    // stack list is a usage error, and a usage error must not leave a
+    // half-scaffolded tree behind for the user to clean up.
+    let plan = null;
+    if (opts.multiStack) {
+      try {
+        plan = planStacks(opts.multiStack);
+      } catch (e: any) {
+        if (!(e instanceof InvalidStackList)) throw e;
+        logError(e.message);
+        logInfo("Fix: specgate init --multi-stack spring,quarkus,micronaut");
+        process.exit(2);
+      }
+    }
 
     let wizardAnswers = null;
     let cfg: any;
@@ -738,67 +990,35 @@ export class InitProjectCommand extends BaseCommand {
       fs.mkdirSync(projectDir, { recursive: true });
     }
 
-    logInfo("🧩 Rendering base template");
-    renderTree(path.join(TEMPLATES_DIR, "base"), projectDir, cfg, opts.dryRun);
-    applyRuntimeSupportFlags(projectDir, cfg, opts.dryRun);
-    applyArchitectureProfile(projectDir, cfg, opts.dryRun);
+    if (plan) {
+      logInfo(`🧱 Multi-stack: ${plan.stacks.map((st) => st.name).join(", ")}`);
+      const res = scaffoldMultiStack(projectDir, cfg, opts, plan);
 
-    logInfo(`🛠️ Applying project type template: ${cfg.PROJECT_TYPE}`);
-    renderFile(
-      path.join(TEMPLATES_DIR, cfg.PROJECT_TYPE, "AI_RULES.md.tpl"),
-      path.join(projectDir, "AI_RULES.md"),
-      cfg,
-      opts.dryRun
-    );
-    if (opts.noSampleReq) {
-      logInfo("🧩 Skipping the sample requirement (--no-sample-req)");
-      if (!opts.dryRun) fs.mkdirSync(path.join(projectDir, "features"), { recursive: true });
-      removeSampleRequirement(projectDir, opts.dryRun);
-    } else {
-      renderTree(
-        path.join(TEMPLATES_DIR, cfg.PROJECT_TYPE, "features"),
-        path.join(projectDir, "features"),
-        cfg,
-        opts.dryRun
-      );
-    }
-
-    if (cfg.MODULES) {
-      for (let mod of cfg.MODULES.split(",")) {
-        mod = mod.trim();
-        if (!mod) continue;
-        const modTpl = path.join(TEMPLATES_DIR, "modules", mod, cfg.PROJECT_TYPE);
-        if (fs.existsSync(modTpl)) {
-          logInfo(`➕ Adding module: ${mod}`);
-          renderTree(modTpl, path.join(projectDir, "features", mod), cfg, opts.dryRun);
-        } else {
-          logWarn(`Template missing for module '${mod}' and type '${cfg.PROJECT_TYPE}'`);
+      if (!opts.dryRun) {
+        if (wizardAnswers) {
+          fs.writeFileSync(
+            path.join(projectDir, "project.yaml"),
+            renderConfigYaml(wizardAnswers),
+            "utf8"
+          );
+        }
+        if (!opts.noGit) {
+          const git = spawnSync("git", ["init"], { cwd: projectDir, stdio: "ignore" });
+          if (git.error || git.status !== 0) {
+            logWarn("git init failed — skipping git initialization.");
+          }
+        }
+        if (res.modes.includes("copied")) {
+          logWarn(
+            "Shared spec copied instead of symlinked — this platform would not create links."
+          );
+          logInfo(
+            "  `specgate validate .` fails if the copies drift, so the shared spec stays shared."
+          );
         }
       }
     } else {
-      logInfo("🧩 No optional modules selected. Generating base + project-type features only.");
-    }
-
-    if (!opts.dryRun) {
-      ensureTraceabilityCoverage(projectDir);
-      if (wizardAnswers) {
-        fs.writeFileSync(
-          path.join(projectDir, "project.yaml"),
-          renderConfigYaml(wizardAnswers),
-          "utf8"
-        );
-      }
-    }
-
-    if (!opts.noGit) {
-      if (opts.dryRun) {
-        logInfo(`[dry-run] git init at ${projectDir}`);
-      } else {
-        const git = spawnSync("git", ["init"], { cwd: projectDir, stdio: "ignore" });
-        if (git.error || git.status !== 0) {
-          logWarn("git init failed — skipping git initialization.");
-        }
-      }
+      generateProject(projectDir, cfg, opts, wizardAnswers);
     }
 
     logInfo("📋 Summary");
@@ -809,6 +1029,12 @@ export class InitProjectCommand extends BaseCommand {
     logInfo(`- Output: ${projectDir}`);
     logInfo(`- Dry-run: ${opts.dryRun}`);
     logInfo(`- Git: ${opts.noGit ? "skipped" : "initialized"}`);
+    if (plan) {
+      logInfo(`- Stacks: ${plan.stacks.map((st) => st.name).join(", ")}`);
+      logInfo("- Shared: spec.md, features/, docs/specs/adr/ — one copy at the root");
+      logInfo("- Per stack: AI_RULES.md, README.md, docs/specs/traceability.md");
+      logInfo("- Next: specgate validate .   # validates every stack from this root");
+    }
     if (wizardAnswers && !opts.dryRun) {
       logInfo("- Config: saved to project.yaml (reproduce with `init --config project.yaml`)");
     }
