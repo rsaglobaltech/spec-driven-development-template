@@ -25,7 +25,7 @@ Each command takes `--json`. See [the agent contract](specs/agent-contract.md).
 | `specgate status` | Where the project stands: totals by state, orphan features, locked pack versions, and the one command to run next. |
 | `specgate plan` | Requirements that still need a test, code or a status change. |
 | `specgate req add \| link \| done \| list` | Manage matrix rows without hand-editing the ten-column table. |
-| `specgate done <REQ>` | Mark a requirement Implemented. `--check` validates first. |
+| `specgate done <REQ>` | Mark a requirement Implemented. `--check` validates first and refuses to write on failure; `--strict` adds `--strict-tdd --strict-links --strict-coverage`. `--test-cmd "<cmd>"` (or `test_cmd:` in `harness.config.yaml`) also runs the project's tests and requires them to pass. Without one, `done` says it checked the specification and not the code. |
 | `specgate fix` | Apply the repairs `validate` suggests. `--dry-run` previews. |
 | `specgate validate [--strict-tdd] [--strict-scenarios] [--strict-requirements] [--strict-links] [--against-lock]` | The gate. Structure, traceability and Gherkin always; four opt-in gates on top. |
 | `specgate validate . --strict-coverage` | Fails when a scenario in a declared feature file is named by no test artifact. A name match, so it is opt-in — it does not run your suite. |

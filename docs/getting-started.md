@@ -186,7 +186,8 @@ specgate plan                        # the queue: what still needs a test or cod
 specgate req add "Operators can export a monthly report"
 specgate req link REQ-007 --feature features/reporting/export.feature \
                       --test src/ReportTest.java
-specgate done REQ-007 --check        # validates first, then flips the status
+specgate done REQ-007 --strict --test-cmd "npm test"   # validates AND runs the suite;
+                                                      # refuses to write if either fails
 ```
 
 `specgate status` is the one to start the day with — it names the single next

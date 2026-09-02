@@ -46,7 +46,7 @@ acabado.
 > "una especificación que comprueba un `stat` del sistema de ficheros", y en ese
 > hueco estaba todo el valor.» — `orbit-inventory`
 
-### 1.1 · `done --check` ejecuta la suite — `L4`
+### 1.1 · `done --check` ejecuta la suite — `L4` — [x] **hecho 2026-09-02**
 
 Hoy `done --check` corre `validate`, que es un comprobador estático. El harness
 sí ejecuta el comando de test; nada fuera del harness lo hace. Un equipo que usa
@@ -56,6 +56,15 @@ la puerta sin el harness —que es el camino que documentamos— nunca ejecuta n
   está.
 - Sin comando de test configurado **lo dice**, no calla: el estado es «no
   verificado», no «verificado».
+
+**Era peor de lo reportado.** `--check` y `--strict` se parseaban a
+`DoneOptions` y **no se leían en ninguna parte**: `done --check` era un no-op
+que imprimía un tick. Medido sobre una matriz que apunta a ficheros
+inexistentes, donde `validate --strict-links` sale 1:
+`✔ REQ-001 → Implemented (1 row updated)`, salida 0. Cuatro páginas de
+documentación decían «validates first». Cerrado con 7 tests de CLI y 6 de
+dominio; `--strict` ahora es `--strict-tdd --strict-links --strict-coverage`,
+y `--test-cmd` / `test_cmd:` ejecutan la suite y exigen que pase.
 
 ### 1.2 · Un enlace que existe pero miente — `L3`
 

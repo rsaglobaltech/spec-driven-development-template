@@ -4,6 +4,14 @@ import { agentIo, EXIT } from "../../../lib/agent";
 import { BaseCommand } from "../../../lib/command";
 import { DiskTraceabilityRepository } from "../../../../packages/core/src/infrastructure/DiskTraceabilityRepository";
 import { UpdateRequirementStatusUseCase } from "../../../../packages/core/src/application/UpdateRequirementStatusUseCase";
+import {
+  planDoneVerification,
+  NO_TEST_COMMAND_WARNING,
+} from "../../../../packages/core/src/domain/DoneVerification";
+import { readHarnessConfig } from "../../../../packages/core/src/infrastructure/HarnessConfigFile";
+import { spawnSync } from "node:child_process";
+import * as path from "node:path";
+import { findCliRoot } from "../../../lib/project-root";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -32,6 +40,8 @@ export interface DoneOptions {
   projectDir: string;
   check: boolean;
   strict: boolean;
+  /** Overrides `test_cmd:` in harness.config.yaml for this invocation. */
+  testCmd?: string;
   json?: boolean;
 }
 
@@ -48,6 +58,7 @@ export function parseArgs(argv: string[]): DoneOptions {
     if (a === "--status" && argv[i + 1]) opts.status = argv[++i];
     else if (a === "--project-dir" && argv[i + 1]) opts.projectDir = argv[++i];
     else if (a === "--check") opts.check = true;
+    else if (a === "--test-cmd" && argv[i + 1]) opts.testCmd = argv[++i];
     else if (a === "--json") opts.json = true;
     else if (a === "--strict") {
       opts.strict = true;
@@ -93,6 +104,57 @@ export class DoneCommand extends BaseCommand {
       return;
     }
 
+    // ── The checks, before anything is written ───────────────────────────────
+    //
+    // `--check` and `--strict` used to be parsed and discarded, so `done
+    // REQ-001 --check` printed a tick over a matrix pointing at files that do
+    // not exist. Four documentation pages said it "validates first".
+    const harness = readHarnessConfig(projectDir) || ({} as any);
+    const plan = planDoneVerification(projectDir, {
+      check: opts.check,
+      strict: opts.strict,
+      testCmd: opts.testCmd || harness.testCmd,
+    });
+
+    for (const step of plan.steps) {
+      const run =
+        step.stage === "validate"
+          ? spawnSync(
+              process.execPath,
+              [path.join(findCliRoot(__dirname), "bin", "specgate.js"), "validate", ...step.argv],
+              { encoding: "utf8" }
+            )
+          : spawnSync(step.argv[0], {
+              cwd: projectDir,
+              encoding: "utf8",
+              shell: true,
+            });
+
+      if (run.status === 0) continue;
+
+      // The output is the evidence, and it goes out *before* the diagnostic:
+      // `io.fail` never returns, so anything written after it is dead code.
+      const detail = `${run.stdout || ""}${run.stderr || ""}`.trim();
+      if (detail && !opts.json) process.stderr.write(`${detail}\n\n`);
+
+      io.fail(NULL_SHAPE, [
+        error(
+          step.stage === "validate" ? "done_validate_failed" : "done_tests_failed",
+          step.stage === "validate"
+            ? `not marked ${opts.status}: validation failed.`
+            : `not marked ${opts.status}: the project's tests failed.`,
+          {
+            target: opts.reqId!,
+            fix:
+              step.stage === "validate"
+                ? "Fix what validate reports, then run `done` again."
+                : `Make \`${step.argv[0]}\` pass, then run \`done\` again. A requirement ` +
+                  `marked Implemented over a red suite is the claim this gate exists to stop.`,
+          }
+        ),
+      ]);
+    }
+
     const repo = new DiskTraceabilityRepository();
     const useCase = new UpdateRequirementStatusUseCase(repo);
     const result = useCase.execute(projectDir, opts.reqId!, opts.status);
@@ -125,6 +187,17 @@ export class DoneCommand extends BaseCommand {
         `${c.green}✔${c.reset}  ${c.bold}${opts.reqId}${c.reset} → ${c.bold}${opts.status}${c.reset} ${c.dim}(${updated} row${updated > 1 ? "s" : ""} updated)${c.reset}\n`
       )
     );
+
+    // Said out loud, after the tick, because this is the command that writes
+    // `Implemented` into the record other people read. A project nothing ran is
+    // not a project that passed.
+    if (plan.testsUnverified && !opts.json) {
+      process.stderr.write(`${c.yellow}⚠${c.reset}  ${NO_TEST_COMMAND_WARNING.message}\n`);
+      for (const line of NO_TEST_COMMAND_WARNING.fix) {
+        process.stderr.write(`   ${c.dim}${line}${c.reset}\n`);
+      }
+    }
+
     process.exit(EXIT.OK);
   }
 }
