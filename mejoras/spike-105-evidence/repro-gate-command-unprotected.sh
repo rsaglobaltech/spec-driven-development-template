@@ -73,5 +73,6 @@ node "$BIN" harness run --req REQ-001 --agent "$AGENT {prompt_file}" \
   --test-cmd "npm test" --max-attempts 1 2>&1 | tail -6
 
 echo
-echo "The agent wrote no implementation. It replaced the test command, and the"
-echo "gate approved. Sandbox: $P"
+echo "The agent wrote no implementation. It only replaced the test command."
+echo "Before #167 the harness reported: ✅ REQ-001 pass (1 attempt)."
+echo "It now fails the attempt at the write-scope stage. Sandbox: $P"

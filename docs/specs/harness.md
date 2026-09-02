@@ -239,6 +239,26 @@ diff of the offending paths is fed into the next attempt's prompt, because
 the agent usually did it without meaning to and seeing the hunk is what
 corrects it.
 
+### The gate's own command is part of the contract
+
+The list above is the specification. It is not the file that defines the
+command the gate *runs*, and that gap was the same hole one level up: measured
+with a stub agent that wrote no implementation at all and only replaced
+`"test": "node --test tests/*.test.js"` with `"echo 'all good'"` over a red
+suite, the harness reported `✅ pass (1 attempt)`. An agent that could not pass
+the test could weaken the test.
+
+So the attempt also fails with `agent_rewrote_gate_command` when the script the
+gate command invokes is not the same before and after. The before and after go
+back to the agent, like the write-scope diff does.
+
+This does **not** protect the manifest. Adding a dependency mid-implementation
+is legitimate, and a guard that blocked it would be switched off within a day —
+at which point it protects nothing. Only the one script the gate names is
+compared. `npm test`, `npm run <name>`, `yarn`, `pnpm` and `make <target>`
+resolve to something readable; `mvn -B test`, `pytest` and `go test` do not,
+and there the check reports that it did not look rather than that it passed.
+
 **Creating a file that did not exist is not a violation.** A requirement in
 category `NEEDS_FEATURE` is supposed to write its feature file, and git
 already separates the two cases: untracked is new, a tracked change is an

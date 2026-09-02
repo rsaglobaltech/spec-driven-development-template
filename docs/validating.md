@@ -75,6 +75,32 @@ looking exactly like a healthy one at the only place most teams check. In
 
 ```bash
 npx @rsaglobaltech/specgate@latest validate . --strict-tdd
+
+### `--strict-coverage` — every scenario is actually proved
+
+A matrix row names one `Scenario ID` and one feature file. The file may hold
+five scenarios, and until this flag nothing related the other four to anything:
+
+```bash
+npx @rsaglobaltech/specgate@latest validate . --strict-coverage
+```
+
+```
+❌ [ERROR] Declared scenarios nothing proves: 1
+  ✖  Nothing proves "SCN-012 a fully discounted invoice carries no tax"
+     fix: Add a test naming SCN-012 to tests/totals.test.js, or delete the
+          scenario if it no longer describes behaviour this project promises.
+```
+
+This is the scenario an agent skips when it cannot satisfy it — measured: given
+five scenarios where one contradicted another, an agent wrote tests for four,
+the gate approved, and the row went to `Implemented`.
+
+It matches a scenario's `@SCN-NNN` tag, the id in its title, or failing both the
+title itself, against the test artifact the row declares. **It is a name match:
+this does not run your suite.** That is why it is opt-in rather than part of
+`--strict-tdd` — a project that names its tests some other way should not start
+failing because a release shipped a heuristic.
 ```
 
 `--strict-tdd` is in addition to the normal checks. It is intended for "no contract without a test" gates — particularly useful in `contracts` packs (see §8). Wire it into CI exactly like `validate`, just append the flag.
