@@ -144,7 +144,7 @@ comprueba contra el binario, con un test que lo mantenga así.
 
 Lo que un evaluador toca en los primeros diez minutos.
 
-### 3.1 · `req add` escribe la prosa del requisito — `L2`, `L6`
+### 3.1 · `req add` escribe la prosa del requisito — `L2`, `L6` — [x] **hecho 2026-09-02**
 
 Petición explícita de nimbus (nº 3) y causa de dos síntomas distintos:
 
@@ -156,6 +156,20 @@ Petición explícita de nimbus (nº 3) y causa de dos síntomas distintos:
 
 Además, `validate` debe fallar cuando una fila de la matriz no tiene su sección
 `## REQ-NNN` en `spec.md` — es la tercera parte de la petición nº 2 de nimbus.
+
+**Sale como aviso, no como error, y es deliberado.** ADR-0026 compromete a la
+línea 0.9 a avisar de lo que será obligatorio en la 1.0. Implementado como
+error, rompía 14 tests propios y —lo que importa— habría puesto en rojo a todo
+proyecto cuya matriz es anterior a que `req add` escribiera prosa. Un
+verde-a-rojo en una minor es cómo se saca una herramienta de un pipeline, así
+que mi propio ADR mandaba aquí.
+
+**Cuatro formas de documentar un requisito, no una.** Al construirlo aparecieron
+`## REQ-NNN` (lo que escribe `adopt`), `### Requirement: REQ-100 — …` (specs de
+capacidad, ADR-0022), la tabla de §8 (lo que escribía `init`, y lo que usa **este
+repositorio**) y la prosa en `docs/specs/capabilities/**`. La primera versión
+solo aceptaba una y marcaba 14 falsos positivos en nuestro propio repo — el
+mismo tipo de puerta que castigaron los tres ingenieros.
 
 ### 3.2 · `--help` en los subcomandos — `L7` — [x] **hecho 2026-09-02**, adelantado con la fase 2
 
@@ -172,7 +186,7 @@ contestaba «expects exactly one positional argument» — la puerta principal
 negándose a explicarse — y su ayuda no nombraba `--strict-links`, así que la
 bandera que habría cazado la mitad de lo que rompieron era invisible.
 
-### 3.3 · El aviso honesto, más arriba
+### 3.3 · El aviso honesto, más arriba — [x] **hecho 2026-09-02**
 
 Los tres señalaron por su cuenta *«This passes, but it certifies the skeleton,
 not the code»* como lo mejor del día. Uno lo llamó «lo más intelectualmente

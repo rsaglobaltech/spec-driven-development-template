@@ -9,6 +9,7 @@ import { AddRequirementUseCase } from "../../../../packages/core/src/application
 import { LinkRequirementUseCase } from "../../../../packages/core/src/application/LinkRequirementUseCase";
 import { DoneCommand } from "./DoneCommand";
 import { TraceabilityMatrix } from "../../../../packages/core/src/domain/TraceabilityMatrix";
+import { appendRequirementSection } from "../../../../packages/core/src/domain/SpecSections";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -244,12 +245,35 @@ export class ReqCommand extends BaseCommand {
       }
       if (title && !fields.useCase) fields.useCase = title;
 
+      // The matrix row carries the title; `spec.md` carries the requirement.
+      // Writing only the row left the requirement with no text anywhere, which
+      // is why `harness prompt` emitted "Implement REQ-002" with nothing in it
+      // to implement.
+      if (title && !fields.useCase) fields.useCase = title;
+
       const repo = new DiskTraceabilityRepository();
       const useCase = new AddRequirementUseCase(repo);
       const result = useCase.execute(resolvedDir, { ...fields, status });
 
+      const specPath = path.join(resolvedDir, "spec.md");
+      let wroteSection = false;
+      if (fs.existsSync(specPath) && result.reqId) {
+        const written = appendRequirementSection(
+          fs.readFileSync(specPath, "utf8"),
+          result.reqId,
+          title || fields.useCase || result.reqId
+        );
+        if (written.added) {
+          fs.writeFileSync(specPath, written.content, "utf8");
+          wroteSection = true;
+        }
+      }
+
       process.stdout.write(
         `${c.green}✔${c.reset}  Added ${c.bold}${result.reqId}${c.reset} ${c.dim}(${result.scenarioId}, status ${status || "Draft"})${c.reset}\n` +
+          (wroteSection
+            ? `   ${c.dim}spec.md: added a draft \`## ${result.reqId}\` section — rewrite the obligation${c.reset}\n`
+            : "") +
           `   ${c.dim}Next: specgate req link ${result.reqId} --feature <path> --test <path>${c.reset}\n`
       );
       process.exit(0);

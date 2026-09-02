@@ -1,5 +1,6 @@
 import { ValidationReport } from "../domain/ValidationReport";
 import { ITraceabilityRepository } from "./ports/ITraceabilityRepository";
+import { requirementSections } from "../domain/SpecSections";
 import {
   ALLOWED_STATUS,
   LEGACY_HEADER,
@@ -173,6 +174,41 @@ export class ValidateProjectUseCase {
             { target: "TDD-3" }
           );
         }
+      }
+
+      // The other direction. `req add` used to write a matrix row and no
+      // prose, so a requirement could exist as a table entry with no text
+      // anywhere — and the harness prompt then asked an agent to implement
+      // something the prompt could not describe.
+      //
+      // A mention in prose is not a section: TDD-3 above matches `REQ-014`
+      // wherever it appears, which is right for "is this row missing", and
+      // wrong here. This asks for a `## REQ-014` heading.
+      const declared = new Set(requirementSections(opts.specContent));
+      for (const reqId of requirements) {
+        // Same scope as TDD-3 above: `REQ-` ids only. A matrix may also carry
+        // `NFR-` rows, which live in their own section of spec.md and are not
+        // what the harness prompt asks an agent to implement.
+        if (!/^REQ-\d+/.test(reqId)) continue;
+        if (declared.has(reqId)) continue;
+        // A warning, not an error, and deliberately so. ADR-0026 commits to the
+        // 0.9 line warning about checks that become mandatory in 1.0, because a
+        // green-to-red flip in a minor release is how a tool gets removed from
+        // a pipeline. Every project whose matrix predates `req add` writing
+        // prose would go red on upgrade over text nobody asked them for.
+        report.addWarning(
+          "requirement_without_prose",
+          `${reqId} has a row in traceability.md but no requirement text in spec.md. ` +
+            `This becomes an error in 1.0 (ADR-0026).`,
+          {
+            target: reqId,
+            file: "spec.md",
+            fix:
+              `Write its prose — \`specgate req add\` does it for you, and \`## ${reqId} — ` +
+              `<title>\` by hand works too. Until then the harness prompt cannot tell an ` +
+              `agent what ${reqId} requires.`,
+          }
+        );
       }
     }
 
