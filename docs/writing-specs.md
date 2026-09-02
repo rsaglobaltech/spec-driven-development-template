@@ -118,3 +118,31 @@ The MCP server exposes `plan` and `mark_requirement_done`. A canonical prompt:
 
 - [Change something that already shipped](reviewing-changes.md)
 - [Enforce it in CI](validating.md)
+
+## Removing a requirement
+
+```bash
+specgate req rm REQ-014 --dry-run   # what would go
+specgate req rm REQ-014
+```
+
+It takes the matrix row (all of them, if the id somehow has more than one) and
+the requirement's prose in `spec.md`. Past `Draft` it refuses without `--force`:
+removing a delivered requirement deletes the record that it shipped, and
+`specgate done REQ-014 --status Deprecated` is usually what you meant.
+
+It reports what it leaves behind — a feature file no row references any more
+will fail `validate`, and finding that out from a red build instead of from the
+command would waste an afternoon.
+
+### There is no `req renumber`, on purpose
+
+A requirement id is not only a cell in the matrix. It appears in `@REQ-014`
+Gherkin tags, in test names, in commit messages, in the `harness/REQ-014` branch
+somebody already pushed, and in whatever your issue tracker says. Renumbering
+the two files this tool owns while every other mention keeps the old id would
+leave the project in a worse state than the one you were fixing.
+
+If you need a different id: `req rm` the old one and `req add` the new, which
+makes the change visible in the diff rather than spread across files nobody
+looked at.

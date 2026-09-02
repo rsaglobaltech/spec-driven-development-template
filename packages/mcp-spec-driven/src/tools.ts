@@ -410,6 +410,21 @@ TOOLS["csda_req_done"] = new GenericCliTool(
   "flag",
   true
 );
+TOOLS["csda_req_rm"] = new GenericCliTool(
+  "csda_req_rm",
+  "Run specgate req rm",
+  "req rm",
+  {
+    type: "object",
+    properties: {
+      projectDir: { type: "string" },
+      cliPath: { type: "string" },
+    },
+    required: ["projectDir"],
+  },
+  "flag",
+  true
+);
 TOOLS["csda_req_list"] = new GenericCliTool(
   "csda_req_list",
   "Run specgate req list",
