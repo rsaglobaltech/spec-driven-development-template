@@ -336,3 +336,33 @@ export function readRowFields(cells: string[], mode: TraceabilityMode): MatrixRo
     status: cells[4] || "",
   };
 }
+
+/**
+ * Rows `--strict-tdd` did not check because they are still `Draft`.
+ *
+ * The TDD rules exempt a draft on purpose — a requirement nobody has started
+ * owes nothing yet — and that is defensible. What was not defensible was the
+ * output: `- Strict TDD gate: passed` over three rows with no scenario, no test
+ * and a `TBD` artifact reads as "these were checked and they are fine".
+ *
+ * A cold evaluator called that out as the documentation and the tool
+ * disagreeing. The rule is right; the sentence was hiding its own scope. So the
+ * count travels with the pass, the way the lock gate already reports how many
+ * packs it checked.
+ */
+export function countDraftExempt(rows: readonly any[]): number {
+  let exempt = 0;
+  for (const row of rows || []) {
+    const status = String(row.status || "").trim();
+    if (status !== "Draft") continue;
+
+    const testArtifact = String(row.testArtifact || "").trim();
+    const scenarioId = String(row.scenarioId || "").trim();
+    const missingTest =
+      testArtifact === "" || testArtifact === "-" || testArtifact.toUpperCase() === "TBD";
+    const missingScenario = scenarioId === "" || scenarioId === "-";
+
+    if (missingTest || missingScenario) exempt += 1;
+  }
+  return exempt;
+}

@@ -71,7 +71,18 @@ looking exactly like a healthy one at the only place most teams check. In
 
 ## Enforce TDD with `validate --strict-tdd`
 
-**Goal:** fail PRs when a `REQ` exists in `spec.md` but has no scenario, no implementing test, or no row in `traceability.md`.
+**Goal:** fail PRs when a `REQ` that has started work has no scenario, no implementing test, or no row in `traceability.md`.
+
+**`Draft` rows are exempt, on purpose.** A requirement nobody has started owes
+nothing yet, so `--strict-tdd` skips it and the run reports how many it skipped:
+
+```
+- Strict TDD gate: passed (3 row(s) exempt — still Draft, so not checked)
+```
+
+A row starts being checked the moment its `Status` leaves `Draft`, which
+`specgate done <REQ>` does. If you want the stricter reading — every declared
+scenario proved, whatever the status — that is `--strict-coverage` below.
 
 ```bash
 npx @rsaglobaltech/specgate@latest validate . --strict-tdd

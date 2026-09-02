@@ -104,7 +104,7 @@ Un agente escéptico pierde la confianza más rápido con una contradicción que
 una carencia. Estas son las que encontraron, cada una es la documentación y el
 comportamiento discrepando.
 
-### 2.1 · `--strict-tdd` y lo que promete — `L8`
+### 2.1 · `--strict-tdd` y lo que promete — `L8` — [x] **hecho 2026-09-02**
 
 > «Dos eran marcadores de posición sin escenario y con artefacto de test `TBD`
 > (verdes bajo `--strict-tdd`, que la documentación dice que falla exactamente
@@ -119,20 +119,20 @@ documentación, porque la regla actual es correcta —un borrador todavía no de
 nada—, y lo que falta es que sea **legible**: que `validate` diga cuántas filas
 se están saltando la comprobación por estar en `Draft`.
 
-### 2.2 · `plan` se contradice a sí mismo — `L8`
+### 2.2 · `plan` se contradice a sí mismo — `L8` — [x] **hecho 2026-09-02**
 
 Clasifica `REQ-001` bajo «Needs Feature + Test + Code» y muestra `✓ feature:` en
 la línea siguiente. Un informe que se desmiente en dos líneas consecutivas no se
 vuelve a leer.
 
-### 2.3 · Detección de comando de test incoherente — `L5`
+### 2.3 · Detección de comando de test incoherente — `L5` — [x] **hecho 2026-09-02**
 
 `onboard`/`adopt` dan `./mvnw -B test`; `harness init` escribe `mvn -B test`,
 sobre el mismo `pom.xml`. Y el harness corre en un worktree pelado donde `mvn`
 puede no estar instalado. Una sola función que resuelve el comando, y todos la
 usan.
 
-### 2.4 · La web y la CLI en desacuerdo — `L7`
+### 2.4 · La web y la CLI en desacuerdo — `L7` — [x] **hecho 2026-09-02**
 
 La web lista CircleCI; la CLI lo rechaza. `--strict-links` no aparece en el
 `--help` de primer nivel. Barrido completo: cada afirmación de la web se
@@ -157,13 +157,20 @@ Petición explícita de nimbus (nº 3) y causa de dos síntomas distintos:
 Además, `validate` debe fallar cuando una fila de la matriz no tiene su sección
 `## REQ-NNN` en `spec.md` — es la tercera parte de la petición nº 2 de nimbus.
 
-### 3.2 · `--help` en los subcomandos — `L7`
+### 3.2 · `--help` en los subcomandos — `L7` — [x] **hecho 2026-09-02**, adelantado con la fase 2
 
 > «`--help` falla en cada subcomando que probé (`req add`, `req link`,
 > `harness`) pese a que dos textos de ayuda te dicen que lo uses.»
 
 Media hora de trabajo, y es lo primero que toca alguien que evalúa. Petición
 explícita de nimbus (nº 5).
+
+**Medido con cuidado, eran tres y no todos**: `req add`, `req link` y `done`
+respondían a `--help` con «falta un argumento». `harness run`, `plan`, `adopt`
+y `onboard` ya funcionaban. Y uno más que nadie reportó: `validate --help`
+contestaba «expects exactly one positional argument» — la puerta principal
+negándose a explicarse — y su ayuda no nombraba `--strict-links`, así que la
+bandera que habría cazado la mitad de lo que rompieron era invisible.
 
 ### 3.3 · El aviso honesto, más arriba
 

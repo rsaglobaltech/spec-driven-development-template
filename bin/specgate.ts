@@ -313,6 +313,15 @@ function dispatchValidate(validateArgs: string[]): void {
   const script = resolveScript(["validate_specs.js"]);
   ensureExecutable(script);
 
+  // `--help` before the positional check. Asking a command what it does must
+  // never be a usage error — `specgate validate --help` answered "expects
+  // exactly one positional argument", which is the tool refusing to explain
+  // itself to someone who is trying to learn it.
+  if (validateArgs.includes("--help") || validateArgs.includes("-h")) {
+    runNodeScript(script, ["--help"]);
+    return;
+  }
+
   const positional = validateArgs.filter((a) => !a.startsWith("-"));
   if (positional.length !== 1) {
     error(`'validate' expects exactly one positional argument: <project_dir>`);

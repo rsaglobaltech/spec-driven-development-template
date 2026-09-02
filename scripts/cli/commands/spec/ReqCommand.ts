@@ -216,7 +216,10 @@ export class ReqCommand extends BaseCommand {
     const tracePath = path.join(resolvedDir, "docs", "specs", "traceability.md");
     const sub = stripped[0];
 
-    if (sub === "--help" || sub === "-h") {
+    // Anywhere, not just first: `req add --help` used to answer "A title is
+    // required", which is the tool refusing to explain itself to someone
+    // trying to learn it — while two help texts tell you to use --help.
+    if (stripped.includes("--help") || stripped.includes("-h")) {
       usage();
       process.exit(0);
     }

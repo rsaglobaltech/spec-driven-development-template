@@ -13,6 +13,7 @@ import {
   uncoveredScenarios,
   linkIsUnevidenced,
 } from "../../../../packages/core/src/domain/ScenarioCoverage";
+import { countDraftExempt } from "../../../../packages/core/src/domain/TraceabilityFormat";
 import * as crypto from "node:crypto";
 import { agentIo, wantsJson, EXIT } from "../../../lib/agent";
 import { findUnresolvedPlaceholders } from "../../../lib/placeholders";
@@ -47,7 +48,7 @@ export class ValidateSpecsCommand extends BaseCommand {
   private usage() {
     process.stdout.write(
       "🔎 Usage:\n" +
-        "  validate_specs.js <project_dir> [--strict-tdd] [--strict-scenarios] [--strict-coverage] " +
+        "  specgate validate <project_dir> [--strict-tdd] [--strict-scenarios] [--strict-coverage] " +
         "[--strict-requirements] [--strict-links] [--against-lock]\n\n" +
         "Checks:\n" +
         "- minimum SDD structure\n" +
@@ -629,6 +630,12 @@ export class ValidateSpecsCommand extends BaseCommand {
     const againstLock = argv.includes("--against-lock");
     const positional = argv.filter((a) => !a.startsWith("-"));
 
+    // Asking what a command does is not a usage error, and it exits 0.
+    if (argv.includes("--help") || argv.includes("-h")) {
+      this.usage();
+      process.exit(0);
+    }
+
     const targetDir = positional[0];
     if (!targetDir) {
       this.usage();
@@ -1016,7 +1023,27 @@ export class ValidateSpecsCommand extends BaseCommand {
     }
     this.logInfo("- Base SDD structure: complete");
     this.logInfo(`- Traceability mode: ${traceMode}`);
-    if (strictTdd) this.logInfo("- Strict TDD gate: passed");
+    if (strictTdd) {
+      // The count travels with the pass. `passed` over rows that were never
+      // checked is how the tool and its own documentation ended up disagreeing.
+      let exempt = 0;
+      try {
+        exempt = countDraftExempt(parseTraceabilityRows(traceContent).rows || []);
+      } catch {
+        exempt = 0;
+      }
+      this.logInfo(
+        exempt > 0
+          ? `- Strict TDD gate: passed (${exempt} row(s) exempt — still Draft, so not checked)`
+          : "- Strict TDD gate: passed"
+      );
+      if (exempt > 0) {
+        this.logFix([
+          "A Draft row owes nothing yet, so --strict-tdd skips it. It starts being",
+          "checked the moment its Status leaves Draft — `specgate done <REQ>` does that.",
+        ]);
+      }
+    }
     if (skeletonOnly) {
       this.logWarn("Adoption never retro-filled — the only scenario is the adoption baseline.");
       this.logFix([
