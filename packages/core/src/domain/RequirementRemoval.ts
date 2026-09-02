@@ -92,14 +92,29 @@ export function planRemoval(traceContent: string, reqId: string, specContent: st
   };
 }
 
+/** Every requirement id a piece of text names. Static: never built from input. */
+const REQ_ID = /\bREQ-[A-Za-z0-9.]+\b/g;
+const HEADING = /^#{2,4}\s+/;
+
+function namedIds(text: string): string[] {
+  return text.match(REQ_ID) || [];
+}
+
+/** `| REQ-014 | …` — the id in a table row's first cell, or null. */
+function firstCellId(trimmedLine: string): string | null {
+  if (!trimmedLine.startsWith("|")) return null;
+  const first = trimmedLine.split("|")[1];
+  return first === undefined ? null : first.trim();
+}
+
 function hasProseFor(specContent: string, reqId: string): boolean {
   if (!reqId) return false;
   for (const line of String(specContent || "")
     .replace(/\r\n/g, "\n")
     .split("\n")) {
     const trimmed = line.trim();
-    if (/^#{2,4}\s+/.test(trimmed) && trimmed.includes(reqId)) return true;
-    if (new RegExp(`^\\|\\s*${reqId}\\s*\\|`).test(trimmed)) return true;
+    if (HEADING.test(trimmed) && namedIds(trimmed).includes(reqId)) return true;
+    if (firstCellId(trimmed) === reqId) return true;
   }
   return false;
 }
@@ -144,12 +159,12 @@ export function removeSpecProse(specContent: string, reqId: string): string {
     }
 
     const reqHeading = /^(#{2,4})\s+(.*)$/.exec(trimmed);
-    if (reqHeading && new RegExp(`\\b${wanted}\\b`).test(reqHeading[2])) {
+    if (reqHeading && namedIds(reqHeading[2]).includes(wanted)) {
       skipUntilLevel = reqHeading[1].length;
       continue;
     }
 
-    if (new RegExp(`^\\|\\s*${wanted}\\s*\\|`).test(trimmed)) continue;
+    if (firstCellId(trimmed) === wanted) continue;
 
     kept.push(line);
   }
