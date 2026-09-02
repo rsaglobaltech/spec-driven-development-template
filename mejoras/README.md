@@ -79,6 +79,11 @@ el resto son de referencia histórica.
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------- |
 | **GATE-G3** (= C9-08) | **Que un equipo de fuera adopte L1–L2 y reporte.** Nadie ajeno al repo lo ha usado                                                                                           | Trabajo de campo       | Es _el_ bloqueante real. No hay test que lo cierre |
 | **GATE-G5**           | Borrar de `docs/release-process.md:38` la frase «_That is intent, not a promise, until it is written here without this sentence_» y aceptar mantener un minor más seis meses | 1 línea + una decisión | Verificado: la frase sigue ahí                     |
+> **Antes que nada:** la ronda 1 de `GATE-G6` devolvió dos «no adoptar» y un
+> «adoptar con reservas». [`plan-feedback-adopcion.md`](plan-feedback-adopcion.md)
+> ataca ese feedback y **precede a cualquier función nueva**. Se da por bueno
+> cuando tres agentes nuevos, en las mismas condiciones, dicen otra cosa.
+
 | **GATE-G6**           | **Adopción simulada**: tres repos brownfield de dominios distintos llevados a L1–L2 por agentes aislados, cada uno con su assessment medido                                  | Trabajo de campo simulado | **Ronda 1 hecha el 2026-09-01** — [assessment](sim-round-1-assessment.md), 3 defectos (H22–H24) cerrados. [ADR-0025](../docs/specs/adr/0025-simulated-adoption-is-not-external-adoption.md). **No cierra G3** y no mueve la 1.0 |
 
 `GATE-G1` (dos releases sin breaking), `GATE-G2` (bucle completo de punta a

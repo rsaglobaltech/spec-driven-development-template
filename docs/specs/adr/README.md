@@ -32,6 +32,8 @@ for the policy on when and how to write an ADR.
 | [0022](0022-patterns-are-optional-principles-are-not.md) | Patterns are optional; principles are not         | Accepted              | 2026-08-21 |
 | [0023](0023-checking-content-gate-or-report.md) | Checking content: a gate where it is decidable, a report where it is not | Accepted | 2026-08-26 |
 | [0024](0024-the-tool-is-renamed-the-format-is-not.md) | The tool is renamed to Specgate; the on-disk format is not | Accepted | 2026-08-26 |
+| [0025](0025-simulated-adoption-is-not-external-adoption.md) | Simulated adoption is GATE-G6, not GATE-G3 | Accepted | 2026-09-01 |
+| [0026](0026-the-default-gate-is-the-strong-gate.md) | The default gate is the strong gate, from 1.0 | Accepted | 2026-09-02 |
 
 ## Template
 

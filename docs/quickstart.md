@@ -50,7 +50,8 @@ well-formed row and assigns the next `REQ-NNN` for you.
 ## 4. Close the loop
 
 ```bash
-specgate done REQ-007 --check     # flips status to Implemented (validates first)
+specgate done REQ-007 --strict --test-cmd "npm test"   # validates, runs the suite,
+                                                      # then flips the status
 ```
 
 ## 5. Validate before you push

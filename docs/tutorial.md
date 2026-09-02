@@ -320,15 +320,21 @@ same four moves:
 ### Do it
 
 ```bash
-# After the test + code for REQ-001 exist and pass:
-specgate done REQ-001 --check
+# After the test + code for REQ-001 exist:
+specgate done REQ-001 --strict --test-cmd "npm test"
 ```
 
 `done` flips that requirement's `Status` cell in `traceability.md` to
-`Implemented`. `--check` runs `validate` first and aborts on failure, so
-the matrix can never claim something is done while the gates are red.
-`--strict` uses `validate --strict-tdd` instead. `--status <Status>` targets
-another terminal state (`Verified`, `Released`, …).
+`Implemented`. `--check` runs `validate` first and refuses to write on failure,
+so the matrix can never claim something is done while the gates are red.
+`--strict` runs the strong gate instead — `--strict-tdd --strict-links
+--strict-coverage`. `--status <Status>` targets another terminal state
+(`Verified`, `Released`, …).
+
+**Pass `--test-cmd`, or set `test_cmd:` in `harness.config.yaml`.** Without one,
+`done` checks the specification and never runs your code — and it says so rather
+than reporting a pass. `Implemented` is what other people read off the matrix;
+it should not be a claim nothing executed.
 
 Re-run `specgate plan` — `REQ-001` is now under **✅ Done**.
 

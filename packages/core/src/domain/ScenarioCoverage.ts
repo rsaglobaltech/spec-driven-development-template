@@ -101,3 +101,44 @@ export function uncoveredScenarios(
     (scenario) => !scenario.needles.some((needle) => haystack.includes(normalise(needle)))
   );
 }
+
+/**
+ * A declared test artifact that names neither the requirement nor any of its
+ * scenarios (Fase 1.2).
+ *
+ * `--strict-links` is `fs.existsSync` and nothing more, so a link that merely
+ * *lies* passes: measured on a real adoption, a "Vet" requirement ended up
+ * declaring `PetValidatorTests.java` as its proof and every gate stayed green.
+ * `uncoveredScenarios` catches that whenever the row has scenarios to name —
+ * but the rows that lie most easily are the ones `adopt` seeds, which have a
+ * use case and no scenario at all, so there is nothing to match and the check
+ * skips them.
+ *
+ * For those, the requirement id is the only available evidence: a test file
+ * that mentions neither `REQ-014` nor any scenario of REQ-014 is not visibly
+ * proving REQ-014.
+ *
+ * Returns true when the link has no evidence in it.
+ *
+ * ## The limit, stated rather than hidden
+ *
+ * This says the artifact does not *mention* the requirement. It cannot say the
+ * artifact does not *prove* it — that needs the suite executed and coverage
+ * attributed per test, which this tool does not do. Naming is a proxy, and the
+ * flag it lives behind is opt-in for exactly that reason.
+ */
+export function linkIsUnevidenced(
+  requirementId: string,
+  featureSource: string,
+  testSources: readonly string[]
+): boolean {
+  if (!requirementId) return false;
+  const haystack = testSources.map(normalise).join("\n");
+  if (haystack === "") return true;
+
+  if (haystack.includes(normalise(requirementId))) return false;
+
+  return !scenariosIn(featureSource).some((scenario) =>
+    scenario.needles.some((needle) => haystack.includes(normalise(needle)))
+  );
+}
