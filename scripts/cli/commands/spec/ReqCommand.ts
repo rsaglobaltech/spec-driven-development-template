@@ -10,6 +10,12 @@ import { LinkRequirementUseCase } from "../../../../packages/core/src/applicatio
 import { DoneCommand } from "./DoneCommand";
 import { TraceabilityMatrix } from "../../../../packages/core/src/domain/TraceabilityMatrix";
 import { appendRequirementSection } from "../../../../packages/core/src/domain/SpecSections";
+import {
+  planRemoval,
+  removeMatrixRows,
+  removeSpecProse,
+  isDelivered,
+} from "../../../../packages/core/src/domain/RequirementRemoval";
 
 const COLOR_ENABLED =
   process.stdout.isTTY && process.env.NO_COLOR === undefined && process.env.TERM !== "dumb";
@@ -140,6 +146,8 @@ function usage(): void {
       `  ${c.dim}specgate req link${c.reset} REQ-007 --test <path>  set a field (--feature/--test/--code/--uc/--cmd/--status)
 ` +
       `  ${c.dim}specgate req done${c.reset} REQ-007               mark Implemented (same as specgate done REQ-007)
+` +
+      `  ${c.dim}specgate req rm${c.reset} REQ-007                 remove its row and its prose (--dry-run, --force)
 
 ` +
       `  Run ${c.cyan}specgate req <subcommand> --help${c.reset} for a subcommand's own flags.
@@ -275,6 +283,76 @@ export class ReqCommand extends BaseCommand {
             ? `   ${c.dim}spec.md: added a draft \`## ${result.reqId}\` section — rewrite the obligation${c.reset}\n`
             : "") +
           `   ${c.dim}Next: specgate req link ${result.reqId} --feature <path> --test <path>${c.reset}\n`
+      );
+      process.exit(0);
+    }
+
+    if (sub === "rm" || sub === "remove") {
+      const args = stripped.slice(1);
+      const reqId = args.find((a) => /^REQ-\d+$/.test(a));
+      const dryRun = args.includes("--dry-run");
+      const force = args.includes("--force");
+
+      if (!reqId) {
+        process.stderr.write(`${c.red}✖${c.reset}  Expected a REQ-id: specgate req rm REQ-007\n`);
+        process.exit(2);
+      }
+
+      const traceContent = readMatrix(tracePath);
+      const specPath = path.join(resolvedDir, "spec.md");
+      const specContent = fs.existsSync(specPath) ? fs.readFileSync(specPath, "utf8") : "";
+      const plan = planRemoval(traceContent, reqId, specContent);
+
+      if (plan.rows.length === 0 && !plan.hasProse) {
+        process.stderr.write(
+          `${c.red}✖${c.reset}  ${reqId} is not in docs/specs/traceability.md or spec.md.\n`
+        );
+        process.exit(1);
+      }
+
+      // Removing a delivered requirement deletes the record that something
+      // shipped. That is a decision, not a typo fix, so it has to be said out
+      // loud once.
+      const delivered = plan.statuses.filter(isDelivered);
+      if (delivered.length > 0 && !force) {
+        process.stderr.write(
+          `${c.red}✖${c.reset}  ${reqId} is ${delivered.join(", ")}, not Draft.\n` +
+            `   ${c.dim}Removing it deletes the record that this was delivered. Re-run with --force ` +
+            `if that is what you mean, or set it to Deprecated instead:${c.reset}\n` +
+            `   ${c.dim}specgate done ${reqId} --status Deprecated${c.reset}\n`
+        );
+        process.exit(1);
+      }
+
+      const nextTrace = removeMatrixRows(traceContent, reqId);
+      const nextSpec = removeSpecProse(specContent, reqId);
+
+      if (!dryRun) {
+        if (nextTrace !== traceContent) fs.writeFileSync(tracePath, nextTrace, "utf8");
+        if (nextSpec !== specContent && fs.existsSync(specPath)) {
+          fs.writeFileSync(specPath, nextSpec, "utf8");
+        }
+      }
+
+      const prefix = dryRun ? `${c.dim}[dry-run]${c.reset} ` : "";
+      process.stdout.write(
+        `${prefix}${c.green}✔${c.reset}  Removed ${c.bold}${reqId}${c.reset} ` +
+          `${c.dim}(${plan.rows.length} matrix row(s)${plan.hasProse ? ", and its prose in spec.md" : ""})${c.reset}\n`
+      );
+
+      // Say what was left behind. A feature file nothing references fails
+      // `validate` with feature_not_in_matrix, and finding that out from a red
+      // build instead of from here would be the tool wasting somebody's time.
+      for (const feature of plan.orphanedFeatures) {
+        process.stdout.write(
+          `   ${c.yellow}⚠${c.reset}  ${feature} is no longer referenced by any row.\n` +
+            `   ${c.dim}Delete it, or point another requirement at it — \`validate\` fails on ` +
+            `a feature file that is not in the matrix.${c.reset}\n`
+        );
+      }
+      process.stdout.write(
+        `   ${c.dim}Nothing else was touched: tests, implementation and git history keep ` +
+          `whatever they said about ${reqId}.${c.reset}\n`
       );
       process.exit(0);
     }

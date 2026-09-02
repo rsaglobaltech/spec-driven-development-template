@@ -198,12 +198,26 @@ documentación y en la salida de `adopt`.
 
 ## Fase 4 — Operaciones
 
-### 4.1 · `req rm` y renumerado — `L9`
+### 4.1 · `req rm` y renumerado — `L9` — [x] **hecho 2026-09-02**
 
 Al corromperse la matriz, dos de los tres la repararon con un script a mano
 porque no hay forma soportada de deshacer un `req add`. Con H22 cerrado el
 disparador desaparece, pero la carencia no: una matriz sin operación de borrado
 no es editable por un equipo.
+
+`req rm` quita fila(s) y prosa, con `--dry-run`, y exige `--force` pasado
+`Draft` —borrar un requisito entregado elimina el registro de que se entregó, y
+`done --status Deprecated` suele ser lo que se quería—. Avisa del `.feature`
+que quede sin fila, porque `validate` falla por eso y enterarse por un build en
+rojo cuesta una tarde.
+
+**El renumerado no se construye, y es una decisión.** Un id no vive solo en la
+matriz: está en tags `@REQ-014`, en nombres de test, en mensajes de commit, en
+la rama `harness/REQ-014` que alguien ya empujó y en el tracker del equipo.
+Renombrar los dos ficheros que esta herramienta controla dejando el resto con
+el id viejo deja el proyecto **peor** que antes — y un renombrado que cubre el
+60 % en silencio es exactamente la clase de media promesa que este repositorio
+lleva la semana encontrándose. Documentado en `writing-specs.md`.
 
 ### 4.2 · Explicar la observación que no reproduce
 

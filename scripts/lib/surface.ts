@@ -303,12 +303,13 @@ export const SURFACE: Command[] = [
       { name: "add", editsContract: true },
       { name: "link", editsContract: true },
       { name: "done", editsContract: true },
+      { name: "rm", editsContract: true },
       { name: "list" },
     ],
     help: {
       group: "core",
       icon: "📝",
-      summary: "Add, link and close requirements without hand-editing the matrix.",
+      summary: "Add, link, remove and close requirements without hand-editing the matrix.",
     },
     coreHelp: {
       group: "daily",
