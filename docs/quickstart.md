@@ -57,7 +57,7 @@ specgate done REQ-007 --strict --test-cmd "npm test"   # validates, runs the sui
 ## 5. Validate before you push
 
 ```bash
-specgate validate --strict-tdd
+specgate validate . --strict
 ```
 
 Every failure tells you the exact fix. Mechanical problems (an orphan
@@ -71,7 +71,7 @@ specgate fix                 # apply, then re-run validate
 ## Daily loop, in one line
 
 ```
-specgate plan  →  work (test first)  →  specgate req link  →  specgate done  →  specgate validate --strict-tdd
+specgate plan  →  work (test first)  →  specgate req link  →  specgate done  →  specgate validate . --strict
 ```
 
 That's the whole day-to-day. Reach for the [how-to guide](how-to.md) for

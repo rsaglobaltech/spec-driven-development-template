@@ -23,5 +23,5 @@ Rules for any AI coding agent (and any human) working on this repository.
 
 1. The scenario(s) for the requirement pass.
 2. `{{TEST_CMD}}` passes.
-3. `specgate validate . --strict-tdd` passes.
+3. `specgate validate . --strict` passes.
 4. The traceability row is updated via `specgate done REQ-NNN`.

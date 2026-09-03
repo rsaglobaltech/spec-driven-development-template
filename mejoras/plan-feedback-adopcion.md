@@ -277,3 +277,33 @@ resolverlo.
 
 Cada fase se marca `[x]` aquí al cerrarla, en la misma sesión, con su commit.
 La ronda 2 se añade al final del assessment de la ronda 1, no lo sustituye.
+
+---
+
+## Ronda 2 — primera corrida, y por qué se paró
+
+`acme-clinic`, misma empresa y mismo commit que la ronda 1, pasó de **«adoptar
+con reservas»** a **«no vale la pena adoptarlo»**. El veredicto se movió, y hacia
+atrás. La regla de este plan no se reinterpreta: falló.
+
+Tres causas, las tres reproducidas de forma determinista antes de tocar nada.
+
+| | Qué | De quién |
+|---|---|---|
+| 1 | **`--strict-tdd` no es la puerta, y diez sitios decían que sí.** La fase 2 arregló `ci init` y dio el problema por cerrado; quedaban nueve. Un usuario que siguiera cualquiera de ellos tenía una puerta que aprueba un requisito `Implemented` cuyo fichero de test no existe | Mío: arreglé una de seis bocas |
+| 2 | **`--strict-coverage` era inusable en brownfield.** Un enlace retro-ajustado a un test real y existente fallaba `link_without_evidence`, y la única forma de satisfacerlo era **editar el código fuente** — lo que `adopt` vende como su virtud | Mío, fase 1.2 |
+| 3 | El prompt del harness pedía escribir step definitions de Cucumber en un repo sin Cucumber; `doctor` seguía firmando como `csda` | Preexistente |
+
+**La lección.** Arreglé mecanismos y no la historia que cuenta el producto. Una
+puerta más no sirve si hay nueve sitios llamando puerta a otra cosa, y una
+comprobación nueva hace daño si contradice la promesa de portada.
+
+**Los arreglos.** `--strict` es la puerta, un solo nombre, y las diez menciones
+apuntan ahí; las banderas individuales siguen funcionando para no romper CI
+existente. `--strict-coverage` **se calibra sobre el proyecto**: si nadie nombra
+requisitos en sus tests, la convención no está en uso y dice que no pudo
+comprobar, en vez de suspender a todo el mundo por una convención que nadie
+adoptó. El prefijo del harness dice la verdad sobre el proyecto que tiene
+delante.
+
+**Las tres empresas se relanzan desde cero**, para que la comparación sea limpia.

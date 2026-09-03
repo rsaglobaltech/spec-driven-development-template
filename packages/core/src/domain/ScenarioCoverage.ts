@@ -142,3 +142,33 @@ export function linkIsUnevidenced(
     scenario.needles.some((needle) => haystack.includes(normalise(needle)))
   );
 }
+
+/**
+ * Does this project name requirements or scenarios in its tests at all?
+ *
+ * ## Why the check has to ask this first
+ *
+ * `--strict-coverage` matches names, and that works because agents and people
+ * writing tests alongside scenarios do it without being asked. It does **not**
+ * work for the case this product leads with. Retro-fitting specs onto a
+ * brownfield repository means pointing a row at a test that already exists and
+ * was written years before anyone had heard of this tool — and the only way to
+ * satisfy a name match there is to edit that test.
+ *
+ * Which is exactly what `adopt` promises it will never make you do. Measured on
+ * a real adoption: every retro-fitted row failed `link_without_evidence`, and
+ * the only fix was to write `REQ-006` into someone's existing test file. A gate
+ * that contradicts the product's headline promise is not a gate, it is a
+ * reason to stop using the product.
+ *
+ * So the check calibrates on the project instead of assuming. If some tests
+ * name their requirements and others do not, the silent ones are worth
+ * reporting. If none do, the convention is not in use here and the honest
+ * answer is to say the check could not run — not to fail every row for
+ * following a convention nobody adopted.
+ */
+export function usesNamingConvention(
+  rows: readonly { requirement?: string; feature: string; tests: readonly string[] }[]
+): boolean {
+  return rows.some((row) => !linkIsUnevidenced(row.requirement || "", row.feature, row.tests));
+}

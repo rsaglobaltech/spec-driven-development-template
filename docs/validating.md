@@ -69,6 +69,23 @@ looking exactly like a healthy one at the only place most teams check. In
 
 ---
 
+## The gate is `validate . --strict`
+
+```bash
+npx @rsaglobaltech/specgate@latest validate . --strict
+```
+
+One name, every check below. The individual `--strict-*` flags still work, so an
+existing CI invocation keeps meaning what it meant — but `--strict` is what to
+put in CI and what every other page recommends.
+
+This matters more than it sounds. Ten places used to call `--strict-tdd` "the
+gate" while only the generated workflow ran the stronger command, so anyone
+following the documentation got a check that **passes on an `Implemented`
+requirement whose test file does not exist**. One name that means all of them is
+the fix; correcting the wording in ten places would have left the same trap for
+the eleventh.
+
 ## Enforce TDD with `validate --strict-tdd`
 
 **Goal:** fail PRs when a `REQ` that has started work has no scenario, no implementing test, or no row in `traceability.md`.
@@ -238,3 +255,19 @@ Three routes, and only one of them needed a new command:
 
 - [Automate the loop](automation.md)
 - [Troubleshooting](troubleshooting.md)
+
+**On a brownfield repository it says so instead of failing you.** Retro-fitting
+specs onto tests written years earlier means pointing a row at a test that does
+not mention any requirement — and the only way to satisfy a name match there
+would be to edit that test, which is the one thing `adopt` promises never to
+make you do. So the check calibrates: if no test artifact in the project names
+its requirement or a scenario, the convention is not in use here and `validate`
+reports that it could not run rather than failing every row.
+
+```
+⚠ --strict-coverage could not run: no test artifact in this project names its
+  requirement or any of its scenarios.
+```
+
+Name one requirement in the test that proves it — a comment is enough — and the
+check starts holding the rest of the matrix to the same standard.

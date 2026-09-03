@@ -36,7 +36,7 @@ const NULL_SHAPE = { projectDir: null, files: [] };
  * or `null` when nothing gives it away.
  *
  * `null` matters more than the guesses. `test_cmd` is an *additional* gate —
- * `harness run` always runs `validate --strict-tdd` first — so leaving it
+ * `harness run` always runs `validate --strict` first — so leaving it
  * unset is safe, while filling it with a placeholder is not. A placeholder
  * like `echo "set this"` exits 0, which is a gate that passes unconditionally:
  * the harness would mark requirements done without ever running a test. A
@@ -153,14 +153,46 @@ export class InitCommand extends BaseCommand {
     // Rendered into the config as a live key when known, and as a commented-out
     // one when not — see detectTestCommand for why a placeholder would be worse
     // than an absent key.
+    // A Spring Boot repository with no Cucumber on its classpath cannot execute
+    // a `.feature`, and telling its agent to "write or extend the step
+    // definitions" is an instruction it cannot follow. Measured on PetClinic:
+    // `grep -ci cucumber pom.xml` → 0, while the generated prompt asked for
+    // exactly that. So the prefix says what is true of *this* project.
+    const hasGherkinRunner = (() => {
+      if (fs.existsSync(path.join(projectDir, "features", "step_definitions"))) return true;
+      for (const manifest of ["package.json", "pom.xml", "build.gradle", "build.gradle.kts"]) {
+        const full = path.join(projectDir, manifest);
+        if (!fs.existsSync(full)) continue;
+        if (
+          /cucumber|behave|pytest-bdd|godog|specflow|reqnroll/i.test(fs.readFileSync(full, "utf8"))
+        ) {
+          return true;
+        }
+      }
+      return false;
+    })();
+
     const vars = {
       PROJECT_NAME: projectName(projectDir),
+      STEP_DEFS_LINE: hasGherkinRunner
+        ? "- `features/step_definitions/**` and `features/support/**` — step definitions\n" +
+          "  are code, not specification. This is the one place inside `features/` you\n" +
+          "  own."
+        : "\nThis project has no Gherkin runner, so nothing executes a `.feature` here.\n" +
+          "The scenarios are the specification and your tests are the proof: make the\n" +
+          "test named in the matrix assert what the scenario says, in the project's own\n" +
+          "test framework. Do not add a BDD runner to satisfy this prompt.",
+      SCENARIO_STEP: hasGherkinRunner
+        ? "2. Write or extend the step definitions so the scenario fails **for the right\n" +
+          "   reason** — a missing implementation, not a typo in a step."
+        : "2. Write the test named in the traceability matrix so it fails **for the right\n" +
+          "   reason** — a missing implementation, not a typo in the test.",
       TEST_CMD_LINE: testCmd
         ? `test_cmd: "${testCmd}"`
         : '# test_cmd: "npm test"   # ← set this once the project has a test command',
       GATE_COMMAND: testCmd
-        ? `${testCmd}\nspecgate validate . --strict-tdd`
-        : "specgate validate . --strict-tdd",
+        ? `${testCmd}\nspecgate validate . --strict`
+        : "specgate validate . --strict",
     };
 
     const outputs = [
@@ -243,7 +275,7 @@ export class InitCommand extends BaseCommand {
           "No test command detected, so `test_cmd` is commented out.",
           {
             target: CONFIG_FILE,
-            fix: "Set it once the project has one. Until then the gate is `validate --strict-tdd` alone, which is a real gate — a placeholder that exits 0 would not be.",
+            fix: "Set it once the project has one. Until then the gate is `validate . --strict` alone, which is a real gate — a placeholder that exits 0 would not be.",
           }
         )
       );
@@ -260,7 +292,7 @@ export class InitCommand extends BaseCommand {
         for (const file of written) process.stdout.write(`ℹ️ [INFO] write ${file}\n`);
         process.stdout.write(
           "ℹ️ [INFO] ✅ Harness configured.\n" +
-            `ℹ️ [INFO]   gate: validate --strict-tdd${testCmd ? ` + ${testCmd}` : " (no test command detected)"}\n` +
+            `ℹ️ [INFO]   gate: validate . --strict${testCmd ? ` + ${testCmd}` : " (no test command detected)"}\n` +
             "ℹ️ [INFO]   agent: not set — that is your choice and your credentials.\n" +
             "ℹ️ [INFO] Next:\n" +
             "ℹ️ [INFO]   1. Read .harness/prompt-prefix.md and make it sound like your team.\n" +

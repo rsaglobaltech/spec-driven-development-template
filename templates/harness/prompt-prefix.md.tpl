@@ -28,16 +28,13 @@ from a domain pack:
 
 - the implementation source tree.
 - the tests.
-- `features/step_definitions/**` and `features/support/**` — step definitions
-  are code, not specification. This is the one place inside `features/` you
-  own.
+{{STEP_DEFS_LINE}}
 
 # Execution policy
 
 1. Read the requirement and its scenario under `features/` before writing
    anything.
-2. Write or extend the step definitions so the scenario fails **for the right
-   reason** — a missing implementation, not a typo in a step.
+{{SCENARIO_STEP}}
 3. Implement the smallest thing that makes it pass. Unit-test the pure parts:
    the scenario proves the wiring, the unit tests pin the rules.
 4. Run the gate before declaring done:
