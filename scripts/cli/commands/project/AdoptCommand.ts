@@ -390,7 +390,7 @@ function adoptMonorepo(dir: string, opts: AdoptOptions): never {
   logInfo("✅ Adoption completed. Next steps:");
   logInfo("  1. specgate validate .          # validates every module listed");
   logInfo("  2. Replace the seeded proposals in each module's spec.md with real behaviour");
-  logInfo("  3. Add `validate --strict-tdd` to CI to lock the gate in");
+  logInfo("  3. Add `validate . --strict` to CI to lock the gate in");
   process.exit(0);
 }
 
@@ -438,7 +438,7 @@ export class AdoptProjectCommand extends BaseCommand {
       logInfo("  2. Retro-fill real requirements in spec.md (one REQ per behaviour you rely on)");
       logInfo("  3. specgate plan                # see what each REQ still needs");
     }
-    logInfo("  4. Add `validate --strict-tdd` to CI to lock the gate in");
+    logInfo("  4. Add `validate . --strict` to CI to lock the gate in");
     process.exit(0);
   }
 }

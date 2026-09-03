@@ -176,8 +176,11 @@ export class AgentPrompt {
 
     const doneRules = [
       ...baseRules,
-      "**Do not modify** `spec.md`, `AI_RULES.md`, or any `features/**/*.feature` — they are the project's source of truth.",
-      "The harness will run `validate --strict-tdd` and the project test command. Both must pass.",
+      "**Do not modify** `spec.md`, `AI_RULES.md`, or any existing `features/**/*.feature` — " +
+        "they are the contract you are being judged against. Creating a feature file that " +
+        "does not exist yet is not modifying one, and the gate allows it: an agent asked " +
+        "to write a missing scenario is not being asked to break this rule.",
+      "The harness will run `validate . --strict` and the project test command. Both must pass.",
     ];
     parts.push(
       AgentPrompt.section(

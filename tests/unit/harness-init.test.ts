@@ -189,7 +189,11 @@ test("the generated prefix forbids editing the specification", () => {
     const prefix = fs.readFileSync(path.join(projectDir, ".harness", "prompt-prefix.md"), "utf8");
     assert.match(prefix, /features\/\*\*\/\*\.feature/);
     assert.match(prefix, /docs\/specs/);
-    assert.match(prefix, /step definitions/i);
+    // The scaffolded fixture has no Gherkin runner, so the prefix must not
+    // tell its agent to write step definitions — measured on PetClinic,
+    // where `grep -ci cucumber pom.xml` is 0 and the prompt asked anyway.
+    assert.match(prefix, /no Gherkin runner/i);
+    assert.doesNotMatch(prefix, /step_definitions/);
     // No unrendered template tokens.
     assert.ok(!/\{\{[A-Z_]+\}\}/.test(prefix), "unrendered placeholder left in the prefix");
   } finally {

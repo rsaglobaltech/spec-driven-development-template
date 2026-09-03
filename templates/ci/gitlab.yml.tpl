@@ -5,7 +5,7 @@ spec-gate:
   image: node:22
   stage: test
   script:
-    - npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd --strict-links
+    - npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --strict
     # Supply-chain gate: fails when rendered pack content no longer matches the
     # digest pinned in .specops.lock. Skipped when no packs are installed.
     - >

@@ -263,7 +263,9 @@ for (const [relative, expected] of LAYOUTS) {
         encoding: "utf8",
       });
       const out = r.stdout + r.stderr;
-      assert.match(out, /csda: v9\.9\.9/, "the version it is actually running");
+      // The tool is called specgate. `doctor` was still labelling its own line
+      // `csda`, which a cold evaluator read as the tool not knowing its own name.
+      assert.match(out, /specgate: v9\.9\.9/, "the version it is actually running");
       assert.ok(out.includes(expected), `expected "${expected}" in:\n${out.slice(0, 300)}`);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });

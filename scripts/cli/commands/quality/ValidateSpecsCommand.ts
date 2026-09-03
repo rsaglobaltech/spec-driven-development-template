@@ -12,6 +12,7 @@ import { SHARED_PATHS } from "../../../../packages/core/src/domain/MultiStack";
 import {
   uncoveredScenarios,
   linkIsUnevidenced,
+  usesNamingConvention,
 } from "../../../../packages/core/src/domain/ScenarioCoverage";
 import { countDraftExempt } from "../../../../packages/core/src/domain/TraceabilityFormat";
 import * as crypto from "node:crypto";
@@ -48,7 +49,8 @@ export class ValidateSpecsCommand extends BaseCommand {
   private usage() {
     process.stdout.write(
       "🔎 Usage:\n" +
-        "  specgate validate <project_dir> [--strict-tdd] [--strict-scenarios] [--strict-coverage] " +
+        "  specgate validate <project_dir> [--strict] [--strict-tdd] [--strict-scenarios] " +
+        "  [--strict-coverage] " +
         "[--strict-requirements] [--strict-links] [--against-lock]\n\n" +
         "Checks:\n" +
         "- minimum SDD structure\n" +
@@ -72,6 +74,8 @@ export class ValidateSpecsCommand extends BaseCommand {
         "--strict-requirements additionally enforces, over docs/specs/capabilities/**/spec.md:\n" +
         "- Every requirement states an obligation (SHALL / MUST / SHOULD / MAY / DEBE / DEBERÁ)\n" +
         "- A requirement that opens with IF resolves with THEN in the same sentence\n\n" +
+        "--strict is the gate: every check below, in one flag. Prefer it — the\n" +
+        "individual flags exist so an existing CI invocation keeps meaning what it meant.\n\n" +
         "--strict-coverage additionally enforces:\n" +
         "- Every scenario in a declared feature file is named by the test artifact that\n" +
         "  claims to prove it\n" +
@@ -480,6 +484,46 @@ export class ValidateSpecsCommand extends BaseCommand {
     const findings: any[] = [];
     const seen = new Set<string>();
 
+    // Read every row once first, so the check can calibrate before it judges.
+    const readRow = (row: any) => {
+      const declaredTests = declaredPaths(row.testArtifact).filter(
+        (t: string) => t && t !== "-" && t.toUpperCase() !== "TBD"
+      );
+      const featureRel = declaredPaths(row.featureFile)[0];
+      const featurePath = featureRel ? path.join(targetDir, featureRel.split("#")[0]) : null;
+      return {
+        requirement: row.requirement || "",
+        featureRel,
+        feature:
+          featurePath && fs.existsSync(featurePath) ? fs.readFileSync(featurePath, "utf8") : "",
+        tests: declaredTests.flatMap(readAll),
+        declaredTests,
+      };
+    };
+
+    const read = rows.map(readRow).filter((r) => r.declaredTests.length > 0);
+
+    // Does this project name requirements in its tests at all? A brownfield
+    // adoption points rows at tests written years before this tool existed, and
+    // the only way to satisfy a name match there is to edit them — which is the
+    // one thing `adopt` promises it will never make you do.
+    if (read.length > 0 && !usesNamingConvention(read)) {
+      this.logWarn(
+        "--strict-coverage could not run: no test artifact in this project names its " +
+          "requirement or any of its scenarios."
+      );
+      this.logFix([
+        "This check matches names, and nothing here uses that convention — which is normal",
+        "for a repository whose tests predate its specifications. It is not a finding:",
+        "failing every row for a convention nobody adopted would be the gate lying.",
+        "",
+        "To turn it on, name the requirement in the test that proves it — a comment or a",
+        "test name mentioning REQ-NNN is enough — and this check starts holding the rest",
+        "of the matrix to the same standard.",
+      ]);
+      return;
+    }
+
     for (const row of rows) {
       // A `TBD` or `-` test artifact is --strict-tdd's finding, not this one:
       // reporting it twice under two flags helps nobody.
@@ -550,10 +594,13 @@ export class ValidateSpecsCommand extends BaseCommand {
     }
     this.logError(`Declared scenarios nothing proves: ${findings.length}`);
     for (const f of findings) process.stderr.write(`  ${formatDiagnostic(f)}\n`);
+    // Each finding already carries its own fix; this is the shared why. It used
+    // to say "a scenario no test names" for both codes, which was the wrong
+    // advice for half of them.
     this.logFix([
-      "A scenario in a feature file that no test names is a promise with nothing",
-      "behind it — and it is the scenario an agent skips when it cannot satisfy it.",
-      "Name it in the test, or remove it from the feature file.",
+      "A promise with nothing behind it is the thing this gate exists to catch —",
+      "and it is what an agent leaves behind when it cannot satisfy a scenario.",
+      "Other rows in this project do name what proves them, so these stand out.",
     ]);
     process.exit(1);
   }
@@ -644,11 +691,26 @@ export class ValidateSpecsCommand extends BaseCommand {
     const rawArgs = this.args[0] === "validate" ? this.args.slice(1) : this.args;
     const argv = rawArgs;
     this.io = agentIo(wantsJson(argv));
-    const strictTdd = argv.includes("--strict-tdd");
-    const strictScenarios = argv.includes("--strict-scenarios");
-    const strictRequirements = argv.includes("--strict-requirements");
-    const strictLinks = argv.includes("--strict-links");
-    const strictCoverage = argv.includes("--strict-coverage");
+    // `--strict` is the gate, singular.
+    //
+    // A cold evaluator counted ten places calling `--strict-tdd` "the gate" —
+    // the quickstart, `adopt`'s epilogue, the generated AI_RULES.md, `harness
+    // init`, the harness prompt — while `ci init` alone emitted
+    // `--strict-tdd --strict-links`. So a user who followed any of the ten got
+    // a check that passes on an Implemented requirement whose test file does
+    // not exist, and the one place that was right made the other nine look
+    // like a mistake rather than a policy.
+    //
+    // Fixing the wording in ten places would have left the same trap for the
+    // eleventh. One name that means all of them is the fix; the individual
+    // flags keep working, so every existing CI invocation still means what it
+    // meant.
+    const strict = argv.includes("--strict");
+    const strictTdd = strict || argv.includes("--strict-tdd");
+    const strictScenarios = strict || argv.includes("--strict-scenarios");
+    const strictRequirements = strict || argv.includes("--strict-requirements");
+    const strictLinks = strict || argv.includes("--strict-links");
+    const strictCoverage = strict || argv.includes("--strict-coverage");
     const againstLock = argv.includes("--against-lock");
     const positional = argv.filter((a) => !a.startsWith("-"));
 

@@ -36,7 +36,7 @@ const CASES = [
 ];
 
 for (const { provider, dest, marker } of CASES) {
-  test(`ci init --provider ${provider} writes ${dest} with the strict-tdd gate`, () => {
+  test(`ci init --provider ${provider} writes ${dest} with the gate`, () => {
     withTmp((tmp) => {
       const r = cli("ci", "init", "--provider", provider, "--project-dir", tmp);
       assert.equal(r.status, 0, r.stdout + r.stderr);
@@ -44,7 +44,7 @@ for (const { provider, dest, marker } of CASES) {
       assert.ok(fs.existsSync(file), `missing ${dest}`);
       const content = fs.readFileSync(file, "utf8");
       assert.ok(content.includes(marker), `missing marker '${marker}'`);
-      assert.match(content, /validate \. --strict-tdd/);
+      assert.match(content, /validate \. --strict\b/);
       assert.match(content, /plan --project-dir \. --format json/);
       // The pack-drift gate, guarded so a project without packs is unaffected.
       assert.match(content, /validate \. --against-lock/);
@@ -107,7 +107,9 @@ for (const { provider, dest } of CASES) {
       const body = fs.readFileSync(path.join(tmp, dest), "utf8");
       assert.match(
         body,
-        /validate \. --strict-tdd --strict-links/,
+        // One name for the gate: round 2 found nine other places still saying
+        // `--strict-tdd`, which made this one look like the mistake.
+        /validate \. --strict\b/,
         `${provider}: the gate claims to catch a lost test artifact, so it must run --strict-links`
       );
     });

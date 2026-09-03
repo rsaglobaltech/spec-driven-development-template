@@ -8,7 +8,7 @@ pipeline {
     stages {
         stage('Spec gate') {
             steps {
-                sh 'npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --strict-tdd --strict-links'
+                sh 'npx @rsaglobaltech/specgate@{{SPECGATE_VERSION}} validate . --strict'
             }
         }
         // Supply-chain gate: fails when rendered pack content no longer

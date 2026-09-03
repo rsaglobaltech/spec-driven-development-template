@@ -96,7 +96,7 @@ export class DoctorCommand extends BaseCommand {
 
   private checkEnvironment() {
     const install = this.describeInstall();
-    this.ok("csda", `v${install.version} — ${install.kind}\n     ${install.rootDir}`);
+    this.ok("specgate", `v${install.version} — ${install.kind}\n     ${install.rootDir}`);
 
     const floor = nodeFloor(install.rootDir);
     const major = Number(process.versions.node.split(".")[0]);

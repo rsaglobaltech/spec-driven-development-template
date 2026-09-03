@@ -329,6 +329,7 @@ function dispatchValidate(validateArgs: string[]): void {
     process.exit(2);
   }
   const VALIDATE_FLAGS = new Set([
+    "--strict",
     "--strict-tdd",
     "--strict-scenarios",
     "--strict-requirements",
