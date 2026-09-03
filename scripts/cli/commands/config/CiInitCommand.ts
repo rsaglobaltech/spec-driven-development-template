@@ -106,7 +106,7 @@ export class CiInitCommand extends BaseCommand {
     fs.writeFileSync(dest, rendered, "utf8");
     logInfo(`write ${provider.dest}`);
     logInfo("✅ CI gate installed. The job:");
-    logInfo("  1. runs `validate --strict-tdd` on every PR/MR (the L2 gate)");
+    logInfo("  1. runs `validate . --strict` on every PR/MR (the L2 gate)");
     logInfo("  2. runs `validate --against-lock` when .specops.lock exists, so a");
     logInfo("     moved pack tag or an edited generated file fails the build");
     logInfo("  3. publishes `plan --format json` as the spec-plan artifact");

@@ -182,6 +182,17 @@ export const SURFACE: Command[] = [
     json: { key: "doctor", gate: true },
   },
   {
+    // Plumbing. Git calls this, not a person: `harness init` registers it as
+    // the merge driver for docs/specs/traceability.md. It is on the surface so
+    // the driver can be registered by name — the alternative was writing an
+    // absolute path into .git/config, which is meaningless on any other clone.
+    name: "merge-traceability",
+    script: ["merge-traceability.js"],
+    mcp: false,
+    // No `help` block on purpose: git calls this, a person does not, so it is
+    // a hidden command rather than a line in a menu nobody can act on.
+  },
+  {
     name: "status",
     script: ["status.js"],
     help: {

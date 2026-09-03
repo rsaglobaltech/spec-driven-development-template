@@ -307,3 +307,22 @@ adoptó. El prefijo del harness dice la verdad sobre el proyecto que tiene
 delante.
 
 **Las tres empresas se relanzan desde cero**, para que la comparación sea limpia.
+
+## Ronda 2b — el veredicto vuelve, y aparecen tres cosas nuevas
+
+Con la puerta única y la cobertura calibrada, `acme-clinic` pasó de **«no vale
+la pena»** a **«adoptar la CLI para la contabilidad, no confiar aún en la
+puerta»**. Recuperado al nivel de la ronda 1, con razones distintas.
+
+| | Qué | De quién |
+|---|---|---|
+| 1 | **El merge driver era una ruta de una sola máquina.** `.gitattributes` se comitea diciendo `merge=csda-matrix`; el driver detrás apuntaba a `/Users/alguien/...`. Ahora usa el `node_modules` del proyecto cuando existe —portable, cada clon lo reconstruye— y si no, **avisa de que es local** y ofrece `npm i -D @rsaglobaltech/specgate` | Preexistente |
+| 2 | **El precipicio de un comentario.** Añadir `// Covers REQ-009` a un test ponía en rojo tres filas no relacionadas. La calibración era por proyecto; ahora es **por fichero de feature**, y `link_without_evidence` es advertencia: a nivel de fila no distingue «aún no adoptado» de «el enlace miente» | Mío |
+| 3 | `ci init` anunciaba `--strict-tdd` y generaba `--strict`; los avisos de `harness init` solo salían en `--json` | Mío / preexistente |
+
+**Lo que enseña el nº2.** Cambié «suspende a todos» por «un comentario los
+suspende a todos», que es el mismo error con otro disfraz: hacer lo correcto
+producía un castigo. Por fichero, la señal es la buena —cuatro de cinco
+escenarios nombrados y el quinto no es exactamente #168— y el radio de daño es
+el fichero.
+

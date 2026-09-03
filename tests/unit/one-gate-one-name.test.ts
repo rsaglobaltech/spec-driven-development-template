@@ -174,3 +174,137 @@ test("once a project uses the convention, the check holds every row to it", () =
     fs.rmSync(parent, { recursive: true, force: true });
   }
 });
+
+// ── Round 2b: the one-comment cliff, and the machine-local merge driver ──────
+
+test("adopting the naming convention on one test does not turn other rows red", () => {
+  // Measured: adding `// Covers REQ-009` to one test file turned three
+  // unrelated rows red at once. Doing the correct thing produced a punishment,
+  // which teaches people not to do the correct thing.
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-cliff-"));
+  try {
+    assert.equal(cli("init", "--yes", "--out", parent, "--no-git", "--no-sample-req").status, 0);
+    const dir = path.join(parent, "my-spec-driven-app");
+    fs.mkdirSync(path.join(dir, "features/core"), { recursive: true });
+    fs.mkdirSync(path.join(dir, "tests"), { recursive: true });
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "features/core/h.feature"),
+      "Feature: H\n\n  Scenario: SCN-001 a\n    Given a\n    When b\n    Then c\n"
+    );
+    fs.writeFileSync(path.join(dir, "src/a.js"), "export const a = () => 1;\n");
+    fs.writeFileSync(path.join(dir, "tests/a.test.js"), "// nothing\n");
+    fs.writeFileSync(path.join(dir, "tests/b.test.js"), "// nothing\n");
+    fs.appendFileSync(
+      path.join(dir, "docs/specs/traceability.md"),
+      "\n| REQ-010 | SCN-001 | `features/core/h.feature` | UC-010 A | - | - | - | src/a.js |" +
+        " tests/a.test.js | Draft |\n" +
+        "| REQ-011 | - | - | UC-011 B | - | - | - | src/a.js | tests/b.test.js | Draft |\n"
+    );
+
+    assert.equal(cli("validate", dir, "--strict-coverage").status, 0);
+
+    fs.appendFileSync(path.join(dir, "tests/b.test.js"), "// Covers REQ-011\n");
+    const after = cli("validate", dir, "--strict-coverage");
+    assert.equal(
+      after.status,
+      0,
+      `one comment must not fail the build:\n${after.stdout}${after.stderr}`
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a scenario skipped in a file whose others are named is still caught", () => {
+  // The calibration is per feature file, so #168's case survives it.
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-skip-"));
+  try {
+    assert.equal(cli("init", "--yes", "--out", parent, "--no-git", "--no-sample-req").status, 0);
+    const dir = path.join(parent, "my-spec-driven-app");
+    fs.mkdirSync(path.join(dir, "features/billing"), { recursive: true });
+    fs.mkdirSync(path.join(dir, "tests"), { recursive: true });
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "features/billing/totals.feature"),
+      "Feature: Totals\n\n  Scenario: SCN-010 subtotal\n    Given a\n    When b\n    Then c\n\n" +
+        "  Scenario: SCN-012 discounted\n    Given a\n    When b\n    Then c\n"
+    );
+    fs.writeFileSync(path.join(dir, "src/t.js"), "export const t = () => 1;\n");
+    fs.writeFileSync(path.join(dir, "tests/t.test.js"), "// SCN-010 subtotal\n");
+    fs.appendFileSync(
+      path.join(dir, "docs/specs/traceability.md"),
+      "\n| REQ-010 | SCN-010 | `features/billing/totals.feature` | UC-010 T | - | - | - |" +
+        " src/t.js | tests/t.test.js | Draft |\n"
+    );
+
+    const r = cli("validate", dir, "--strict-coverage");
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout + r.stderr, /SCN-012/);
+
+    // And with nothing named at all, there is nothing to conclude.
+    fs.writeFileSync(path.join(dir, "tests/t.test.js"), "// nothing\n");
+    assert.equal(cli("validate", dir, "--strict-coverage").status, 0);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("the merge driver git registers is portable, not a path on one machine", () => {
+  // It used to write `node "/Users/someone/.../merge-traceability.js"` into
+  // .git/config while committing `merge=csda-matrix` to .gitattributes — a
+  // shared rule pointing at a directory that exists on one laptop.
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-driver-"));
+  const dir = path.join(parent, "app");
+  try {
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "pom.xml"), "<project><artifactId>d</artifactId></project>");
+    fs.writeFileSync(path.join(dir, "src/A.java"), "class A {}\n");
+    fs.writeFileSync(path.join(dir, ".gitattributes"), "*.md text\n");
+    spawnSync("git", ["init", "-q"], { cwd: dir });
+    spawnSync("git", ["add", "-A"], { cwd: dir });
+    spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "i"], {
+      cwd: dir,
+    });
+
+    assert.equal(cli("adopt", "--project-dir", dir).status, 0);
+    const init = cli("harness", "init", "--project-dir", dir);
+    assert.equal(init.status, 0, init.stdout + init.stderr);
+
+    const driver = spawnSync("git", ["config", "--get", "merge.csda-matrix.driver"], {
+      cwd: dir,
+      encoding: "utf8",
+    }).stdout.trim();
+
+    assert.ok(driver.length > 0, "the driver should be registered");
+
+    // This project has no specgate in its node_modules, so the only address
+    // that works here and now is the running CLI's own path — and the command
+    // has to say so rather than let the next clone find out during a merge.
+    assert.match(init.stderr, /machine's copy|machine-local/i, init.stderr);
+    assert.match(init.stderr, /npm i -D @rsaglobaltech\/specgate/, "offer the reproducible fix");
+    // And touching a tracked file is said out loud, not discovered in git status.
+    assert.match(init.stderr, /\.gitattributes/);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("ci init announces the command it actually generates", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "csda-ciann-"));
+  try {
+    assert.equal(cli("init", "--yes", "--out", parent, "--no-git").status, 0);
+    const dir = path.join(parent, "my-spec-driven-app");
+    const r = cli("ci", "init", "--provider", "github", "--project-dir", dir);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+
+    const workflow = fs.readFileSync(path.join(dir, ".github/workflows/spec-gate.yml"), "utf8");
+    const generated = /validate \. (--strict\b[^\s]*)/.exec(workflow)[1];
+    assert.ok(
+      r.stdout.includes(generated),
+      `announced something other than what it wrote (${generated}):\n${r.stdout}`
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
