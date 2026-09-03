@@ -127,7 +127,7 @@ test("--strict-coverage is a declared flag, not one that slips through", () => {
 
 // ── Fase 1.2: a link that exists but lies ────────────────────────────────────
 
-test("a row whose test artifact names nothing about it fails", () => {
+test("a row whose test artifact names nothing about it is reported, not failed", () => {
   // The measured case from a real adoption: a "Vet" requirement declaring
   // PetValidatorTests.java as its proof, with every gate green. The row has no
   // scenario, so the per-scenario check has nothing to match — which is why
@@ -165,8 +165,11 @@ test("a row whose test artifact names nothing about it fails", () => {
     // Every path exists, so the flag that is supposed to catch drift is happy.
     assert.equal(cli("validate", dir, "--strict-links").status, 0);
 
+    // Advisory, not a failure. At row level this cannot tell "the team has not
+    // adopted the convention yet" from "this link is a lie", and failing the
+    // first to catch the second is what turned one comment into three red rows.
     const cov = cli("validate", dir, "--strict-coverage");
-    assert.equal(cov.status, 1, cov.stdout + cov.stderr);
+    assert.equal(cov.status, 0, cov.stdout + cov.stderr);
     assert.match(cov.stdout + cov.stderr, /link_without_evidence/);
     assert.match(cov.stdout + cov.stderr, /REQ-014/);
   } finally {

@@ -172,3 +172,34 @@ export function usesNamingConvention(
 ): boolean {
   return rows.some((row) => !linkIsUnevidenced(row.requirement || "", row.feature, row.tests));
 }
+
+/**
+ * Which scenarios in one feature file the tests actually name.
+ *
+ * ## Why this is per file and not per project
+ *
+ * The first version calibrated on the whole project: if any test named any
+ * requirement, every row had to. A cold evaluator found what that feels like —
+ * adding one comment, `// Covers REQ-009`, to one test turned three unrelated
+ * rows red at once. They called it a one-comment CI landmine, and they were
+ * right: doing the correct thing produced a punishment, which teaches people
+ * not to do the correct thing.
+ *
+ * Per file, the signal is sharper and the blast radius is the file. If four of
+ * five scenarios in `totals.feature` are named by its test and the fifth is
+ * not, the fifth was skipped — that is exactly #168, an agent quietly dropping
+ * the scenario it could not satisfy. If none are named, nobody has adopted the
+ * convention here yet and there is nothing to conclude.
+ */
+export function skippedScenarios(
+  featureSource: string,
+  testSources: readonly string[]
+): ScenarioIdentity[] {
+  const all = scenariosIn(featureSource);
+  if (all.length === 0) return [];
+
+  const uncovered = uncoveredScenarios(featureSource, testSources);
+  // Nothing in this file is named: the convention is not in use here.
+  if (uncovered.length === all.length) return [];
+  return uncovered;
+}

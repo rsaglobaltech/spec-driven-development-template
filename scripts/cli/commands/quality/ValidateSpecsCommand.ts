@@ -5,12 +5,12 @@ import { parseYamlLite } from "../../../../packages/core/src/domain/YamlLite";
 import { listChangeIds } from "../../../../packages/core/src/infrastructure/ChangeWorkspace";
 import { ValidateChangeUseCase } from "../../../../packages/core/src/application/ValidateChangeUseCase";
 import { DiskProjectRepository } from "../../../../packages/core/src/infrastructure/DiskProjectRepository";
-import { formatDiagnostic, error } from "../../../lib/diagnostics";
+import { formatDiagnostic, error, warning } from "../../../lib/diagnostics";
 import { checkAgainstLock } from "../../../specops/against_lock";
 import { requirementGraphFromProject } from "../../../lib/requirement-graph";
 import { SHARED_PATHS } from "../../../../packages/core/src/domain/MultiStack";
 import {
-  uncoveredScenarios,
+  skippedScenarios,
   linkIsUnevidenced,
   usesNamingConvention,
 } from "../../../../packages/core/src/domain/ScenarioCoverage";
@@ -482,6 +482,7 @@ export class ValidateSpecsCommand extends BaseCommand {
     };
 
     const findings: any[] = [];
+    const advisories: any[] = [];
     const seen = new Set<string>();
 
     // Read every row once first, so the check can calibrate before it judges.
@@ -507,7 +508,9 @@ export class ValidateSpecsCommand extends BaseCommand {
     // adoption points rows at tests written years before this tool existed, and
     // the only way to satisfy a name match there is to edit them — which is the
     // one thing `adopt` promises it will never make you do.
-    if (read.length > 0 && !usesNamingConvention(read)) {
+    const conventionInUse = read.length > 0 && usesNamingConvention(read);
+
+    if (read.length > 0 && !conventionInUse) {
       this.logWarn(
         "--strict-coverage could not run: no test artifact in this project names its " +
           "requirement or any of its scenarios."
@@ -544,12 +547,16 @@ export class ValidateSpecsCommand extends BaseCommand {
       // "Vet" requirement declared `PetValidatorTests.java` as its proof and
       // every gate stayed green. The requirement id is the only evidence left.
       const requirementId = row.requirement || "";
+      // Advisory, not a failure. At row level this cannot tell "the team has
+      // not adopted the convention yet" from "this link is a lie", and failing
+      // the first to catch the second is what made adding one comment turn
+      // three unrelated rows red.
       if (linkIsUnevidenced(requirementId, feature, sources)) {
         const key = `${requirementId}::unevidenced`;
         if (!seen.has(key)) {
           seen.add(key);
-          findings.push(
-            error(
+          advisories.push(
+            warning(
               "link_without_evidence",
               `${requirementId}'s test artifact names neither ${requirementId} nor any of ` +
                 `its scenarios.`,
@@ -570,7 +577,7 @@ export class ValidateSpecsCommand extends BaseCommand {
 
       if (!featurePath || !fs.existsSync(featurePath)) continue; // --strict-links reports this.
 
-      for (const scenario of uncoveredScenarios(feature, sources)) {
+      for (const scenario of skippedScenarios(feature, sources)) {
         const key = `${featureRel}::${scenario.title}`;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -586,10 +593,16 @@ export class ValidateSpecsCommand extends BaseCommand {
         );
       }
     }
+    // Formatted like the errors, so an advisory carries its code and can be
+    // grepped for in CI output the same way.
+    for (const a of advisories) {
+      process.stderr.write(`  ${formatDiagnostic(a)}\n`);
+    }
+
     if (findings.length === 0) return;
 
     if (this.io.json) {
-      this.io.fail({ validation: null }, findings);
+      this.io.fail({ validation: null }, [...findings, ...advisories]);
       return;
     }
     this.logError(`Declared scenarios nothing proves: ${findings.length}`);

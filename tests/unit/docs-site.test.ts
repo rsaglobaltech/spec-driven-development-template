@@ -439,7 +439,12 @@ test("the landing page counts what the repository actually has", () => {
   assert.ok(packs >= 10, `expected the curated packs, counted ${packs}`);
 
   const { SURFACE } = require("../../scripts/lib/surface");
-  assert.ok(html.includes(`<dt>${SURFACE.length}</dt>`), `command count is not ${SURFACE.length}`);
+  // Commands a person can reach, which is what the stat beside it claims.
+  // `merge-traceability` is plumbing git invokes as a merge driver: no help
+  // entry, no subcommands, no JSON mode. Counting it would make the sentence
+  // next to the number false.
+  const userFacing = SURFACE.filter((c: any) => c.help || c.subcommands).length;
+  assert.ok(html.includes(`<dt>${userFacing}</dt>`), `command count is not ${userFacing}`);
   assert.ok(html.includes(`<dt>${packs}</dt>`), `pack count is not ${packs}`);
   assert.ok(html.includes("<dt>0</dt>"), "the zero-runtime-dependencies claim is missing");
 });

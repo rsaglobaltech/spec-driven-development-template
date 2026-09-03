@@ -290,6 +290,14 @@ export class InitCommand extends BaseCommand {
       },
       () => {
         for (const file of written) process.stdout.write(`ℹ️ [INFO] write ${file}\n`);
+        // Warnings only reached `--json` before, so a text-mode user learned
+        // that a tracked file had changed from `git status` instead of from the
+        // command that changed it.
+        for (const d of status) {
+          if (d.severity !== "warning") continue;
+          process.stderr.write(`⚠️ [WARN] ${d.message}\n`);
+          if (d.fix) process.stderr.write(`💡 [FIX] ${d.fix}\n`);
+        }
         process.stdout.write(
           "ℹ️ [INFO] ✅ Harness configured.\n" +
             `ℹ️ [INFO]   gate: validate . --strict${testCmd ? ` + ${testCmd}` : " (no test command detected)"}\n` +
@@ -338,7 +346,12 @@ export function installMergeDriver(projectDir: string) {
   const attributesPath = path.join(projectDir, ".gitattributes");
   const existing = fs.existsSync(attributesPath) ? fs.readFileSync(attributesPath, "utf8") : "";
 
+  let appendedToTracked = false;
   if (!existing.includes(GITATTRIBUTES_LINE)) {
+    // `.gitattributes` is committed, so appending to it changes a file the
+    // whole team shares. A cold evaluator found this the way you always find a
+    // silent write — in `git status`, after the fact — so the command says it.
+    appendedToTracked = existing !== "";
     const separator = existing === "" || existing.endsWith("\n") ? "" : "\n";
     fs.appendFileSync(
       attributesPath,
@@ -350,9 +363,32 @@ export function installMergeDriver(projectDir: string) {
     );
   }
 
-  // The driver runs from the installed CLI, so the path is resolved here rather
-  // than assumed: a project does not have specgate in its own tree.
-  const driverScript = path.join(__dirname, "..", "merge-traceability.js");
+  // How the driver is addressed decides whether it works on anybody else's
+  // clone.
+  //
+  // It used to be `node "/Users/someone/.../merge-traceability.js"` — the path
+  // of whichever checkout ran `harness init` — while `.gitattributes` said
+  // `merge=csda-matrix` and was committed. A cold evaluator found the pair: a
+  // shared rule pointing at a directory that exists on one laptop.
+  //
+  // A project that has specgate in its own `node_modules` can be addressed
+  // relatively, which every clone reproduces when it installs. Otherwise the
+  // running CLI's own path is the only thing that works here and now — and
+  // then the command says out loud that it is local, rather than leaving the
+  // next person to find out during a merge.
+  const localBin = path.join(
+    projectDir,
+    "node_modules",
+    "@rsaglobaltech",
+    "specgate",
+    "bin",
+    "specgate.js"
+  );
+  const driverIsPortable = fs.existsSync(localBin);
+  const driverCommand = driverIsPortable
+    ? `node node_modules/@rsaglobaltech/specgate/bin/specgate.js merge-traceability`
+    : `node ${JSON.stringify(path.join(__dirname, "..", "merge-traceability.js"))}`;
+
   const gitConfig = (key: string, value: string) =>
     spawnSync("git", ["-C", projectDir, "config", key, value], { encoding: "utf8" });
 
@@ -371,10 +407,7 @@ export function installMergeDriver(projectDir: string) {
   //
   // So `driver` goes in first and `name` only follows if it landed; and if it
   // did not, any stale `name` is removed rather than left pointing at nothing.
-  const configured = gitConfig(
-    `merge.${MERGE_DRIVER_NAME}.driver`,
-    `node ${JSON.stringify(driverScript)} %O %A %B`
-  );
+  const configured = gitConfig(`merge.${MERGE_DRIVER_NAME}.driver`, `${driverCommand} %O %A %B`);
 
   if (configured.status !== 0) {
     spawnSync("git", ["-C", projectDir, "config", "--unset", `merge.${MERGE_DRIVER_NAME}.name`], {
@@ -387,7 +420,7 @@ export function installMergeDriver(projectDir: string) {
         target: ".gitattributes",
         fix:
           `Run it by hand inside the project:\n` +
-          `  git config merge.${MERGE_DRIVER_NAME}.driver 'node ${driverScript} %O %A %B'\n` +
+          `  git config merge.${MERGE_DRIVER_NAME}.driver '${driverCommand} %O %A %B'\n` +
           "Until then git uses its built-in merge, which conflicts when two " +
           "harness branches touch adjacent rows.",
       }
@@ -395,6 +428,36 @@ export function installMergeDriver(projectDir: string) {
   }
 
   gitConfig(`merge.${MERGE_DRIVER_NAME}.name`, "csda traceability matrix merge");
+
+  if (!driverIsPortable) {
+    return warning(
+      "merge_driver_is_machine_local",
+      "The merge driver points at this machine's copy of specgate.",
+      {
+        target: ".gitattributes",
+        fix:
+          "`.gitattributes` is committed and names the driver; the driver itself is " +
+          "local git config, so every other clone and CI runner must run `specgate " +
+          "harness init` once or git falls back to its built-in merge (safe, just " +
+          "noisier on parallel branches).\n" +
+          "To make it reproducible instead, add specgate to the project: " +
+          "`npm i -D @rsaglobaltech/specgate` and re-run this — the driver is then " +
+          "a path inside node_modules that every clone rebuilds." +
+          (appendedToTracked ? "\nThis also appended to your existing .gitattributes." : ""),
+      }
+    );
+  }
+
+  if (appendedToTracked) {
+    return warning(
+      "gitattributes_modified",
+      "Appended a merge rule to your existing .gitattributes — a tracked file.",
+      {
+        target: ".gitattributes",
+        fix: "Review and commit it. The rule is shared; the driver behind it is per-clone.",
+      }
+    );
+  }
   return null;
 }
 
