@@ -27,7 +27,10 @@ import { analyseGherkinSource } from "../../../../packages/core/src/domain/Gherk
 import { csdaTagsIn } from "../../../../packages/core/src/domain/GherkinTags";
 import { parseTraceabilityRows } from "../../../../packages/core/src/domain/TraceabilityFormat";
 import { analyseRequirementText } from "../../../../packages/core/src/domain/RequirementSyntax";
-import { declaredPaths } from "../../../../packages/core/src/domain/DeclaredArtifacts";
+import {
+  declaredPaths,
+  artifactFile,
+} from "../../../../packages/core/src/domain/DeclaredArtifacts";
 import {
   parseSpec,
   blockText,
@@ -405,9 +408,9 @@ export class ValidateSpecsCommand extends BaseCommand {
     for (const row of rows) {
       for (const [label, key] of columns) {
         for (const declared of declaredPaths(row[key])) {
-          // A cell may anchor a line range (`src/auth/login.ts#L15-L89`); the
-          // anchor is not part of the filesystem path.
-          const rel = declared.split("#")[0];
+          // A cell may point into a file — an anchor (`login.ts#L15-L89`) or a
+          // test selector (`test_x.py::test_y`). Neither is part of the filename.
+          const rel = artifactFile(declared);
           if (!rel || seen.has(`${row.requirement || row.feature}::${rel}`)) continue;
           if (fs.existsSync(path.join(targetDir, rel))) continue;
           seen.add(`${row.requirement || row.feature}::${rel}`);
@@ -465,7 +468,7 @@ export class ValidateSpecsCommand extends BaseCommand {
     }
 
     const readAll = (rel: string): string[] => {
-      const full = path.join(targetDir, rel.split("#")[0]);
+      const full = path.join(targetDir, artifactFile(rel));
       if (!fs.existsSync(full)) return [];
       const stat = fs.statSync(full);
       if (stat.isFile()) return [fs.readFileSync(full, "utf8")];
@@ -491,7 +494,7 @@ export class ValidateSpecsCommand extends BaseCommand {
         (t: string) => t && t !== "-" && t.toUpperCase() !== "TBD"
       );
       const featureRel = declaredPaths(row.featureFile)[0];
-      const featurePath = featureRel ? path.join(targetDir, featureRel.split("#")[0]) : null;
+      const featurePath = featureRel ? path.join(targetDir, artifactFile(featureRel)) : null;
       return {
         requirement: row.requirement || "",
         featureRel,
@@ -537,7 +540,7 @@ export class ValidateSpecsCommand extends BaseCommand {
 
       const sources = declaredTests.flatMap(readAll);
       const featureRel = declaredPaths(row.featureFile)[0];
-      const featurePath = featureRel ? path.join(targetDir, featureRel.split("#")[0]) : null;
+      const featurePath = featureRel ? path.join(targetDir, artifactFile(featureRel)) : null;
       const feature =
         featurePath && fs.existsSync(featurePath) ? fs.readFileSync(featurePath, "utf8") : "";
 

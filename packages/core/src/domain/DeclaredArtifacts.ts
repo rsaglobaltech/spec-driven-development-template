@@ -71,6 +71,31 @@ export function declaredPaths(cell: string | undefined | null): string[] {
     .map((part) => part.replace(/\\/g, "/").replace(/^\.\//, ""));
 }
 
+/**
+ * The file a declared artifact names, with any selector removed.
+ *
+ * A matrix cell can point *into* a file as well as at it. Two conventions turn
+ * up: an anchor (`src/auth/login.ts#L15-L89`) and a test selector
+ * (`tests/test_config.py::test_request_dispatching`, which is pytest's, and the
+ * shape Jest and Go equivalents are usually written in too).
+ *
+ * The anchor was already stripped before checking the path exists; the selector
+ * was not. So `req link --test "tests/x.py::test_y"` was accepted and then
+ * `validate` rejected the same string as `declared_artifact_missing` — two parts
+ * of the tool disagreeing about a value one of them had just written. A cold
+ * evaluator hit it while trying to do the more precise thing, and concluded a
+ * requirement can only point at a 1500-line file.
+ *
+ * The selector stays in the cell. It is information for whoever reads the row
+ * and for the command that runs the test; it is just not part of the filename.
+ */
+export function artifactFile(cell: string | undefined | null): string {
+  return String(cell || "")
+    .split("#")[0]
+    .split("::")[0]
+    .trim();
+}
+
 export interface DeclaredArtifactsInput {
   /** Every path the diff touched — added and modified alike. */
   readonly touched: readonly string[];

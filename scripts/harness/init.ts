@@ -21,7 +21,10 @@ import { resolveProjectDir } from "../lib/project-root";
 import { agentIo, wantsJson } from "../lib/agent";
 import { error, info, warning, errorMessage } from "../lib/diagnostics";
 import { BaseCommand } from "../lib/command";
-import { detectTestCommand as detectSharedTestCommand } from "../../packages/core/src/domain/TestCommand";
+import {
+  detectTestCommand as detectSharedTestCommand,
+  hasGherkinRunner as detectGherkinRunner,
+} from "../../packages/core/src/domain/TestCommand";
 
 const ROOT_DIR = path.resolve(__dirname, "..", "..", "..");
 const TEMPLATES = path.join(ROOT_DIR, "templates", "harness");
@@ -153,24 +156,18 @@ export class InitCommand extends BaseCommand {
     // Rendered into the config as a live key when known, and as a commented-out
     // one when not — see detectTestCommand for why a placeholder would be worse
     // than an absent key.
-    // A Spring Boot repository with no Cucumber on its classpath cannot execute
-    // a `.feature`, and telling its agent to "write or extend the step
-    // definitions" is an instruction it cannot follow. Measured on PetClinic:
-    // `grep -ci cucumber pom.xml` → 0, while the generated prompt asked for
-    // exactly that. So the prefix says what is true of *this* project.
-    const hasGherkinRunner = (() => {
-      if (fs.existsSync(path.join(projectDir, "features", "step_definitions"))) return true;
-      for (const manifest of ["package.json", "pom.xml", "build.gradle", "build.gradle.kts"]) {
-        const full = path.join(projectDir, manifest);
-        if (!fs.existsSync(full)) continue;
-        if (
-          /cucumber|behave|pytest-bdd|godog|specflow|reqnroll/i.test(fs.readFileSync(full, "utf8"))
-        ) {
-          return true;
+    // Shared with `doctor`, which used to call a Gherkin quality check
+    // "every scenario runnable" in projects where nothing runs one.
+    const hasGherkinRunner = detectGherkinRunner({
+      exists: (rel) => fs.existsSync(path.join(projectDir, rel)),
+      read: (rel) => {
+        try {
+          return fs.readFileSync(path.join(projectDir, rel), "utf8");
+        } catch {
+          return null;
         }
-      }
-      return false;
-    })();
+      },
+    });
 
     const vars = {
       PROJECT_NAME: projectName(projectDir),

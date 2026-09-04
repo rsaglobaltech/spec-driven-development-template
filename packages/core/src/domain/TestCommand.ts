@@ -73,3 +73,30 @@ export function detectTestCommand(files: ProjectFiles, opts: DetectOptions = {})
 
   return null;
 }
+
+/**
+ * Does anything in this project execute a `.feature` file?
+ *
+ * `doctor` reported "every scenario runnable" from a Gherkin *quality* check —
+ * When, Then, three steps — on a repository with no BDD runner anywhere, while
+ * the harness prompt in the same project said "nothing executes a `.feature`
+ * here". A cold evaluator listed the pair as a contradiction, and it is: one of
+ * them was describing the file and calling it the run.
+ *
+ * Shared so the two cannot drift apart again.
+ */
+export function hasGherkinRunner(files: ProjectFiles): boolean {
+  if (files.exists("features/step_definitions")) return true;
+  for (const manifest of [
+    "package.json",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    "pyproject.toml",
+  ]) {
+    if (!files.exists(manifest)) continue;
+    const source = files.read(manifest) || "";
+    if (/cucumber|behave|pytest-bdd|godog|specflow|reqnroll/i.test(source)) return true;
+  }
+  return false;
+}

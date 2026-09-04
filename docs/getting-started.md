@@ -60,6 +60,11 @@ npx @rsaglobaltech/specgate@latest adopt \
 
 ### A repository with more than one module
 
+`adopt` reads `pom.xml`, `build.gradle`, `package.json`, `go.mod`,
+`pyproject.toml`, `setup.py`, `Cargo.toml` and `*.csproj`. When it cannot
+identify the stack it says so rather than guessing, and `--var STACK=…`
+`--var TEST_CMD=…` fill it in.
+
 If your build declares modules — Maven or Gradle sub-projects, npm or pnpm
 workspaces, Cargo members, Go modules, gems, `.csproj` files — adopt each one
 and let `validate` aggregate:
