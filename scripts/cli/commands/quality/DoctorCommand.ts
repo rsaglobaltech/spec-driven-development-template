@@ -8,6 +8,7 @@ import { analyseGherkinSource } from "../../../../packages/core/src/domain/Gherk
 import { agentIo, wantsJson, EXIT } from "../../../lib/agent";
 import { BaseCommand } from "../../../lib/command";
 import { MERGE_DRIVER_NAME } from "../../../harness/init";
+import { hasGherkinRunner } from "../../../../packages/core/src/domain/TestCommand";
 import {
   listChangeIds,
   listArchivedIds,
@@ -509,7 +510,26 @@ export class DoctorCommand extends BaseCommand {
       }
     }
     if (errors === 0 && warnings === 0) {
-      this.ok("scenarios", `${files.length} feature file(s), every scenario runnable`);
+      // "well-formed", not "runnable". This reads the Gherkin — When, Then,
+      // three steps, no vague step text — and never executes anything. Calling
+      // that "runnable" contradicted the harness prompt, which in the same
+      // project said nothing executes a `.feature` here. One of the two was
+      // describing the file and calling it the run.
+      const runner = hasGherkinRunner({
+        exists: (rel: string) => fs.existsSync(path.join(dir, rel)),
+        read: (rel: string) => {
+          try {
+            return fs.readFileSync(path.join(dir, rel), "utf8");
+          } catch {
+            return null;
+          }
+        },
+      });
+      this.ok(
+        "scenarios",
+        `${files.length} feature file(s), every scenario well-formed` +
+          (runner ? "" : " — no Gherkin runner here, so nothing executes them")
+      );
     } else if (errors === 0) {
       this.warn(
         "scenarios",

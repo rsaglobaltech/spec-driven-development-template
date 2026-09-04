@@ -188,6 +188,54 @@ export function detectStack(dir: string) {
     return facts;
   }
 
+  // Python. A cold adoption on Flask reported `detected from none` with
+  // `pyproject.toml` sitting in the root, so `Stack: unknown` propagated into
+  // spec.md, AI_RULES.md and every capability proposal downstream. Meanwhile
+  // `harness init`, in the same directory, wrote `test_cmd: pytest` — the two
+  // halves of the tool disagreeing about what the project even is.
+  const pyproject = readIfExists(path.join(dir, "pyproject.toml"));
+  const setupPy = readIfExists(path.join(dir, "setup.py"));
+  if (pyproject !== null || setupPy !== null) {
+    const source = pyproject || setupPy || "";
+    const parts = ["Python"];
+    if (/\bdjango\b/i.test(source)) parts.push("Django");
+    else if (/\bfastapi\b/i.test(source)) parts.push("FastAPI");
+    else if (/\bflask\b/i.test(source)) parts.push("Flask");
+    if (/\bpoetry\b/i.test(source)) parts.push("Poetry");
+    else if (pyproject !== null) parts.push("pyproject");
+    facts.STACK = parts.join(", ");
+    // `tox.ini` means the project runs its suite through tox; saying `pytest`
+    // there would be a guess that fails on the first run.
+    const viaTox = readIfExists(path.join(dir, "tox.ini")) !== null;
+    facts.TESTING = viaTox ? "tox" : "pytest";
+    facts.TEST_CMD = viaTox ? "tox" : "pytest";
+    facts.detected = pyproject !== null ? "pyproject.toml" : "setup.py";
+    const nameMatch = /^\s*name\s*=\s*["']([^"']+)["']/m.exec(source);
+    if (nameMatch) facts.PROJECT_NAME = nameMatch[1].trim();
+    return facts;
+  }
+
+  if (readIfExists(path.join(dir, "Cargo.toml")) !== null) {
+    facts.STACK = "Rust, Cargo";
+    facts.TESTING = "cargo test";
+    facts.TEST_CMD = "cargo test";
+    facts.detected = "Cargo.toml";
+    return facts;
+  }
+
+  // .NET puts the manifest next to the code rather than at the root, so this
+  // looks for one rather than reading a fixed name.
+  const csproj = fs.existsSync(dir)
+    ? fs.readdirSync(dir).find((f) => f.endsWith(".csproj") || f.endsWith(".sln"))
+    : undefined;
+  if (csproj) {
+    facts.STACK = ".NET";
+    facts.TESTING = "dotnet test";
+    facts.TEST_CMD = "dotnet test";
+    facts.detected = csproj;
+    return facts;
+  }
+
   return facts;
 }
 

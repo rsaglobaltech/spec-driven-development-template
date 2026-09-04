@@ -4,7 +4,10 @@ import { resolveProjectDir } from "../../../lib/project-root";
 import { parseTraceability, classify, detectOrphans, fileExists } from "../spec/PlanCommand";
 import { BaseCommand } from "../../../lib/command";
 import { readCapabilityRequirements } from "../../../lib/capability-specs";
-import { declaredPaths } from "../../../../packages/core/src/domain/DeclaredArtifacts";
+import {
+  declaredPaths,
+  artifactFile,
+} from "../../../../packages/core/src/domain/DeclaredArtifacts";
 import {
   declaredSpecValues,
   declaredCodeValues,
@@ -77,7 +80,7 @@ export function buildDeclaredValues(projectDir: string, items: any[]) {
     const row = byRequirement.get(req.id);
     const codeFiles = new Set<string>();
     for (const cell of [row && row.technical_artifact, row && row.test_artifact]) {
-      for (const p of declaredPaths(cell)) codeFiles.add(p.split("#")[0]);
+      for (const p of declaredPaths(cell)) codeFiles.add(artifactFile(p));
     }
 
     const codeEntries: Array<{ id: string; value: string; line: number; file: string }> = [];

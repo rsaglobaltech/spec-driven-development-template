@@ -55,7 +55,10 @@ import {
   declaredSpecValues,
   declaredCodeValues,
 } from "../../../../packages/core/src/domain/ValueAnnotations";
-import { declaredPaths } from "../../../../packages/core/src/domain/DeclaredArtifacts";
+import {
+  declaredPaths,
+  artifactFile,
+} from "../../../../packages/core/src/domain/DeclaredArtifacts";
 import { parseTraceability } from "../spec/PlanCommand";
 import { main as instructionsMain } from "../../../change/instructions";
 
@@ -247,7 +250,7 @@ function resolveValueDriftDelta(
 
   const codeFiles = new Set<string>();
   for (const cell of [row && row.technicalArtifact, row && row.testArtifact]) {
-    for (const rel of declaredPaths(cell)) codeFiles.add(rel.split("#")[0]);
+    for (const rel of declaredPaths(cell)) codeFiles.add(artifactFile(rel));
   }
 
   let codeValue: string | null = null;
